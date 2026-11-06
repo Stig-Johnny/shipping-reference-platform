@@ -1,12 +1,13 @@
 ---
 title: "ADR 0010: Documentation as code with a generated brain"
-description: "Docs live beside the code with frontmatter; the repository's own Java tool generates the C4 view pages, BRAIN.md and per-module brains within size budgets, and CI fails on drift and on claims without evidence."
+description: "Docs live beside the code with frontmatter; the repository's own Java tool generates the C4 view pages, BRAIN.md and per-module brains within size budgets, and a static documentation site, and CI fails on drift and on claims without evidence."
 status: accepted
 updated: 2026-11-06
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
   - "java: :tools:docs:checkGenerated, part of check (BrainGeneratorTest, BrainCheckTest)"
+  - "java: :tools:docs:site, part of check (SiteBuilderTest, SitePagesTest, SiteAccessibilityTest, SiteAssetsTest)"
 plannedEnforcement:
   - "a check that a pull request changing a module's code or tests also changes a document that names the module"
 ---
@@ -34,7 +35,7 @@ documentation kept current and honest, and how do agents get a compact entry poi
 ## Considered Options
 
 1. Markdown with frontmatter in the repository, and the repository's own Java tool that generates the C4 view
-   pages and a budgeted brain, checked in CI.
+   pages, a budgeted brain and a static site, checked in CI.
 2. The same with a VitePress 1.6.4 site from a `docs` npm workspace and a separate `:tools:brain` (the first version
    of this decision).
 3. An external wiki.
@@ -73,26 +74,55 @@ documentation alone; the Java tool reuses libraries that were already reviewed f
   gets a green badge because its package exists.
 - `./gradlew :tools:docs:generate` rewrites the generated files. Both tasks run after the tool's tests, whose reports
   are the evidence of its own control, `control.brain-check`.
+- `:tools:docs:site`, also part of `check`, builds the documentation site into `tools/docs/build/site/` from the
+  same sources, after the same checks. It is static HTML with one stylesheet and one script of the tool's own, and
+  relative links, so it works under any base path. Its sections are Start, Model, Modules, Decisions, API, Trust and
+  Brain, with a reading path for a COO and one for a Java lead. Every page states three things apart: the accepted
+  design, the planned implementation and the verified evidence; a test counts as evidence only when its report
+  passed in the build that made the site. The API pages come from `contracts/shipping.openapi.yaml`, which is
+  offered for download, and the Trust section shows the allowlist with every entry, rejected ones included, below
+  the current acceptance and its reviewed-set digest, which the build recomputes and must match.
+- A link in a document to a file the site does not publish becomes plain text, and a link to the repository on
+  GitHub is not published. A link to a missing file or anchor fails the build. Two builds from the same sources and
+  revision are byte-identical.
+- The four diagram pages draw their view with Mermaid 11.17.2, the reviewed, unmodified `dist/mermaid.min.js`,
+  vendored at `tools/docs/vendor/mermaid/11.17.2/`. The build copies it only after its SHA-256 matches the
+  allowlist, and serves it from the site's own origin. The site's script initialises Mermaid once, with
+  `securityLevel: 'strict'` and no HTML labels, and draws only the definitions the adapter generated. Those pages
+  carry a Content-Security-Policy that allows scripts only from the site; every other page allows no third-party
+  script at all and does not load Mermaid. Each diagram has its elements and relationships as tables, so nothing is
+  only in the picture.
 
 ### Consequences
 
 - Good, because the brain cannot silently claim a capability the tests do not show.
 - Good, because agents get a bounded, current context instead of a growing instruction file.
 - Good, because the documentation adds one reviewed library (SnakeYAML Engine) instead of an npm tree.
+- Good, because readers without access to the repository get the same documents, diagrams drawn from the model and
+  the evidence, with no build tool or account.
 - Bad, because every documentation change runs the generator; a stale `updated` date or a missing link fails CI.
 - Bad, because a summary within a byte budget leaves things out; the brain links to the full documents.
 - Bad, because the generator is this repository's own code, with its own tests to keep up.
+- Bad, because the site serves one third-party file, Mermaid's bundle of about 3.5 MB, which runs in readers'
+  browsers. Its review conditions are met in code and tested, and its notices are published with the site.
 - Neutral, because evidence is read from JUnit reports, so only Java tests count as passing so far; TypeScript test
   names stay acceptance targets until the web build writes reports.
 
 ### Confirmation
 
-- `java` runs `./gradlew check`, which runs the tool's tests and `:tools:docs:checkGenerated`.
+- `java` runs `./gradlew check`, which runs the tool's tests, `:tools:docs:checkGenerated` and `:tools:docs:site`.
 - `BrainGeneratorTest` (determinism, ordering, budgets, the do-not-edit line and frontmatter, links that resolve) and
   `BrainCheckTest` (negative fixtures: a shipped capability without evidence, evidence that failed, was skipped or
   has no report, a planned capability with evidence, a broken link and a broken anchor, an edited and a stale
   generated file, an exceeded budget, a stale `moduleStatus`, an ADR without a required section, a gap in the ADR
   numbers, an unknown `enforcedBy` test, a mention of a missing ADR, invalid frontmatter) in `:tools:docs`.
+- `SiteBuilderTest` (byte-identical builds, a clean output directory, relative links that all resolve, unpublished
+  files as plain text, no link to the repository on GitHub, a broken link or anchor and a changed Mermaid file fail
+  the build), `SitePagesTest` (the sections and their content, the status statements, the diagram template, the
+  allowlist with its acceptance, the API, the brain and the notices), `SiteAccessibilityTest` (landmarks, the skip
+  link, one H1 and the page order, labelled controls and scroll regions, `aria-current`, the copy status) and
+  `SiteAssetsTest` (the design tokens in both themes, the layout, focus and motion rules, and the Mermaid
+  conditions on the script).
 - The review conditions on the tool's libraries: `SafeYamlTest`, `RestrictedStructurizrTest`, `WorkspacesTest`,
   `MermaidValidatorTest`, `MermaidAdapterTest`, `MarkdownRendererTest`, `SiteUrlSanitizerTest` and
   `ReviewConditionsTest`.
@@ -101,4 +131,5 @@ documentation alone; the Java tool reuses libraries that were already reviewed f
 
 - Capabilities: `docs/capabilities/capabilities.yaml`; gaps: `docs/gaps.md`.
 - The tool's dependency reviews: `security/reviews/maven--docs-tool-scope-extension.md`,
-  `maven--snakeyaml-engine--3.2.md` and `maven--docs-tool-test-scope-extension.md`.
+  `maven--snakeyaml-engine--3.2.md` and `maven--docs-tool-test-scope-extension.md`; Mermaid's:
+  `security/reviews/vendored-js--mermaid--11.17.2.md`.

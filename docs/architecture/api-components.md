@@ -1,6 +1,6 @@
 ---
 title: "C4 view: Components of the API"
-description: "Component view of the API. The seven modules of the API. Thick solid arrows are REQUIRED, dashed arrows PERMITTED, faded dotted elements and arrows are planned."
+description: "Component view of the API. The seven modules of the API and the dependencies between them: REQUIRED, PERMITTED or planned. Planned modules and dependencies are labelled as planned."
 status: accepted
 updated: 2026-11-06
 ---
@@ -10,7 +10,7 @@ updated: 2026-11-06
 
 # C4 view: Components of the API
 
-The seven modules of the API. Thick solid arrows are REQUIRED, dashed arrows PERMITTED, faded dotted elements and arrows are planned.
+The seven modules of the API and the dependencies between them: REQUIRED, PERMITTED or planned. Planned modules and dependencies are labelled as planned.
 
 ```mermaid
 flowchart LR

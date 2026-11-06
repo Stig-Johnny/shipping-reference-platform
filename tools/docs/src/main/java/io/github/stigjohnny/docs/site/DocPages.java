@@ -1,0 +1,37 @@
+package io.github.stigjohnny.docs.site;
+
+import io.github.stigjohnny.docs.markdown.RenderedMarkdown;
+import io.github.stigjohnny.docs.markdown.Section;
+import io.github.stigjohnny.docs.repo.Capability;
+import io.github.stigjohnny.docs.repo.DocFile;
+import java.util.ArrayList;
+import java.util.List;
+
+/** A page made from one hand-written document: its Markdown, rendered safely, under the page template. */
+final class DocPages {
+
+    private DocPages() {
+    }
+
+    static SitePage of(SiteContext context, DocFile doc, SiteSection section, String navLabel, String extraBody,
+            List<Capability> capabilities) {
+        String page = context.map().site(doc.path()).orElseThrow(() -> SiteContext.missing("a page for " + doc.path()));
+        RenderedMarkdown rendered = context.render(doc.body(), doc.path(), page, true);
+        return new SitePage(page, doc.title(), navLabel, section, doc.description(),
+                new StatusPanel(Statuses.design(doc), Statuses.implementation(capabilities),
+                        Statuses.evidence(capabilities, context.sources().evidence())),
+                contents(rendered.headings()), rendered.html() + extraBody, context.mentioned(doc.body(), page),
+                doc.path(), false);
+    }
+
+    /** The level-2 sections of a page, when there are at least two. */
+    static List<SitePage.Contents> contents(List<Section> headings) {
+        List<SitePage.Contents> contents = new ArrayList<>();
+        for (Section heading : headings) {
+            if (heading.level() == 2) {
+                contents.add(new SitePage.Contents(heading.id(), heading.text()));
+            }
+        }
+        return contents.size() >= 2 ? contents : List.of();
+    }
+}

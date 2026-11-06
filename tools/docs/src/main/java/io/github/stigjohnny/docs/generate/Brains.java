@@ -135,8 +135,10 @@ public final class Brains {
             }
         });
         out.append("\n## Commands\n\n")
-                .append("- ").append(code("./gradlew :tools:docs:check")).append(": the docs tool's tests and the "
-                        + "drift check of these generated files.\n")
+                .append("- ").append(code("./gradlew :tools:docs:check")).append(": the docs tool's tests, the "
+                        + "drift check of these generated files and the site build.\n")
+                .append("- ").append(code("./gradlew :tools:docs:site")).append(": build the documentation site into ")
+                .append(code("tools/docs/build/site/")).append(".\n")
                 .append("- ").append(code("./gradlew :tools:docs:generate")).append(": regenerate this file, ")
                 .append(code("docs/brain/")).append(" and ").append(code("docs/architecture/")).append(".\n")
                 .append("- ").append(code("java tools/policy/PolicyCheck.java .")).append(": the dependency "
@@ -262,7 +264,7 @@ public final class Brains {
     }
 
     /** The first paragraph after the README's title. */
-    static String firstParagraph(String readme) {
+    public static String firstParagraph(String readme) {
         List<String> lines = new ArrayList<>();
         for (String line : readme.split("\n", -1)) {
             if (line.startsWith("#")) {

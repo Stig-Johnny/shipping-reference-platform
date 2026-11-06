@@ -2,8 +2,8 @@ package io.github.stigjohnny.docs;
 
 import io.github.stigjohnny.docs.generate.GeneratedFiles;
 import io.github.stigjohnny.docs.repo.Sources;
+import io.github.stigjohnny.docs.site.SiteBuilder;
 import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -23,6 +23,7 @@ import org.jspecify.annotations.Nullable;
  * <pre>
  * DocsTool generate        --repo DIR [--test-results DIR]...   write docs/architecture/, BRAIN.md, docs/brain/
  * DocsTool check-generated --repo DIR [--test-results DIR]...   fail on any difference from what is committed
+ * DocsTool site            --repo DIR [--test-results DIR]... --out DIR [--revision TEXT]   build the public site
  * </pre>
  *
  * <p>Every command runs under a timeout, and any exception or {@link Error}, {@link StackOverflowError} included, fails
@@ -92,8 +93,17 @@ public final class DocsTool {
                 }
                 out.println("docs: the " + files.size() + " generated files are up to date");
             }
+            case "site" -> {
+                Path directory = arguments.out();
+                if (directory == null) {
+                    throw new DocsException("site needs --out DIR");
+                }
+                int files = SiteBuilder.build(Sources.read(repo, arguments.testResults()), directory,
+                        arguments.revision());
+                out.println("docs: wrote the site, " + files + " files");
+            }
             default -> throw new DocsException("unknown command '" + arguments.command()
-                    + "' (generate, check-generated)");
+                    + "' (generate, check-generated, site)");
         }
     }
 
@@ -132,9 +142,5 @@ public final class DocsTool {
             return new Arguments(args[0], repo.toAbsolutePath().normalize(), List.copyOf(testResults), out, revision,
                     summary);
         }
-    }
-
-    static String utf8(byte[] bytes) {
-        return new String(bytes, StandardCharsets.UTF_8);
     }
 }

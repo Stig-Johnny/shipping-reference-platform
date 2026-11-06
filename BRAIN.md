@@ -97,6 +97,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 
 ## Commands
 
-- `./gradlew :tools:docs:check`: the docs tool's tests and the drift check of these generated files.
+- `./gradlew :tools:docs:check`: the docs tool's tests, the drift check of these generated files and the site build.
+- `./gradlew :tools:docs:site`: build the documentation site into `tools/docs/build/site/`.
 - `./gradlew :tools:docs:generate`: regenerate this file, `docs/brain/` and `docs/architecture/`.
 - `java tools/policy/PolicyCheck.java .`: the dependency allowlist check.

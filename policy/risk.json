@@ -259,12 +259,6 @@
       "globs": ["apps/shipping-web/src/**", "apps/shipping-web/index.html", "apps/shipping-web/public/**"]
     },
     {
-      "id": "docs-site-presentation",
-      "level": 1,
-      "reason": "Documentation site theme and configuration.",
-      "globs": ["docs/.vitepress/**"]
-    },
-    {
       "id": "editor-and-ignore-files",
       "level": 1,
       "reason": "Editor settings and ignore rules.",
@@ -280,7 +274,7 @@
       "id": "generated-brain",
       "level": 0,
       "reason": "Generated from reviewed sources; :tools:docs:checkGenerated fails on any hand edit or drift.",
-      "globs": ["BRAIN.md", "docs/brain/**", "docs/public/llms.txt"]
+      "globs": ["BRAIN.md", "docs/brain/**"]
     }
   ],
   "behaviourSignals": [
@@ -412,7 +406,7 @@
       "id": "unsafe-web-apis",
       "level": 3,
       "reason": "Script injection and token storage in the browser.",
-      "appliesTo": ["apps/shipping-web/**", "packages/shipping-client/**", "docs/.vitepress/**"],
+      "appliesTo": ["apps/shipping-web/**", "packages/shipping-client/**", "tools/docs/src/main/resources/**"],
       "detect": {
         "kind": "addedLineRegex",
         "pattern": "dangerouslySetInnerHTML|\\.innerHTML|outerHTML|insertAdjacentHTML|localStorage|sessionStorage|document\\.cookie|\\beval\\(|new Function\\(|<script"

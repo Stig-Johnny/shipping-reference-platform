@@ -168,7 +168,8 @@ public final class Allowlist {
         String scope = project
                 + (configurations.isEmpty() ? "" : (project.isEmpty() ? "" : ": ") + String.join(", ", configurations));
         return new AllowlistEntry(entry.string("kind"), entry.string("coordinate"), entry.string("version"),
-                entry.optionalString("artifact").orElse(""), entry.string("verdict"), scope,
+                entry.optionalString("artifact").orElse(""), entry.optionalString("sha256").orElse(""),
+                entry.string("verdict"), scope,
                 entry.find("conditions").filter(v -> v instanceof YList).map(v -> v.asList("conditions")).orElse(
                         List.of()).stream().map(c -> c.asText("condition")).toList(),
                 entry.string("reviewRecord"), entry.string("reviewedAt"), entry.string("expiresAt"));

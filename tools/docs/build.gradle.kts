@@ -59,6 +59,17 @@ val checkGenerated = tasks.register<JavaExec>("checkGenerated") {
     docsTool("check-generated")
 }
 
+// The site: build/site, relative links only, rebuilt from scratch on every run. The revision is GITHUB_SHA in CI.
+val siteDirectory: String = layout.buildDirectory.dir("site").get().asFile.absolutePath
+val sourceRevision: String = providers.environmentVariable("GITHUB_SHA").orElse("").get()
+
+val site = tasks.register<JavaExec>("site") {
+    description = "Builds the public documentation site into build/site."
+    docsTool("site")
+    args("--out", siteDirectory, "--revision", sourceRevision)
+}
+
+// check also builds the site, so that a pull request with a broken link, anchor or diagram fails before main.
 tasks.named("check") {
-    dependsOn(checkGenerated)
+    dependsOn(checkGenerated, site)
 }
