@@ -113,8 +113,8 @@ final class AllowlistPage {
                 throw SiteContext.missing("the review record " + group.getKey());
             }
             table.group("<span class=\"group-title\">Review: " + Html.escape(review.component()) + "</span> "
-                    + "<span class=\"group-summary\">" + context.fragment(review.summary(), group.getKey(), PAGE)
-                    + "</span> <span class=\"group-record\">Record: <code>" + Html.escape(group.getKey())
+                    + "<div class=\"group-summary\">" + context.fragment(review.summary(), group.getKey(), PAGE)
+                    + "</div> <span class=\"group-record\">Record: <code>" + Html.escape(group.getKey())
                     + "</code> in the repository.</span>");
             List<AllowlistEntry> entries = new ArrayList<>(group.getValue());
             entries.sort(Comparator.comparing(AllowlistEntry::coordinate).thenComparing(AllowlistEntry::version));

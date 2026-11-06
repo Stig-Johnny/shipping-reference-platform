@@ -16,7 +16,7 @@ final class Navigation {
     static String html(SitePage current, List<SitePage> pages, UnaryOperator<String> url) {
         StringBuilder out = new StringBuilder("<nav class=\"site-nav\" aria-label=\"Site\">\n<ul>\n");
         for (SiteSection section : SiteSection.values()) {
-            boolean inSection = current.section() == section && current.status() != null;
+            boolean inSection = current.section() == section && !current.path().equals(NotFoundPage.PAGE);
             boolean isIndex = inSection && current.path().equals(section.index());
             out.append("<li><a class=\"nav-section").append(inSection ? " is-active" : "").append("\" href=\"")
                     .append(Html.escape(url.apply(section.index()))).append('"')

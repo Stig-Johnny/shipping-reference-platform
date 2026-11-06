@@ -32,6 +32,8 @@ final class NotFoundPage {
         }
         body.append("</ul>\n");
         return new SitePage(PAGE, "Page not found", "Page not found", SiteSection.START, "This address is not part of "
-                + "the site.", null, List.of(), body.toString(), List.of(), "tools/docs", false);
+                + "the site.", new StatusPanel("Not applicable", "Not applicable",
+                        "This error page makes no application or control claim."),
+                List.of(), body.toString(), List.of(), "tools/docs", false);
     }
 }

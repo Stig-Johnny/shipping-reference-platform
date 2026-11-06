@@ -116,6 +116,28 @@ class SiteAssetsTest {
     }
 
     @Test
+    void moduleSummariesUseTheHeadingScaleAndTheProseMeasure() {
+        assertThat(css).contains(".module-body h3 {\n  margin-top: 16px;\n  font-size: 20px;\n}")
+                .contains(".module-body > p,\n.module-body > ul,\n");
+        int measure = css.indexOf(".module-body > p,\n.module-body > ul,\n");
+        assertThat(css.substring(measure, css.indexOf("}", measure))).contains("max-width: 72ch;");
+    }
+
+    @Test
+    void reviewSummariesStayWithinTheProseMeasureAndReflow() {
+        assertThat(css).contains(".group-summary {\n  max-width: min(72ch, calc(100vw - 80px));\n"
+                + "  overflow-wrap: anywhere;\n}");
+    }
+
+    @Test
+    void theMainRegionShowsItsFocusAndTheNavigationKeepsFocusWhenItOpensOrCloses() {
+        assertThat(css).contains(".site-main:focus {\n  outline: 2px solid var(--action);\n  outline-offset: -2px;\n}")
+                .doesNotContain("outline: none");
+        assertThat(js).contains("disclosure.contains(document.activeElement)", "summary.focus()",
+                "a[aria-current=\"page\"]");
+    }
+
+    @Test
     void legalTextsAreReadableAndReflow() {
         assertThat(css).contains("pre.license {\n  max-width: 72ch;\n  font-size: 16px;\n  line-height: 1.5;\n"
                 + "  white-space: pre-wrap;\n  overflow-wrap: anywhere;");

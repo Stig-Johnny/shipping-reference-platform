@@ -311,6 +311,19 @@ class SitePagesTest {
     }
 
     @Test
+    void reviewSummariesAreBlocksAndTheNotFoundPageHasItsBreadcrumbAndStatements() {
+        assertThat(site.text("trust/allowlist.html")).contains("<div class=\"group-summary\">")
+                .doesNotContain("<span class=\"group-summary\">");
+        String notFound = site.text("404.html");
+        assertThat(notFound).contains("<li><a href=\"/shipping-reference-platform/index.html\">Start</a></li>\n"
+                + "<li><span aria-current=\"page\">Page not found</span></li>",
+                "<dt>Accepted design</dt><dd>Not applicable</dd>", "<dt>Planned implementation</dt><dd>Not applicable</dd>",
+                "<dt>Verified evidence</dt><dd>This error page makes no application or control claim.</dd>");
+        assertThat(notFound.indexOf("class=\"page-summary\"")).isLessThan(notFound.indexOf("status-grid"));
+        assertThat(notFound).doesNotContain("is-active");
+    }
+
+    @Test
     void theRepositoryPageSaysPlannedWhereNothingIsBuilt() {
         String repository = site.text("start/repository.html");
 

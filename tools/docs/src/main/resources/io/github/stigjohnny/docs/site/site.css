@@ -288,13 +288,16 @@ a {
 }
 
 .site-main:focus {
-  outline: none;
+  outline: 2px solid var(--action);
+  outline-offset: -2px;
 }
 
 .page {
   max-width: 1120px;
 }
 
+.module-body > p,
+.module-body > ul,
 .page-summary,
 .prose,
 .page-body > p,
@@ -508,6 +511,12 @@ tr.group th {
   color: var(--text-muted);
 }
 
+/* A review's public summary is prose inside a table cell: it keeps the prose measure and still reflows. */
+.group-summary {
+  max-width: min(72ch, calc(100vw - 80px));
+  overflow-wrap: anywhere;
+}
+
 .conditions {
   margin: 0;
   padding-left: 16px;
@@ -640,7 +649,7 @@ details[open] > summary {
 
 .module-body h3 {
   margin-top: 16px;
-  font-size: 16px;
+  font-size: 20px;
 }
 
 /* Legal texts: the repository's files as they are, readable and reflowing. */
