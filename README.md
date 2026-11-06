@@ -55,18 +55,18 @@ The workflow in the diagram, in order:
 
 ## The product in one paragraph
 
-A shipping clerk of a webshop (a tenant) enters a parcel and a route and gets comparable offers priced by a
-published synthetic tariff, each valid for 30 minutes. Booking an offer is idempotent per tenant and
-`Idempotency-Key`: booking twice returns the same shipment. The clerk downloads a simulated SVG label. An audit
-module records each booking from an event, deduplicated and replayed after failures. Tenants never see each other's
-data, enforced in queries and by forced PostgreSQL row-level security.
+The planned v0.1 behaviour is: a shipping clerk of a webshop (a tenant) enters a parcel and a route and gets
+comparable offers priced by a published synthetic tariff, each valid for 30 minutes. Booking an offer is idempotent
+per tenant and `Idempotency-Key`: booking twice returns the same shipment. The clerk downloads a simulated SVG
+label. An audit module records each booking from an event, deduplicated and replayed after failures. Tenants never
+see each other's data, enforced in queries and by forced PostgreSQL row-level security.
 
-| Module | v0.1 target, not implemented | Depends on (from the model) |
+| Module | Implementation state | Depends on (from the model) |
 |---|---|---|
-| `quotes` | built | `tenants` (REQUIRED) |
-| `shipments` | built | `quotes`, `tenants` (REQUIRED) |
-| `tenants` | built (minimal) | nothing |
-| `audit` | built (minimal) | `shipments`, `tenants` (REQUIRED); `quotes` (PERMITTED, no static evidence yet) |
+| `quotes` | Planned for v0.1; no code yet | `tenants` (REQUIRED) |
+| `shipments` | Planned for v0.1; no code yet | `quotes`, `tenants` (REQUIRED) |
+| `tenants` | Minimal implementation planned for v0.1; no code yet | nothing |
+| `audit` | Minimal implementation planned for v0.1; no code yet | `shipments`, `tenants` (REQUIRED); `quotes` (PERMITTED, no static evidence yet) |
 | `orders` | planned, no code | `quotes`, `shipments` (PERMITTED, not evaluated) |
 | `tracking` | planned, no code | `shipments` (PERMITTED, not evaluated) |
 | `returns` | planned, no code | `shipments` (PERMITTED, not evaluated) |

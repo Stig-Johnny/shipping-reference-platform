@@ -258,6 +258,16 @@ class SitePagesTest {
     }
 
     @Test
+    void theRepositoryPageSaysPlannedWhereNothingIsBuilt() {
+        String repository = site.text("start/repository.html");
+
+        assertThat(repository).contains("<th>Implementation state</th>", "The planned v0.1 behaviour is: a shipping "
+                + "clerk", "<td>Planned for v0.1; no code yet</td>",
+                "<td>Minimal implementation planned for v0.1; no code yet</td>")
+                .doesNotContain("<td>built</td>", "<td>built (minimal)</td>", "v0.1 target, not implemented");
+    }
+
+    @Test
     void theRepositoryPageDescribesTheWorkflowInOrder() {
         String repository = site.text("start/repository.html");
 
