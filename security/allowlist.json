@@ -4,16 +4,25 @@
   "acceptance": {
     "status": "accepted",
     "by": "Stig-Johnny (repository owner and code owner)",
-    "at": "2026-11-06T17:42:45.744Z",
-    "how": "In chat to the orchestrator: \"I approve yes\", after being shown pull request #3 with its 58 reviews, this allowlist and security/verifications/2026-11-06-toolchain.md.",
-    "scope": "Exactly the entries whose digest is entriesSha256, and the toolchain verification record. Changing, adding or removing an entry changes the digest, and the checker then fails until the owner accepts again.",
-    "entriesSha256": "0af5cc94568eaf98ffd25b758073e366ca5a8b0a1871af14b4a28e7096ce2be5"
+    "at": "2026-11-06T19:44:48.888Z",
+    "how": "In chat to the orchestrator: \"Yes\", in reply to the request to accept the docs-site dependency set in pull request #7, after being shown its components, verdicts and scopes, the advisories embedded in the Mermaid bundle, and the two checker changes.",
+    "scope": "Exactly the reviewed set whose digest is reviewedSetSha256: every entry, field by field, and every review record, byte for byte. Changing, adding or removing an entry, or editing a review record, afterwards fails the checker until the owner accepts again.",
+    "reviewedSetSha256": "301dd5e5fb0c2f98fc005db16615860ca3fbb6bb85fb2220b2ade79ca3e594c8",
+    "entriesSha256": "3d16049f810da1f12338916b310fdc9a69d56db243b3fa9f5e720fe65e8bf5e5",
+    "entriesSha256Note": "The previous checker's digest, over the enforced fields only. Kept because CI judges pull request #7 with main's copy of the checker, which knows only this digest; it can go at the next acceptance.",
+    "previous": [
+      {
+        "at": "2026-11-06T17:42:45.744Z",
+        "how": "In chat to the orchestrator: \"I approve yes\", after being shown pull request #3 with its 58 reviews, this allowlist and security/verifications/2026-11-06-toolchain.md.",
+        "entriesSha256": "0af5cc94568eaf98ffd25b758073e366ca5a8b0a1871af14b4a28e7096ce2be5"
+      }
+    ]
   },
   "counts": {
-    "entries": 217,
-    "approved": 204,
+    "entries": 223,
+    "approved": 210,
     "rejected": 13,
-    "reviewFiles": 58
+    "reviewFiles": 66
   },
   "entries": [
     {
@@ -134,6 +143,60 @@
     },
     {
       "kind": "github-action",
+      "coordinate": "actions/configure-pages",
+      "version": "6.0.0",
+      "artifact": "45bfe0192ca1faeb007ade9deae92b16b8254a0d",
+      "sha256": null,
+      "project": "ci",
+      "configuration": [
+        "Pages workflow (push to main)",
+        " one step; permissions at most contents: read",
+        " pages: read"
+      ],
+      "verdict": "APPROVE-WITH-CONDITIONS",
+      "conditions": [
+        "uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d (full SHA; never the v6 or v6.0.0 tag)",
+        "enablement stays unset or 'false'; OpenTofu enables Pages (build_type = workflow). No token other than the default github.token is ever passed",
+        "static_site_generator and generator_config_file stay unset (those paths rewrite and log config files; not needed for plain HTML)",
+        "The job grants the token at most contents: read and pages: read; the step never runs on pull_request, pull_request_target or workflow_run",
+        "Re-review when a configure-pages release updates the bundled undici 5.28.4 or @octokit/* packages; this approval lapses 30 days after such a release"
+      ],
+      "reviewRecord": "security/reviews/github-action--actions-configure-pages--6.0.0.md",
+      "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
+      "reviewedAt": "2026-11-06",
+      "expiresAt": "2027-05-06"
+    },
+    {
+      "kind": "github-action",
+      "coordinate": "actions/deploy-pages",
+      "version": "5.0.1",
+      "artifact": "368f82528645a54fb793d4d04e342629a3f51346",
+      "sha256": null,
+      "project": "ci",
+      "configuration": [
+        "Pages workflow deploy job (push to main",
+        " environment github-pages)",
+        " sole step; permissions exactly pages: write",
+        " id-token: write"
+      ],
+      "verdict": "APPROVE-WITH-CONDITIONS",
+      "conditions": [
+        "uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 (full SHA; never the v5 or v5.0.1 tag)",
+        "Only in the deploy job, which has needs: <build job>, environment: github-pages, and permissions exactly { pages: write, id-token: write } (nothing else)",
+        "The deploy job has no other step: no checkout, no run:, no other action (any step there could mint OIDC tokens or use the pages: write token)",
+        "The workflow triggers only on push to main (workflow_dispatch allowed only if the github-pages environment's OpenTofu-managed branch policy restricts it to main); never pull_request, pull_request_target or workflow_run",
+        "It deploys only the github-pages artifact made in the same run by actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 under that review's conditions; artifact_name, token and preview stay at their defaults (preview false)",
+        "The workflow sets concurrency: { group: pages, cancel-in-progress: false } so deployments are serialised",
+        "The first deployment's log is checked to show oidc_token masked as *** in the logged payload",
+        "Re-review when a deploy-pages release updates the bundled undici 5.28.2 or @actions/artifact 2.1.8; this approval lapses 30 days after such a release"
+      ],
+      "reviewRecord": "security/reviews/github-action--actions-deploy-pages--5.0.1.md",
+      "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
+      "reviewedAt": "2026-11-06",
+      "expiresAt": "2027-05-06"
+    },
+    {
+      "kind": "github-action",
       "coordinate": "actions/setup-java",
       "version": "6.2.0",
       "artifact": "77dd5b2ce225ea11469928ac317850245a74ae78",
@@ -183,6 +246,28 @@
     {
       "kind": "github-action",
       "coordinate": "actions/upload-artifact",
+      "version": "7.0.0",
+      "artifact": "bbbca2ddaa5d8feaa63e36b76fdaad77386f024f",
+      "sha256": null,
+      "project": "ci",
+      "configuration": [
+        "nested only: the step run by actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9; not for direct uses:"
+      ],
+      "verdict": "APPROVE-WITH-CONDITIONS",
+      "conditions": [
+        "Runs only as the nested step of actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9, with the inputs that action sets: one file ${{ runner.temp }}/artifact.tar, if-no-files-found: error, overwrite and archive at their defaults",
+        "No workflow in this repository references actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f directly",
+        "All the conditions of the upload-pages-artifact 5.0.0 review hold (Pages build job, push to main only, symlink-free site directory)",
+        "Re-review when upload-pages-artifact changes this pin, or when an upload-artifact release updates the bundled undici 6.23.0 (19 advisories); this approval lapses 30 days after such a release"
+      ],
+      "reviewRecord": "security/reviews/github-action--actions-upload-artifact--7.0.0.md",
+      "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
+      "reviewedAt": "2026-11-06",
+      "expiresAt": "2027-05-06"
+    },
+    {
+      "kind": "github-action",
+      "coordinate": "actions/upload-artifact",
       "version": "7.0.2",
       "artifact": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
       "sha256": null,
@@ -201,6 +286,32 @@
         "Re-review when an upload-artifact release refreshes the bundled undici 6.23.0, lodash 4.17.23 or fast-xml-parser 5.4.1; this approval lapses 30 days after such a release"
       ],
       "reviewRecord": "security/reviews/github-action--actions-upload-artifact--7.0.2.md",
+      "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
+      "reviewedAt": "2026-11-06",
+      "expiresAt": "2027-05-06"
+    },
+    {
+      "kind": "github-action",
+      "coordinate": "actions/upload-pages-artifact",
+      "version": "5.0.0",
+      "artifact": "fc324d3547104276b827a68afc52ff2a11cc49c9",
+      "sha256": null,
+      "project": "ci",
+      "configuration": [
+        "Pages workflow build job (push to main",
+        " GitHub-hosted Linux runner); nests actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f"
+      ],
+      "verdict": "APPROVE-WITH-CONDITIONS",
+      "conditions": [
+        "uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 (full SHA; never the v5 or v5.0.0 tag)",
+        "The nested actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f (v7.0.0) stays allowlisted under its own review; if that review lapses, so does this one",
+        "path is a dedicated, freshly generated site directory under the build output (never the workspace root, the checkout or $HOME)",
+        "A step immediately before the upload fails the job if the site directory contains any symlink or hard link (find <path> -type l, and -links +1 on files): the action's tar uses --dereference --hard-dereference and would publish the target's content",
+        "include-hidden-files stays unset or 'false'; name stays 'github-pages'; retention-days stays at the default of 1",
+        "The build job runs only on push to main (never pull_request, pull_request_target or workflow_run), with permissions at most contents: read (plus pages: read for configure-pages), and actions/checkout with persist-credentials: false",
+        "runs-on is a GitHub-hosted Linux runner (only the Linux tar branch is reviewed for our use)"
+      ],
+      "reviewRecord": "security/reviews/github-action--actions-upload-pages-artifact--5.0.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
       "reviewedAt": "2026-11-06",
       "expiresAt": "2027-05-06"
@@ -3285,6 +3396,36 @@
     },
     {
       "kind": "maven",
+      "coordinate": "org.snakeyaml:snakeyaml-engine",
+      "version": "3.2",
+      "artifact": "snakeyaml-engine-3.2.jar",
+      "sha256": "88d816316a19c6e7c48b04dc7374522ad436fa51ab105407e95b991f86d21167",
+      "project": ":tools:docs",
+      "configuration": [
+        "compileClasspath",
+        " runtimeClasspath",
+        " testCompileClasspath",
+        " testRuntimeClasspath"
+      ],
+      "verdict": "APPROVE-WITH-CONDITIONS",
+      "conditions": [
+        "Exact version 3.2 and jar SHA-256 88d816316a19c6e7c48b04dc7374522ad436fa51ab105407e95b991f86d21167; any other version or hash is a new review",
+        "Every load goes through one tools/docs factory that builds LoadSettings explicitly: allowDuplicateKeys(false), allowRecursiveKeys(false), allowNonScalarKeys(false), no setEnvConfig, no setTagConstructors, no custom constructor or schema class, schema CoreSchema or JsonSchema named explicitly, parseComments(false)",
+        "Limits are set explicitly: maxAliasesForCollections 0 unless a repository input is shown to need collection aliases (then at most the default 50), and codePointLimit sized to the largest real input and never above the 3 MB default",
+        "Only single-document APIs are used (loadFromString/loadFromReader or lowlevel Compose.composeString), never loadAll*, so the per-document size limit cannot be reset by extra documents",
+        "Explicit tags are rejected: any node whose Node.isResolved() is false (for example !foo, !!binary, !!set, !!merge) fails the build, and merge keys (<<) are rejected",
+        "Input files come only from code-owned repository paths; nothing is fetched, downloaded or taken from a PR comment or other external source; values rendered into HTML pass through the generator's HTML escaping",
+        "Any exception or Error from the parser, including StackOverflowError, fails the build; tests prove that a duplicate key, an explicit tag, an over-limit alias, an over-size input and 10,000-deep nesting each fail the build",
+        "org.yaml:snakeyaml (the 1.x/2.x library that can construct arbitrary Java objects) and jackson-dataformat-yaml are not approved by this record and must not resolve on any configuration",
+        "A human code owner accepts this record before first use (v01-design section 3)"
+      ],
+      "reviewRecord": "security/reviews/maven--snakeyaml-engine--3.2.md",
+      "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
+      "reviewedAt": "2026-11-06",
+      "expiresAt": "2027-05-06"
+    },
+    {
+      "kind": "maven",
       "coordinate": "org.springframework.boot:spring-boot",
       "version": "4.1.2",
       "artifact": "spring-boot-4.1.2.jar",
@@ -5341,6 +5482,34 @@
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
       "reviewedAt": "2026-11-06",
       "expiresAt": "2026-11-25"
+    },
+    {
+      "kind": "vendored-js",
+      "coordinate": "mermaid",
+      "version": "11.17.2",
+      "artifact": "dist/mermaid.min.js",
+      "sha256": "581ed7d74bd9048d0e3a91363927d72ef22942d7722546b27f7cc29e35390eb8",
+      "project": "public documentation site (generated by tools/docs)",
+      "configuration": [
+        "vendored file served from the site's own origin on diagram pages; executed only in visitors' browsers"
+      ],
+      "verdict": "APPROVE-WITH-CONDITIONS",
+      "conditions": [
+        "The vendored file is byte-identical to dist/mermaid.min.js in the npm tarball mermaid-11.17.2.tgz whose SHA-512 equals the registry's attested dist.integrity sha512-V6K3C8EBdEsPFZXSKMJe6ppQOENxuHARr9GvHX4hh47lAbhMRD9qf4oEK7LoaRQxULMa80/qt5gHO73aCleBBg==; before first commit a human computes its SHA-256 from that tarball and it must equal 581ed7d74bd9048d0e3a91363927d72ef22942d7722546b27f7cc29e35390eb8 (3,572,661 bytes); any mismatch voids this approval",
+        "The file is never modified, minified or concatenated; CI checks its SHA-256 on every run",
+        "Our own same-origin script calls mermaid.initialize once with startOnLoad false, securityLevel 'strict', htmlLabels false (also flowchart.htmlLabels false), no dompurifyConfig and no registerIconPacks, then renders only elements the generator emitted",
+        "Every definition is produced by the tools/docs adapter and passes a build-time validator that rejects: %%{ directives, click, href, call, @{ node metadata (image nodes fetch their URL even in strict mode), $$ math, the characters < and >, style/classDef/linkStyle values other than hex colours, more than 50,000 characters or 500 edges",
+        "No visitor-supplied, query-string, fetched or third-party diagram text is ever rendered",
+        "Pages that load it carry a CSP meta element at least as strict as: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'. If rendering needs 'unsafe-eval', a remote origin or a looser policy, stop and re-review",
+        "It is not loaded on the Trust (allowlist, risk, gaps) pages; every diagram has the text equivalent the design requires",
+        "The site publishes a third-party notices page covering mermaid (MIT) and the embedded components in section 6",
+        "The accepted advisories in embedded DOMPurify 3.4.12, lodash-es 4.17.23 and KaTeX 0.16.47 rest on conditions 3-6; if any of these changes, or a new advisory reaches the default string-sanitising path, this approval lapses. Plan a review of a 12.x release (12.3.0 bundles the fixes)",
+        "A human code owner accepts this record before first use (v01-design section 3)"
+      ],
+      "reviewRecord": "security/reviews/vendored-js--mermaid--11.17.2.md",
+      "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
+      "reviewedAt": "2026-11-06",
+      "expiresAt": "2027-05-06"
     }
   ]
 }
