@@ -41,8 +41,11 @@ Run the checker yourself with the JDK alone: `java tools/policy/PolicyCheck.java
 ## Adding a dependency
 
 1. Ask a subagent for a review of the exact version, written to `reviews/` in the house format (see any existing file).
-2. Resolve it with `./gradlew resolveAllDependencies --write-locks --write-verification-metadata sha256`. This downloads
-   and checksums artifacts without compiling or running them. Review every NEW transitive coordinate the lockfile shows.
+2. Resolve it with `GRADLE_USER_HOME=$(mktemp -d) ./gradlew resolveAllDependencies --write-locks
+   --write-verification-metadata sha256`. This downloads and checksums artifacts without compiling or running them.
+   Use an EMPTY Gradle home: with a warm cache Gradle reuses parsed metadata and never re-reads parent POMs, so they
+   are missing from the file and CI, which always starts empty, fails verification. Review every NEW transitive
+   coordinate the lockfile shows.
 3. Add the allowlist entries, with the checksums from `gradle/verification-metadata.xml`.
 4. Open a pull request. The code owner accepts or rejects it.
 
