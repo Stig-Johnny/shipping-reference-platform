@@ -66,8 +66,8 @@ recomputes it on every run. Changing, adding or removing an entry afterwards, or
 conditions, fails the check until the owner accepts again.
 
 The first acceptance used an older digest, `entriesSha256`, over the enforced fields only. CI judges a pull request
-with the main branch's copy of the checker, so the pull request that introduced the new digest also had to satisfy the
-old one. Both are recorded until the next acceptance.
+with the main branch's copy of the checker, so the pull request that introduced the new digest (#7) had to satisfy
+the old one too, and recorded both. Earlier acceptances stay listed under `acceptance.previous`.
 
 ## Scope and project names
 

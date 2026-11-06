@@ -2,8 +2,13 @@
   "schemaVersion": 1,
   "description": "Every third-party component this repository may use: build tools, JDKs, Maven and npm packages, GitHub Actions, container images and host tools. Each entry points at its security review. Anything absent, expired, or with a verdict other than APPROVE or APPROVE-WITH-CONDITIONS must not be used, and the preflight check fails the pull request that tries. See docs/adr/0007 and security/README.md.",
   "acceptance": {
-    "status": "pending",
-    "note": "The reviews ask a human code owner to accept them before first use. Pending the owner's yes.",
+    "status": "accepted",
+    "by": "Stig-Johnny (repository owner and code owner)",
+    "at": "2026-11-06T20:03:16.131Z",
+    "how": "In chat to the orchestrator: \"yes\", in reply to the request to accept the shipping API's dependency set in pull request #10 and to confirm its project path, after being shown its 85 new entries, the two rejections and how the build fixes them (Jackson held at 3.1.8, jcl-over-slf4j excluded), and the checker fix.",
+    "scope": "Exactly the reviewed set whose digest is reviewedSetSha256: every entry, field by field, and every review record, byte for byte. Changing, adding or removing an entry, or editing a review record, afterwards fails the checker until the owner accepts again.",
+    "projectPathConfirmed": "apps/shipping-api (Gradle :apps:shipping-api) is the project that the reviews' first design called :example-app.",
+    "reviewedSetSha256": "8c90c58c8ad9eabca89fd577a3bb3d3b74807f60b2f93ac19ed4f0f8f6dde857",
     "previous": [
       {
         "at": "2026-11-06T19:44:48.888Z",
