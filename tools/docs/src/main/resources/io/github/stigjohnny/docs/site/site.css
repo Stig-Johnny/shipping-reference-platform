@@ -643,13 +643,13 @@ details[open] > summary {
   font-size: 16px;
 }
 
-.license {
+/* Legal texts: the repository's files as they are, readable and reflowing. */
+pre.license {
   max-width: 72ch;
-  padding: 16px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  background: var(--surface-raised);
-  font-size: 14px;
+  font-size: 16px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 blockquote {

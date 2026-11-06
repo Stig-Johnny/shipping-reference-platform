@@ -11,6 +11,8 @@ import io.github.stigjohnny.docs.testing.BuiltSite;
 import io.github.stigjohnny.docs.testing.Fixture;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -71,6 +73,44 @@ class SitePagesTest {
         }
         assertThat(page.indexOf("class=\"diagram-scroll\"")).isLessThan(page.indexOf("<figcaption"));
         assertThat(page.indexOf("<figcaption")).isLessThan(page.indexOf("<caption>Elements of the view"));
+    }
+
+    @Test
+    void theRepositorysLicenceAndNoticeArePublishedUnchangedBesideTheThirdPartyNotices() {
+        String licence = site.text("trust/license.html");
+        String notice = site.text("trust/notice.html");
+
+        assertThat(preformatted(licence)).isEqualTo(Sources.text(sources.repo(), "LICENSE"));
+        assertThat(preformatted(notice)).isEqualTo(Sources.text(sources.repo(), "NOTICE"))
+                .doesNotContain("Original project");
+        assertThat(licence).contains("<span aria-current=\"page\">Repository licence</span>",
+                "<h1>Repository licence</h1>");
+        assertThat(notice).contains("<span aria-current=\"page\">Repository NOTICE</span>",
+                "<h1>Repository NOTICE</h1>");
+        assertThat(licence).contains("href=\"notice.html\"", "href=\"third-party-notices.html\"");
+        assertThat(notice).contains("href=\"license.html\"", "href=\"third-party-notices.html\"");
+        String thirdParty = site.text("trust/third-party-notices.html");
+        assertThat(thirdParty).contains("href=\"license.html\"", "href=\"notice.html\"")
+                .contains("<a rel=\"nofollow\" href=\"license.html\">LICENSE</a>");
+        assertThat(site.text("start/repository.html")).contains("href=\"../trust/license.html\"",
+                "href=\"../trust/notice.html\"");
+        String index = site.text("trust/index.html");
+        List<String> order = List.of("allowlist.html", "risk-levels.html", "gaps.html", "license.html",
+                "notice.html", "third-party-notices.html");
+        String navigation = index.substring(index.indexOf("<nav class=\"site-nav\""), index.indexOf("</nav>"));
+        assertThat(order.stream().map(page -> navigation.indexOf("href=\"" + page + "\"")).toList())
+                .doesNotContain(-1).isSorted();
+        String cards = index.substring(index.indexOf("<div class=\"card-grid\">"));
+        assertThat(order.stream().map(page -> cards.indexOf("href=\"" + page + "\"")).toList())
+                .doesNotContain(-1).isSorted();
+        assertThat(site.text("index.html")).contains("href=\"trust/license.html\"");
+    }
+
+    private static String preformatted(String page) {
+        Matcher pre = Pattern.compile("<pre class=\"license\">\n(.*?)</pre>", Pattern.DOTALL).matcher(page);
+        assertThat(pre.find()).isTrue();
+        return pre.group(1).replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'")
+                .replace("&amp;", "&");
     }
 
     @Test

@@ -91,7 +91,9 @@ SnakeYAML Engine 3.2.
   design, the planned implementation and the verified evidence; a test counts as evidence only when its report
   passed in the build that made the site. The API pages come from `contracts/shipping.openapi.yaml`, which is
   offered for download, and the Trust section shows the allowlist with every entry, rejected ones included, below
-  the current acceptance and its reviewed-set digest, which the build recomputes and must match.
+  the current acceptance and its reviewed-set digest, which the build recomputes and must match. The Trust section
+  also publishes the repository's LICENSE and NOTICE, complete and unchanged, beside the third-party notices, as the
+  Apache License 2.0 asks of a redistribution.
 - A link in a document to a file the site does not publish becomes plain text, and a link to the repository on
   GitHub is not published. A link to a missing file or anchor fails the build. Two builds from the same sources and
   revision are byte-identical.

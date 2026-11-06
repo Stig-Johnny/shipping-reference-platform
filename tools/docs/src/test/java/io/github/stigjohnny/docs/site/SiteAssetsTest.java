@@ -115,6 +115,12 @@ class SiteAssetsTest {
     }
 
     @Test
+    void legalTextsAreReadableAndReflow() {
+        assertThat(css).contains("pre.license {\n  max-width: 72ch;\n  font-size: 16px;\n  line-height: 1.5;\n"
+                + "  white-space: pre-wrap;\n  overflow-wrap: anywhere;");
+    }
+
+    @Test
     void theDiagramPanelIsWhiteInBothThemes() {
         assertThat(css).contains(".diagram-scroll {").contains("background: #FFFFFF;");
     }

@@ -44,6 +44,8 @@ final class SiteMap {
         }
         map.anchors("start/repository.html", sources.readme());
         map.page(NoticesPage.SOURCE, NoticesPage.PAGE);
+        map.page(LegalPages.LICENSE_SOURCE, LegalPages.LICENSE_PAGE);
+        map.page(LegalPages.NOTICE_SOURCE, LegalPages.NOTICE_PAGE);
         map.anchors(NoticesPage.PAGE, Sources.text(sources.repo(), NoticesPage.SOURCE));
         map.anchors("trust/allowlist.html", sources.securityReadme().body());
         map.page(Sources.SECURITY_README, "trust/allowlist.html");

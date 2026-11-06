@@ -8,7 +8,10 @@ import io.github.stigjohnny.docs.repo.Sources;
 import java.util.ArrayList;
 import java.util.List;
 
-/** The Trust section: the allowlist, the risk levels with the policy's rules, the known gaps and the notices. */
+/**
+ * The Trust section: the allowlist, the risk levels with the policy's rules, the known gaps, the repository's licence
+ * and NOTICE, and the third-party notices.
+ */
 final class TrustPages {
 
     static final String INDEX = "trust/index.html";
@@ -34,6 +37,8 @@ final class TrustPages {
                 risk.path() + " and " + RiskPolicy.PATH, false));
         DocFile gaps = sources.doc("docs/gaps.md").orElseThrow(() -> SiteContext.missing("docs/gaps.md"));
         pages.add(DocPages.of(context, gaps, SiteSection.TRUST, "Known gaps", "", List.of()));
+        pages.add(LegalPages.licence(context));
+        pages.add(LegalPages.notice(context));
         pages.add(NoticesPage.of(context));
         return pages;
     }
@@ -44,6 +49,10 @@ final class TrustPages {
                 + "with the owner's acceptance of the reviewed set.");
         card(body, RISK, "Risk levels", "Who must approve a change, and the policy that decides the level.");
         card(body, "trust/gaps.html", "Known gaps", "What a green build does not prove, and what is not built yet.");
+        card(body, LegalPages.LICENSE_PAGE, "Repository licence", "The Apache License 2.0, the licence of this "
+                + "repository and of this site.");
+        card(body, LegalPages.NOTICE_PAGE, "Repository NOTICE", "The attribution notice that every redistribution "
+                + "keeps.");
         card(body, NoticesPage.PAGE, "Third-party notices", "The licence of the one third-party file the site "
                 + "serves, and what it contains.");
         body.append("</div>\n");

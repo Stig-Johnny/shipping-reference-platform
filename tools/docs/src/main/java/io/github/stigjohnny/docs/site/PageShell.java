@@ -81,7 +81,9 @@ final class PageShell {
         out.append("<p class=\"page-source\">Source: ").append(Html.escape(page.source())).append(". ")
                 .append(revision(revision)).append("</p>\n</div>\n</main>\n")
                 .append("<footer class=\"site-footer\">\n<p>Generated from the repository's sources by its documentation "
-                        + "tool. All data is synthetic. <a href=\"").append(url.apply(NoticesPage.PAGE))
+                        + "tool. All data is synthetic. <a href=\"").append(url.apply(LegalPages.LICENSE_PAGE))
+                .append("\">Repository licence</a>, <a href=\"").append(url.apply(LegalPages.NOTICE_PAGE))
+                .append("\">Repository NOTICE</a> and <a href=\"").append(url.apply(NoticesPage.PAGE))
                 .append("\">Third-party notices</a>.</p>\n</footer>\n</div>\n</body>\n</html>\n");
         return out.toString();
     }

@@ -64,7 +64,8 @@ class SiteBuilderTest {
                 "decisions/0010-documentation-as-code-with-a-generated-brain.html",
                 "decisions/0011-java-documentation-tool-and-publication.html", "api/index.html",
                 "api/createQuote.html", "api/schemas.html", "trust/index.html", "trust/allowlist.html",
-                "trust/risk-levels.html", "trust/gaps.html", "trust/third-party-notices.html", "brain/index.html",
+                "trust/risk-levels.html", "trust/gaps.html", "trust/license.html", "trust/notice.html",
+                "trust/third-party-notices.html", "brain/index.html",
                 "model/flow-quote-book-label.html", "start/repository.html").containsAll(DIAGRAM_PAGES);
         assertThat(site.files()).containsKeys("assets/site.css", "assets/site.js", SiteBuilder.MERMAID,
                 "downloads/BRAIN.md", "downloads/shipping.openapi.yaml");

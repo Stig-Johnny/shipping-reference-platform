@@ -46,7 +46,9 @@ final class NoticesPage {
                         Badge.NEUTRAL.html("Not applicable") + " Notices describe no capability.",
                         Badge.NEUTRAL.html("Checked") + " The build checks the bundle's SHA-256 against the "
                                 + "allowlist before copying it."),
-                contents, body, List.of(new SitePage.Related(AllowlistPage.PAGE, "Dependency allowlist")),
+                contents, body, List.of(new SitePage.Related(LegalPages.LICENSE_PAGE, "Repository licence"),
+                        new SitePage.Related(LegalPages.NOTICE_PAGE, "Repository NOTICE"),
+                        new SitePage.Related(AllowlistPage.PAGE, "Dependency allowlist")),
                 SOURCE + " and " + mermaid.reviewRecord(), false);
     }
 
