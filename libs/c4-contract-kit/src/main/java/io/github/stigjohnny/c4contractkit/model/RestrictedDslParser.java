@@ -47,7 +47,8 @@ final class RestrictedDslParser {
      * absolute path.
      *
      * @throws InvalidModelException at once when there is no workspace to check: the file is missing or not UTF-8,
-     *     the parser stopped at an error (it stops at its first), or the file defines no workspace
+     *     the parser stopped at an error (it stops at its first) or failed with a runtime exception, or the file
+     *     defines no workspace
      */
     static ParsedModel parse(Path dsl, String displayPath, Problems problems) throws InvalidModelException {
         if (!Files.isRegularFile(dsl)) {
@@ -61,6 +62,12 @@ final class RestrictedDslParser {
         } catch (StructurizrDslParserException e) {
             String message = Objects.requireNonNullElse(e.getMessage(), "the DSL could not be parsed");
             throw problems.fatal(message.replace(file.getAbsolutePath(), displayPath));
+        } catch (RuntimeException e) {
+            // StructurizrDslParser turns an error while it reads a line into the exception above, with the line, but
+            // not one while it joins lines and text blocks before that (for example an IndexOutOfBoundsException on
+            // a line comment that ends with """). Such a message may quote the file, so only the class is reported.
+            throw problems.fatal(displayPath, "the Structurizr DSL parser stopped with " + e.getClass().getName()
+                    + " and named no line: it cannot read a construct in this file");
         }
         Workspace workspace = parser.getWorkspace();
         if (workspace == null) {

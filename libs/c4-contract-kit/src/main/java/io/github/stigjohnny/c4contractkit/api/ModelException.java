@@ -26,7 +26,8 @@ public final class ModelException extends RuntimeException {
      * gives one (for example {@code "quotes: contract.status is missing"} or
      * {@code "quotes -> tenants: contract.mode 'MUST' is neither REQUIRED nor PERMITTED"}), or with its place in the
      * model file. The parser itself stops at the first line it rejects, and that problem, worded by the parser, names
-     * the line.
+     * the line. A parser that fails before it reaches a line it could name gives a problem that names the file and
+     * the exception it failed with.
      *
      * @return the problems, never empty
      */

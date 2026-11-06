@@ -707,6 +707,41 @@ class RestrictedDslParserTest {
         assertThatThrownBy(() -> copy.problems().set(0, "changed")).isInstanceOf(UnsupportedOperationException.class);
     }
 
+    /** Inputs that make StructurizrDslParser fail while it joins lines and text blocks, before it names a line. */
+    static Stream<Arguments> filesThePreprocessingCannotRead() {
+        return Stream.of(
+                arguments("a line comment that ends with a text block marker",
+                        VALID.replace("// MODEL", "// see \"\"\""), "java.lang.ArrayIndexOutOfBoundsException"),
+                arguments("a text block line indented less than the first one", VALID.replace("// MODEL", """
+                        clerk = person "Clerk" {
+                            description ""\"
+                                a long first line
+                          x
+                                ""\"
+                        }"""), "java.lang.IndexOutOfBoundsException"),
+                arguments("an empty text block", VALID.replace("// MODEL", """
+                        clerk = person "Clerk" {
+                            description ""\"
+                            ""\"
+                        }"""), "java.lang.ArrayIndexOutOfBoundsException"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("filesThePreprocessingCannotRead")
+    void aFileThePreprocessingCannotReadIsAModelProblem(String input, String dsl, String exception, @TempDir Path dir)
+            throws IOException {
+        Path model = write(dir, dsl);
+
+        assertThatThrownBy(() -> ContractModelReader.read(model, "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems()).containsExactly(
+                        "workspace.dsl: the Structurizr DSL parser stopped with " + exception
+                                + " and named no line: it cannot read a construct in this file"));
+        assertThatThrownBy(() -> Conformance.check(model, List.of()))
+                .isInstanceOfSatisfying(ModelException.class, e -> assertThat(e.problems()).singleElement(STRING)
+                        .endsWith("workspace.dsl: the Structurizr DSL parser stopped with " + exception
+                                + " and named no line: it cannot read a construct in this file"));
+    }
+
     @Test
     void aMissingFileIsAModelProblem(@TempDir Path dir) {
         Path missing = dir.resolve("missing.dsl");
