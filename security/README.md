@@ -28,7 +28,7 @@ without a review record and an allowlist entry, and both of those files belong t
 
 | Layer | What fails | Where it runs |
 |---|---|---|
-| `tools/policy/PolicyCheck.java` | A locked Maven coordinate, npm package or Action that is not approved, expired, rejected or missing its review; a downloaded jar whose SHA-256 differs from its review; a Gradle wrapper or distribution that is not the reviewed one; an Action not pinned to an allowlisted commit. | The `preflight` workflow. It runs the main branch's copy of the checker on the pull request's files as data, before any build tool runs, so a pull request cannot weaken the check that judges it. |
+| `tools/policy/PolicyCheck.java` | A locked Maven coordinate, npm package or Action that is not approved, expired, rejected or missing its review; a downloaded jar whose SHA-256 differs from its review; a Gradle wrapper or distribution that is not the reviewed one; an Action not pinned to an allowlisted commit; a file under a `vendor/` directory that is not byte-identical to an approved vendored artifact; an owner's acceptance that no longer matches the reviewed set. | The `preflight` workflow. It runs the main branch's copy of the checker on the pull request's files as data, before any build tool runs, so a pull request cannot weaken the check that judges it. |
 | Gradle dependency locking (strict) | A resolved version that differs from the committed lockfile. | Every build. |
 | Gradle dependency verification (strict) | A downloaded artifact whose SHA-256 is not in `gradle/verification-metadata.xml`. CI never writes that file. | Every build. |
 | `tools/ci/stage-temurin.sh` | A JDK archive whose SHA-256 differs from its review. | Every CI job, before `actions/setup-java` installs it. |
@@ -36,7 +36,8 @@ without a review record and an allowlist entry, and both of those files belong t
 | `.github/CODEOWNERS` | A change to `security/`, the lockfiles, the build logic or the workflows that the owner has not approved. | Pull request review. |
 
 Run the checker yourself with the JDK alone: `java tools/policy/PolicyCheck.java .` (exit 0 = clean, 1 = findings,
-2 = it could not complete). `--report-only` prints the findings and exits 0.
+2 = it could not complete). `--report-only` prints the findings and exits 0. `--print-digest` prints the digest that an
+acceptance must record (see [Acceptance](#acceptance)).
 
 ## Adding a dependency
 
@@ -49,14 +50,35 @@ Run the checker yourself with the JDK alone: `java tools/policy/PolicyCheck.java
 3. Add the allowlist entries, with the checksums from `gradle/verification-metadata.xml`.
 4. Open a pull request. The code owner accepts or rejects it.
 
+A file that is committed rather than resolved, such as the docs site's Mermaid bundle, goes unmodified under a
+`vendor/<name>/<version>/` directory next to the code that uses it. Its entry records the file's SHA-256, and the checker
+compares the two on every pull request.
+
 A version bump, including one Dependabot proposes, is a new review.
 
 ## Acceptance
 
 The reviews are written by AI subagents. A human owner accepts them before first use: `allowlist.json` records that
 acceptance under `acceptance`, and the checker fails while it is missing. The acceptance is bound to the exact reviewed
-set: it stores a SHA-256 of every entry's enforced fields (`entriesSha256`), and the checker recomputes it. Changing,
-adding or removing an entry afterwards fails the check until the owner accepts again.
+set. It stores one SHA-256 (`reviewedSetSha256`) over every entry, with all its fields in canonical JSON, and over the
+bytes of every entry's review record. `java tools/policy/PolicyCheck.java --print-digest .` computes it, and the checker
+recomputes it on every run. Changing, adding or removing an entry afterwards, or editing a review's text, scope or
+conditions, fails the check until the owner accepts again.
+
+The first acceptance used an older digest, `entriesSha256`, over the enforced fields only. CI judges a pull request
+with the main branch's copy of the checker, so the pull request that introduced the new digest also had to satisfy the
+old one. Both are recorded until the next acceptance.
+
+## Scope and project names
+
+A review approves an artifact for a scope: the projects and configurations it may be on, and the conditions of its
+use. The checker enforces the artifact (coordinate, version and checksum), not the scope. The code owner checks the
+scope when reviewing a pull request; `docs/gaps.md` lists this gap.
+
+The contract kit's reviews were written for its first design, which split it into three projects. Their `project` and
+`configuration` fields keep the names they were reviewed under. `:core` is today's `:libs:c4-contract-kit`; `:junit5` and
+`:example-app` are not projects in this repository. Scope extensions such as
+`reviews/maven--docs-tool-scope-extension.md` record each further use.
 
 ## What this does not stop
 
@@ -78,3 +100,7 @@ The reviews rejected 13 components. Four of them changed the design:
 - **happy-dom.** It has had eight advisories in two years. The frontend tests use jsdom.
 
 Structurizr's transitive Guava 33.6.0-jre has an advisory (GHSA-xxph-c9ww-hj94), so the build pins 33.7.2-jre.
+
+Mermaid 11.17.2, the docs site's diagram renderer, embeds DOMPurify 3.4.12, lodash-es 4.17.23 and KaTeX 0.16.47, which
+have open advisories that only the 12.x line fixes. Its approval rests on the conditions that make them unreachable:
+the site renders only its own validated diagrams, in `strict` mode, under a restrictive Content Security Policy.

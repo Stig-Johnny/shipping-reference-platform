@@ -1,6 +1,7 @@
 // PolicyCheck: the dependency allowlist gate.
 //
 // Run with the JDK alone, before any build tool executes:   java tools/policy/PolicyCheck.java [--report-only] [repo]
+// Print the digest an acceptance must record:               java tools/policy/PolicyCheck.java --print-digest [repo]
 //
 // It reads the repository as data and never runs anything from it. CI runs the MAIN branch's copy of this file
 // against a pull request's files, so a pull request cannot weaken the check that judges it (docs/adr/0007).
@@ -11,7 +12,9 @@
 //   3. the Gradle wrapper JAR and the distribution checksum equal their reviewed values;
 //   4. every GitHub Action is pinned to a full commit SHA that is on the allowlist;
 //   5. every npm package in package-lock.json is allowlisted, comes from registry.npmjs.org and carries an integrity hash;
-//   6. the owner has accepted the reviewed set.
+//   6. every file under a vendor/ directory is byte-identical (SHA-256) to an approved, reviewed artifact;
+//   7. the owner has accepted exactly this reviewed set: every entry, field by field, and every review record, byte
+//      for byte.
 // Exit codes: 0 = clean, 1 = findings, 2 = the check could not complete (a broken check never reads as a pass).
 // With --report-only, findings are printed and the exit code is 0 (new checks start report-only, then block).
 
@@ -66,6 +69,7 @@ public final class PolicyCheck {
 
     private final Path repo;
     private final LocalDate today;
+    private final List<Json.JObject> rawEntries;
     private final List<Entry> entries;
     private final Json.JObject allowlist;
     private final Set<Finding> findings = new TreeSet<>();
@@ -74,7 +78,8 @@ public final class PolicyCheck {
         this.repo = repo;
         this.today = today;
         this.allowlist = Json.parse(Files.readString(repo.resolve("security/allowlist.json"))).asObject();
-        this.entries = allowlist.get("entries").asArray().stream().map(Json::asObject).map(PolicyCheck::toEntry).toList();
+        this.rawEntries = allowlist.get("entries").asArray().stream().map(Json::asObject).toList();
+        this.entries = rawEntries.stream().map(PolicyCheck::toEntry).toList();
     }
 
     static Entry toEntry(Json.JObject o) {
@@ -87,6 +92,10 @@ public final class PolicyCheck {
         Path repo = Path.of(Stream.of(args).filter(a -> !a.startsWith("--")).findFirst().orElse("."));
         try {
             PolicyCheck check = new PolicyCheck(repo, LocalDate.now(java.time.ZoneOffset.UTC));
+            if (List.of(args).contains("--print-digest")) {
+                System.out.println(check.entriesDigest());
+                System.exit(0);
+            }
             Set<Finding> found = check.run();
             System.out.print(check.report(found, reportOnly));
             System.exit(found.isEmpty() || reportOnly ? 0 : 1);
@@ -104,6 +113,7 @@ public final class PolicyCheck {
         checkGradleWrapper();
         checkWorkflowActions();
         checkNpmLockfile();
+        checkVendoredFiles();
         return findings;
     }
 
@@ -130,37 +140,41 @@ public final class PolicyCheck {
     }
 
     /**
-     * The owner's acceptance is bound to the exact reviewed set: it records a digest of every entry's enforced fields,
-     * so changing, adding or removing an entry afterwards needs the owner's acceptance again.
+     * The owner's acceptance is bound to the exact reviewed set: it records a digest of every entry and of every review
+     * record, so changing, adding or removing an entry, or editing a review's text, scope or conditions afterwards,
+     * needs the owner's acceptance again.
      */
-    void checkAcceptance() {
+    void checkAcceptance() throws IOException {
         Json.JObject acceptance = allowlist.get("acceptance").asObject();
         String status = acceptance.text("status");
         if (!"accepted".equals(status)) {
             add("acceptance", "the owner has not accepted the reviewed set (acceptance.status is '%s')".formatted(status));
             return;
         }
-        String accepted = acceptance.text("entriesSha256");
-        String current = entriesDigest(entries);
+        String accepted = acceptance.text("reviewedSetSha256");
+        String current = entriesDigest();
         if (!current.equals(accepted)) {
-            add("acceptance", "the reviewed set changed after the owner accepted it (entries digest %s, accepted %s)"
+            add("acceptance", "the reviewed set changed after the owner accepted it (reviewed-set digest %s, accepted %s)"
                     .formatted(current, accepted.isBlank() ? "none" : accepted));
         }
     }
 
     /**
-     * SHA-256 over one line per entry, sorted, of the fields the check enforces:
-     * {@code kind|coordinate|version|artifact|sha256|verdict|reviewRecord|expiresAt}, joined with '\n', UTF-8.
+     * SHA-256 (hex, UTF-8) over one line per entry, sorted and joined with '\n'. A line is the entry as canonical JSON
+     * (every field, keys sorted, no whitespace), then '|', then the SHA-256 of its review record's bytes ("" when the
+     * record is missing, which {@link #checkEntries} reports). The acceptance record itself is not part of it.
      */
-    static String entriesDigest(List<Entry> entries) {
-        String canonical = entries.stream()
-                .map(e -> String.join("|", e.kind(), e.coordinate(), e.version(), e.artifact(), e.sha256(),
-                        e.verdict(), e.reviewRecord(), e.expiresAt()))
-                .sorted()
-                .collect(java.util.stream.Collectors.joining("\n"));
+    String entriesDigest() throws IOException {
+        List<String> lines = new ArrayList<>();
+        for (Json.JObject entry : rawEntries) {
+            Path review = repo.resolve(entry.text("reviewRecord"));
+            String reviewSha = !entry.text("reviewRecord").isBlank() && Files.isRegularFile(review) ? sha256(review) : "";
+            lines.add(Json.canonical(entry) + "|" + reviewSha);
+        }
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(canonical.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                    .digest(String.join("\n", lines.stream().sorted().toList())
+                            .getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }
@@ -300,6 +314,20 @@ public final class PolicyCheck {
         }
     }
 
+    // ---- 6. vendored files ----
+
+    /** A file someone else wrote, committed under a vendor/ directory, must be byte-identical to a reviewed artifact. */
+    void checkVendoredFiles() throws IOException {
+        for (Path file : files(p -> repo.relativize(p).toString().contains("vendor/"))) {
+            String sha = sha256(file);
+            boolean reviewed = entries.stream().anyMatch(e -> e.approved() && e.kind().startsWith("vendored")
+                    && e.sha256().equalsIgnoreCase(sha));
+            if (!reviewed) {
+                add("vendored", "%s (SHA-256 %s) matches no approved vendored artifact".formatted(relative(file), sha));
+            }
+        }
+    }
+
     // ---- shared ----
 
     void requireApproved(String area, String kind, String coordinate, String version, String where) {
@@ -410,6 +438,38 @@ public final class PolicyCheck {
         default JArray asArray() {
             if (this instanceof JArray a) return a;
             throw new IllegalArgumentException("expected a JSON array, got " + getClass().getSimpleName());
+        }
+
+        /** The value as compact JSON with object keys sorted, so equal data always gives equal text. */
+        static String canonical(Json value) {
+            return switch (value) {
+                case JObject o -> o.members().keySet().stream().sorted()
+                        .map(k -> quote(k) + ":" + canonical(o.members().get(k)))
+                        .collect(java.util.stream.Collectors.joining(",", "{", "}"));
+                case JArray a -> a.items().stream().map(Json::canonical)
+                        .collect(java.util.stream.Collectors.joining(",", "[", "]"));
+                case JString s -> quote(s.value());
+                case JNumber n -> n.value();
+                case JBool b -> Boolean.toString(b.value());
+                case JNull ignored -> "null";
+            };
+        }
+
+        static String quote(String text) {
+            StringBuilder out = new StringBuilder("\"");
+            for (char c : text.toCharArray()) {
+                switch (c) {
+                    case '"' -> out.append("\\\"");
+                    case '\\' -> out.append("\\\\");
+                    case '\n' -> out.append("\\n");
+                    case '\r' -> out.append("\\r");
+                    case '\t' -> out.append("\\t");
+                    default -> {
+                        if (c < 0x20) out.append("\\u%04x".formatted((int) c)); else out.append(c);
+                    }
+                }
+            }
+            return out.append('"').toString();
         }
 
         static Json parse(String text) {

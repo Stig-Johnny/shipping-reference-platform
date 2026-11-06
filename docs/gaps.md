@@ -13,9 +13,10 @@ closes it.
 
 ## 0. State of this commit
 
-- This is the specification pull request. No application, library, tool or workflow code exists yet. Every
-  capability in `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named in
-  the documents is still to be written (red first).
+- The specification, the reviewed toolchain and the dependency allowlist with its enforcement are in place, and so
+  are the docs generator's reviewed dependencies. No application or library code exists yet. Every capability in
+  `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named in the documents is
+  still to be written (red first).
 - The versions in the ADRs were checked against their sources on 2026-11-06. Their combination (JDK 25, Gradle
   9.8.2, Spring Boot 4.1.2, Spring Modulith 2.1.2, Error Prone 2.51.0, NullAway 0.14.3, JUnit 6.0.3 (property
   tests as `@ParameterizedTest` in the normal test task), PIT 1.30.2 with its JUnit 5 plugin 1.2.3) has not been
@@ -99,6 +100,12 @@ closes it.
 - **One accountable human.** Level 3 changes need the owner's approval. This is accountable human oversight, not
   independent two-person review. Repository administrators can technically bypass rulesets; the policy is "no
   routine bypass", and the trusted admin workflow reports ruleset drift.
+- **Scope is recorded, not enforced.** The allowlist check matches coordinate, version and checksum. Which projects
+  and configurations a review approved is a condition the code owner checks in review: a reviewed library added to a
+  project its review does not cover passes CI.
+- **A vendored file is checked by hash only.** The check proves the file is the reviewed one. How a page may load it
+  (Mermaid's `strict` mode, the Content Security Policy, the diagram validator) is a review condition that the docs
+  generator's tests enforce, not the allowlist check.
 - **Risk signals are patterns.** Behaviour signals in `policy/risk.json` match paths, symbols and SQL keywords.
   Unknown paths escalate to level 3; an ordinary-looking change with a sensitive meaning can still be classified too
   low. The AI reviewer may raise the level; nothing may lower it.

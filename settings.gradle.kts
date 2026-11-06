@@ -18,3 +18,4 @@ dependencyResolutionManagement {
 rootProject.name = "shipping-reference-platform"
 
 include(":libs:c4-contract-kit")
+include(":tools:docs")

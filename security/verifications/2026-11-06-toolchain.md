@@ -50,6 +50,14 @@ The key came from `keys.openpgp.org` by the subkey fingerprint. The published `.
 The local copy was deleted after the check; CI downloads its own copy and verifies it before `actions/setup-java`
 installs it with `distribution: jdkfile`.
 
+## Mermaid 11.17.2 browser bundle (the docs site)
+
+| Check | Result |
+|---|---|
+| Tarball | `mermaid-11.17.2.tgz` from `registry.npmjs.org` |
+| Integrity | `sha512-V6K3C8EBdEsPFZXSKMJe6ppQOENxuHARr9GvHX4hh47lAbhMRD9qf4oEK7LoaRQxULMa80/qt5gHO73aCleBBg==`: the registry's attested `dist.integrity` and the computed value agree |
+| Vendored file | `package/dist/mermaid.min.js`, 3,572,661 bytes, SHA-256 `581ed7d74bd9048d0e3a91363927d72ef22942d7722546b27f7cc29e35390eb8`: equals its review; CI re-checks it on every run |
+
 ## Not yet verified
 
 - Node.js 26.13.0 (local and CI): its review requires a `gpgv` check of `SHASUMS256.txt.asc` before first use. It is
