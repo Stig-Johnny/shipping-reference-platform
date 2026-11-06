@@ -236,13 +236,14 @@ class RestrictedDslParserTest {
         tuple("gateway", "ENVIRONMENT"), tuple("gateway", "PROXY"),
         tuple("model", "MODEL_PROPERTY"),
         tuple("orders", "COMPONENT_TECH"), tuple("orders", "GROUP"), tuple("orders", "PERSPECTIVE_BLOCK"),
-        tuple("orders", "PERSPECTIVE_TEXT"), tuple("orders", "PERSPECTIVE_VALUE"),
+        tuple("orders", "PERSPECTIVE_NAME"), tuple("orders", "PERSPECTIVE_TEXT"), tuple("orders", "PERSPECTIVE_VALUE"),
         tuple("server", "ENVIRONMENT"), tuple("server", "OS"),
         tuple("shop", "SYSTEM_DESCRIPTION"),
         tuple("view Components", "VIEW_DESCRIPTION"), tuple("view Components", "VIEW_PROPERTY"),
         tuple("view Components", "VIEW_TITLE"),
         tuple("view Filtered", "FILTER_TAG"),
-        tuple("view Flow", "DYNAMIC_DESCRIPTION"), tuple("view Flow", "STEP"), tuple("view Flow", "STEP_PROPERTY"),
+        tuple("view Flow", "DYNAMIC_DESCRIPTION"), tuple("view Flow", "STEP"), tuple("view Flow", "STEP_ORDER"),
+        tuple("view Flow", "STEP_PROPERTY"),
         tuple("view LiveDeployment", "ENVIRONMENT"),
         tuple("views", "COMPONENT_TERM"), tuple("views", "CONTAINER_TERM"), tuple("views", "INFRASTRUCTURE_TERM"),
         tuple("views", "NODE_TERM"), tuple("views", "RELATIONSHIP_STYLE_PROPERTY"),
@@ -281,7 +282,7 @@ class RestrictedDslParserTest {
                                         "contract.status" "built"
                                     }
                                     perspectives {
-                                        "Security" "${PERSPECTIVE_TEXT}" "${PERSPECTIVE_VALUE}"
+                                        "Security ${PERSPECTIVE_NAME}" "${PERSPECTIVE_TEXT}" "${PERSPECTIVE_VALUE}"
                                         perspective "Cost" {
                                             description "${PERSPECTIVE_BLOCK}"
                                         }
@@ -317,7 +318,7 @@ class RestrictedDslParserTest {
                     }
                     filtered "Components" include "Tag ${FILTER_TAG}" "Filtered"
                     dynamic shop "Flow" "Flow ${DYNAMIC_DESCRIPTION}" {
-                        clerk -> app "Asks ${STEP}"
+                        ${STEP_ORDER}: clerk -> app "Asks ${STEP}"
                         clerk -> app {
                             properties {
                                 "p" "${STEP_PROPERTY}"
@@ -609,6 +610,40 @@ class RestrictedDslParserTest {
         assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
                 .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
                         .containsExactly(unresolved(dsl, "HIDDEN"), unresolved(dsl, "PROPERTY")));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"properties", "perspectives"})
+    void aRelationshipFromAnElementNamedLikeABlockKeywordOpensNoBlock(String identifier, @TempDir Path dir)
+            throws Exception {
+        // StructurizrDslParser reads "<identifier> -> app" as a relationship before it looks for the keyword.
+        String dsl = VALID.replace("// MODEL", """
+                %1$s = person "Named like the keyword"
+                %1$s -> app "Uses"
+                !const OK "yes"
+                reader = person "Reader" "Reads ${OK}"
+                """.formatted(identifier));
+
+        assertThat(parsedElement(dir, dsl, "Reader").getDescription()).isEqualTo("Reads yes");
+        assertThat(ContractModelReader.read(write(dir, dsl), "workspace.dsl").components()).hasSize(1);
+    }
+
+    @Test
+    void anEscapedQuoteInAPerspectiveNameIsPartOfTheName(@TempDir Path dir) throws Exception {
+        // As StructurizrDslParser's Tokenizer reads it, the line has three tokens and opens a perspective block.
+        String dsl = VALID.replace("orders = component \"Orders\" {", """
+                orders = component "Orders" {
+                    perspectives {
+                        perspective "A \\"quoted\\" name" {
+                            !const QUOTED "x"
+                            description "${QUOTED}"
+                        }
+                    }
+                """);
+
+        assertThat(parsedElement(dir, dsl, "Orders").getPerspectives())
+                .extracting(com.structurizr.model.Perspective::getDescription).containsExactly("x");
+        assertThat(ContractModelReader.read(write(dir, dsl), "workspace.dsl").components()).hasSize(1);
     }
 
     /** The other blocks that read each line as data: there, a !const or !var line does not parse at all. */

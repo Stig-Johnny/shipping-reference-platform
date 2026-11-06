@@ -31,9 +31,10 @@ import java.util.regex.Pattern;
  * and its parallel sequences, an animation, the users of the configuration) read a line as a step or a user, and a
  * {@code !const} or {@code !var} line there does not parse, so the scan need not follow them. So the scan keeps only
  * those two kinds of block, and the perspective blocks inside the second: a line that starts with {@code properties}
- * or {@code perspectives} opens one, and a line that starts with <code>}</code> closes the innermost block. Neither
- * kind holds any other block, so the other blocks of the file need no record: the brace that closes one of them finds
- * no block of those kinds open. {@link ParsedStrings} checks the parsed workspace afterwards as well.
+ * or {@code perspectives} opens one, unless the line is a relationship from an element of that name, and a line that
+ * starts with <code>}</code> closes the innermost block. Neither kind holds any other block, so the other blocks of the
+ * file need no record: the brace that closes one of them finds no block of those kinds open. {@link ParsedStrings}
+ * checks the parsed workspace afterwards as well.
  */
 final class UnresolvedReferences {
 
@@ -103,14 +104,30 @@ final class UnresolvedReferences {
             } else if (current == Block.OTHER) {
                 if (first.equalsIgnoreCase("!const") || first.equalsIgnoreCase("!var")) {
                     tokens.stream().skip(1).findFirst().ifPresent(defined::add);
-                } else if (first.equalsIgnoreCase("properties")) {
-                    blocks.push(Block.PROPERTIES);
-                } else if (first.equalsIgnoreCase("perspectives")) {
-                    blocks.push(Block.PERSPECTIVES);
+                } else if (!isRelationship(tokens)) {
+                    if (first.equalsIgnoreCase("properties")) {
+                        blocks.push(Block.PROPERTIES);
+                    } else if (first.equalsIgnoreCase("perspectives")) {
+                        blocks.push(Block.PERSPECTIVES);
+                    }
                 }
             }
         }
         return reported;
+    }
+
+    /**
+     * StructurizrDslParser reads {@code <source> -> <destination>}, or {@code <source> --<archetype>-> <destination>},
+     * as a relationship before it looks at keywords, so an element named {@code properties} is no block keyword there.
+     * It takes {@code --<name>->} as a relationship only when an archetype of that name exists; the scan takes the
+     * shape alone, which can only make it miss a block that such a line opens.
+     */
+    private static boolean isRelationship(List<String> tokens) {
+        if (tokens.size() <= 2) {
+            return false;
+        }
+        String keyword = tokens.get(1);
+        return keyword.equalsIgnoreCase("->") || (keyword.startsWith("--") && keyword.endsWith("->"));
     }
 
     /** StructurizrDslParser.shouldStartContext: the last token is the opening brace. */
@@ -176,8 +193,8 @@ final class UnresolvedReferences {
     }
 
     /**
-     * StructurizrDslParser's Tokenizer: whitespace separates tokens, and double quotes enclose one. It leaves out the
-     * Tokenizer's escaped quotes, which change none of the first two tokens of a line that parses.
+     * StructurizrDslParser's Tokenizer: whitespace separates tokens, double quotes enclose one, and a quote after a
+     * backslash belongs to the token (the backslash too).
      */
     private static List<String> tokens(String line) {
         List<String> tokens = new ArrayList<>();
@@ -196,6 +213,8 @@ final class UnresolvedReferences {
                         token.append(c);
                     }
                 }
+            } else if (c == '"' && text.charAt(index - 1) == '\\') {
+                token.append(c);
             } else if (quoted ? c == '"' : Character.isWhitespace(c)) {
                 tokens.add(token.toString());
                 inToken = false;
