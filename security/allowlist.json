@@ -2,8 +2,21 @@
   "schemaVersion": 1,
   "description": "Every third-party component this repository may use: build tools, JDKs, Maven and npm packages, GitHub Actions, container images and host tools. Each entry points at its security review. Anything absent, expired, or with a verdict other than APPROVE or APPROVE-WITH-CONDITIONS must not be used, and the preflight check fails the pull request that tries. See docs/adr/0007 and security/README.md.",
   "acceptance": {
-    "status": "pending",
-    "note": "The reviews ask a human code owner to accept them before first use. Pending the owner's yes."
+    "status": "accepted",
+    "by": "Stig-Johnny (repository owner and code owner)",
+    "at": "2026-11-06T19:44:48.888Z",
+    "how": "In chat to the orchestrator: \"Yes\", in reply to the request to accept the docs-site dependency set in pull request #7, after being shown its components, verdicts and scopes, the advisories embedded in the Mermaid bundle, and the two checker changes.",
+    "scope": "Exactly the reviewed set whose digest is reviewedSetSha256: every entry, field by field, and every review record, byte for byte. Changing, adding or removing an entry, or editing a review record, afterwards fails the checker until the owner accepts again.",
+    "reviewedSetSha256": "301dd5e5fb0c2f98fc005db16615860ca3fbb6bb85fb2220b2ade79ca3e594c8",
+    "entriesSha256": "3d16049f810da1f12338916b310fdc9a69d56db243b3fa9f5e720fe65e8bf5e5",
+    "entriesSha256Note": "The previous checker's digest, over the enforced fields only. Kept because CI judges pull request #7 with main's copy of the checker, which knows only this digest; it can go at the next acceptance.",
+    "previous": [
+      {
+        "at": "2026-11-06T17:42:45.744Z",
+        "how": "In chat to the orchestrator: \"I approve yes\", after being shown pull request #3 with its 58 reviews, this allowlist and security/verifications/2026-11-06-toolchain.md.",
+        "entriesSha256": "0af5cc94568eaf98ffd25b758073e366ca5a8b0a1871af14b4a28e7096ce2be5"
+      }
+    ]
   },
   "counts": {
     "entries": 223,
