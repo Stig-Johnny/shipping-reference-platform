@@ -99,13 +99,21 @@ closes it.
 - **AI reviews can be wrong.** Package text is untrusted input to the reviewing agent. The owner accepts each
   review; that acceptance is a judgement, not a proof.
 - **One accountable human.** Level 3 changes need the owner's approval. This is accountable human oversight, not
-  independent two-person review. Repository administrators can technically bypass rulesets; the policy is "no
-  routine bypass".
-- **GitHub does not enforce the checks yet.** Today `main` requires a pull request and cannot be force-pushed or
-  deleted. The ruleset that makes `preflight` and `java` required and requires code owner review, and the trusted
-  admin workflow that reports drift (ADR 0008), are not applied yet. A red check blocks a merge by process only.
-  Code owner review also cannot be required while the only code owner authors the pull requests: GitHub does not let
-  authors approve their own pull requests, so it needs the agents to open pull requests under their own identity.
+  independent two-person review. Branch protection applies to administrators too, so nobody merges past a red
+  check, but an administrator can change the protection itself (through OpenTofu in the infrastructure repository).
+- **GitHub enforces the required checks, not code owner review.** Branch protection on `main` requires a pull
+  request, the status checks `preflight` and `java` (strict: up to date with `main`), and resolved conversations,
+  for administrators too. It dismisses stale reviews and forbids force pushes and deletion. A red check blocks the
+  merge. It requires no approval and no code owner review. Code owner review cannot be required: the only code owner
+  authors the pull requests through AI agents on the owner's account, and GitHub refuses self-approval. It needs the
+  agents to open pull requests under their own identity. The branch ruleset in `policy/rulesets.json`, the
+  `risk-approval` and `ai-review` checks and the admin workflow that reports drift (ADR 0008) are planned, so level 3
+  approval is not enforced yet.
+- **The acceptance digest proves consistency, not who accepted.** `acceptance.reviewedSetSha256` in
+  `security/allowlist.json` proves that the reviewed set did not change after acceptance. It does not prove that a
+  human accepted it: the owner and the AI agents use the same GitHub account, and the agent that records the
+  acceptance also computes the digest. The record quotes the owner's words and their timestamp from the chat
+  transcript.
 - **Scope is recorded, not enforced.** The allowlist check matches coordinate, version and checksum. Which projects
   and configurations a review approved is a condition the code owner checks in review: a reviewed library added to a
   project its review does not cover passes CI.

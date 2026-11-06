@@ -44,8 +44,10 @@ as the code. An agent that makes a check pass by weakening it has failed the tas
   "Size reason:" paragraph; prefer splitting.
 - State the risk level you expect and why. The `risk-approval` check computes the real level from base-branch
   policy; you may argue for a higher level, never a lower one.
-- Pull requests are opened by the dedicated GitHub App identity. Never use the owner's credentials. Never approve or
-  merge your own pull request. Never push to `main`, force-push a shared branch, skip hooks or bypass a check.
+- Planned: pull requests are opened by a dedicated GitHub App identity. Today agents open them on the owner's account,
+  which is why GitHub cannot require code owner review (`docs/gaps.md`, section 5). Never approve your own pull
+  request, never merge one whose checks are not green, and never push to `main`, force-push a shared branch, skip
+  hooks or bypass a check.
 
 ## Risk levels
 

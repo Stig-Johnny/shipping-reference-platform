@@ -7,8 +7,8 @@ updated: 2026-11-06
 
 # The dependency allowlist
 
-Nothing from outside this repository runs here unless someone has reviewed it first: no JDK, Gradle distribution,
-Maven or npm package, GitHub Action or container image. "Reviewed" means a written record in `reviews/` that says what
+Nothing from outside this repository can be merged into `main` unless someone has reviewed it first: no JDK, Gradle
+distribution, Maven or npm package, GitHub Action or container image. "Reviewed" means a written record in `reviews/` that says what
 the component is, who publishes it and how, what it can execute and when, its known advisories at that exact version,
 and the conditions under which it may be used. `allowlist.json` turns those records into data a machine can enforce.
 
@@ -28,22 +28,27 @@ without a review record and an allowlist entry, and both of those files belong t
 
 | Layer | What fails | Where it runs |
 |---|---|---|
-| `tools/policy/PolicyCheck.java` | A locked Maven coordinate, npm package or Action that is not approved, expired, rejected or missing its review; a downloaded jar whose SHA-256 differs from its review; a Gradle wrapper or distribution that is not the reviewed one; an Action not pinned to an allowlisted commit; a file under a `vendor/` directory that is not byte-identical to an approved vendored artifact; an owner's acceptance that no longer matches the reviewed set. | The `preflight` workflow. It runs the main branch's copy of the checker on the pull request's files as data, before any build tool runs, so a pull request cannot weaken the check that judges it. |
-| Gradle dependency locking (strict) | A resolved version that differs from the committed lockfile. | Every build. |
-| Gradle dependency verification (strict) | A downloaded artifact whose SHA-256 is not in `gradle/verification-metadata.xml`. CI never writes that file. | Every build. |
+| `tools/policy/PolicyCheck.java` | A locked Maven coordinate, npm package or Action that is not approved, expired, rejected or missing its review; a downloaded jar whose SHA-256 differs from its review; a Gradle wrapper or distribution that is not the reviewed one; an Action not pinned to an allowlisted commit; a file under a `vendor/` directory that is not byte-identical to an approved vendored artifact; an owner's acceptance that no longer matches the reviewed set. | The `preflight` workflow, a required status check. It runs the main branch's copy of the checker on the pull request's files as data, without running any build tool, so a pull request cannot weaken the check that judges it. |
+| Gradle dependency locking (strict) | A resolved version that differs from the committed lockfile. | Every build. In CI, the `java` workflow, a required status check. |
+| Gradle dependency verification (strict) | A downloaded artifact whose SHA-256 is not in `gradle/verification-metadata.xml`. CI never writes that file. | Every build. In CI, the `java` workflow, a required status check. |
 | `tools/ci/stage-temurin.sh` | A JDK archive whose SHA-256 differs from its review. | Every CI job, before `actions/setup-java` installs it. |
-| GitHub's allowed-actions setting (**planned**, not applied yet) | An Action that is not on the repository's list. It is set through OpenTofu in the operator's infrastructure repository. | GitHub, before the workflow starts. |
-| `.github/CODEOWNERS` (**not enforced yet**) | A change to `security/`, the lockfiles, the build logic or the workflows that the owner has not approved. | Pull request review, once the planned ruleset requires code owner review. |
+| GitHub's allowed-actions setting (applied) | An Action that is not on the repository's list. The setting allows selected actions only, requires SHA pinning and lists six allowed patterns, with no wildcard for GitHub-owned or verified actions. It is set through OpenTofu in the operator's infrastructure repository. | GitHub, before the workflow starts. |
+| `.github/CODEOWNERS` (**not enforced yet**) | A change to `security/`, the lockfiles, the build logic or the workflows that the owner has not approved. | Pull request review, once GitHub can require code owner review (see below). |
 
 **Every check must be able to fail.** Until 2026-11-06, `preflight` could not. Its `java … | tee` step ran under
 GitHub's default `bash -e`, without `pipefail`, so the step took `tee`'s exit code and passed with findings. A review
 found it before the repository went public. The workflows now name `bash`, which runs with `pipefail`. The upload
-guard had a similar flaw: `if: always()` uploaded the reports even after the guard step had failed.
+guard had a similar flaw: `if: always()` uploaded the reports even after the guard step had failed. Two pull requests
+proved the fix and were closed unmerged: #16 added a deliberately unreviewed coordinate and failed with exit 1
+(findings), and #17 made the allowlist unreadable and failed with exit 2 (could not complete).
 
-**What GitHub enforces today.** Changes reach `main` only through pull requests, and `main` cannot be force-pushed or
-deleted. GitHub does not yet require the `preflight` and `java` checks to pass before a merge, and it does not require
-code owner review: both come with the ruleset that ADR 0008 plans. Until then, a red check blocks a merge by process,
-not by GitHub, and the owner's approval of a reviewed set is the acceptance recorded in `allowlist.json`.
+**What GitHub enforces today.** Branch protection on `main` requires a pull request, with the status checks
+`preflight` and `java` passing on a branch that is up to date with `main`, for administrators too. It dismisses stale
+reviews, requires conversation resolution, and forbids force pushes and deletion. A red check blocks the merge. It
+does not require an approval or code owner review. Code owner review cannot be required yet: the only code owner
+authors the pull requests through AI agents on the owner's account, and GitHub does not let authors approve their own
+pull requests. Until the agents have their own identity (ADR 0008), the owner's approval of a reviewed set is the
+acceptance recorded in `allowlist.json`.
 
 Run the checker yourself with the JDK alone: `java tools/policy/PolicyCheck.java .` (exit 0 = clean, 1 = findings,
 2 = it could not complete). `--report-only` prints the findings and exits 0. `--print-digest` prints the digest that an
@@ -53,7 +58,10 @@ acceptance must record (see [Acceptance](#acceptance)).
 
 1. Ask a subagent for a review of the exact version, written to `reviews/` in the house format (see any existing file).
 2. Resolve it with `GRADLE_USER_HOME=$(mktemp -d) ./gradlew resolveAllDependencies --write-locks
-   --write-verification-metadata sha256`. This downloads and checksums artifacts without compiling or running them.
+   --write-verification-metadata sha256`. This evaluates the repository's own settings and build scripts and its own
+   `build-logic` plugins (no third-party Gradle plugins exist), then downloads and checksums the artifacts. It does
+   not compile against, or execute, the downloaded libraries' code. Because it runs the build scripts, read any change
+   to them before you run it.
    Use an EMPTY Gradle home: with a warm cache Gradle reuses parsed metadata and never re-reads parent POMs, so they
    are missing from the file and CI, which always starts empty, fails verification. Review every NEW transitive
    coordinate the lockfile shows.
@@ -74,6 +82,11 @@ set. It stores one SHA-256 (`reviewedSetSha256`) over every entry, with all its 
 bytes of every entry's review record. `java tools/policy/PolicyCheck.java --print-digest .` computes it, and the checker
 recomputes it on every run. Changing, adding or removing an entry afterwards, or editing a review's text, scope or
 conditions, fails the check until the owner accepts again.
+
+The digest proves consistency: the reviewed set did not change after the acceptance was recorded. It does not prove
+that a human accepted it. The owner and the AI agents use the same GitHub account, so GitHub cannot tell them apart,
+and the agent that records the acceptance also computes the digest. The record quotes the owner's words and their
+timestamp from the chat transcript.
 
 The first acceptance used an older digest, `entriesSha256`, over the enforced fields only. CI judges a pull request
 with the main branch's copy of the checker, so the pull request that introduced the new digest (#7) had to satisfy

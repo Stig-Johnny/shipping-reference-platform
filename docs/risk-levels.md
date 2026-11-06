@@ -57,8 +57,12 @@ Three safeguards keep this honest:
 
 ## Where this runs
 
+Today nothing computes the level automatically: the author states it in the pull request, and the owner approves level
+3 changes in writing. The checks below are planned (ADR 0008):
+
 - The `risk-approval` check computes the level, shows every rule that matched, and blocks a level 3 change until the
   owner has approved its current version.
 - The `ai-review` check blocks any change without a recorded AI review of its final version.
 - GitHub's code-owner rule independently requires the owner's approval for the folders listed in
   `.github/CODEOWNERS`. Every one of those folders is level 3 in the policy, and a test keeps the two lists in step.
+  This needs pull requests opened under an identity other than the owner's (`docs/gaps.md`, section 5).
