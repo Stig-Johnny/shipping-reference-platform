@@ -17,8 +17,11 @@ public record MermaidDiagram(String viewKey, String definition, List<Node> nodes
     public record Node(String id, String label) {
     }
 
-    /** An edge in drawing order, with the model relationship it shows. */
-    public record Edge(String from, String to, Arrow arrow, String label, String relationshipId) {
+    /**
+     * An edge in drawing order, with the model relationship it shows and its number in the relationship table: the
+     * step's order in a dynamic view, its position among the view's relationships otherwise.
+     */
+    public record Edge(String from, String to, Arrow arrow, String label, String relationshipId, String number) {
     }
 
     /** The three line patterns: the legend explains each one in words. */

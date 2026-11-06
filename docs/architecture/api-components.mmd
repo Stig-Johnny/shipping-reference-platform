@@ -2,52 +2,52 @@
 flowchart LR
     accTitle: Components of the API
     accDescr: Component view with 11 elements and 21 relationships. The tables on the page list every one of them.
-    3["Webshop [Software System]"]
+    3["Webshop [Software System] (external)"]
     style 3 fill:#64748b,stroke:#475569,color:#ffffff
-    4["Carrier (simulated) [Software System]"]
+    4["Carrier (simulated) [Software System] (external, simulated)"]
     style 4 fill:#64748b,stroke:#475569,color:#ffffff
     subgraph 5 ["Shipping reference platform"]
         style 5 fill:#ffffff,stroke:#475569,color:#475569
         subgraph 7 ["API"]
             style 7 fill:#ffffff,stroke:#475569,color:#475569
-            10["Tenants [Component: Spring Modulith module] (planned)"]
+            10["Tenants [Component] (planned)"]
             style 10 fill:#f1f5f9,stroke:#64748b,color:#334155
-            11["Audit [Component: Spring Modulith module] (planned)"]
+            11["Audit [Component] (planned)"]
             style 11 fill:#f1f5f9,stroke:#64748b,color:#334155
-            12["Orders [Component: Spring Modulith module] (planned)"]
+            12["Orders [Component] (planned)"]
             style 12 fill:#f1f5f9,stroke:#64748b,color:#334155
-            13["Tracking [Component: Spring Modulith module] (planned)"]
+            13["Tracking [Component] (planned)"]
             style 13 fill:#f1f5f9,stroke:#64748b,color:#334155
-            14["Returns [Component: Spring Modulith module] (planned)"]
+            14["Returns [Component] (planned)"]
             style 14 fill:#f1f5f9,stroke:#64748b,color:#334155
-            8["Quotes [Component: Spring Modulith module] (planned)"]
+            8["Quotes [Component] (planned)"]
             style 8 fill:#f1f5f9,stroke:#64748b,color:#334155
-            9["Shipments [Component: Spring Modulith module] (planned)"]
+            9["Shipments [Component] (planned)"]
             style 9 fill:#f1f5f9,stroke:#64748b,color:#334155
         end
-        15[("Database [Container: PostgreSQL 18.6]")]
+        15[("Database [Container] (planned)")]
         style 15 fill:#115e59,stroke:#475569,color:#ffffff
-        6["Web app [Container: React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client]"]
+        6["Web app [Container] (planned)"]
         style 6 fill:#115e59,stroke:#475569,color:#ffffff
     end
-    6 -->|"Authenticates every API request with the demo bearer token; reads the current membership and prototype flags [JSON over HTTPS]"| 10
-    6 -->|"Creates and reads quotes [JSON over HTTPS]"| 8
-    6 -->|"Books, lists, reads and cancels shipments; downloads labels [JSON over HTTPS]"| 9
-    3 -.->|"Planned: Will submit orders to ship [JSON over HTTPS]"| 12
-    8 -->|"Stores quotes and offers in schema quotes [Spring Data JDBC]"| 15
-    9 -->|"Stores shipments and idempotency keys in schema shipments; writes event publications [Spring Data JDBC]"| 15
-    10 -->|"Resolves demo tokens through a security-definer function, reads prototype flags, sets app.tenant_id in every transaction [JDBC]"| 15
-    11 -->|"Appends audit entries in schema audit [Spring Data JDBC]"| 15
-    8 -->|"Prices each service level from the carrier's synthetic tariff (simulated in-process) [In-process simulation]"| 4
-    9 -->|"Assigns simulated tracking numbers and renders simulated labels (in-process) [In-process simulation]"| 4
-    13 -.->|"Planned: Will receive tracking events [HTTPS webhook]"| 4
-    8 ==>|"REQUIRED: Resolves the caller's tenant (tenants.api: CurrentTenant, TenantId) [Java]"| 10
-    9 ==>|"REQUIRED: Resolves the caller's tenant (tenants.api: CurrentTenant, TenantId) [Java]"| 10
-    9 ==>|"REQUIRED: Books only against an existing, unexpired offer (quotes.api: QuoteOffers, OfferLookup, Money, ServiceLevel) [Java]"| 8
-    11 ==>|"REQUIRED: Records the ShipmentBooked and ShipmentCancelled events that shipments publishes (shipments.api) [Spring Modulith event listener]"| 9
-    11 ==>|"REQUIRED: Writes each audit entry inside the event's tenant scope (tenants.api: TenantScope, TenantId) [Java]"| 10
-    11 -.->|"PERMITTED: May record QuoteIssued events; no listener exists in v0.1, so the report shows no static evidence [Spring Modulith event listener]"| 8
-    12 -.->|"PERMITTED, planned: Will request quotes for imported orders [Java]"| 8
-    12 -.->|"PERMITTED, planned: Will book shipments for imported orders [Java]"| 9
-    13 -.->|"PERMITTED, planned: Will move shipments through carrier transit states [Java]"| 9
-    14 -.->|"PERMITTED, planned: Will create return shipments for delivered shipments [Java]"| 9
+    6 -->|"1"| 10
+    6 -->|"2"| 8
+    6 -->|"3"| 9
+    3 -.->|"4 — planned"| 12
+    8 -->|"5"| 15
+    9 -->|"6"| 15
+    10 -->|"7"| 15
+    11 -->|"8"| 15
+    8 -->|"9"| 4
+    9 -->|"10"| 4
+    13 -.->|"11 — planned"| 4
+    8 ==>|"12 REQUIRED"| 10
+    9 ==>|"13 REQUIRED"| 10
+    9 ==>|"14 REQUIRED"| 8
+    11 ==>|"15 REQUIRED"| 9
+    11 ==>|"16 REQUIRED"| 10
+    11 -.->|"17 PERMITTED"| 8
+    12 -.->|"18 PERMITTED — planned"| 8
+    12 -.->|"19 PERMITTED — planned"| 9
+    13 -.->|"20 PERMITTED — planned"| 9
+    14 -.->|"21 PERMITTED — planned"| 9

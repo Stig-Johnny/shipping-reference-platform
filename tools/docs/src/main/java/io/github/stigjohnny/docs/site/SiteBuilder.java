@@ -44,7 +44,7 @@ public final class SiteBuilder {
     public static int build(Sources sources, Path out, String revision) {
         Consistency.check(sources);
         SiteMap map = SiteMap.of(sources);
-        SiteContext context = new SiteContext(sources, map, Diagrams.of(sources.workspace()));
+        SiteContext context = new SiteContext(sources, map, Diagrams.of(sources.workspace(), sources.elementStatus()));
         List<SitePage> pages = new ArrayList<>();
         pages.addAll(StartPages.of(context));
         pages.addAll(ModelPages.of(context));

@@ -100,7 +100,9 @@
       securityLevel: 'strict',
       htmlLabels: false,
       flowchart: { htmlLabels: false, useMaxWidth: true },
-      theme: 'default'
+      theme: 'default',
+      fontFamily: 'system-ui, sans-serif',
+      themeVariables: { fontFamily: 'system-ui, sans-serif', fontSize: '16px' }
     });
     mermaid.run({ nodes: Array.prototype.slice.call(diagrams) }).catch(function () {
       Array.prototype.forEach.call(document.querySelectorAll('.diagram-failed'), function (note) {

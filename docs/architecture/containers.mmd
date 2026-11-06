@@ -6,24 +6,24 @@ flowchart LR
     style 1 fill:#0f766e,stroke:#475569,color:#ffffff
     2["Platform administrator [Person]"]
     style 2 fill:#0f766e,stroke:#475569,color:#ffffff
-    3["Webshop [Software System]"]
+    3["Webshop [Software System] (external)"]
     style 3 fill:#64748b,stroke:#475569,color:#ffffff
-    4["Carrier (simulated) [Software System]"]
+    4["Carrier (simulated) [Software System] (external, simulated)"]
     style 4 fill:#64748b,stroke:#475569,color:#ffffff
     subgraph 5 ["Shipping reference platform"]
         style 5 fill:#ffffff,stroke:#475569,color:#475569
-        15[("Database [Container: PostgreSQL 18.6]")]
+        15[("Database [Container] (planned)")]
         style 15 fill:#115e59,stroke:#475569,color:#ffffff
-        6["Web app [Container: React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client]"]
+        6["Web app [Container] (planned)"]
         style 6 fill:#115e59,stroke:#475569,color:#ffffff
-        7["API [Container: Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring Data JDBC]"]
+        7["API [Container] (planned)"]
         style 7 fill:#115e59,stroke:#475569,color:#ffffff
     end
-    1 -->|"Manages the orders that need shipping in"| 3
-    1 -->|"Prices parcels, books shipments and downloads labels in [HTTPS, browser]"| 6
-    2 -.->|"Planned: Will manage tenants and memberships in (planned; no admin screens in v0.1) [HTTPS, browser]"| 6
-    2 -->|"Provisions synthetic tenants and memberships through reviewed seed migrations run as the migration role [Flyway]"| 15
-    6 -->|"Calls the shipping API through the generated client [JSON over HTTPS]"| 7
-    3 -.->|"Planned: Will submit orders to ship (planned) [JSON over HTTPS]"| 7
-    7 -->|"Reads and writes tenant-scoped data as the application role, which lacks BYPASSRLS [JDBC]"| 15
-    7 -->|"Obtains rates, tracking numbers and labels (simulated in-process; no network call in v0.1) [In-process simulation]"| 4
+    1 -->|"1"| 3
+    1 -->|"2"| 6
+    2 -.->|"3 — planned"| 6
+    2 -->|"4"| 15
+    6 -->|"5"| 7
+    3 -.->|"6 — planned"| 7
+    7 -->|"7"| 15
+    7 -->|"8"| 4

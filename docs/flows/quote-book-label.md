@@ -1,6 +1,6 @@
 ---
 title: "Flow: quote, book and download a simulated label"
-description: "The main v0.1 flow from parcel form to label, step by step, with the test that asserts each step."
+description: "The main v0.1 flow from parcel form to label, step by step, with the planned acceptance test for each step."
 status: accepted
 updated: 2026-11-06
 modules: [tenants, quotes, shipments, audit]
@@ -9,8 +9,8 @@ modules: [tenants, quotes, shipments, audit]
 # Flow: quote, book and download a simulated label
 
 The structural version of this flow is the dynamic view `QuoteBookLabel` in `architecture/workspace.dsl`. This
-document adds order, alternatives and failures, and names the test that asserts each step. A linked test is
-evidence only if it asserts the step; each row says what it asserts.
+document adds order, alternatives and failures, and names the planned acceptance test for each step. A named test
+becomes evidence only once it exists, passes and asserts the step; each row says what it must assert.
 
 Actors: a shipping clerk of Tenant Alpha signed in as the synthetic user `clerk-alpha`. All data is synthetic.
 
@@ -65,9 +65,9 @@ sequenceDiagram
     Shipments-->>Web: 200 image/svg+xml, attachment
 ```
 
-## Steps and the tests that assert them
+## Steps and planned acceptance tests
 
-| Step (diagram numbers) | What must hold | Asserted by |
+| Step (diagram numbers) | What must hold | Planned acceptance test |
 |---|---|---|
 | 1 to 4: sign in as a synthetic user | A valid demo token resolves to exactly one membership; tenant hints cannot override membership; unknown body members are rejected; unknown token `401`, user without tenant `403`. | `DemoTokenAuthenticationTest`, `TenantsHttpContractTest` |
 | 5 to 6: submit the parcel form | The form sends a contract-valid `QuoteRequest`; invalid input is labelled before sending. | `ParcelForm.test.tsx` |
@@ -84,7 +84,7 @@ sequenceDiagram
 
 ## Alternatives and failures
 
-| Situation | Expected result | Asserted by |
+| Situation | Expected result | Planned acceptance test |
 |---|---|---|
 | Route not served, parcel too heavy, EXPRESS above 10000 g | `422 no-offer-available` with `reason`; no quote stored; the UI explains the reason. | `RatingTest`, `QuotesHttpContractTest`, `ProblemAlert.test.tsx` |
 | Offer expired before booking | `422 quote-expired`; the UI shows the expired state and offers a fresh quote. | ShipmentsHttpContractTest asserts server rejection with 422; BookingForm.test.tsx asserts the rejection transition; expired-quote.spec.ts verifies the initially expired screen only. |

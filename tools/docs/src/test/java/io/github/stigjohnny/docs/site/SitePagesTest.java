@@ -135,10 +135,29 @@ class SitePagesTest {
     }
 
     @Test
+    void theViewsSpecifyAndDoNotClaimVerifiedImplementation() {
+        String containers = site.text("model/containers.html");
+        String components = site.text("model/api-components.html");
+        String flow = site.text("model/flow-quote-book-label.html");
+
+        assertThat(containers).contains("<td>Planned; not covered by module conformance</td>",
+                "<td>Role; implementation status not applicable</td>");
+        assertThat(components).contains("The planned conformance check will require a static reference for REQUIRED "
+                + "relationships. It is not implemented yet.", "A REQUIRED arrow specifies an obligation; a future "
+                + "passing conformance check would establish a static reference, not runtime behaviour.");
+        for (String page : List.of(containers, components, site.text("model/system-context.html"),
+                site.text("model/quote-book-label.html"), flow)) {
+            assertThat(page).doesNotContain("the build fails when it does not", "proves that a reference exists",
+                    "no status: not a checked module", "Asserted by", "the tests that assert them");
+        }
+        assertThat(flow).contains(">Steps and planned acceptance tests</", "<th>Planned acceptance test</th>");
+    }
+
+    @Test
     void plannedElementsAreLabelledNotFaded() {
         String page = site.text("model/api-components.html");
 
-        assertThat(page).contains("Quotes [Component: Spring Modulith module] (planned)", "Planned");
+        assertThat(page).contains("Quotes [Component] (planned)", "Planned");
         for (String path : site.pages()) {
             assertThat(site.text(path)).as(path).doesNotContainIgnoringCase("faded").doesNotContain("opacity");
         }

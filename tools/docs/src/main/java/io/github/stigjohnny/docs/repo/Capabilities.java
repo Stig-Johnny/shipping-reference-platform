@@ -32,6 +32,11 @@ public record Capabilities(List<Capability> capabilities, List<Capability> contr
         }
     }
 
+    /** Whether no product capability is built yet: every capability (not control) is planned. */
+    public boolean specificationOnly() {
+        return capabilities.stream().allMatch(c -> c.status() == Capability.Status.PLANNED);
+    }
+
     /** Capabilities first, then controls. */
     public List<Capability> all() {
         List<Capability> all = new ArrayList<>(capabilities);

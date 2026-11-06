@@ -1,6 +1,7 @@
 package io.github.stigjohnny.docs.repo;
 
 import io.github.stigjohnny.docs.DocsException;
+import io.github.stigjohnny.docs.model.ElementStatus;
 import io.github.stigjohnny.docs.model.ParsedWorkspace;
 import io.github.stigjohnny.docs.model.Workspaces;
 import io.github.stigjohnny.docs.yaml.SafeYaml;
@@ -80,6 +81,11 @@ public record Sources(Path repo, String readme, List<DocFile> docs, DocFile secu
 
     public List<DocFile> docsUnder(String directory) {
         return docs.stream().filter(d -> d.path().startsWith(directory)).toList();
+    }
+
+    /** How the diagrams and tables state each element's implementation status. */
+    public ElementStatus elementStatus() {
+        return new ElementStatus(capabilities.specificationOnly());
     }
 
     /** The newest {@code updated} date of the hand-written documents: the date the generated files carry. */

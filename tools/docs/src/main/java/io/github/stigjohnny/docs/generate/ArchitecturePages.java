@@ -61,7 +61,7 @@ public final class ArchitecturePages {
         }
         out.append("\n## Elements\n\n| ID | Element | Type | Technology | Status | Description |\n")
                 .append("|---|---|---|---|---|---|\n");
-        for (ViewText.ElementRow row : ViewText.elements(view, model)) {
+        for (ViewText.ElementRow row : ViewText.elements(view, model, sources.elementStatus())) {
             out.append("| ").append(row.id()).append(" | ").append(cell(row.name())).append(" | ")
                     .append(cell(row.type())).append(" | ").append(cell(row.technology())).append(" | ")
                     .append(cell(row.status())).append(" | ").append(cell(row.description())).append(" |\n");

@@ -29,7 +29,7 @@ public final class GeneratedFiles {
     /** Checks the sources, then produces every generated file, keyed by repository-relative path. */
     public static Map<String, String> generate(Sources sources) {
         Consistency.check(sources);
-        List<MermaidDiagram> diagrams = Diagrams.of(sources.workspace());
+        List<MermaidDiagram> diagrams = Diagrams.of(sources.workspace(), sources.elementStatus());
         Map<String, String> files = new TreeMap<>();
         files.putAll(ArchitecturePages.generate(sources, diagrams));
         files.putAll(Brains.generate(sources));

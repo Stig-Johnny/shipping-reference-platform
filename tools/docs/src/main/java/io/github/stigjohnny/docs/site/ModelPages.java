@@ -108,7 +108,7 @@ final class ModelPages {
                 .append("<p>The tables below list every element and relationship of the view.</p>\n")
                 .append("</figcaption>\n</figure>\n");
         body.append("<h2 id=\"elements\">Elements</h2>\n");
-        List<ViewText.ElementRow> elements = ViewText.elements(view, model);
+        List<ViewText.ElementRow> elements = ViewText.elements(view, model, sources.elementStatus());
         HtmlTable table = HtmlTable.of("Elements of the view (" + elements.size() + ")", "Elements of " + title
                 + ", scrolls sideways", "ID", "Element", "Type", "Technology", "Status", "Description");
         for (ViewText.ElementRow row : elements) {

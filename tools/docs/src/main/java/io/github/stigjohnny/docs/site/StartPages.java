@@ -60,9 +60,11 @@ final class StartPages {
                 .append(SiteContext.link(INDEX, README, "The repository's README"))
                 .append("</p><p>The idea, the product, the controls and how each can fail, and the honest limits.</p>"
                         + "</div>\n</div>\n");
-        String state = Badge.PLANNED.html("Specification only") + " " + Html.escape("No application code exists "
-                + "yet. " + count(all, Capability.Status.PLANNED) + " of " + all.size()
-                + " capabilities and controls are planned.");
+        String counts = count(all, Capability.Status.PLANNED) + " of " + all.size()
+                + " capabilities and controls are planned.";
+        String state = sources.capabilities().specificationOnly()
+                ? Badge.PLANNED.html("Specification only") + " " + Html.escape("No application code exists yet. " + counts)
+                : Badge.PARTIAL.html("Partly built") + " " + Html.escape(counts);
         StatusPanel status = new StatusPanel(Statuses.design("accepted", "The model, the API contract, the "
                 + "decisions and the module specifications are accepted; updated " + sources.documentationDate() + "."),
                 state, Statuses.evidence(all, sources.evidence()));

@@ -11,6 +11,7 @@ import io.github.stigjohnny.docs.mermaid.RawExport.Statement;
 import io.github.stigjohnny.docs.mermaid.RawExport.Style;
 import io.github.stigjohnny.docs.model.C4Model;
 import io.github.stigjohnny.docs.model.C4View;
+import io.github.stigjohnny.docs.model.ElementStatus;
 import io.github.stigjohnny.docs.model.ModelElement;
 import io.github.stigjohnny.docs.model.ModelRelationship;
 import io.github.stigjohnny.docs.model.RawMermaid;
@@ -31,10 +32,12 @@ import java.util.Map;
  * model view it came from, and writes a new flowchart with the same IDs, boundaries, directions and order:
  *
  * <ul>
- *   <li>labels are plain text, the element's name and C4 type (descriptions stay outside the nodes, in the tables);
+ *   <li>node labels are plain text: the element's name, its C4 type in brackets and its implementation status in
+ *       parentheses ({@link ElementStatus}); technology and descriptions stay outside the nodes, in the tables;
  *   <li>planned elements say "(planned)" instead of being faded, and line patterns show the contract: a thick line is a
- *       REQUIRED dependency, a dotted line a PERMITTED or planned one, a solid line a relationship the Java check does
- *       not evaluate; each such label also says it in words;
+ *       REQUIRED dependency, a dotted line a PERMITTED or planned one, a solid line a relationship that module
+ *       conformance does not cover; each edge label is the relationship's number in the table, its mode and
+ *       "planned" in words;
  *   <li>the exporter's frame and default link style are dropped, a node or style the exporter writes twice must equal
  *       its first definition and is written once, and
  *       {@code accTitle} and {@code accDescr} name the view for screen readers.
@@ -49,7 +52,7 @@ public final class MermaidAdapter {
     private MermaidAdapter() {
     }
 
-    public static MermaidDiagram adapt(RawMermaid raw, C4Model model) {
+    public static MermaidDiagram adapt(RawMermaid raw, C4Model model, ElementStatus status) {
         String where = "view " + raw.viewKey();
         C4View view = model.view(raw.viewKey());
         RawExport.Export export = RawExport.parse(raw.definition(), where);
@@ -100,7 +103,7 @@ public final class MermaidAdapter {
                 case NodeDef node -> {
                     NodeDef first = nodes.putIfAbsent(node.id(), node);
                     if (first == null) {
-                        String label = nodeLabel(node, view, model, where);
+                        String label = nodeLabel(node, view, model, status, where);
                         drawnNodes.add(new Node(node.id(), label));
                         out.append(indent).append(node.id()).append(node.cylinder() ? "[(\"" : "[\"").append(label)
                                 .append(node.cylinder() ? "\")]" : "\"]").append('\n');
@@ -135,7 +138,7 @@ public final class MermaidAdapter {
         }
     }
 
-    private static String nodeLabel(NodeDef node, C4View view, C4Model model, String where) {
+    private static String nodeLabel(NodeDef node, C4View view, C4Model model, ElementStatus status, String where) {
         if (!view.elementIds().contains(node.id())) {
             throw new UnsafeDiagramException(where + ": element " + node.id() + " is not in the view");
         }
@@ -143,7 +146,8 @@ public final class MermaidAdapter {
         if (!normalised(element.name()).equals(node.name())) {
             throw new UnsafeDiagramException(where + ": element " + node.id() + " is not labelled with its name");
         }
-        return node.name() + " " + node.type() + (element.planned() ? " (planned)" : "");
+        String word = status.label(element);
+        return node.name() + " [" + element.type() + "]" + (word.isEmpty() ? "" : " (" + word + ")");
     }
 
     /** Matches an exported edge with the first unused step of the view that it draws, and labels it in words. */
@@ -156,8 +160,9 @@ public final class MermaidAdapter {
             if (relationship.sourceId().equals(edge.from()) && relationship.destinationId().equals(edge.to())
                     && expected.equals(edge.description()) && normalised(technology).equals(edge.technology())) {
                 unmatched.remove(step);
-                return new Edge(edge.from(), edge.to(), arrow(relationship),
-                        label(step, relationship, dynamic, edge.technology()), relationship.id());
+                String number = dynamic ? step.order() : Integer.toString(view.steps().indexOf(step) + 1);
+                return new Edge(edge.from(), edge.to(), arrow(relationship), label(number, relationship),
+                        relationship.id(), number);
             }
         }
         throw new UnsafeDiagramException(where + ": the export has an edge " + edge.from() + " to " + edge.to()
@@ -172,16 +177,10 @@ public final class MermaidAdapter {
         return "PERMITTED".equals(mode) || relationship.planned() ? Arrow.DOTTED : Arrow.SOLID;
     }
 
-    private static String label(C4View.Step step, ModelRelationship relationship, boolean dynamic, String technology) {
+    /** An edge's label: its number in the relationship table, its mode, and whether it is planned. */
+    private static String label(String number, ModelRelationship relationship) {
         String mode = relationship.mode().orElse("");
-        String prefix;
-        if (!mode.isEmpty()) {
-            prefix = mode + (relationship.planned() ? ", planned: " : ": ");
-        } else {
-            prefix = relationship.planned() ? "Planned: " : "";
-        }
-        return (dynamic ? step.order() + ". " : "") + prefix + normalised(step.description())
-                + (technology.isEmpty() ? "" : " " + technology);
+        return number + (mode.isEmpty() ? "" : " " + mode) + (relationship.planned() ? " \u2014 planned" : "");
     }
 
     private static String normalised(String text) {

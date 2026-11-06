@@ -36,7 +36,8 @@ class SiteAssetsTest {
     void theScriptInitialisesMermaidOnceStrictlyAndRendersOnlyTheGeneratorsDiagrams() {
         assertThat(count(js, "mermaid.initialize(")).isEqualTo(1);
         assertThat(js).contains("startOnLoad: false", "securityLevel: 'strict'", "htmlLabels: false",
-                "flowchart: { htmlLabels: false")
+                "flowchart: { htmlLabels: false", "fontFamily: 'system-ui, sans-serif'",
+                "themeVariables: { fontFamily: 'system-ui, sans-serif', fontSize: '16px' }")
                 .contains("document.querySelectorAll('pre.diagram-source[data-diagram]')")
                 .doesNotContain("dompurifyConfig", "registerIconPacks", "loose", "sandbox", "mermaid.init(",
                         "startOnLoad: true");
