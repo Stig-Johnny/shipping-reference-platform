@@ -91,15 +91,15 @@ final class DependencyEvidence {
     }
 
     private Optional<CodeReference> reference(Dependency dependency) {
-        JavaClass target = dependency.getTargetClass().getBaseComponentType();
-        if (target.isPrimitive() || target.equals(origin)) {
+        String target = elementClassName(dependency.getTargetClass());
+        if (target.isEmpty() || target.equals(origin.getName())) {
             return Optional.empty();
         }
         SourceCodeLocation location = dependency.getSourceCodeLocation();
         String sourceFile = location.getSourceClass().getSource().flatMap(Source::getFileName).orElse("");
         JavaAccess<?> access = accesses.get(dependency.getDescription());
         if (access != null) {
-            return Optional.of(new CodeReference(origin.getName(), signature(access.getOrigin()), target.getName(),
+            return Optional.of(new CodeReference(origin.getName(), signature(access.getOrigin()), target,
                     targetMember(access.getTarget()), accessKind(access), sourceFile, location.getLineNumber()));
         }
         String description = dependency.getDescription();
@@ -109,7 +109,7 @@ final class DependencyEvidence {
         if (phrase.startsWith(COMPONENT_TYPE)) {
             return Optional.empty();
         }
-        return Optional.of(new CodeReference(origin.getName(), member.signature(), target.getName(), "",
+        return Optional.of(new CodeReference(origin.getName(), member.signature(), target, "",
                 kind(phrase, member.parameter(), dependency.getTargetClass()), sourceFile, location.getLineNumber()));
     }
 
@@ -172,8 +172,44 @@ final class DependencyEvidence {
                 .collect(Collectors.joining(",", name + "(", ")"));
     }
 
+    /**
+     * The binary name of a type, or of an array type's element; empty for an array of primitives. It is read from the
+     * name, because ArchUnit leaves the component type of an array that occurs only in another class's signature
+     * unresolved.
+     */
+    private static String elementClassName(JavaClass type) {
+        String name = type.getName();
+        if (!name.startsWith("[")) {
+            return name;
+        }
+        String element = name.substring(name.lastIndexOf('[') + 1);
+        return element.startsWith("L") ? element.substring(1, element.length() - 1) : "";
+    }
+
     private static String typeName(JavaClass type) {
-        return type.isArray() ? typeName(type.getComponentType()) + "[]" : type.getName();
+        return javaName(type.getName());
+    }
+
+    /** A binary type name as Java source writes it: {@code int[][]} for {@code [[I}, {@code a.B[]} for {@code [La.B;}. */
+    private static String javaName(String binaryName) {
+        if (!binaryName.startsWith("[")) {
+            return binaryName;
+        }
+        String element = binaryName.substring(1);
+        String elementName = switch (element.charAt(0)) {
+            case '[' -> javaName(element);
+            case 'L' -> element.substring(1, element.length() - 1);
+            case 'Z' -> "boolean";
+            case 'B' -> "byte";
+            case 'C' -> "char";
+            case 'S' -> "short";
+            case 'I' -> "int";
+            case 'J' -> "long";
+            case 'F' -> "float";
+            case 'D' -> "double";
+            default -> element;
+        };
+        return elementName + "[]";
     }
 
     /** A member of the origin class; {@code parameter} when the dependency starts at one of its parameters. */

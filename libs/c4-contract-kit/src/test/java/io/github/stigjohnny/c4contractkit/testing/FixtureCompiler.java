@@ -2,8 +2,6 @@ package io.github.stigjohnny.c4contractkit.testing;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,7 +13,6 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -51,9 +48,14 @@ public final class FixtureCompiler {
         return compile("-g:none", Optional.empty(), sources);
     }
 
+    /** Compiles against the classes in {@code classRoot}, which stay out of the result. */
+    public static Path compileAgainst(Path classRoot, FixtureSource... sources) {
+        return compile("-g:source,lines", Optional.of(classRoot), sources);
+    }
+
     /** Compiles against classes of the test class path, found as the class root that holds {@code someClass}. */
     public static Path compileAgainstTestClassesOf(String someClass, FixtureSource... sources) {
-        return compile("-g:source,lines", Optional.of(classRootOf(someClass)), sources);
+        return compile("-g:source,lines", Optional.of(ClassRoots.of(someClass)), sources);
     }
 
     private static Path compile(String debugOption, Optional<Path> classPath, FixtureSource... sources) {
@@ -62,19 +64,6 @@ public final class FixtureCompiler {
                 .map(source -> source.path() + "\n" + source.code())
                 .collect(Collectors.joining("\n\u0000\n")));
         return COMPILED.computeIfAbsent(key, _ -> compileInto(WORK.resolve(key), debugOption, classPath, sorted));
-    }
-
-    /** The directory on the test class path that holds the class file of {@code className}. */
-    private static Path classRootOf(String className) {
-        String resource = className.replace('.', '/') + ".class";
-        URL url = Objects.requireNonNull(ClassLoader.getSystemResource(resource), resource);
-        try {
-            Path classFile = Path.of(url.toURI());
-            return classFile.getRoot().resolve(classFile.subpath(0,
-                    classFile.getNameCount() - Path.of(resource).getNameCount()));
-        } catch (URISyntaxException e) {
-            throw new IllegalStateException(e);
-        }
     }
 
     private static Path compileInto(Path directory, String debugOption, Optional<Path> classPath,

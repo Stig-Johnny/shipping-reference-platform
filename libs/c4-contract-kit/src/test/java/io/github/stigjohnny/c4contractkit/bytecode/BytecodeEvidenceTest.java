@@ -504,6 +504,57 @@ class BytecodeEvidenceTest {
     }
 
     @Test
+    void arrayTypesAreWrittenAsInJavaEvenInTheSignaturesOfCalledMethods() {
+        FixtureSource arrays = new FixtureSource("fx/app/a/Arrays.java", """
+                package fx.app.a;
+
+                import fx.app.b.Target;
+
+                public class Arrays {
+                    boolean all(boolean[] a, byte[] b, char[] c, short[] d, int[] e, long[] f, float[] g, double[] h,
+                                Target[][] i) {
+                        return java.nio.file.Files.exists(java.nio.file.Path.of("x")); // L:exists
+                    }
+                }
+                """);
+
+        assertThat(imported(arrays, "fx.app.a.Arrays").references()).contains(reference("fx.app.a.Arrays",
+                "all(boolean[],byte[],char[],short[],int[],long[],float[],double[],fx.app.b.Target[][])",
+                "java.nio.file.Files", "exists(java.nio.file.Path,java.nio.file.LinkOption[])", METHOD_CALL,
+                arrays.lineOf("L:exists")));
+    }
+
+    @Test
+    void anArrayOfAClassOutsideTheRootsStillReferencesItsElementType() {
+        Path targets = compile();
+        FixtureSource shelf = new FixtureSource("fx/app/a/Shelf.java", """
+                package fx.app.a;
+
+                import fx.app.b.Target;
+
+                public class Shelf {
+                    Target[] targets;
+
+                    Object copy(Target[][] grid) {
+                        return grid.clone(); // L:clone
+                    }
+                }
+                """);
+
+        List<CodeReference> references = ClassRootImporter.importRoots(
+                        List.of(FixtureCompiler.compileAgainst(targets, shelf))).stream()
+                .flatMap(imported -> imported.references().stream())
+                .filter(reference -> reference.targetClass().startsWith("fx.app.b."))
+                .toList();
+
+        assertThat(references).containsExactly(
+                reference("fx.app.a.Shelf", "copy(fx.app.b.Target[][])", "fx.app.b.Target", "", PARAMETER_TYPE, 0),
+                reference("fx.app.a.Shelf", "copy(fx.app.b.Target[][])", "fx.app.b.Target", "clone()", METHOD_CALL,
+                        shelf.lineOf("L:clone")),
+                reference("fx.app.a.Shelf", "targets", "fx.app.b.Target", "", FIELD_TYPE, 0));
+    }
+
+    @Test
     void classesAndReferencesAreSortedAndTheOrderOfRootsDoesNotMatter() {
         Path targets = compile();
         Path origins = FixtureCompiler.compile(INITIALISER);
