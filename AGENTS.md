@@ -97,13 +97,14 @@ reports and `CHANGELOG.md` (release-please). Change the source and regenerate.
 
 ## Commands
 
-Placeholders until the build bootstrap pull request provides them; `README.md` has the current list.
+The commands that exist today. The others arrive with their code; until then, say in the pull request what you ran.
 
 | Purpose | Command |
 |---|---|
-| All Java checks | `<java-check>` |
-| Web checks | `<web-check>` |
-| Contract and end-to-end tests | `<contract-e2e>` |
+| Dependency allowlist (the JDK alone) | `java tools/policy/PolicyCheck.java .` |
+| All Java checks | `./gradlew check` |
+| Web checks | not built yet |
+| Contract and end-to-end tests | not built yet |
 | Mutation tests on changed code | `<mutation>` |
-| Brain and docs check | `<docs-brain>` |
-| Risk level of the current branch | `<risk-level>` |
+| Brain and docs check | not built yet |
+| Risk level of the current branch | not built yet: state the level and why in the pull request |
