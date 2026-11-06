@@ -9,15 +9,16 @@ import java.util.List;
  */
 public final class ModelException extends RuntimeException {
 
+    /** Version 2 serializes the problems; a version 1 stream, which had none, is rejected. */
     @Serial
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
-    /** Not serialized: the message carries the same problems. */
-    private final transient List<String> problems;
+    /** An array, so that the problems are serialized with the exception; {@link #problems()} copies it. */
+    private final String[] problems;
 
     ModelException(String modelPath, List<String> problems) {
         super(message(modelPath, problems));
-        this.problems = List.copyOf(problems);
+        this.problems = problems.toArray(String[]::new);
     }
 
     /**
@@ -30,7 +31,7 @@ public final class ModelException extends RuntimeException {
      * @return the problems, never empty
      */
     public List<String> problems() {
-        return problems;
+        return List.of(problems);
     }
 
     private static String message(String modelPath, List<String> problems) {

@@ -2,6 +2,7 @@ package io.github.stigjohnny.c4contractkit.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.assertj.core.api.InstanceOfAssertFactories.STRING;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
@@ -9,6 +10,7 @@ import com.structurizr.dsl.Features;
 import com.structurizr.dsl.StructurizrDslParser;
 import io.github.stigjohnny.c4contractkit.api.Conformance;
 import io.github.stigjohnny.c4contractkit.api.ModelException;
+import io.github.stigjohnny.c4contractkit.testing.Serialization;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -481,6 +483,19 @@ class RestrictedDslParserTest {
                         "orders -> db" + IMPLIED,
                         "views: theme 'https://127.0.0.1:9/theme.json' is not supported: themes are fetched by "
                                 + "renderers"));
+    }
+
+    @Test
+    void theProblemsSurviveSerialization(@TempDir Path dir) throws Exception {
+        Path model = write(dir, "workspace {\n    model {\n    }\n}\n");
+        InvalidModelException thrown =
+                catchThrowableOfType(InvalidModelException.class, () -> ContractModelReader.read(model, "workspace.dsl"));
+
+        InvalidModelException copy = Serialization.roundTrip(thrown, InvalidModelException.class);
+
+        assertThat(copy.problems()).containsExactly("model: no container has contract.root; exactly one must");
+        assertThat(copy).hasMessage(thrown.getMessage());
+        assertThatThrownBy(() -> copy.problems().set(0, "changed")).isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
