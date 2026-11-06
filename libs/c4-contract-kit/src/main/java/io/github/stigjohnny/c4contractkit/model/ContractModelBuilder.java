@@ -14,7 +14,8 @@ import javax.lang.model.SourceVersion;
 
 /**
  * Validates a parsed workspace against the model rules of libs/c4-contract-kit/AGENTS.md and builds the
- * {@link ContractModel}. It collects every problem before it fails.
+ * {@link ContractModel}. It adds its problems to those the parser found and fails once, listing them all. Without the
+ * one checked container it skips only the checks that need it.
  *
  * <p>Implied relationships are disabled: a model in which the parser created one is rejected. Every relationship the
  * parser created, implied or not, is checked for misplaced contract properties.
@@ -23,18 +24,19 @@ final class ContractModelBuilder {
 
     private final Model model;
     private final ElementNames names;
-    private final Problems problems = new Problems();
+    private final Problems problems;
 
-    ContractModelBuilder(ParsedModel parsed) {
+    ContractModelBuilder(ParsedModel parsed, Problems problems) {
         this.model = parsed.workspace().getModel();
         this.names = new ElementNames(parsed.identifiers());
+        this.problems = problems;
     }
 
     ContractModel build() throws InvalidModelException {
-        CheckedContainer checked = checkedContainer();
         List<Relationship> parsed = List.copyOf(model.getRelationships());
-        new PropertyPlacement(checked, names, problems).check(model.getElements(), parsed);
         rejectImpliedRelationships(parsed);
+        CheckedContainer checked = checkedContainer();
+        new PropertyPlacement(checked, names, problems).check(model.getElements(), parsed);
 
         // The checked container has contract.root; the default is never used.
         String root = Objects.requireNonNullElse(checked.container().getProperties().get(ROOT), "");
@@ -77,11 +79,11 @@ final class ContractModelBuilder {
                 .filter(container -> container.getProperties().containsKey(ROOT))
                 .toList();
         if (containers.isEmpty()) {
-            throw new InvalidModelException(List.of("model: no container has contract.root; exactly one must"));
+            throw problems.fatal("model", "no container has contract.root; exactly one must");
         }
         if (containers.size() > 1) {
-            throw new InvalidModelException(List.of(containers.stream().map(names::of).sorted()
-                    .collect(Collectors.joining(", ")) + ": more than one container has contract.root; exactly one may"));
+            throw problems.fatal(containers.stream().map(names::of).sorted().collect(Collectors.joining(", ")),
+                    "more than one container has contract.root; exactly one may");
         }
         Container container = containers.get(0);
         return new CheckedContainer(container, names.of(container));

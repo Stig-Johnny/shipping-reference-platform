@@ -17,6 +17,8 @@ public final class ContractModelReader {
      * @throws InvalidModelException listing every problem, when the model cannot be parsed or breaks a rule
      */
     public static ContractModel read(Path dsl, String displayPath) throws InvalidModelException {
-        return new ContractModelBuilder(RestrictedDslParser.parse(dsl, displayPath)).build();
+        Problems problems = new Problems();
+        ParsedModel parsed = RestrictedDslParser.parse(dsl, displayPath, problems);
+        return new ContractModelBuilder(parsed, problems).build();
     }
 }

@@ -20,7 +20,8 @@ import java.util.Objects;
  * no file system access beyond the model file itself, no HTTP or HTTPS, no {@code !include}, no plugins, no scripts, no
  * component finder, no documentation and no decision import. It never allows a URL on the parser's HTTP client and
  * never uses the deprecated restricted mode. What the parser accepts but the kit must not (image views and themes,
- * which renderers fetch later, and unresolved {@code ${NAME}} references) is rejected after parsing.
+ * which renderers fetch later, and unresolved {@code ${NAME}} references) is a model problem, found after parsing and
+ * reported with the model's other problems.
  */
 final class RestrictedDslParser {
 
@@ -39,25 +40,32 @@ final class RestrictedDslParser {
         return parser;
     }
 
-    /** Parses one model file; problems name the file by {@code displayPath}, never by its absolute path. */
-    static ParsedModel parse(Path dsl, String displayPath) throws InvalidModelException {
+    /**
+     * Parses one model file and adds what the parser kept but the kit rejects to {@code problems}, so that the model
+     * checks can add theirs before anything fails. Problems name the file by {@code displayPath}, never by its
+     * absolute path.
+     *
+     * @throws InvalidModelException at once when there is no workspace to check: the file is missing or not UTF-8,
+     *     the parser stopped at an error (it stops at its first), or the file defines no workspace
+     */
+    static ParsedModel parse(Path dsl, String displayPath, Problems problems) throws InvalidModelException {
         if (!Files.isRegularFile(dsl)) {
-            throw new InvalidModelException(List.of(displayPath + ": the model file does not exist"));
+            throw problems.fatal(displayPath, "the model file does not exist");
         }
-        List<String> lines = lines(dsl, displayPath);
+        List<String> lines = lines(dsl, displayPath, problems);
         StructurizrDslParser parser = newParser();
         File file = dsl.toFile();
         try {
             parser.parse(file);
         } catch (StructurizrDslParserException e) {
             String message = Objects.requireNonNullElse(e.getMessage(), "the DSL could not be parsed");
-            throw new InvalidModelException(List.of(message.replace(file.getAbsolutePath(), displayPath)));
+            throw problems.fatal(message.replace(file.getAbsolutePath(), displayPath));
         }
         Workspace workspace = parser.getWorkspace();
         if (workspace == null) {
-            throw new InvalidModelException(List.of(displayPath + ": the file defines no workspace"));
+            throw problems.fatal(displayPath, "the file defines no workspace");
         }
-        rejectWhatTheParserKept(workspace, lines, displayPath);
+        rejectWhatTheParserKept(workspace, lines, displayPath, problems);
         return new ParsedModel(workspace, parser.getIdentifiersRegister());
     }
 
@@ -66,9 +74,8 @@ final class RestrictedDslParser {
      * {@code ${NAME}} references the parser left as text because nothing defines them and environment variables are
      * off. A rejected construct is a model problem, never a silent pass.
      */
-    private static void rejectWhatTheParserKept(Workspace workspace, List<String> lines, String displayPath)
-            throws InvalidModelException {
-        Problems problems = new Problems();
+    private static void rejectWhatTheParserKept(Workspace workspace, List<String> lines, String displayPath,
+            Problems problems) {
         for (ImageView view : workspace.getViews().getImageViews()) {
             problems.add("views", "image view '" + view.getKey()
                     + "' is not supported: image views make renderers fetch content");
@@ -77,15 +84,14 @@ final class RestrictedDslParser {
             problems.add("views", "theme '" + theme + "' is not supported: themes are fetched by renderers");
         }
         UnresolvedReferences.check(lines, displayPath, problems);
-        problems.throwIfAny();
     }
 
     /** The model's lines, which the parser reads as UTF-8 too. */
-    private static List<String> lines(Path dsl, String displayPath) throws InvalidModelException {
+    private static List<String> lines(Path dsl, String displayPath, Problems problems) throws InvalidModelException {
         try {
             return Files.readAllLines(dsl, StandardCharsets.UTF_8);
         } catch (IOException e) {
-            throw new InvalidModelException(List.of(displayPath + ": the model file is not readable UTF-8: " + e));
+            throw problems.fatal(displayPath, "the model file is not readable UTF-8: " + e);
         }
     }
 }

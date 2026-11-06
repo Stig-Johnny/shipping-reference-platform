@@ -419,7 +419,7 @@ class RestrictedDslParserTest {
     void parsingAValidModelCreatesNoImpliedRelationship(@TempDir Path dir) throws Exception {
         Path model = write(dir, VALID.replace("// MODEL", OTHER_CONTAINER));
 
-        ParsedModel parsed = RestrictedDslParser.parse(model, "workspace.dsl");
+        ParsedModel parsed = RestrictedDslParser.parse(model, "workspace.dsl", new Problems());
 
         assertThat(parsed.workspace().getModel().getRelationships())
                 .extracting(relationship -> relationship.getSource().getName() + " -> "
@@ -443,7 +443,7 @@ class RestrictedDslParserTest {
                 }
                 """));
 
-        ParsedModel parsed = RestrictedDslParser.parse(model, "workspace.dsl");
+        ParsedModel parsed = RestrictedDslParser.parse(model, "workspace.dsl", new Problems());
 
         assertThat(parsed.workspace().getModel().getRelationships())
                 .filteredOn(relationship -> relationship.getLinkedRelationshipId() != null)
@@ -451,6 +451,36 @@ class RestrictedDslParserTest {
                         + relationship.getSource().getName() + " -> " + relationship.getDestination().getName())
                 .containsExactly("ContainerInstance App -> Database");
         assertThat(ContractModelReader.read(model, "workspace.dsl").components()).hasSize(1);
+    }
+
+    @Test
+    void anUnresolvedReferenceAndABrokenModelRuleAreReportedTogether(@TempDir Path dir) throws IOException {
+        String dsl = VALID
+                .replace("orders = component \"Orders\"", "orders = component \"Orders\" \"Reads ${HOME}\"")
+                .replace("\"contract.id\" \"orders\"", "");
+
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly("orders: contract.id is missing", unresolved(dsl, "HOME")));
+    }
+
+    @Test
+    void withoutTheCheckedContainerOnlyTheChecksThatNeedItAreSkipped(@TempDir Path dir) throws IOException {
+        // No contract.root, a theme, and implied relationships left on.
+        String dsl = VALID
+                .replace("!impliedRelationships false\n", "")
+                .replace("\"contract.root\" \"fx.shop\"", "")
+                .replace("// MODEL", OTHER_CONTAINER)
+                .replace("// VIEWS", "theme https://127.0.0.1:9/theme.json");
+
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems()).containsExactly(
+                        "app -> db" + IMPLIED,
+                        "app -> tables" + IMPLIED,
+                        "model: no container has contract.root; exactly one must",
+                        "orders -> db" + IMPLIED,
+                        "views: theme 'https://127.0.0.1:9/theme.json' is not supported: themes are fetched by "
+                                + "renderers"));
     }
 
     @Test

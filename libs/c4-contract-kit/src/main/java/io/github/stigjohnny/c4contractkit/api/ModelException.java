@@ -23,7 +23,9 @@ public final class ModelException extends RuntimeException {
     /**
      * Every problem found, sorted. Each problem starts with the elements it concerns, by DSL identifier where the model
      * gives one (for example {@code "quotes: contract.status is missing"} or
-     * {@code "quotes -> tenants: contract.mode 'MUST' is neither REQUIRED nor PERMITTED"}).
+     * {@code "quotes -> tenants: contract.mode 'MUST' is neither REQUIRED nor PERMITTED"}), or with its place in the
+     * model file. The parser itself stops at the first line it rejects, and that problem, worded by the parser, names
+     * the line.
      *
      * @return the problems, never empty
      */
