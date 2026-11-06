@@ -45,7 +45,8 @@ The parser runs with all ten Structurizr features off, as
 [its review](../../security/reviews/maven--structurizr-dsl--6.2.4.md) requires: `!include`, `!script`, `!plugin`,
 `!docs`, `!adrs`, `!decisions`, `!components`, `workspace extends`, plugin classes for `!impliedRelationships`, files
 and URLs are rejected, and so are image views and themes. Environment variables are never read: a `${NAME}` that no
-`!const` or `!var` of the model defines is a model problem. Implied relationships never count, whatever the file
+`!const` or `!var` defines before it, anywhere in the file outside comments (the workspace, an element, a group, a
+view, a style or the configuration), is a model problem located by its line. The model file must be UTF-8. Implied relationships never count, whatever the file
 says. Any other `contract.*` property, or one on the wrong kind of element, is a model problem, so a misspelt
 `contract.mode` cannot turn a `REQUIRED` relationship into a `PERMITTED` one.
 

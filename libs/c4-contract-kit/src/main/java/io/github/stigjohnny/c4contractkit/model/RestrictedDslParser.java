@@ -4,22 +4,14 @@ import com.structurizr.Workspace;
 import com.structurizr.dsl.Features;
 import com.structurizr.dsl.StructurizrDslParser;
 import com.structurizr.dsl.StructurizrDslParserException;
-import com.structurizr.model.Component;
-import com.structurizr.model.Container;
-import com.structurizr.model.DeploymentNode;
-import com.structurizr.model.Element;
-import com.structurizr.model.InfrastructureNode;
-import com.structurizr.model.ModelItem;
-import com.structurizr.model.Relationship;
 import com.structurizr.view.ImageView;
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 /**
  * The one place that creates a {@link StructurizrDslParser} (security/reviews/maven--structurizr-dsl--6.2.4.md).
@@ -31,8 +23,6 @@ import java.util.stream.Stream;
  * which renderers fetch later, and unresolved {@code ${NAME}} references) is rejected after parsing.
  */
 final class RestrictedDslParser {
-
-    private static final Pattern UNRESOLVED = Pattern.compile("\\$\\{([^}]*)}");
 
     static final List<String> DISABLED_FEATURES = List.of(Features.ENVIRONMENT, Features.FILE_SYSTEM, Features.HTTP,
             Features.HTTPS, Features.INCLUDE, Features.PLUGINS, Features.SCRIPTS, Features.COMPONENT_FINDER,
@@ -54,6 +44,7 @@ final class RestrictedDslParser {
         if (!Files.isRegularFile(dsl)) {
             throw new InvalidModelException(List.of(displayPath + ": the model file does not exist"));
         }
+        List<String> lines = lines(dsl, displayPath);
         StructurizrDslParser parser = newParser();
         File file = dsl.toFile();
         try {
@@ -66,16 +57,17 @@ final class RestrictedDslParser {
         if (workspace == null) {
             throw new InvalidModelException(List.of(displayPath + ": the file defines no workspace"));
         }
-        rejectWhatTheParserKept(workspace, new ElementNames(parser.getIdentifiersRegister()));
+        rejectWhatTheParserKept(workspace, lines, displayPath);
         return new ParsedModel(workspace, parser.getIdentifiersRegister());
     }
 
     /**
      * Rejects what the parser accepts but the kit must not: image views and themes, which renderers fetch, and
-     * {@code ${NAME}} references the parser left as text because no constant defines them and environment
-     * variables are off. A rejected construct is a model problem, never a silent pass.
+     * {@code ${NAME}} references the parser left as text because nothing defines them and environment variables are
+     * off. A rejected construct is a model problem, never a silent pass.
      */
-    private static void rejectWhatTheParserKept(Workspace workspace, ElementNames names) throws InvalidModelException {
+    private static void rejectWhatTheParserKept(Workspace workspace, List<String> lines, String displayPath)
+            throws InvalidModelException {
         Problems problems = new Problems();
         for (ImageView view : workspace.getViews().getImageViews()) {
             problems.add("views", "image view '" + view.getKey()
@@ -84,44 +76,16 @@ final class RestrictedDslParser {
         for (String theme : workspace.getViews().getConfiguration().getThemes()) {
             problems.add("views", "theme '" + theme + "' is not supported: themes are fetched by renderers");
         }
-        for (Element element : workspace.getModel().getElements()) {
-            rejectUnresolvedReferences(names.of(element), texts(element), problems);
-        }
-        for (Relationship relationship : workspace.getModel().getRelationships()) {
-            rejectUnresolvedReferences(names.of(relationship), texts(relationship), problems);
-        }
+        UnresolvedReferences.check(lines, displayPath, problems);
         problems.throwIfAny();
     }
 
-    private static void rejectUnresolvedReferences(String name, Stream<String> texts, Problems problems) {
-        texts.filter(Objects::nonNull).forEach(text -> {
-            Matcher reference = UNRESOLVED.matcher(text);
-            while (reference.find()) {
-                problems.add(name, reference.group() + " is not substituted: environment variables are not read, "
-                        + "and the model defines no constant " + reference.group(1));
-            }
-        });
-    }
-
-    private static Stream<String> texts(Element element) {
-        String technology = switch (element) {
-            case Container container -> container.getTechnology();
-            case Component component -> component.getTechnology();
-            case DeploymentNode node -> node.getTechnology();
-            case InfrastructureNode node -> node.getTechnology();
-            default -> "";
-        };
-        return Stream.concat(Stream.of(element.getName(), element.getDescription(), technology),
-                texts((ModelItem) element));
-    }
-
-    private static Stream<String> texts(Relationship relationship) {
-        return Stream.concat(Stream.of(relationship.getDescription(), relationship.getTechnology()),
-                texts((ModelItem) relationship));
-    }
-
-    private static Stream<String> texts(ModelItem item) {
-        return Stream.concat(Stream.of(item.getTags(), item.getUrl()), item.getProperties().entrySet().stream()
-                .flatMap(property -> Stream.of(property.getKey(), property.getValue())));
+    /** The model's lines, which the parser reads as UTF-8 too. */
+    private static List<String> lines(Path dsl, String displayPath) throws InvalidModelException {
+        try {
+            return Files.readAllLines(dsl, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new InvalidModelException(List.of(displayPath + ": the model file is not readable UTF-8: " + e));
+        }
     }
 }

@@ -198,26 +198,50 @@ class RestrictedDslParserTest {
     void environmentVariablesAreNeitherSubstitutedNorIgnored(@TempDir Path dir) throws IOException {
         String value = System.getenv("PATH");
         assertThat(value).as("the test needs PATH in its environment").isNotBlank();
-        Path model = write(dir, VALID.replace("orders = component \"Orders\"",
-                "orders = component \"Orders\" \"Reads ${PATH} and ${HOME}.\""));
+        String dsl = VALID.replace("orders = component \"Orders\"",
+                "orders = component \"Orders\" \"Reads ${PATH} and ${HOME}.\"");
+        Path model = write(dir, dsl);
 
         assertThatThrownBy(() -> Conformance.check(model, List.of()))
                 .isInstanceOfSatisfying(ModelException.class, e -> {
-                    assertThat(e.problems()).containsExactly(
-                            "orders: ${HOME} is not substituted: environment variables are not read, and the model "
-                                    + "defines no constant HOME",
-                            "orders: ${PATH} is not substituted: environment variables are not read, and the model "
-                                    + "defines no constant PATH");
+                    assertThat(e.problems()).satisfiesExactly(
+                            problem -> assertThat(problem).endsWith("workspace.dsl:" + lineOf(dsl, "${HOME}")
+                                    + ": ${HOME} is not substituted: environment variables are not read, and no "
+                                    + "!const or !var defines HOME before this line"),
+                            problem -> assertThat(problem).endsWith("workspace.dsl:" + lineOf(dsl, "${PATH}")
+                                    + ": ${PATH} is not substituted: environment variables are not read, and no "
+                                    + "!const or !var defines PATH before this line"));
                     assertThat(e.getMessage()).doesNotContain(value);
                 });
     }
 
     @Test
-    void anUnresolvedReferenceAnywhereInTheModelIsAProblem(@TempDir Path dir) throws IOException {
-        Path model = write(dir, VALID
-                .replace("app = container \"App\" {", "app = container \"App\" \"\" \"${TECH}\" \"${TAG}\" {")
-                .replace("\"contract.root\" \"fx.shop\"", "\"contract.root\" \"fx.shop\"\n \"${KEY}\" \"${VALUE}\"")
-                .replace("// MODEL", """
+    void anUnresolvedReferenceAnywhereInTheFileIsAProblem(@TempDir Path dir) throws IOException {
+        String dsl = """
+                workspace "${WORKSPACE_NAME}" "${WORKSPACE_DESCRIPTION}" {
+                    !identifiers flat
+                    !impliedRelationships false
+                    properties {
+                        "owner" "${WORKSPACE_PROPERTY}"
+                    }
+                    model {
+                        shop = softwareSystem "Shop" {
+                            app = container "App" "" "${TECH}" "${TAG}" {
+                                properties {
+                                    "contract.root" "fx.shop"
+                                    "${KEY}" "${VALUE}"
+                                }
+                                group "${GROUP}" {
+                                    orders = component "Orders" {
+                                        properties {
+                                            "contract.id" "orders"
+                                            "contract.packages" "fx.shop.orders"
+                                            "contract.status" "built"
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         clerk = person "Clerk"
                         clerk -> app "Uses ${RELATIONSHIP}" "${PROTOCOL}" {
                             properties {
@@ -228,14 +252,109 @@ class RestrictedDslParserTest {
                             server = deploymentNode "Server" "" "${OS}" {
                                 gateway = infrastructureNode "Gateway" "" "${PROXY}"
                             }
-                        }"""));
+                        }
+                    }
+                    views {
+                        component app "Components" "${VIEW_DESCRIPTION}" {
+                            title "${VIEW_TITLE}"
+                            include *
+                            properties {
+                                "shown" "${VIEW_PROPERTY}"
+                            }
+                        }
+                        properties {
+                            "set" "${VIEWS_PROPERTY}"
+                        }
+                        terminology {
+                            person "${TERM}"
+                        }
+                    }
+                }
+                """;
 
-        assertThatThrownBy(() -> Conformance.check(model, List.of()))
-                .isInstanceOfSatisfying(ModelException.class, e -> assertThat(e.problems())
-                        .extracting(problem -> problem.substring(0, problem.indexOf(" is not substituted")))
-                        .containsExactly("app: ${KEY}", "app: ${TAG}", "app: ${TECH}", "app: ${VALUE}",
-                                "clerk -> app: ${NOTE}", "clerk -> app: ${PROTOCOL}", "clerk -> app: ${RELATIONSHIP}",
-                                "gateway: ${PROXY}", "server: ${OS}"));
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactlyInAnyOrderElementsOf(Stream.of("WORKSPACE_NAME", "WORKSPACE_DESCRIPTION",
+                                        "WORKSPACE_PROPERTY", "TECH", "TAG", "KEY", "VALUE", "GROUP", "RELATIONSHIP",
+                                        "PROTOCOL", "NOTE", "OS", "PROXY", "VIEW_DESCRIPTION", "VIEW_TITLE",
+                                        "VIEW_PROPERTY", "VIEWS_PROPERTY", "TERM")
+                                .map(name -> unresolved(dsl, name))
+                                .toList()));
+    }
+
+    @Test
+    void aReferenceBeforeTheConstantThatDefinesItIsAProblem(@TempDir Path dir) throws IOException {
+        String dsl = VALID
+                .replace("orders = component \"Orders\"", "orders = component \"${NAME}\"")
+                .replace("// MODEL", "!const NAME \"Orders\"");
+
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(unresolved(dsl, "NAME")));
+    }
+
+    @Test
+    void referencesInCommentsDoNotCount(@TempDir Path dir) throws Exception {
+        String dsl = VALID.replace("// MODEL", """
+                // ${LINE_COMMENT}
+                # ${HASH_COMMENT}
+                /* ${ONE_LINE_BLOCK} */
+                /* ${BLOCK_START}
+                   ${BLOCK_INSIDE}
+                   ${BLOCK_END} */""");
+
+        ContractModel model = ContractModelReader.read(write(dir, dsl), "workspace.dsl");
+
+        assertThat(model.components()).extracting(ContractComponent::id).containsExactly("orders");
+    }
+
+    @Test
+    void aReferenceInATextBlockCountsEvenOnALineThatLooksLikeAComment(@TempDir Path dir) throws IOException {
+        String dsl = VALID.replace("orders = component \"Orders\" {", """
+                orders = component "Orders" {
+                    description ""\"
+                # Orders, from ${TEXT_BLOCK}
+                ""\"
+                """);
+
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(unresolved(dsl, "TEXT_BLOCK")));
+    }
+
+    @Test
+    void aByteOrderMarkDoesNotHideACommentOnTheFirstLine(@TempDir Path dir) throws Exception {
+        String dsl = "\uFEFF// ${COMMENTED}\n" + VALID;
+
+        ContractModel model = ContractModelReader.read(write(dir, dsl), "workspace.dsl");
+
+        assertThat(model.components()).extracting(ContractComponent::id).containsExactly("orders");
+    }
+
+    @Test
+    void aModelFileThatIsNotUtf8IsAProblem(@TempDir Path dir) throws IOException {
+        Path model = Files.write(dir.resolve("workspace.dsl"), new byte[] {'w', 'o', (byte) 0xFF, 'r', 'k'});
+
+        assertThatThrownBy(() -> ContractModelReader.read(model, "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .singleElement(STRING)
+                        .startsWith("workspace.dsl: the model file is not readable UTF-8: "));
+    }
+
+    /** The problem for a ${name} that nothing defines, at the only line of the model that contains it. */
+    private static String unresolved(String dsl, String name) {
+        return "workspace.dsl:" + lineOf(dsl, "${" + name + "}") + ": ${" + name + "} is not substituted: environment "
+                + "variables are not read, and no !const or !var defines " + name + " before this line";
+    }
+
+    private static int lineOf(String text, String fragment) {
+        List<String> lines = text.lines().toList();
+        List<Integer> found = java.util.stream.IntStream.range(0, lines.size())
+                .filter(index -> lines.get(index).contains(fragment))
+                .mapToObj(index -> index + 1)
+                .toList();
+        assertThat(found).as("lines with %s", fragment).hasSize(1);
+        return found.get(0);
     }
 
     @Test
