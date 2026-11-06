@@ -74,8 +74,9 @@ SnakeYAML Engine 3.2.
   them. Every output contains `Generated—do not hand-edit`, and generated Markdown under `docs/` starts with the
   required frontmatter. Their `updated` date is the newest `updated` date of the hand-written documents, so that two
   generations are byte-identical.
-- `:tools:docs:checkGenerated`, part of `check`, regenerates in memory and fails on any byte difference, and on a
-  stale file in a generated directory. Before generating, the tool fails on missing or invalid frontmatter; an ADR
+- `:tools:docs:checkGenerated`, part of `check`, regenerates in memory and fails on any byte difference, and on any
+  file or link in `docs/architecture/` or `docs/brain/` that the tool did not generate: both directories are
+  generated-only, whole. Before generating, the tool fails on missing or invalid frontmatter; an ADR
   that breaks the numbering, lacks a required field or section, or names in `enforcedBy` a test class that does not
   exist; a mention of an ADR that does not exist; a module document whose `moduleStatus` disagrees with the model;
   a link to a file or an anchor that does not exist; a capability marked `shipped` or `partial` whose evidence tests
