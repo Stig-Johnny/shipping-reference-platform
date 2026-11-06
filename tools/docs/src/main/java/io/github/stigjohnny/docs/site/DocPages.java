@@ -15,8 +15,14 @@ final class DocPages {
 
     static SitePage of(SiteContext context, DocFile doc, SiteSection section, String navLabel, String extraBody,
             List<Capability> capabilities) {
+        return of(context, doc, section, navLabel, extraBody, capabilities, doc.body());
+    }
+
+    /** A page from a document whose Markdown the site has adapted, such as a flow with its dynamic view. */
+    static SitePage of(SiteContext context, DocFile doc, SiteSection section, String navLabel, String extraBody,
+            List<Capability> capabilities, String markdown) {
         String page = context.map().site(doc.path()).orElseThrow(() -> SiteContext.missing("a page for " + doc.path()));
-        RenderedMarkdown rendered = context.render(doc.body(), doc.path(), page, true);
+        RenderedMarkdown rendered = context.render(markdown, doc.path(), page, true);
         return new SitePage(page, doc.title(), navLabel, section, doc.description(),
                 new StatusPanel(Statuses.design(doc), Statuses.implementation(capabilities),
                         Statuses.evidence(capabilities, context.sources().evidence())),

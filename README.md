@@ -43,6 +43,16 @@ flowchart LR
     L -- 3 --> O[Owner approves current head] --> G
 ```
 
+The workflow in the diagram, in order:
+
+1. An issue states the change.
+2. The model or the contract changes first.
+3. Failing tests describe the new behaviour.
+4. Code and documentation change until the tests pass.
+5. The checks run; when one fails, the change goes back to step 4.
+6. An AI review is recorded.
+7. The risk level decides: levels 0 to 2 merge; level 3 merges only after the owner approves the current head.
+
 ## The product in one paragraph
 
 A shipping clerk of a webshop (a tenant) enters a parcel and a route and gets comparable offers priced by a

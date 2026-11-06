@@ -85,7 +85,7 @@ public final class ViewText {
         if (diagram.nodes().stream().anyMatch(n -> n.label().endsWith("(planned)"))) {
             legend.add("\"(planned)\" marks an element that has no code yet.");
         }
-        legend.add("Each line is labelled with its number in the relationships table below and, where it has one, its "
+        legend.add("Each line is labelled with its number in the view's relationships table and, where it has one, its "
                 + "mode.");
         if (arrows.contains(Arrow.REQUIRED)) {
             legend.add("A thick line is a REQUIRED dependency between modules. The planned conformance check will "

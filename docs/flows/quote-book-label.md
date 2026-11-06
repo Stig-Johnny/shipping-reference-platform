@@ -67,7 +67,7 @@ sequenceDiagram
 
 ## Steps and planned acceptance tests
 
-| Step (diagram numbers) | What must hold | Planned acceptance test |
+| Step (sequence numbers) | What must hold | Planned acceptance test |
 |---|---|---|
 | 1 to 4: sign in as a synthetic user | A valid demo token resolves to exactly one membership; tenant hints cannot override membership; unknown body members are rejected; unknown token `401`, user without tenant `403`. | `DemoTokenAuthenticationTest`, `TenantsHttpContractTest` |
 | 5 to 6: submit the parcel form | The form sends a contract-valid `QuoteRequest`; invalid input is labelled before sending. | `ParcelForm.test.tsx` |

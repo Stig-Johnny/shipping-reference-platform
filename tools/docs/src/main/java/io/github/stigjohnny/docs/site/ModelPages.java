@@ -1,5 +1,6 @@
 package io.github.stigjohnny.docs.site;
 
+import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.Html;
 import io.github.stigjohnny.docs.generate.ViewText;
 import io.github.stigjohnny.docs.mermaid.MermaidDiagram;
@@ -12,6 +13,7 @@ import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.Sources;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -34,20 +36,97 @@ final class ModelPages {
             pages.add(view(context, context.sources().workspace().model().view(diagram.viewKey()), diagram));
         }
         for (DocFile flow : context.sources().docsUnder("docs/flows/")) {
-            List<Capability> capabilities = new ArrayList<>();
-            flow.frontmatter().strings("modules").forEach(m -> capabilities.addAll(
-                    context.sources().capabilities().ofModule(m)));
-            SitePage page = DocPages.of(context, flow, SiteSection.MODEL, flow.title(), "", capabilities);
-            List<SitePage.Related> related = new ArrayList<>(page.related());
-            for (C4View view : context.sources().workspace().model().views()) {
-                if (view.description().contains(flow.path())) {
-                    related.addFirst(new SitePage.Related(viewPage(view), ViewNames.title(view)));
-                }
-            }
-            pages.add(new SitePage(page.path(), page.title(), page.navLabel(), page.section(), page.summary(),
-                    page.status(), page.contents(), page.body(), related, page.source(), false));
+            pages.add(flow(context, flow));
         }
         return pages;
+    }
+
+    /**
+     * A flow's page: its document, with the generated, validated diagram of its dynamic view drawn under "Dynamic
+     * view" in place of the hand-written sequence's heading. The hand-written sequence stays an unrendered source;
+     * Mermaid draws only definitions the adapter generated.
+     */
+    private static SitePage flow(SiteContext context, DocFile flow) {
+        List<Capability> capabilities = new ArrayList<>();
+        flow.frontmatter().strings("modules").forEach(m -> capabilities.addAll(
+                context.sources().capabilities().ofModule(m)));
+        C4Model model = context.sources().workspace().model();
+        Optional<C4View> dynamic = model.views().stream()
+                .filter(v -> v.kind() == C4View.Kind.DYNAMIC && v.description().contains(flow.path())).findFirst();
+        String page = context.map().site(flow.path()).orElseThrow();
+        SitePage doc;
+        if (dynamic.isPresent()) {
+            C4View view = dynamic.get();
+            MermaidDiagram diagram = context.diagrams().stream().filter(d -> d.viewKey().equals(view.key()))
+                    .findFirst().orElseThrow();
+            SitePage rendered = DocPages.of(context, flow, SiteSection.MODEL, flow.title(), "", capabilities,
+                    withDynamicView(flow.body()));
+            String marker = "<p>" + FIGURE_MARKER + "</p>\n";
+            if (rendered.body().indexOf(marker) != rendered.body().lastIndexOf(marker)
+                    || !rendered.body().contains(marker)) {
+                throw new DocsException(flow.path() + ": the dynamic view's place cannot be found");
+            }
+            String figure = figure(view, diagram, model, "The view's page lists its elements and relationships: "
+                    + SiteContext.link(page, viewPage(view), ViewNames.title(view)) + ". The step numbers in the "
+                    + "tables below follow the sequence source, which has more steps than this view.");
+            context.map().anchor(page, "dynamic-view");
+            doc = new SitePage(rendered.path(), rendered.title(), rendered.navLabel(), rendered.section(),
+                    rendered.summary(), rendered.status(), rendered.contents(), rendered.body().replace(marker, figure),
+                    rendered.related(), rendered.source(), true);
+        } else {
+            doc = DocPages.of(context, flow, SiteSection.MODEL, flow.title(), "", capabilities);
+        }
+        List<SitePage.Related> related = new ArrayList<>(doc.related());
+        for (C4View view : model.views()) {
+            if (view.description().contains(flow.path())) {
+                related.addFirst(new SitePage.Related(viewPage(view), ViewNames.title(view)));
+            }
+        }
+        return new SitePage(doc.path(), doc.title(), doc.navLabel(), doc.section(), doc.summary(), doc.status(),
+                doc.contents(), doc.body(), related, doc.source(), doc.diagrams());
+    }
+
+    private static final String FIGURE_MARKER = "SITEDYNAMICVIEWFIGURE";
+
+    /** The flow's Markdown with a "Dynamic view" section in place of its "Sequence" heading, or before its first one. */
+    static String withDynamicView(String markdown) {
+        String section = "## Dynamic view\n\n" + FIGURE_MARKER + "\n";
+        List<String> lines = new ArrayList<>(markdown.lines().toList());
+        int sequence = lines.indexOf("## Sequence");
+        if (sequence >= 0) {
+            lines.set(sequence, section);
+        } else {
+            int first = 0;
+            while (first < lines.size() && !lines.get(first).startsWith("## ")) {
+                first++;
+            }
+            lines.add(first, section);
+        }
+        return String.join("\n", lines) + "\n";
+    }
+
+    /**
+     * The diagram template: a white panel that can be enlarged from the keyboard, the generated definition that the
+     * site's script draws, the notes for a reader without the script, and the legend right below; {@code captionTail}
+     * says where the text equivalent is.
+     */
+    static String figure(C4View view, MermaidDiagram diagram, C4Model model, String captionTail) {
+        String slug = ViewNames.slug(view);
+        String figure = "figure-" + slug;
+        return "<figure class=\"diagram\" id=\"" + figure + "\">\n"
+                + "<div class=\"diagram-toolbar\"><button type=\"button\" class=\"button\" data-enlarge=\"" + figure
+                + "\" aria-pressed=\"false\" hidden>Enlarge diagram</button></div>\n"
+                + "<div class=\"diagram-scroll\" role=\"region\" tabindex=\"0\" aria-label=\""
+                + Html.escape("Diagram: " + ViewNames.title(view) + ". Scrolls when enlarged.") + "\">\n"
+                + "<pre class=\"diagram-source\" data-diagram=\"" + slug + "\">" + Html.escape(diagram.definition())
+                + "</pre>\n</div>\n"
+                + "<noscript><p class=\"diagram-note\">A script draws this diagram. Without it you see the diagram's "
+                + "source, and the tables list the same elements and relationships.</p></noscript>\n"
+                + "<p class=\"diagram-note diagram-failed\" hidden>The diagram could not be drawn here. The tables list "
+                + "the same elements and relationships.</p>\n"
+                + "<figcaption class=\"diagram-caption\">\n<p><strong>Legend.</strong> "
+                + Html.escape(String.join(" ", ViewText.legend(diagram, model))) + "</p>\n"
+                + "<p>" + captionTail + "</p>\n</figcaption>\n</figure>\n";
     }
 
     static String viewPage(C4View view) {
@@ -85,28 +164,13 @@ final class ModelPages {
         Sources sources = context.sources();
         C4Model model = sources.workspace().model();
         String page = viewPage(view);
-        String slug = ViewNames.slug(view);
         String title = ViewNames.title(view);
-        String figure = "figure-" + slug;
         StringBuilder body = new StringBuilder();
         body.append("<p class=\"prose\">").append(Html.escape(ViewNames.kind(view) + " of the "
                 + (view.scopeName().isEmpty() ? "workspace" : view.scopeName()) + ". In the model this view is "))
                 .append("<code>").append(Html.escape(view.key())).append("</code>.</p>\n")
-                .append("<figure class=\"diagram\" id=\"").append(figure).append("\">\n")
-                .append("<div class=\"diagram-toolbar\"><button type=\"button\" class=\"button\" data-enlarge=\"")
-                .append(figure).append("\" aria-pressed=\"false\" hidden>Enlarge diagram</button></div>\n")
-                .append("<div class=\"diagram-scroll\" role=\"region\" tabindex=\"0\" aria-label=\"")
-                .append(Html.escape("Diagram: " + title + ". Scrolls when enlarged.")).append("\">\n")
-                .append("<pre class=\"diagram-source\" data-diagram=\"").append(slug).append("\">")
-                .append(Html.escape(diagram.definition())).append("</pre>\n</div>\n")
-                .append("<noscript><p class=\"diagram-note\">A script draws this diagram. Without it you see the "
-                        + "diagram's source; the tables below list the same elements and relationships.</p></noscript>\n")
-                .append("<p class=\"diagram-note diagram-failed\" hidden>The diagram could not be drawn here. The "
-                        + "tables below list the same elements and relationships.</p>\n")
-                .append("<figcaption class=\"diagram-caption\">\n<p><strong>Legend.</strong> ");
-        body.append(Html.escape(String.join(" ", ViewText.legend(diagram, model)))).append("</p>\n")
-                .append("<p>The tables below list every element and relationship of the view.</p>\n")
-                .append("</figcaption>\n</figure>\n");
+                .append(figure(view, diagram, model, "The tables below list every element and relationship of the "
+                        + "view."));
         body.append("<h2 id=\"elements\">Elements</h2>\n");
         List<ViewText.ElementRow> elements = ViewText.elements(view, model, sources.elementStatus());
         HtmlTable table = HtmlTable.of("Elements of the view (" + elements.size() + ")", "Elements of " + title

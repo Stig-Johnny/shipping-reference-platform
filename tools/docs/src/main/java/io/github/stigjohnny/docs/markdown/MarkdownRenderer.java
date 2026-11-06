@@ -57,6 +57,18 @@ public final class MarkdownRenderer {
     /** Deepest nesting of Markdown nodes that is rendered (real documents stay under 12). */
     public static final int MAX_DEPTH = 64;
 
+    /** What a hand-written diagram is, from its first line, for the label of its closed source. */
+    private static String sourceLabel(FencedCodeBlock code) {
+        String first = code.getLiteral().strip().lines().findFirst().orElse("").strip();
+        if (first.startsWith("sequenceDiagram")) {
+            return "Sequence source";
+        }
+        if (first.startsWith("stateDiagram")) {
+            return "State diagram source";
+        }
+        return first.startsWith("flowchart") || first.startsWith("graph") ? "Workflow source" : "Diagram source";
+    }
+
     private static final List<Extension> EXTENSIONS = List.of(TablesExtension.create());
     private static final Parser PARSER = Parser.builder().extensions(EXTENSIONS).build();
     private static final HtmlRenderer RENDERER = HtmlRenderer.builder().extensions(EXTENSIONS).escapeHtml(true)
@@ -109,8 +121,9 @@ public final class MarkdownRenderer {
                                 .append("</div>\n");
                     }
                     case FencedCodeBlock code when "mermaid".equals(code.getInfo().strip()) -> html
-                            .append("<details class=\"diagram-source-block\">\n<summary>Diagram source (Mermaid). "
-                                    + "GitHub draws this diagram; the text around it says the same.</summary>\n")
+                            .append("<details class=\"diagram-source-block\">\n<summary>").append(sourceLabel(code))
+                            .append(" \u2014 not rendered</summary>\n<p class=\"diagram-note\">GitHub draws this "
+                                    + "diagram from its source; the text on this page says the same.</p>\n")
                             .append(RENDERER.render(code)).append("</details>\n");
                     default -> html.append(RENDERER.render(block));
                 }

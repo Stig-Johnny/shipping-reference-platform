@@ -98,13 +98,14 @@ SnakeYAML Engine 3.2.
 - A link in a document to a file the site does not publish becomes plain text, and a link to the repository on
   GitHub is not published. A link to a missing file or anchor fails the build. Two builds from the same sources and
   revision are byte-identical.
-- The four diagram pages draw their view with Mermaid 11.17.2, the reviewed, unmodified `dist/mermaid.min.js`,
-  vendored at `tools/docs/vendor/mermaid/11.17.2/`. The build copies it only after its SHA-256 matches the
-  allowlist, and serves it from the site's own origin. The site's script initialises Mermaid once, with
-  `securityLevel: 'strict'` and no HTML labels, and draws only the definitions the adapter generated. Those pages
-  carry a Content-Security-Policy that allows scripts only from the site; every other page allows no third-party
-  script at all and does not load Mermaid. Each diagram has its elements and relationships as tables, so nothing is
-  only in the picture.
+- The four view pages, and the flow page with the dynamic view of its flow, draw their diagram with Mermaid 11.17.2,
+  the reviewed, unmodified `dist/mermaid.min.js`, vendored at `tools/docs/vendor/mermaid/11.17.2/`. The build copies
+  it only after its SHA-256 matches the allowlist, and serves it from the site's own origin. The site's script
+  initialises Mermaid once, with `securityLevel: 'strict'` and no HTML labels, and draws only the definitions the
+  adapter generated. Those pages carry a Content-Security-Policy that allows scripts only from the site; every other
+  page allows no third-party script at all and does not load Mermaid. Each diagram has its elements and relationships
+  as tables, so nothing is only in the picture. Hand-written Mermaid in a document, such as a flow's sequence, is
+  shown as closed, unrendered source.
 - Before the site is published, `:tools:docs:scanSite` reads it as data, every file, and fails on: private keys and
   the token shapes of GitHub, AWS, Slack, Discord, Google, Stripe, npm and JWTs; a bearer credential, a URL with a
   password and a quoted secret assignment; a link to the repository on GitHub; an absolute path into a macOS, Linux

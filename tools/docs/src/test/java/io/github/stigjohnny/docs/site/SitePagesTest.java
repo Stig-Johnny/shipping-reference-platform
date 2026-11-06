@@ -227,11 +227,46 @@ class SitePagesTest {
     }
 
     @Test
-    void handWrittenMermaidIsShownAsSourceNotRendered() {
+    void handWrittenMermaidIsShownAsClosedSourceAndNeverRendered() {
+        String flow = site.text("model/flow-quote-book-label.html");
+        String repository = site.text("start/repository.html");
+
+        assertThat(flow).contains("<details class=\"diagram-source-block\">\n<summary>Sequence source \u2014 not "
+                + "rendered</summary>", "sequenceDiagram");
+        assertThat(count(flow, "class=\"diagram-source\"")).isEqualTo(1);
+        assertThat(repository).contains("<details class=\"diagram-source-block\">\n<summary>Workflow source \u2014 "
+                + "not rendered</summary>").doesNotContain("class=\"diagram-source\"", "mermaid.min.js\"");
+        assertThat(site.text("modules/shipments.html")).contains("<summary>State diagram source \u2014 not rendered"
+                + "</summary>").doesNotContain("class=\"diagram-source\"", "mermaid.min.js\"");
+        assertThat(flow + repository).doesNotContain("<details class=\"diagram-source-block\" open");
+    }
+
+    @Test
+    void theFlowPageDrawsTheGeneratedDynamicViewBeforeItsStepTables() {
         String flow = site.text("model/flow-quote-book-label.html");
 
-        assertThat(flow).contains("<details class=\"diagram-source-block\">", "sequenceDiagram")
-                .doesNotContain("class=\"diagram-source\"", "mermaid.min.js\"");
+        int heading = flow.indexOf("<h2 id=\"dynamic-view\">Dynamic view</h2>");
+        int figure = flow.indexOf("<pre class=\"diagram-source\" data-diagram=\"quote-book-label\">flowchart LR");
+        int source = flow.indexOf("<summary>Sequence source");
+        int steps = flow.indexOf("<h2 id=\"steps-and-planned-acceptance-tests\">");
+        assertThat(List.of(heading, figure, source, steps)).doesNotContain(-1).isSorted();
+        assertThat(flow).contains("The step numbers in the tables below follow the sequence source",
+                "<th>Step (sequence numbers)</th>", "its number in the view&#39;s relationships table");
+        assertThat(flow).doesNotContain("<h2 id=\"sequence\">").contains("Enlarge diagram",
+                "<script src=\"../assets/mermaid/11.17.2/mermaid.min.js\" defer></script>",
+                "href=\"quote-book-label.html\"");
+    }
+
+    @Test
+    void theRepositoryPageDescribesTheWorkflowInOrder() {
+        String repository = site.text("start/repository.html");
+
+        assertThat(repository).contains("<li>An issue states the change.</li>",
+                "<li>The risk level decides: levels 0 to 2 merge; level 3 merges only after the owner approves the "
+                        + "current head.</li>");
+        assertThat(repository.indexOf("<li>An issue states the change.</li>"))
+                .isGreaterThan(repository.indexOf("Workflow source"));
+        assertThat(site.text("trust/third-party-notices.html")).contains("five diagram pages");
     }
 
     private static int count(String text, String part) {

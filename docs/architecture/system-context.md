@@ -39,7 +39,7 @@ The same definition is in [system-context.mmd](system-context.mmd).
 
 - Each box is an element of the model: its name, its C4 type in brackets and, in parentheses, its implementation status.
 - "(planned)" marks an element that has no code yet.
-- Each line is labelled with its number in the relationships table below and, where it has one, its mode.
+- Each line is labelled with its number in the view's relationships table and, where it has one, its mode.
 - A dotted line labelled planned is a relationship that does not exist yet.
 - A solid thin line is a relationship of people, systems or containers, which module conformance does not cover.
 - Arrows point from the element that depends on the other.

@@ -144,8 +144,11 @@ class MarkdownRendererTest {
         String html = MarkdownRenderer.render("```mermaid\nflowchart LR\n    a-->b\n```\n", "docs/x.md", KEEP_ALL,
                 false).html();
 
-        assertThat(html).contains("<details class=\"diagram-source-block\">", "a--&gt;b")
-                .doesNotContain("class=\"diagram-source\"");
+        assertThat(html).contains("<details class=\"diagram-source-block\">\n<summary>Workflow source \u2014 not "
+                + "rendered</summary>", "a--&gt;b").doesNotContain("class=\"diagram-source\"", "<details class="
+                + "\"diagram-source-block\" open");
+        assertThat(MarkdownRenderer.render("```mermaid\nsequenceDiagram\n    a->>b: x\n```\n", "docs/x.md",
+                KEEP_ALL, false).html()).contains("<summary>Sequence source \u2014 not rendered</summary>");
     }
 
     @Test
