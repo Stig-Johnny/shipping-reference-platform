@@ -25,8 +25,9 @@ void theCodeConformsToTheModel() {
 
 - `Conformance.check(model, productionClassRoots)` parses the model in restricted mode, reads the class files without
   loading them, and compares. It throws `ModelException` listing every model problem, each starting with the DSL
-  identifiers of the elements it concerns, and `IllegalArgumentException` for a class root that is not a directory.
-  Class roots are directories of class files, such as `build/classes/java/main`, in any order.
+  identifiers of the elements it concerns, `IllegalArgumentException` for a class root that is not a directory, and
+  `IllegalStateException` when an `archunit.*` system property would make the import load or resolve classes (see
+  below). Class roots are directories of class files, such as `build/classes/java/main`, in any order.
 - `ConformanceAssertions.assertConforms(report, directory)` always writes `report.json` and `report.md`, then throws an
   `AssertionError` listing the violations if there are any.
 - `Report` holds the components (`ComponentResult`), every edge (`EdgeResult`: mode `REQUIRED`, `PERMITTED` or
@@ -52,7 +53,11 @@ Details the specification leaves open, decided here:
 - `package-info` declares a package, not a class. Its annotations count as references, but it never makes a
   component non-empty, a planned component built, or a class unmapped.
 - References come exactly from ArchUnit's direct dependencies of each class. An array type counts as its element
-  type. Missing classes are never resolved from the class path, so the result depends only on the class roots.
+  type. Missing classes are never resolved from the class path and no ArchUnit class resolver is used, so the
+  result depends only on the class roots. The import switches off a class resolver or class-path resolution that
+  `archunit.properties` sets; it refuses to run when an `archunit.classResolver` or
+  `archunit.resolveMissingDependenciesFromClassPath=true` system property sets one, since a system property overrides
+  any local setting.
 - A package root must lie strictly below `contract.root`; no two package roots in the model may overlap, also not
   within one component.
 

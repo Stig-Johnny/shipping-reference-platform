@@ -28,6 +28,8 @@ public final class Conformance {
      * @return what the comparison found; {@link Report#passed()} tells whether the classes conform
      * @throws ModelException listing every model problem, when the model is invalid or uses a rejected construct
      * @throws IllegalArgumentException if a class root is not a directory
+     * @throws IllegalStateException if an {@code archunit.*} system property sets a class resolver or resolution from
+     *     the class path, which the import would have to obey
      */
     public static Report check(Path model, List<Path> productionClassRoots) {
         String modelPath = displayPath(model);
