@@ -54,14 +54,16 @@ and URLs are rejected, and so are image views and themes. Environment variables 
 view, a style or the configuration), is a model problem located by its line. The file is read as the parser reads
 it: a line that ends in a backslash continues on the next one, and a text block is text, so a `!const` inside one
 defines nothing; nor does a `!const` line in a `properties` or `perspectives` block, which the parser reads as a
-property or a perspective. After parsing, a `${NAME}` left in any text that the parsed workspace holds (every
-element, relationship and view, deployment environments and groups, styles, terminology, users; `ParsedStrings`
-lists the places) is a problem too, named by its element or view: that check backs up the reading of the file. The
-model file must be UTF-8. Implied relationships are disabled: the DSL creates them unless the file says
-`!impliedRelationships false`, and a model in which the parser created one is a model problem (a deployment
-instance's copy of its container's relationship is not implied). Any other `contract.*` property, or one on the wrong
-kind of element or relationship, is a model problem, so a misspelt `contract.mode` cannot turn a `REQUIRED`
-relationship into a `PERMITTED` one.
+property or a perspective. The check opens such a block at every line that starts with `properties` or
+`perspectives`, so an element with one of those identifiers cannot start a relationship line in a checked model
+(rename it; [`docs/gaps.md`](../../docs/gaps.md), section 5). After parsing, a `${NAME}` left in any text that the
+parsed workspace holds (every element, relationship and view, deployment environments and groups, styles,
+terminology, users; `ParsedStrings` lists the places) is a problem too, named by its element or view: that check
+backs up the reading of the file. The model file must be UTF-8. Implied relationships are disabled: the DSL creates
+them unless the file says `!impliedRelationships false`, and a model in which the parser created one is a model
+problem (a deployment instance's copy of its container's relationship is not implied). Any other `contract.*`
+property, or one on the wrong kind of element or relationship, is a model problem, so a misspelt `contract.mode`
+cannot turn a `REQUIRED` relationship into a `PERMITTED` one.
 
 Details the specification leaves open, decided here:
 

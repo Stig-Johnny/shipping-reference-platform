@@ -596,7 +596,6 @@ class RestrictedDslParserTest {
                             description "${INSIDE}"
                         }
                         perspective "Looks" "like an opener, but has no brace"
-                        "Braced" "value" "{"
                         !const HIDDEN x
                     }
                     properties {
@@ -612,11 +611,87 @@ class RestrictedDslParserTest {
                         .containsExactly(unresolved(dsl, "HIDDEN"), unresolved(dsl, "PROPERTY")));
     }
 
+    /** Lines that start with properties and look like relationships, where StructurizrDslParser opens the block. */
+    static Stream<Arguments> relationshipShapedLinesThatOpenAPropertiesBlock() {
+        return Stream.of(
+                // The workspace has no relationships, so the line opens the workspace's properties.
+                arguments("-> at workspace scope", "// WORKSPACE", "properties -> ignored {"),
+                // No archetype is named missing, so this is no relationship but the model's properties.
+                arguments("an unknown archetype in the model", "// MODEL", "properties --missing-> app {"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("relationshipShapedLinesThatOpenAPropertiesBlock")
+    void aDefinitionInAPropertiesBlockOpenedByARelationshipShapedLineDefinesNothing(String input, String slot,
+            String opener, @TempDir Path dir) throws IOException {
+        // !const HIDDEN is a property. The constant that holds ${HIDDEN} is never used, so the reference reaches no
+        // parsed string, and only the source scan can see it.
+        String dsl = VALID.replace(slot, opener + """
+
+                    !const HIDDEN
+                }
+                !const UNUSED "${HIDDEN}"
+                """);
+
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(unresolved(dsl, "HIDDEN")));
+    }
+
+    @Test
+    void aLineOfDataThatEndsWithABraceKeepsTheScanInTheBlockAKnownFalseRejection(@TempDir Path dir)
+            throws Exception {
+        // A known limitation, safe by design (docs/gaps.md, section 5): the scan counts the perspective whose value
+        // is a brace as a nested block, so it reads the block's closing brace as closing that, and !const AFTER as
+        // data. Structurizr substitutes ${AFTER}; the check rejects it.
+        String dsl = VALID.replace("orders = component \"Orders\" {", """
+                orders = component "Orders" {
+                    perspectives {
+                        "Braced" "value" "{"
+                        !const HIDDEN x
+                    }
+                    !const AFTER "y"
+                    description "${HIDDEN} ${AFTER}"
+                """);
+
+        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("${HIDDEN} y");
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(unresolved(dsl, "AFTER"), unresolved(dsl, "HIDDEN")));
+    }
+
+    @Test
+    void aBraceInsideABlockThatTheScanTakesForDataCannotCloseItEarly(@TempDir Path dir) throws IOException {
+        // The scan opens a properties block at the relationship below, which StructurizrDslParser does not. The
+        // braces of the blocks after it belong to the parser's blocks; were the first closing brace to end the
+        // scan's block, the scan would read the !const in the perspectives block as a directive, which the parser
+        // reads as a perspective.
+        String dsl = VALID.replace("// MODEL", """
+                properties = person "Named like the keyword"
+                properties -> app "Uses"
+                other = person "Other" {
+                    perspectives {
+                        perspective "Inner" {
+                            description "d"
+                        }
+                        !const HIDDEN x
+                    }
+                }
+                !const UNUSED "${HIDDEN}"
+                """);
+
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(unresolved(dsl, "HIDDEN")));
+    }
+
     @ParameterizedTest(name = "{0}")
     @org.junit.jupiter.params.provider.ValueSource(strings = {"properties", "perspectives"})
-    void aRelationshipFromAnElementNamedLikeABlockKeywordOpensNoBlock(String identifier, @TempDir Path dir)
-            throws Exception {
-        // StructurizrDslParser reads "<identifier> -> app" as a relationship before it looks for the keyword.
+    void aRelationshipFromAnElementNamedLikeABlockKeywordIsAKnownFalseRejection(String identifier,
+            @TempDir Path dir) throws Exception {
+        // A known limitation (docs/gaps.md, section 5), safe by design: the scan does not follow scopes, so it reads
+        // this relationship as the start of a block and the !const after it as data. Structurizr substitutes ${OK};
+        // the check rejects it. Renaming the identifier avoids it.
         String dsl = VALID.replace("// MODEL", """
                 %1$s = person "Named like the keyword"
                 %1$s -> app "Uses"
@@ -625,7 +700,9 @@ class RestrictedDslParserTest {
                 """.formatted(identifier));
 
         assertThat(parsedElement(dir, dsl, "Reader").getDescription()).isEqualTo("Reads yes");
-        assertThat(ContractModelReader.read(write(dir, dsl), "workspace.dsl").components()).hasSize(1);
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(unresolved(dsl, "OK")));
     }
 
     @Test
