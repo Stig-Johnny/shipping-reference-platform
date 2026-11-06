@@ -3,8 +3,10 @@
  *
  * <p>{@link io.github.stigjohnny.c4contractkit.api.Conformance#check Conformance.check} parses the model in a
  * restricted mode, reads the class files without loading them, and compares the classes' direct static dependencies
- * with the relationships between the model's components, in both directions. This is the only package meant for
- * callers; every other package of the library is internal.
+ * with the relationships between the model's components, in both directions.
+ * {@link io.github.stigjohnny.c4contractkit.api.ConformanceAssertions#assertConforms
+ * ConformanceAssertions.assertConforms} writes the deterministic reports and then fails a test on any violation.
+ * This is the only package meant for callers; every other package of the library is internal.
  */
 @NullMarked
 package io.github.stigjohnny.c4contractkit.api;

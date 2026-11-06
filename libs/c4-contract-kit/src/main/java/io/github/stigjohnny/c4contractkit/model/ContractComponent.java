@@ -18,6 +18,6 @@ public record ContractComponent(String id, String name, ComponentStatus status, 
 
     /** Whether a class in {@code packageName} belongs to this component: a root equals it or is a prefix plus ".". */
     public boolean owns(String packageName) {
-        return packages.stream().anyMatch(root -> packageName.equals(root) || packageName.startsWith(root + "."));
+        return packages.stream().anyMatch(root -> ContractProperties.contains(root, packageName));
     }
 }
