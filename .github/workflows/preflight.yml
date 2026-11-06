@@ -1,0 +1,59 @@
+# preflight: the dependency allowlist gate (docs/adr/0007).
+#
+# It runs from the BASE branch (pull_request_target), so a pull request cannot change the checker that judges it. The
+# pull request is checked out as data only: nothing from it is executed here. The JDK is the reviewed Temurin archive,
+# staged by the base branch's script and checked against the allowlist before use.
+name: preflight
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preflight-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    name: preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Refuse pull requests from forks
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "::error::Pull requests from forks are not checked here; fork code is never checked out under pull_request_target."
+          exit 1
+
+      - name: Check out the trusted checker (base branch)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+
+      - name: Check out the pull request as data (never executed)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+
+      - name: Stage the reviewed JDK
+        id: jdk
+        run: base/tools/ci/stage-temurin.sh "$RUNNER_TEMP/jdk"
+
+      - name: Install the staged JDK
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0, reviewed
+        with:
+          distribution: jdkfile
+          jdk-file: ${{ steps.jdk.outputs.jdk-file }}
+          java-version: '25.0.5'
+          architecture: x64
+          token: ''
+
+      - name: Check the pull request against the allowlist
+        run: java base/tools/policy/PolicyCheck.java pr | tee -a "$GITHUB_STEP_SUMMARY"

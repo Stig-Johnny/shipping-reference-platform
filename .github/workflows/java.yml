@@ -1,0 +1,70 @@
+# java: build and test with the reviewed toolchain. Every dependency resolves from the lockfiles and is checked against
+# gradle/verification-metadata.xml; CI never writes either of them. GRADLE_USER_HOME starts empty on every run, because
+# the wrapper checks the distribution's SHA-256 only when it downloads it.
+name: java
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: java-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  java:
+    name: java
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
+        with:
+          persist-credentials: false
+
+      - name: Stage the reviewed JDK
+        id: jdk
+        run: tools/ci/stage-temurin.sh "$RUNNER_TEMP/jdk"
+
+      - name: Install the staged JDK
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0, reviewed
+        with:
+          distribution: jdkfile
+          jdk-file: ${{ steps.jdk.outputs.jdk-file }}
+          java-version: '25.0.5'
+          architecture: x64
+          token: ''
+
+      - name: Verify the Gradle wrapper before running it
+        run: echo "3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  gradle/wrapper/gradle-wrapper.jar" | sha256sum --check --strict
+
+      - name: Build and test
+        env:
+          GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
+          TESTCONTAINERS_RYUK_DISABLED: 'true'
+        run: ./gradlew --no-daemon --console=plain check
+
+      - name: Refuse symbolic links in the reports
+        if: always()
+        run: |
+          if find libs apps -path '*/build/reports/*' -type l 2>/dev/null | grep -q .; then
+            echo "::error::A report directory contains a symbolic link; refusing to upload."
+            exit 1
+          fi
+
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2, reviewed
+        with:
+          name: java-reports
+          path: |
+            libs/*/build/reports/
+            apps/*/build/reports/
+          include-hidden-files: false
+          archive: true
+          overwrite: false
+          retention-days: 14
+          if-no-files-found: ignore
