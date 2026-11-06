@@ -129,10 +129,12 @@ public final class Fixture {
         return this;
     }
 
-    /** Passing reports for the evidence the repository's capabilities name today. */
+    /** Passing reports for the evidence the repository's capabilities name today, as the build would write them. */
     public Fixture passingEvidence() {
         return report("io.github.stigjohnny.docs.generate.BrainGeneratorTest", 7, 0, 0, 0)
-                .report("io.github.stigjohnny.docs.check.BrainCheckTest", 19, 0, 0, 0);
+                .report("io.github.stigjohnny.docs.check.BrainCheckTest", 19, 0, 0, 0)
+                .report("io.github.stigjohnny.docs.scan.PublicationScannerTest", 80, 0, 0, 0)
+                .report("io.github.stigjohnny.docs.PagesWorkflowTest", 10, 0, 0, 0);
     }
 
     private static void copy(Path from, Path to) throws IOException {

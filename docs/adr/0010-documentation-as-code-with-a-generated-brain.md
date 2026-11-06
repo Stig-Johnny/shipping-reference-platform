@@ -8,7 +8,7 @@ decision-makers: repository owner
 enforcedBy:
   - "java: :tools:docs:checkGenerated, part of check (BrainGeneratorTest, BrainCheckTest)"
   - "java: :tools:docs:site, part of check (SiteBuilderTest, SitePagesTest, SiteAccessibilityTest, SiteAssetsTest)"
-  - "scanSite: :tools:docs:scanSite reads the built site before it is published (PublicationScannerTest, DocsToolTest)"
+  - "pages: the build job of .github/workflows/pages.yml scans the site before every upload (PublicationScannerTest, DocsToolTest, PagesWorkflowTest)"
 plannedEnforcement:
   - "a check that a pull request changing a module's code or tests also changes a document that names the module"
 ---
@@ -104,6 +104,16 @@ documentation alone; the Java tool reuses libraries that were already reviewed f
   exceptions, in `tools/docs/publication-scan-exceptions.json`, are exact (the file, the rule and the SHA-256 of
   the value) and exist only for the documented public demo tokens; one that no longer matches fails the scan. Its
   summary binds the result to the digest of the site's files and to the source revision.
+- The owner decided on 2026-11-06 to publish the site on GitHub Pages, at
+  <https://stig-johnny.github.io/shipping-reference-platform/>. The repository goes public too (ADR 0008); until it
+  does, the site is the public's only view of it. `.github/workflows/pages.yml` runs for `main` only, one run at a
+  time. Its build job runs in the `github-pages` environment, whose secret is the dictionary, and may only read the
+  repository. It checks the commit against the allowlist before any of its code runs, verifies the Gradle wrapper,
+  runs `:tools:docs:check` and `:tools:docs:site`, and then `:tools:docs:scanSite` in a step of its own, the only one
+  that receives the dictionary. It re-checks Mermaid's SHA-256 in the site, refuses symbolic links, hard links and
+  hidden files there, and only then uploads the site directory. The deploy job has one step, `actions/deploy-pages`,
+  and the workflow's only write permissions, `pages: write` and `id-token: write`. Every action runs at the full SHA
+  its review approved; `actions/configure-pages` is not used, because the site's links are relative.
 
 ### Consequences
 
@@ -117,6 +127,8 @@ documentation alone; the Java tool reuses libraries that were already reviewed f
 - Bad, because the generator is this repository's own code, with its own tests to keep up.
 - Bad, because the site serves one third-party file, Mermaid's bundle of about 3.5 MB, which runs in readers'
   browsers. Its review conditions are met in code and tested, and its notices are published with the site.
+- Bad, because a public site can disclose what the scan does not know: a paraphrase, a name missing from the
+  dictionary, a detail that only a reader recognises. A person still reads every public page that changes.
 - Neutral, because evidence is read from JUnit reports, so only Java tests count as passing so far; TypeScript test
   names stay acceptance targets until the web build writes reports.
 
@@ -139,6 +151,10 @@ documentation alone; the Java tool reuses libraries that were already reviewed f
   zero-width characters, failing closed without a dictionary, exact and stale exceptions, links and unreadable
   files, the digest and the revision in the summary, and no value or term in any output) and `DocsToolTest` (the
   scan command, and exit codes for errors, `StackOverflowError` included, and for timeouts).
+- `PagesWorkflowTest`: who may run the publishing workflow, each job's permissions, the dictionary in the scan step
+  only, the build job's order (check before use, build, scan, re-check, guard, upload) and the four reviewed actions
+  by full SHA. After the first deployment, a person checks that its log shows the OIDC token masked, as the
+  deploy-pages review requires.
 - The review conditions on the tool's libraries: `SafeYamlTest`, `RestrictedStructurizrTest`, `WorkspacesTest`,
   `MermaidValidatorTest`, `MermaidAdapterTest`, `MarkdownRendererTest`, `SiteUrlSanitizerTest` and
   `ReviewConditionsTest`.
@@ -148,4 +164,7 @@ documentation alone; the Java tool reuses libraries that were already reviewed f
 - Capabilities: `docs/capabilities/capabilities.yaml`; gaps: `docs/gaps.md`.
 - The tool's dependency reviews: `security/reviews/maven--docs-tool-scope-extension.md`,
   `maven--snakeyaml-engine--3.2.md` and `maven--docs-tool-test-scope-extension.md`; Mermaid's:
-  `security/reviews/vendored-js--mermaid--11.17.2.md`.
+  `security/reviews/vendored-js--mermaid--11.17.2.md`; the Pages actions':
+  `github-action--actions-upload-pages-artifact--5.0.0.md`, `github-action--actions-upload-artifact--7.0.0.md` and
+  `github-action--actions-deploy-pages--5.0.1.md`.
+- The site: <https://stig-johnny.github.io/shipping-reference-platform/>.

@@ -9,8 +9,9 @@ synthetic and the carrier is simulated.
 reviewed toolchain and the enforced dependency allowlist are here. Application code is not written yet: every product
 capability in `docs/capabilities/capabilities.yaml` is `planned`, and that file is the source of truth for status and
 evidence. The table below marks each control **enforced** (it runs and can fail today) or **planned**. `tools/docs`
-generates the C4 view pages, `BRAIN.md` and a static documentation site from the specification; its own control,
-`control.brain-check`, is enforced.
+generates the C4 view pages, `BRAIN.md` and a static documentation site from the specification. Its own controls,
+`control.brain-check` and `control.publication-scan` (the scan of the site before each upload), are enforced. The
+site is published from `main` at <https://stig-johnny.github.io/shipping-reference-platform/>.
 
 ## The idea
 
@@ -78,6 +79,7 @@ data, enforced in queries and by forced PostgreSQL row-level security.
 | AI review record | No AI review with findings and dispositions is recorded for the final commit. | AI reviewers being wrong. | `ai-review` | planned |
 | Web behaviour and accessibility | Quote, book and label fail in a real browser against the real API; axe-core finds violations; import cycles or boundary breaks. | Accessibility problems that automated tools miss; unused frontend modules. | `web`, `contract-e2e` | planned |
 | Documentation and brain | Generated docs or `BRAIN.md` drift; budgets exceeded; a capability claims `shipped` without passing evidence; a link, anchor or ADR reference is broken; the site's Mermaid bundle differs from its review; code changed without its module document. | Whether the prose is right. | `java`: `:tools:docs:check` (`BrainGeneratorTest`, `BrainCheckTest`, `SiteBuilderTest`) | **enforced** in the required `java` check, except the module-document check, which is planned |
+| Publication scan of the public site | The built site holds a secret's shape, a link to this repository on GitHub, a local path, a private address or host name, an HTML comment or a term of the confidential dictionary; the dictionary is missing; the Mermaid bundle differs from its review; the site directory holds a link or a hidden file. | A paraphrase, a confidential term that is not in the dictionary, what a sentence means. | `pages`, build job: `:tools:docs:scanSite` before the upload (`PublicationScannerTest`, `PagesWorkflowTest`) | **enforced** on every deployment from `main`; the first run needs the `github-pages` environment and its secret |
 
 Every advertised failure requires a deliberate negative fixture; the documentation and brain control has them in
 `BrainCheckTest` and `SiteBuilderTest`. The full list of limits is in `docs/gaps.md`.

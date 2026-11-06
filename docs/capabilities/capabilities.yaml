@@ -23,7 +23,7 @@
 # A pull request that adds passing acceptance tests moves their names into `evidence` and changes the status in the
 # same commit; `:tools:docs:checkGenerated` rejects a shipped or partial status whose evidence does not exist or did
 # not pass, and never shows a planned capability as available because its package exists. Only the docs tool's own
-# control is shipped so far; every other status is planned and its evidence is "none yet".
+# controls are shipped so far; every other status is planned and its evidence is "none yet".
 
 schemaVersion: 1
 
@@ -417,4 +417,15 @@ controls:
     evidence: [BrainGeneratorTest, BrainCheckTest]
     acceptanceTests: [BrainGeneratorTest, BrainCheckTest]
     negativeFixture: A shipped capability without evidence; a hand-edited BRAIN.md.
+    docs: docs/adr/0010-documentation-as-code-with-a-generated-brain.md
+
+  - id: control.publication-scan
+    title: The public site is scanned before every upload, fails closed without its dictionary, and names only rules and files.
+    where: tools/docs, .github/workflows/pages.yml
+    check: build
+    status: shipped
+    target: v0.1
+    evidence: [PublicationScannerTest, PagesWorkflowTest]
+    acceptanceTests: [PublicationScannerTest, PagesWorkflowTest]
+    negativeFixture: One value per rule; a missing dictionary; a stale exception; a symbolic link in the site.
     docs: docs/adr/0010-documentation-as-code-with-a-generated-brain.md

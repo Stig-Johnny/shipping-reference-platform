@@ -12,7 +12,7 @@ updated: 2026-11-06
 
 A reference monorepo that shows how a Java and React product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated.
 
-**State at this commit.** 27 capabilities: 27 planned; 16 controls: 1 shipped, 15 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
+**State at this commit.** 27 capabilities: 27 planned; 17 controls: 2 shipped, 15 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
 
 ## Read first
 
@@ -59,6 +59,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | `control.risk-classification` | planned | `risk-approval` | none yet |
 | `control.mutation-testing` | planned | `mutation` | none yet |
 | `control.brain-check` | shipped | `java` | BrainGeneratorTest, BrainCheckTest |
+| `control.publication-scan` | shipped | `build` | PublicationScannerTest, PagesWorkflowTest |
 
 ## Decisions
 
@@ -73,7 +74,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | [ADR 0007: Dependency allowlist with pre-use enforcement](docs/adr/0007-dependency-allowlist-and-pre-use-enforcement.md) | accepted | preflight (required check), java (required check), tools/ci/stage-temurin.sh, GitHub Actions setting, acceptance |
 | [ADR 0008: Risk levels 0 to 3 decide who must approve a change](docs/adr/0008-risk-levels-0-to-3.md) | accepted | branch protection on main, GitHub Actions setting |
 | [ADR 0009: React workbench with a generated API client](docs/adr/0009-react-workbench-with-a-generated-client.md) | accepted | not enforced yet |
-| [ADR 0010: Documentation as code with a generated brain](docs/adr/0010-documentation-as-code-with-a-generated-brain.md) | accepted | java, scanSite |
+| [ADR 0010: Documentation as code with a generated brain](docs/adr/0010-documentation-as-code-with-a-generated-brain.md) | accepted | java, pages |
 
 ## Third-party components
 

@@ -59,7 +59,7 @@ final class BrainPage {
             context.map().anchor(PAGE, id);
         }
         List<Capability> brainControls = sources.capabilities().controls().stream()
-                .filter(c -> c.docs().equals("docs/adr/0010-documentation-as-code-with-a-generated-brain.md")).toList();
+                .filter(c -> c.id().equals("control.brain-check")).toList();
         return new SitePage(PAGE, "Project brain", "Brain", SiteSection.BRAIN, "What is shipped and what is only "
                 + "planned, with the evidence for each, then one summary per module. Generated with the site from the "
                 + "same sources as BRAIN.md, which agents read first.", new StatusPanel(
