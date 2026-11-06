@@ -14,7 +14,8 @@ closes it.
 ## 0. State of this commit
 
 - The specification, the reviewed toolchain and the dependency allowlist with its enforcement are in place, and so
-  are the docs generator's reviewed dependencies. No application or library code exists yet. Every capability in
+  are the reviewed dependencies of the docs generator and of the shipping API. No application or library code exists
+  yet. Every capability in
   `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named in the documents is
   still to be written (red first).
 - The versions in the ADRs were checked against their sources on 2026-11-06. Their combination (JDK 25, Gradle

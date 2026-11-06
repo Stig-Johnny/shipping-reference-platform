@@ -66,8 +66,8 @@ recomputes it on every run. Changing, adding or removing an entry afterwards, or
 conditions, fails the check until the owner accepts again.
 
 The first acceptance used an older digest, `entriesSha256`, over the enforced fields only. CI judges a pull request
-with the main branch's copy of the checker, so the pull request that introduced the new digest also had to satisfy the
-old one. Both are recorded until the next acceptance.
+with the main branch's copy of the checker, so the pull request that introduced the new digest (#7) had to satisfy
+the old one too, and recorded both. Earlier acceptances stay listed under `acceptance.previous`.
 
 ## Scope and project names
 
@@ -89,7 +89,15 @@ this repository yet. See `docs/gaps.md`.
 
 ## Findings worth knowing
 
-The reviews rejected 13 components. Four of them changed the design:
+The reviews rejected 15 components. Six of them changed the design:
+
+- **jackson-databind 3.1.7, the version Spring Boot 4.1.2 manages.** It is inside a critical advisory
+  (GHSA-m8xf-2cr7-77ph, CVE-2026-110879, a `PolymorphicTypeValidator` bypass). FasterXML published it on its own
+  repository on 2026-10-20. On 2026-11-06, neither GitHub's advisory database nor OSV's Maven index listed it for the
+  package, so a scanner that matches by package would have passed it. The review read the publisher's advisory list.
+  The build holds every Jackson 3 module at the patched 3.1.8.
+- **jcl-over-slf4j**, which Spring Modulith's event support still asks for. It duplicates the commons-logging classes
+  that Spring Framework 7 already routes to SLF4J, so every configuration excludes it.
 
 - **jqwik 1.10.x**, a property-testing library. Its test engine prints text addressed to AI agents into the test output
   on every run, with an option to erase it from terminals. The property tests use JUnit's own parameterized tests instead.
