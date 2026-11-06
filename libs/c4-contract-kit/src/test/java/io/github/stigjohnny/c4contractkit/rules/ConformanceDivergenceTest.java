@@ -242,23 +242,27 @@ class ConformanceDivergenceTest {
 
     @Test
     void aLocalClassOfAnIsolatedClassIsIsolatedToo() {
-        Report report = check("", new FixtureSource("fx/shop/Main.java", """
+        FixtureSource main = new FixtureSource("fx/shop/Main.java", """
                 package fx.shop;
 
                 public class Main {
                     public static void main(String[] arguments) {
                         class Startup {
-                            Object item = new fx.shop.stock.Item();
+                            Object item() {
+                                return new fx.shop.stock.Item(); // L:startup
+                            }
                         }
                         new Startup();
                     }
                 }
-                """));
+                """);
+        Report report = check("", main);
 
         assertThat(report.violations()).singleElement().satisfies(violation -> {
             assertThat(violation.type()).isEqualTo(ViolationType.ISOLATION_BREACH);
             assertThat(violation.identifiers()).containsExactly("fx.shop.Main", "stock");
-            assertThat(violation.evidence()).extracting(Evidence::originClass).containsOnly("fx.shop.Main$1Startup");
+            assertThat(violation.evidence()).containsExactly(new Evidence("fx.shop.Main$1Startup", "item()",
+                    "fx.shop.stock.Item", "<init>()", "constructor call", "Main.java", main.lineOf("L:startup")));
         });
     }
 

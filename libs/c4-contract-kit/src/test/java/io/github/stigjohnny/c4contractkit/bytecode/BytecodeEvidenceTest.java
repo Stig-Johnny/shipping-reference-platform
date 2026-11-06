@@ -296,6 +296,15 @@ class BytecodeEvidenceTest {
                         }
                     };
                 }
+
+                Object local() {
+                    class Local {
+                        int count() {
+                            return Target.counter; // L:local
+                        }
+                    }
+                    return new Local();
+                }
             }
             """);
 
@@ -444,7 +453,13 @@ class BytecodeEvidenceTest {
         List<ImportedClass> classes = ClassRootImporter.importRoots(List.of(compile(OUTER)));
 
         assertThat(classes).extracting(ImportedClass::name).filteredOn(name -> name.startsWith("fx.app.a."))
-                .containsExactly("fx.app.a.Outer", "fx.app.a.Outer$1", "fx.app.a.Outer$Inner", "fx.app.a.Outer$Nested");
+                .containsExactly("fx.app.a.Outer", "fx.app.a.Outer$1", "fx.app.a.Outer$1Local", "fx.app.a.Outer$Inner",
+                        "fx.app.a.Outer$Nested");
+        // Each nested class's references are its own; the methods that declare them reference nothing in fx.app.b.
+        assertThat(targetsOf(classes, "fx.app.a.Outer")).isEmpty();
+        assertThat(targetsOf(classes, "fx.app.a.Outer$1Local")).containsExactly(
+                reference("fx.app.a.Outer$1Local", "count()", "fx.app.b.Target", "counter", FIELD_READ,
+                        OUTER.lineOf("L:local"), "Outer.java"));
         assertThat(targetsOf(classes, "fx.app.a.Outer$Inner")).containsExactly(
                 reference("fx.app.a.Outer$Inner", "target", "fx.app.b.Target", "", FIELD_TYPE, 0, "Outer.java"));
         assertThat(targetsOf(classes, "fx.app.a.Outer$Nested")).containsExactly(
@@ -468,6 +483,7 @@ class BytecodeEvidenceTest {
                 .containsExactly(
                         tuple("fx.app.a.Outer", Optional.empty()),
                         tuple("fx.app.a.Outer$1", Optional.of("fx.app.a.Outer")),
+                        tuple("fx.app.a.Outer$1Local", Optional.of("fx.app.a.Outer")),
                         tuple("fx.app.a.Outer$Helper", Optional.empty()),
                         tuple("fx.app.a.Outer$Inner", Optional.of("fx.app.a.Outer")),
                         tuple("fx.app.a.Outer$Nested", Optional.of("fx.app.a.Outer")),
