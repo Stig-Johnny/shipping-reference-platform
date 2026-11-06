@@ -2,13 +2,16 @@ package io.github.stigjohnny.c4contractkit.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.SoftAssertions.assertSoftly;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -83,6 +86,37 @@ class ConformanceAssertionsTest {
         assertThatThrownBy(() -> ConformanceAssertions.assertConforms(PASSING, file))
                 .isInstanceOf(UncheckedIOException.class)
                 .hasMessage("The C4 contract reports could not be written to " + file);
+    }
+
+    @Test
+    void everyRecordKeepsItsOwnCopyOfTheListsItIsGiven() {
+        Evidence evidence = new Evidence("fx.orders.Order", "invoice", "fx.billing.Invoice", "", "field type",
+                "Order.java", 0);
+        List<String> packages = new ArrayList<>(List.of("fx.orders"));
+        List<Evidence> edgeEvidence = new ArrayList<>(List.of(evidence));
+        List<String> identifiers = new ArrayList<>(List.of("orders", "billing"));
+        List<Evidence> violationEvidence = new ArrayList<>(List.of(evidence));
+        ComponentResult component = new ComponentResult("orders", "Orders", ComponentStatus.BUILT, packages, 1);
+        EdgeResult edge = new EdgeResult("orders", "billing", Mode.PERMITTED, EdgeStatus.CONVERGENCE, edgeEvidence);
+        Violation violation = new Violation(ViolationType.DIVERGENCE, identifiers, "orders depends on billing.",
+                violationEvidence);
+        List<ComponentResult> components = new ArrayList<>(List.of(component));
+        List<EdgeResult> edges = new ArrayList<>(List.of(edge));
+        List<Violation> violations = new ArrayList<>(List.of(violation));
+        Report report = new Report(Report.SCHEMA, "workspace.dsl", components, edges, violations);
+
+        Stream.of(packages, edgeEvidence, identifiers, violationEvidence, components, edges, violations)
+                .forEach(List::clear);
+
+        assertSoftly(softly -> {
+            softly.assertThat(component.packages()).as("packages").containsExactly("fx.orders");
+            softly.assertThat(edge.evidence()).as("edge evidence").containsExactly(evidence);
+            softly.assertThat(violation.identifiers()).as("identifiers").containsExactly("orders", "billing");
+            softly.assertThat(violation.evidence()).as("violation evidence").containsExactly(evidence);
+            softly.assertThat(report.components()).as("components").containsExactly(component);
+            softly.assertThat(report.edges()).as("edges").containsExactly(edge);
+            softly.assertThat(report.violations()).as("violations").containsExactly(violation);
+        });
     }
 
     @Test
