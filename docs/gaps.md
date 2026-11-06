@@ -140,6 +140,10 @@ closes it.
   start of the block, and a later `!const` or `!var` as data, so a reference to it is rejected although Structurizr
   substitutes it. Rename the identifier. Likewise, a property or perspective whose value is `{` counts as a block
   nested in its block, and a definition after that block is rejected the same way.
+- **The check of declared values sees the end of parsing.** After parsing, the `${NAME}` check also asks the parser
+  for the value of every name the file could declare, so a reference that only an unused constant or variable holds
+  is found too. It sees each value as parsing left it: a `!var` that is set again later is checked for its last value
+  only, and a name that substitution puts together from parts (`!const ${A}${B} value`) is not looked up.
 
 ## 6. Tests and quality gates
 

@@ -58,8 +58,11 @@ property or a perspective. The check opens such a block at every line that start
 `perspectives`, so an element with one of those identifiers cannot start a relationship line in a checked model
 (rename it; [`docs/gaps.md`](../../docs/gaps.md), section 5). After parsing, a `${NAME}` left in any text that the
 parsed workspace holds (every element, relationship and view, deployment environments and groups, styles,
-terminology, users; `ParsedStrings` lists the places) is a problem too, named by its element or view: that check
-backs up the reading of the file. The model file must be UTF-8. Implied relationships are disabled: the DSL creates
+terminology, users; `ParsedStrings` lists the places) is a problem too, named by its element or view, and so is one
+left in the value the parser gave any constant or variable the file could declare (every token after `!const` or
+`!var`, and every other token that could name one), named by its declaration. Those checks back up the reading of
+the file: they see what the parser did, also where substitution made a line a block keyword, a comment or an
+identifier assignment. The model file must be UTF-8. Implied relationships are disabled: the DSL creates
 them unless the file says `!impliedRelationships false`, and a model in which the parser created one is a model
 problem (a deployment instance's copy of its container's relationship is not implied). Any other `contract.*`
 property, or one on the wrong kind of element or relationship, is a model problem, so a misspelt `contract.mode`

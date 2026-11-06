@@ -32,6 +32,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -60,7 +61,8 @@ import java.util.stream.Stream;
  * </ul>
  * Not read: identifiers the model generates (element, relationship and view element ids), names derived from the
  * texts above (canonical names, view names), values that are not text (enums, numbers, dates), and image views and
- * themes, which the kit rejects as they are.
+ * themes, which the kit rejects as they are. {@link #unresolvedInDeclarations} reads the values that the parser gave
+ * the constants and variables, which the workspace does not hold.
  */
 final class ParsedStrings {
 
@@ -102,6 +104,19 @@ final class ParsedStrings {
                 .distinct()
                 .sorted(Comparator.comparing(Reference::place).thenComparing(Reference::name))
                 .toList();
+    }
+
+    /**
+     * Every unresolved reference in the value that the parser gave a declared constant or variable: a reference that
+     * only such a value holds, because nothing uses it, reaches no other string of the workspace.
+     *
+     * @param declared the names the file may declare, with their keyword ({@code !const} or {@code !var})
+     * @param valueOf the parser's value for a name; the empty string when the parser defined none
+     */
+    static List<Reference> unresolvedInDeclarations(Map<String, String> declared, Function<String, String> valueOf) {
+        List<Reference> found = new ArrayList<>();
+        declared.forEach((name, keyword) -> find(keyword + " " + name, Stream.of(valueOf.apply(name)), found));
+        return found.stream().distinct().toList();
     }
 
     /** Structurizr leaves a text it was not given as null. */

@@ -5,10 +5,14 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 /**
  * Finds the {@code ${NAME}} references that the parser leaves as text. With ENVIRONMENT off, the parser replaces a
@@ -48,6 +52,9 @@ final class UnresolvedReferences {
 
     /** StructurizrDslParser.STRING_SUBSTITUTION_PATTERN: only these names are ever substituted. */
     private static final Pattern REFERENCE = Pattern.compile("\\$\\{([a-zA-Z0-9-_.]+?)}");
+
+    /** NameValueParser: the names a constant or variable may have. */
+    private static final Pattern CONSTANT_NAME = Pattern.compile("[a-zA-Z0-9-_.]+");
 
     /** StructurizrDslParser.COMMENT_PATTERN. */
     private static final Pattern COMMENT = Pattern.compile("^\\s*?(//|#).*$");
@@ -127,6 +134,33 @@ final class UnresolvedReferences {
     /** StructurizrDslParser.shouldStartContext: the last token is the opening brace. */
     private static boolean opensBlock(List<String> tokens) {
         return !tokens.isEmpty() && tokens.get(tokens.size() - 1).equalsIgnoreCase(BLOCK_START);
+    }
+
+    /**
+     * Every name that a line of the file could declare, with how it is declared. A token after {@code !const} or
+     * {@code !var} on any line, physical or joined, in a comment, a text block or a block of data as well, maps to
+     * that keyword in lower case. Any other token that is a valid constant name maps to {@code !const or !var}: a
+     * constant can produce the keyword ({@code ${K} NAME value}) or the name ({@code !const ${N} value}) of a
+     * declaration. The parser defines few of these names; asking it for their values costs nothing, and a line that
+     * only substitution makes a block keyword, a comment opener or an identifier assignment hides no declaration.
+     */
+    static Map<String, String> declaredNames(List<String> lines) {
+        Map<String, String> declared = new TreeMap<>();
+        List<List<String>> lineTokens = Stream.concat(lines.stream(),
+                        logicalLines(lines).stream().map(line -> line.code().text()))
+                .map(UnresolvedReferences::tokens)
+                .toList();
+        for (List<String> tokens : lineTokens) {
+            for (int index = 0; index + 1 < tokens.size(); index++) {
+                String keyword = tokens.get(index).toLowerCase(Locale.ROOT);
+                if (keyword.equals("!const") || keyword.equals("!var")) {
+                    declared.putIfAbsent(tokens.get(index + 1), keyword);
+                }
+            }
+        }
+        lineTokens.stream().flatMap(List::stream).filter(token -> CONSTANT_NAME.matcher(token).matches())
+                .forEach(token -> declared.putIfAbsent(token, "!const or !var"));
+        return declared;
     }
 
     private static void report(Located text, Set<String> defined, String displayPath, Problems problems,

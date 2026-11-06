@@ -10,9 +10,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * The one place that creates a {@link StructurizrDslParser} (security/reviews/maven--structurizr-dsl--6.2.4.md).
@@ -73,19 +75,20 @@ final class RestrictedDslParser {
         if (workspace == null) {
             throw problems.fatal(displayPath, "the file defines no workspace");
         }
-        rejectWhatTheParserKept(workspace, new ElementNames(parser.getIdentifiersRegister()), lines, displayPath,
-                problems);
+        rejectWhatTheParserKept(workspace, new ElementNames(parser.getIdentifiersRegister()), parser::getConstant,
+                lines, displayPath, problems);
         return new ParsedModel(workspace, parser.getIdentifiersRegister());
     }
 
     /**
      * Rejects what the parser accepts but the kit must not: image views and themes, which renderers fetch, and
      * {@code ${NAME}} references the parser left as text because nothing defines them and environment variables are
-     * off. The source scan locates each reference by its line; the check of the parsed strings backs it up and reports,
-     * by element or view, a name that the scan missed. A rejected construct is a model problem, never a silent pass.
+     * off. The source scan locates each reference by its line. After parsing, the strings of the workspace and the
+     * values of the constants and variables the file declares back it up, and a name the scan missed is reported by
+     * element, view or declaration. A rejected construct is a model problem, never a silent pass.
      */
-    private static void rejectWhatTheParserKept(Workspace workspace, ElementNames names, List<String> lines,
-            String displayPath, Problems problems) {
+    private static void rejectWhatTheParserKept(Workspace workspace, ElementNames names,
+            Function<String, String> constants, List<String> lines, String displayPath, Problems problems) {
         for (ImageView view : workspace.getViews().getImageViews()) {
             problems.add("views", "image view '" + view.getKey()
                     + "' is not supported: image views make renderers fetch content");
@@ -94,7 +97,10 @@ final class RestrictedDslParser {
             problems.add("views", "theme '" + theme + "' is not supported: themes are fetched by renderers");
         }
         Set<String> reported = UnresolvedReferences.check(lines, displayPath, problems);
-        for (ParsedStrings.Reference reference : ParsedStrings.unresolved(workspace, names)) {
+        List<ParsedStrings.Reference> afterParsing = new ArrayList<>(ParsedStrings.unresolved(workspace, names));
+        afterParsing.addAll(ParsedStrings.unresolvedInDeclarations(UnresolvedReferences.declaredNames(lines),
+                constants));
+        for (ParsedStrings.Reference reference : afterParsing) {
             if (!reported.contains(reference.name())) {
                 problems.add(reference.place(), "${" + reference.name() + "} is not substituted: environment variables"
                         + " are not read, and nothing in the model defines " + reference.name());

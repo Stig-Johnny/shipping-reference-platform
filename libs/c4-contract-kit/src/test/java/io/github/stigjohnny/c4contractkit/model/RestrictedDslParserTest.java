@@ -660,6 +660,64 @@ class RestrictedDslParserTest {
                         .containsExactly(unresolved(dsl, "AFTER"), unresolved(dsl, "HIDDEN")));
     }
 
+    /**
+     * Lines that StructurizrDslParser reads only after substituting them: a block keyword, a comment opener or an
+     * identifier assignment that a constant or a text block produces. The source scan reads the tokens as written, so
+     * for it HIDDEN is defined; for the parser it is a property, or in a comment.
+     */
+    static Stream<Arguments> definitionsThatOnlyTheSubstitutedLineHides() {
+        return Stream.of(
+                arguments("a block keyword from a constant",
+                        "!const P \"properties\"\n${P} {\n    !const HIDDEN\n}\n"),
+                arguments("a comment opener from a constant",
+                        "!const C \"/*\"\n${C} a comment, for the parser\n!const HIDDEN \"x\"\n*/\n"),
+                arguments("an identifier assignment from a constant",
+                        "!const EQ \"=\"\nx ${EQ} properties {\n    !const HIDDEN\n}\n"),
+                arguments("a block keyword from a text block",
+                        "\"\"\"\nproperties\n\"\"\"\n    !const HIDDEN\n}\n"),
+                arguments("a comment opener from a text block",
+                        "\"\"\"\n/*\n\"\"\"\n!const HIDDEN \"x\"\n*/\n"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("definitionsThatOnlyTheSubstitutedLineHides")
+    void aConstantThatStillHoldsAReferenceAfterParsingIsAProblem(String input, String lines, @TempDir Path dir)
+            throws IOException {
+        // Nothing uses UNUSED, so its ${HIDDEN} reaches no parsed string; only the value the parser gave it shows it.
+        String dsl = VALID.replace("// MODEL", lines + "!const UNUSED \"${HIDDEN}\"\n");
+
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly("!const UNUSED: ${HIDDEN} is not substituted: environment variables are not "
+                                + "read, and nothing in the model defines HIDDEN"));
+    }
+
+    /** Makes HIDDEN look defined to the source scan only: the parser reads !const HIDDEN as a property. */
+    private static final String HIDDEN_FOR_THE_SCAN = "!const P \"properties\"\n${P} {\n    !const HIDDEN\n}\n";
+
+    static Stream<Arguments> declarationsThatHoldTheReference() {
+        return Stream.of(
+                arguments("a variable", "!var LEFT \"${HIDDEN}\"\n", "!var LEFT"),
+                arguments("a declaration that a line continuation splits", "!const \\\n    LEFT \"${HIDDEN}\"\n",
+                        "!const LEFT"),
+                arguments("a declaration whose keyword a constant produces",
+                        "!const K \"!const\"\n${K} LEFT \"${HIDDEN}\"\n", "!const or !var LEFT"),
+                arguments("a declaration whose name a constant produces",
+                        "!const N \"LEFT\"\n!const ${N} \"${HIDDEN}\"\n", "!const or !var LEFT"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("declarationsThatHoldTheReference")
+    void everyDeclaredConstantOrVariableIsAskedForItsValue(String input, String declaration, String place,
+            @TempDir Path dir) throws IOException {
+        String dsl = VALID.replace("// MODEL", HIDDEN_FOR_THE_SCAN + declaration);
+
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(place + ": ${HIDDEN} is not substituted: environment variables are not "
+                                + "read, and nothing in the model defines HIDDEN"));
+    }
+
     @Test
     void aBraceInsideABlockThatTheScanTakesForDataCannotCloseItEarly(@TempDir Path dir) throws IOException {
         // The scan opens a properties block at the relationship below, which StructurizrDslParser does not. The
