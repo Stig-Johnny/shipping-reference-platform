@@ -83,7 +83,10 @@ identical inputs give identical bytes, whatever the order of class roots or mode
 The library's five packages and the only dependencies allowed between them are in its self-model,
 [`architecture/self.dsl`](architecture/self.dsl). `SelfConformanceTest` checks the library against it with the library
 itself; `ReviewConditionsTest` checks the conditions of the ArchUnit and Structurizr reviews on the library's class
-files (no `reflect()`, file-path imports only, one parser factory, no URL or feature re-enabled, and more).
+files (no `reflect()`, file-path imports only, one parser factory, no URL or feature re-enabled, and more). A rule on
+a method or constructor also catches a method reference to it (`System::getenv`, `StructurizrDslParser::new`). Those
+rules, and the bans on `ObjectInputStream` and `ProcessBuilder`, are shown to fail on compiled fixtures that break
+them, once by a call and once by a reference.
 
 ```bash
 ./gradlew :libs:c4-contract-kit:check     # tests, Error Prone and NullAway
