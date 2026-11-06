@@ -27,7 +27,9 @@ public final class Conformance {
      *     in any order
      * @return what the comparison found; {@link Report#passed()} tells whether the classes conform
      * @throws ModelException listing every model problem, when the model is invalid or uses a rejected construct
-     * @throws IllegalArgumentException if a class root is not a directory
+     * @throws IllegalArgumentException if a class root is not a directory, if a class root is or holds a symbolic link
+     *     to a directory, or if a class file under the roots could not be imported (a corrupt file, a file that is not
+     *     a class file, or a second definition of a class)
      * @throws IllegalStateException if an {@code archunit.*} system property sets a class resolver or resolution from
      *     the class path, which the import would have to obey
      */

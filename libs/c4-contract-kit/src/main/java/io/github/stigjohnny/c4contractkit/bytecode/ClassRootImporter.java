@@ -37,8 +37,9 @@ public final class ClassRootImporter {
      *
      * @param roots directories of class files; their order does not matter, and a root given twice counts once
      * @return the classes by name, each with its references
-     * @throws IllegalArgumentException if a root is not a directory, or if a class file under the roots could not be
-     *     imported: a corrupt file, a file that is not a class file, or a second definition of a class
+     * @throws IllegalArgumentException if a root is not a directory, if a root is or holds a symbolic link to a
+     *     directory, or if a class file under the roots could not be imported: a corrupt file, a file that is not a
+     *     class file, or a second definition of a class
      * @throws IllegalStateException if an archunit.* system property sets a class resolver or resolution from the
      *     class path
      */
@@ -50,6 +51,7 @@ public final class ClassRootImporter {
                 throw new IllegalArgumentException("class root is not a directory: " + path);
             }
         }
+        requireNoDirectoryLinks(paths);
         JavaClasses classes = ArchConfiguration.withThreadLocalScope(configuration -> {
             // The scope starts as a copy of the shared configuration, which archunit.properties may have set.
             configuration.unsetClassResolver();
@@ -88,6 +90,27 @@ public final class ClassRootImporter {
             throw new IllegalArgumentException("ArchUnit could not import these class files, so the check would miss"
                     + " their classes: " + missed + ". A corrupt or truncated file, a file that is not a class file, or"
                     + " a second definition of a class in another root is not a supported input.");
+        }
+    }
+
+    /**
+     * ArchUnit walks a class root without following symbolic links, and so does the inventory above: a root that is a
+     * link to a directory, or a link to a directory inside a root, would hide its classes without a word. Both are
+     * refused. A link to a class file is read by both and is accepted.
+     */
+    private static void requireNoDirectoryLinks(List<Path> roots) {
+        List<Path> links = new ArrayList<>();
+        for (Path root : roots) {
+            try (Stream<Path> entries = Files.walk(root)) {
+                entries.filter(Files::isSymbolicLink).filter(Files::isDirectory).sorted().forEach(links::add);
+            } catch (IOException e) {
+                throw new UncheckedIOException("The entries under " + root + " could not be listed", e);
+            }
+        }
+        if (!links.isEmpty()) {
+            throw new IllegalArgumentException("ArchUnit does not follow a symbolic link to a directory, so the check"
+                    + " would miss the classes behind these links: " + links + ". Give the class roots as real"
+                    + " directories that hold no such link.");
         }
     }
 

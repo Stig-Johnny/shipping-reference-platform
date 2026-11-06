@@ -29,11 +29,12 @@ void theCodeConformsToTheModel() {
 - `Conformance.check(model, productionClassRoots)` parses the model in restricted mode, reads the class files without
   loading them, and compares. It throws `ModelException` listing every model problem, each starting with the DSL
   identifiers of the elements it concerns or with its place in the model file (the parser itself stops at the first
-  line it rejects), `IllegalArgumentException` for a class root that is not a directory or a
-  class file that could not be imported (a corrupt file, a file that is not a class file, or a second definition of
-  a class in another root: ArchUnit would skip it without a word), and `IllegalStateException` when an `archunit.*`
-  system property would make the import load or resolve classes (see below). Class roots are directories of class
-  files, such as `build/classes/java/main`, in any order; `module-info.class` is not a class and is ignored.
+  line it rejects), `IllegalArgumentException` for a class root that is not a directory, a class root that is or
+  holds a symbolic link to a directory (ArchUnit does not follow one), or a class file that could not be imported (a
+  corrupt file, a file that is not a class file, or a second definition of a class in another root: ArchUnit would
+  skip it without a word), and `IllegalStateException` when an `archunit.*` system property would make the import
+  load or resolve classes (see below). Class roots are directories of class files, such as `build/classes/java/main`,
+  in any order; `module-info.class` is not a class and is ignored.
 - `ConformanceAssertions.assertConforms(report, directory)` always writes `report.json` and `report.md`, then throws an
   `AssertionError` listing the violations if there are any.
 - `Report` holds the components (`ComponentResult`), every edge (`EdgeResult`: mode `REQUIRED`, `PERMITTED` or

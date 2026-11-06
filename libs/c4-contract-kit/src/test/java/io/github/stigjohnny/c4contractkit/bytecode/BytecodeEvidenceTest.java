@@ -335,6 +335,9 @@ class BytecodeEvidenceTest {
             }
             """);
 
+    private static final String LINKS = "ArchUnit does not follow a symbolic link to a directory, so the check would "
+            + "miss the classes behind these links: ";
+
     private static final FixtureSource[] TARGETS = {TARGET, CONTRACT, BASE, BOX, LEVEL, FAILURE, MARKER, TAGGED};
 
     @Test
@@ -683,6 +686,42 @@ class BytecodeEvidenceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageStartingWith("ArchUnit could not import these class files, so the check would miss their "
                         + "classes: [" + second.resolve("fx/app/a/Code.class") + ", ");
+    }
+
+    @Test
+    void aClassRootThatIsASymbolicLinkToADirectoryFailsTheImport(@TempDir Path dir) throws IOException {
+        // Neither ArchUnit nor a directory walk follows a link to a directory: the classes behind it would be missed.
+        Path link = Files.createSymbolicLink(dir.resolve("linked-classes"), compile(CODE));
+
+        assertThatThrownBy(() -> ClassRootImporter.importRoots(List.of(link)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(LINKS + List.of(link) + ". Give the class roots as real directories that hold no "
+                        + "such link.");
+    }
+
+    @Test
+    void aSymbolicLinkToADirectoryInsideAClassRootFailsTheImport(@TempDir Path dir) throws IOException {
+        Path root = copyOf(compile(CODE), dir.resolve("classes"));
+        Path elsewhere = FixtureCompiler.compile(new FixtureSource("fx/app/c/Linked.java",
+                "package fx.app.c;\n\npublic class Linked {\n}\n"));
+        Path link = Files.createSymbolicLink(root.resolve("fx/app/c"), elsewhere.resolve("fx/app/c"));
+
+        assertThatThrownBy(() -> ClassRootImporter.importRoots(List.of(root)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(LINKS + List.of(link) + ". Give the class roots as real directories that hold no "
+                        + "such link.");
+    }
+
+    @Test
+    void aSymbolicLinkToAClassFileIsReadAsTheFile(@TempDir Path dir) throws IOException {
+        // ArchUnit and the inventory both read a linked class file, so the import misses nothing.
+        Path root = copyOf(compile(CODE), dir.resolve("classes"));
+        Path code = root.resolve("fx/app/a/Code.class");
+        Path moved = Files.move(code, dir.resolve("Code.class"));
+        Files.createSymbolicLink(code, moved);
+
+        assertThat(ClassRootImporter.importRoots(List.of(root))).extracting(ImportedClass::name)
+                .contains("fx.app.a.Code");
     }
 
     @Test

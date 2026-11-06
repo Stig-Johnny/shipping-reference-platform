@@ -521,6 +521,22 @@ class MappingValidationTest {
     }
 
     @Test
+    void aClassBehindASymbolicLinkIsNeverASilentPass() throws IOException {
+        // The conforming root passes on its own. fx.shop.misc.Stray is an unmapped class when its root is given
+        // directly; through a link to that root, neither ArchUnit nor a directory walk would see it.
+        Path conforming = FixtureCompiler.compile(MAIN, CONFIG, ORDER, QUEUE, ITEM);
+        Path stray = FixtureCompiler.compile(
+                new FixtureSource("fx/shop/misc/Stray.java", "package fx.shop.misc;\n\npublic class Stray {\n}\n"));
+        Path link = Files.createSymbolicLink(dir.resolve("linked-classes"), stray);
+        assertThat(Conformance.check(write(VALID), List.of(conforming, stray)).violations())
+                .extracting(Violation::type).containsExactly(ViolationType.UNMAPPED_CLASS);
+
+        assertThatThrownBy(() -> Conformance.check(write(VALID), List.of(conforming, link)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(link.toString());
+    }
+
+    @Test
     void aClassInAPlannedComponentFailsUntilTheComponentIsBuilt() {
         Report report = checkClasses(
                 new FixtureSource("fx/shop/billing/Invoice.java", "package fx.shop.billing;\n\npublic class Invoice {\n}\n"));
