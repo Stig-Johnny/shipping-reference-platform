@@ -1,7 +1,11 @@
 package io.github.stigjohnny.c4contractkit.api;
 
+import io.github.stigjohnny.c4contractkit.bytecode.ClassRootImporter;
+import io.github.stigjohnny.c4contractkit.bytecode.ImportedClass;
+import io.github.stigjohnny.c4contractkit.model.ContractModel;
 import io.github.stigjohnny.c4contractkit.model.ContractModelReader;
 import io.github.stigjohnny.c4contractkit.model.InvalidModelException;
+import io.github.stigjohnny.c4contractkit.rules.ConformanceRules;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
@@ -22,16 +26,18 @@ public final class Conformance {
      * @param productionClassRoots directories or JAR files of compiled production classes, in any order
      * @return what the comparison found; {@link Report#passed()} tells whether the classes conform
      * @throws ModelException listing every model problem, when the model is invalid or uses a rejected construct
+     * @throws IllegalArgumentException if a class root does not exist
      */
     public static Report check(Path model, List<Path> productionClassRoots) {
         String modelPath = displayPath(model);
+        ContractModel contract;
         try {
-            ContractModelReader.read(model, modelPath);
+            contract = ContractModelReader.read(model, modelPath);
         } catch (InvalidModelException e) {
             throw new ModelException(modelPath, e.problems());
         }
-        throw new UnsupportedOperationException("comparing " + productionClassRoots.size()
-                + " class roots with the model is not implemented yet (c4-contract-kit slice 4)");
+        List<ImportedClass> classes = ClassRootImporter.importRoots(productionClassRoots);
+        return ResultMapping.toReport(modelPath, ConformanceRules.compare(contract, classes));
     }
 
     /** The path relative to the working directory, with {@code /} as separator, as reports show it. */

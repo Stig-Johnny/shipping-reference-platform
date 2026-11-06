@@ -2,7 +2,11 @@ package io.github.stigjohnny.c4contractkit.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.stigjohnny.c4contractkit.api.Conformance;
+import io.github.stigjohnny.c4contractkit.api.EdgeStatus;
+import io.github.stigjohnny.c4contractkit.api.Report;
 import io.github.stigjohnny.c4contractkit.testing.RepositoryFiles;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** The repository's real model, architecture/workspace.dsl, parses and validates. Every component is still planned. */
@@ -35,5 +39,21 @@ class RepositoryWorkspaceTest {
                 new ContractRelationship("shipments", "quotes", RelationshipMode.REQUIRED),
                 new ContractRelationship("shipments", "tenants", RelationshipMode.REQUIRED),
                 new ContractRelationship("tracking", "shipments", RelationshipMode.PERMITTED));
+    }
+
+    @Test
+    void theRepositoryModelPassesWithoutCodeBecauseEveryComponentIsPlanned() {
+        Report report = Conformance.check(RepositoryFiles.root().resolve("architecture/workspace.dsl"), List.of());
+
+        assertThat(report.passed()).isTrue();
+        assertThat(report.modelPath()).isEqualTo("../../architecture/workspace.dsl");
+        assertThat(report.components()).hasSize(7).allSatisfy(component -> {
+            assertThat(component.status()).isEqualTo(io.github.stigjohnny.c4contractkit.api.ComponentStatus.PLANNED);
+            assertThat(component.classCount()).isZero();
+        });
+        assertThat(report.edges()).hasSize(10).allSatisfy(edge -> {
+            assertThat(edge.status()).isEqualTo(EdgeStatus.NOT_EVALUATED);
+            assertThat(edge.evidence()).isEmpty();
+        });
     }
 }

@@ -24,6 +24,11 @@ public record ContractModel(String root, List<String> isolated, List<ContractCom
                 .toList();
     }
 
+    /** The component with this {@code contract.id}; relationships name only components of the model. */
+    public ContractComponent component(String id) {
+        return components.stream().filter(component -> component.id().equals(id)).findFirst().orElseThrow();
+    }
+
     /** The component a class belongs to by its package, if any. */
     public Optional<ContractComponent> componentOf(String className) {
         String packageName = className.substring(0, Math.max(0, className.lastIndexOf('.')));

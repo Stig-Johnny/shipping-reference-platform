@@ -2,16 +2,25 @@ package io.github.stigjohnny.c4contractkit.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.assertj.core.api.InstanceOfAssertFactories.STRING;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import io.github.stigjohnny.c4contractkit.api.ComponentResult;
 import io.github.stigjohnny.c4contractkit.api.Conformance;
 import io.github.stigjohnny.c4contractkit.api.ModelException;
+import io.github.stigjohnny.c4contractkit.api.Report;
+import io.github.stigjohnny.c4contractkit.api.Violation;
+import io.github.stigjohnny.c4contractkit.api.ViolationType;
+import io.github.stigjohnny.c4contractkit.testing.FixtureCompiler;
+import io.github.stigjohnny.c4contractkit.testing.FixtureSource;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -464,6 +473,86 @@ class MappingValidationTest {
                 "shop.app.stock: contract.id is missing");
     }
 
+    @Test
+    void everyClassBelongsToAComponentOrIsIsolated() {
+        Report report = checkClasses();
+
+        assertThat(report.violations()).isEmpty();
+        assertThat(report.components()).extracting(ComponentResult::id, ComponentResult::classCount)
+                .containsExactly(tuple("billing", 0), tuple("orders", 2), tuple("stock", 1));
+    }
+
+    @Test
+    void aClassInNoComponentAndNotIsolatedIsUnmapped() {
+        Report report = checkClasses(
+                new FixtureSource("fx/shop/misc/Stray.java", "package fx.shop.misc;\n\npublic class Stray {\n}\n"),
+                new FixtureSource("fx/shop/Helper.java", "package fx.shop;\n\nclass Helper {\n}\n"),
+                new FixtureSource("fx/other/Elsewhere.java", "package fx.other;\n\npublic class Elsewhere {\n}\n"));
+
+        assertThat(report.violations()).containsExactly(
+                new Violation(ViolationType.UNMAPPED_CLASS, List.of("fx.shop.Helper"), "fx.shop.Helper is under "
+                        + "contract.root fx.shop, but in no component's packages and not in contract.isolated.",
+                        List.of()),
+                new Violation(ViolationType.UNMAPPED_CLASS, List.of("fx.shop.misc.Stray"), "fx.shop.misc.Stray is "
+                        + "under contract.root fx.shop, but in no component's packages and not in contract.isolated.",
+                        List.of()));
+    }
+
+    @Test
+    void aClassInAPlannedComponentFailsUntilTheComponentIsBuilt() {
+        Report report = checkClasses(
+                new FixtureSource("fx/shop/billing/Invoice.java", "package fx.shop.billing;\n\npublic class Invoice {\n}\n"));
+
+        assertThat(report.violations()).containsExactly(new Violation(ViolationType.PLANNED_COMPONENT_HAS_CODE,
+                List.of("billing", "fx.shop.billing.Invoice"),
+                "billing is planned, but its packages contain fx.shop.billing.Invoice.", List.of()));
+        assertThat(report.components()).extracting(ComponentResult::id, ComponentResult::classCount)
+                .contains(tuple("billing", 1));
+    }
+
+    @Test
+    void aBuiltComponentWithoutAClassFails() {
+        Report report = check(VALID, FixtureCompiler.compile(MAIN, CONFIG, ORDER, QUEUE));
+
+        assertThat(report.violations()).containsExactly(new Violation(ViolationType.BUILT_COMPONENT_EMPTY,
+                List.of("stock"), "stock is built, but its packages contain no class.", List.of()));
+    }
+
+    @Test
+    void packageInfoIsNotAClass() {
+        Report report = check(VALID, FixtureCompiler.compile(MAIN, CONFIG, ORDER, QUEUE,
+                new FixtureSource("fx/shop/package-info.java", "@Deprecated\npackage fx.shop;\n"),
+                new FixtureSource("fx/shop/billing/package-info.java", "@Deprecated\npackage fx.shop.billing;\n"),
+                new FixtureSource("fx/shop/stock/package-info.java", "@Deprecated\npackage fx.shop.stock;\n")));
+
+        assertThat(report.violations()).extracting(Violation::type, Violation::identifiers)
+                .containsExactly(tuple(ViolationType.BUILT_COMPONENT_EMPTY, List.of("stock")));
+        assertThat(report.components()).extracting(ComponentResult::id, ComponentResult::classCount)
+                .containsExactly(tuple("billing", 0), tuple("orders", 2), tuple("stock", 0));
+    }
+
+    @Test
+    void nestedAndAnonymousClassesOfAnIsolatedClassAreIsolated() {
+        Report report = checkClasses(new FixtureSource("fx/shop/Main.java", """
+                package fx.shop;
+
+                public class Main {
+                    static class Settings {
+                    }
+
+                    Runnable task() {
+                        return new Runnable() {
+                            @Override
+                            public void run() {
+                            }
+                        };
+                    }
+                }
+                """));
+
+        assertThat(report.violations()).isEmpty();
+    }
+
     private void assertRejected(String dsl, String... problems) {
         Path model = write(dsl);
 
@@ -472,6 +561,33 @@ class MappingValidationTest {
                     assertThat(e.problems()).containsExactly(problems);
                     assertThat(e.getMessage()).contains(problems);
                 });
+    }
+
+    private static final FixtureSource MAIN =
+            new FixtureSource("fx/shop/Main.java", "package fx.shop;\n\npublic class Main {\n}\n");
+    private static final FixtureSource CONFIG =
+            new FixtureSource("fx/shop/Config.java", "package fx.shop;\n\npublic class Config {\n}\n");
+    private static final FixtureSource ORDER =
+            new FixtureSource("fx/shop/orders/Order.java", "package fx.shop.orders;\n\npublic class Order {\n}\n");
+    private static final FixtureSource QUEUE =
+            new FixtureSource("fx/shop/ordering/Queue.java", "package fx.shop.ordering;\n\npublic class Queue {\n}\n");
+    private static final FixtureSource ITEM =
+            new FixtureSource("fx/shop/stock/Item.java", "package fx.shop.stock;\n\npublic class Item {\n}\n");
+
+    /** The valid model with classes for each built component, plus {@code more} (a source may replace one). */
+    private Report checkClasses(FixtureSource... more) {
+        Map<String, FixtureSource> sources = new TreeMap<>();
+        for (FixtureSource source : List.of(MAIN, CONFIG, ORDER, QUEUE, ITEM)) {
+            sources.put(source.path(), source);
+        }
+        for (FixtureSource source : more) {
+            sources.put(source.path(), source);
+        }
+        return check(VALID, FixtureCompiler.compile(sources.values().toArray(FixtureSource[]::new)));
+    }
+
+    private Report check(String dsl, Path classes) {
+        return Conformance.check(write(dsl), List.of(classes));
     }
 
     private static String replaceFirst(String text, String target, String replacement) {
