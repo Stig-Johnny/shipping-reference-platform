@@ -100,10 +100,12 @@ documentation alone; the Java tool reuses libraries that were already reviewed f
   host name; an HTML comment; and any term of a dictionary. The dictionary is never committed: it comes from the
   environment variable `PUBLIC_SCAN_DICTIONARY`, one term per line, matched in any case, also inside words, after
   HTML entities are decoded and the text is normalised with NFKC (and without tags, zero-width characters or
-  dash variants). Without it the scan fails closed. It prints the rule and the file only, never the value. Its
-  exceptions, in `tools/docs/publication-scan-exceptions.json`, are exact (the file, the rule and the SHA-256 of
-  the value) and exist only for the documented public demo tokens; one that no longer matches fails the scan. Its
-  summary binds the result to the digest of the site's files and to the source revision.
+  dash variants). Without it the scan fails closed. It prints the rule and the file only, never the value; file and
+  directory names are scanned with the same rules, and a path whose name fails is replaced by a placeholder that
+  holds a short SHA-256 of the path. Its exceptions, in `tools/docs/publication-scan-exceptions.json`, are exact
+  (the file, the rule and the SHA-256 of the value) and exist only for the documented public demo tokens; one that
+  no longer matches fails the scan. Its summary binds the result to the digest of the site's files and to the
+  source revision.
 - The owner decided on 2026-11-06 to publish the site on GitHub Pages, at
   <https://stig-johnny.github.io/shipping-reference-platform/>. The repository goes public too (ADR 0008); until it
   does, the site is the public's only view of it. `.github/workflows/pages.yml` runs for `main` only, one run at a

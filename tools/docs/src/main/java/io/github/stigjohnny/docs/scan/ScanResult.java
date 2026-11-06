@@ -33,7 +33,10 @@ public record ScanResult(List<Finding> findings, List<ScanException> applied, St
                         : "- Source revision: `" + revision + "`.\n")
                 .append(dictionaryPresent ? "- Dictionary: present.\n"
                         : "- Dictionary: unset or empty, so the scan fails closed.\n")
-                .append("- Rules: ").append(String.join(", ", rules)).append(".\n");
+                .append("- Rules: ").append(String.join(", ", rules)).append(", on file contents and on file and ")
+                .append("directory names.\n")
+                .append("- A path whose name fails a rule is never printed: `[withheld path, sha256 <12 digits>]` ")
+                .append("stands in for it, the start of the SHA-256 of the path relative to the site.\n");
         if (applied.isEmpty()) {
             out.append("- Exceptions applied: none.\n");
         } else {
