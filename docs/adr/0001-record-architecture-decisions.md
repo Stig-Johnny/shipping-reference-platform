@@ -5,9 +5,9 @@ status: accepted
 updated: 2026-11-06
 date: 2026-11-06
 decision-makers: repository owner
-enforcedBy: [not enforced yet]
+enforcedBy:
+  - "java: :tools:docs:checkGenerated validates ADR frontmatter, numbering, required sections and enforcedBy test classes (BrainCheckTest)"
 plannedEnforcement:
-  - "docs-brain: brain --check validates ADR frontmatter, numbering and required sections"
   - "CODEOWNERS and risk level 3 on docs/adr/"
 ---
 
@@ -57,8 +57,9 @@ Chosen option 1.
 
 ### Confirmation
 
-- `docs-brain` runs `brain --check`, which fails when an ADR lacks a required frontmatter field or section, uses an
-  unknown status, breaks the numbering, or names an `enforcedBy` test class that does not exist in the repository.
+- `java` runs `:tools:docs:checkGenerated` (ADR 0010), which fails when an ADR lacks a required frontmatter field or
+  section, uses an unknown status, breaks the numbering, or names an `enforcedBy` test class that does not exist in
+  the repository (`BrainCheckTest`).
 - `.github/CODEOWNERS` assigns `docs/adr/` to the owner, and `policy/risk.json` classifies it as level 3.
 
 ## More Information

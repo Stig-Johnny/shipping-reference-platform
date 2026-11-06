@@ -106,5 +106,5 @@ The commands that exist today. The others arrive with their code; until then, sa
 | Web checks | not built yet |
 | Contract and end-to-end tests | not built yet |
 | Mutation tests on changed code | `<mutation>` |
-| Brain and docs check | not built yet |
+| Brain and docs check; regenerate them | `./gradlew :tools:docs:check`; `./gradlew :tools:docs:generate` |
 | Risk level of the current branch | not built yet: state the level and why in the pull request |

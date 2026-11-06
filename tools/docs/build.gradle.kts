@@ -3,6 +3,8 @@
 // shipped. They were reviewed for this scope (security/reviews/maven--docs-tool-scope-extension.md,
 // maven--snakeyaml-engine--3.2.md, maven--docs-tool-test-scope-extension.md). The site's one browser script is the
 // vendored Mermaid bundle under vendor/ (vendored-js--mermaid--11.17.2.md); the build never runs it.
+import java.time.Duration
+
 plugins {
     id("srp.java-conventions")
 }
@@ -29,4 +31,34 @@ dependencies {
             because("2.0.19 is the slf4j-api reviewed with Structurizr's transitives; 1.7.36 is not reviewed")
         }
     }
+}
+
+// The docs tool runs as a plain JavaExec on its own runtime classpath: no new configuration, nothing else resolved.
+// Each run has a timeout (the tool also stops itself after ten minutes), and any exception or error fails the task.
+val repositoryRoot: String = rootDir.absolutePath
+val testReports: String = layout.buildDirectory.dir("test-results/test").get().asFile.absolutePath
+
+fun JavaExec.docsTool(command: String) {
+    group = "documentation"
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass = "io.github.stigjohnny.docs.DocsTool"
+    timeout = Duration.ofMinutes(15)
+    // The tool's tests are evidence for the capabilities it reports (docs/capabilities/capabilities.yaml), so their
+    // JUnit reports must be from this build.
+    dependsOn(tasks.test)
+    args(command, "--repo", repositoryRoot, "--test-results", testReports)
+}
+
+tasks.register<JavaExec>("generate") {
+    description = "Regenerates docs/architecture/, BRAIN.md and docs/brain/ from the repository's sources."
+    docsTool("generate")
+}
+
+val checkGenerated = tasks.register<JavaExec>("checkGenerated") {
+    description = "Regenerates the committed generated files in memory and fails on any byte difference."
+    docsTool("check-generated")
+}
+
+tasks.named("check") {
+    dependsOn(checkGenerated)
 }

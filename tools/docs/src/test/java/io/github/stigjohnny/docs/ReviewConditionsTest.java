@@ -63,7 +63,9 @@ class ReviewConditionsTest {
     @Test
     void theRawExportIsReadOnlyByTheAdapter() {
         assertThat(filesContaining("RawMermaid")).containsExactlyInAnyOrder("model/RawMermaid.java",
-                "model/ParsedWorkspace.java", "model/Workspaces.java", "mermaid/MermaidAdapter.java");
+                "model/ParsedWorkspace.java", "model/Workspaces.java", "mermaid/MermaidAdapter.java",
+                "generate/Diagrams.java");
+        assertThat(filesContaining("MermaidAdapter.adapt(")).containsExactly("generate/Diagrams.java");
         assertThat(filesContaining(".definition()")).allMatch(file -> !file.startsWith("model/"));
     }
 

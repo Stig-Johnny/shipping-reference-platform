@@ -35,7 +35,8 @@ import java.util.Map;
  *   <li>planned elements say "(planned)" instead of being faded, and line patterns show the contract: a thick line is a
  *       REQUIRED dependency, a dotted line a PERMITTED or planned one, a solid line a relationship the Java check does
  *       not evaluate; each such label also says it in words;
- *   <li>the exporter's frame and default link style are dropped, a duplicate node definition must equal the first, and
+ *   <li>the exporter's frame and default link style are dropped, a node or style the exporter writes twice must equal
+ *       its first definition and is written once, and
  *       {@code accTitle} and {@code accDescr} name the view for screen readers.
  * </ul>
  *
@@ -54,6 +55,7 @@ public final class MermaidAdapter {
         RawExport.Export export = RawExport.parse(raw.definition(), where);
         List<C4View.Step> unmatched = new ArrayList<>(view.steps());
         Map<String, NodeDef> nodes = new HashMap<>();
+        Map<String, String> styles = new HashMap<>();
         List<Node> drawnNodes = new ArrayList<>();
         List<Edge> drawnEdges = new ArrayList<>();
         StringBuilder out = new StringBuilder("flowchart ").append(export.direction()).append('\n');
@@ -83,9 +85,16 @@ public final class MermaidAdapter {
                     }
                 }
                 case Style style -> {
-                    if (!style.id().isEmpty() && !RawExport.FRAME.equals(style.id())) {
+                    if (style.id().isEmpty() || RawExport.FRAME.equals(style.id())) {
+                        continue;
+                    }
+                    String first = styles.putIfAbsent(style.id(), style.pairs());
+                    if (first == null) {
                         out.append(indent).append("style ").append(style.id()).append(' ').append(style.pairs())
                                 .append('\n');
+                    } else if (!first.equals(style.pairs())) {
+                        throw new UnsafeDiagramException(where + ": element " + style.id()
+                                + " is styled twice with different colours");
                     }
                 }
                 case NodeDef node -> {

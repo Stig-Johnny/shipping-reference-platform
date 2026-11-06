@@ -14,10 +14,11 @@ closes it.
 ## 0. State of this commit
 
 - The specification, the reviewed toolchain and the dependency allowlist with its enforcement are in place, and so
-  are the reviewed dependencies of the docs generator and of the shipping API. No application or library code exists
-  yet. Every capability in
-  `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named in the documents is
-  still to be written (red first).
+  are the reviewed dependencies of the docs generator and of the shipping API. The docs generator itself,
+  `tools/docs`, exists: it generates the C4 view pages, `BRAIN.md` and the module brains, and its own control,
+  `control.brain-check`, is shipped with its tests as evidence. No application or library code exists yet. Every other
+  capability in `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for
+  them is still to be written (red first).
 - The versions in the ADRs were checked against their sources on 2026-11-06. Their combination (JDK 25, Gradle
   9.8.2, Spring Boot 4.1.2, Spring Modulith 2.1.2, Error Prone 2.51.0, NullAway 0.14.3, JUnit 6.0.3 (property
   tests as `@ParameterizedTest` in the normal test task), PIT 1.30.2 with its JUnit 5 plugin 1.2.3) has not been
@@ -138,7 +139,12 @@ closes it.
 ## 7. Documentation
 
 - The brain is a budgeted summary (12 KiB root, 8 KiB per module) and omits detail by design; it links to sources.
-- Frontmatter-linked documentation proves that a document changed with the code, not that it is correct.
+- Frontmatter-linked documentation proves that a document changed with the code, not that it is correct. Not
+  enforced yet: the check that a pull request changing a module's code also changes its documents.
+- Evidence is read from the JUnit reports of the same build, so only Java test classes can count as passing. A
+  TypeScript test name stays an acceptance target until the web build writes reports that the docs tool reads.
+- The module brains list the entries of this file that name a module in code, by its document or as "the X module".
+  An entry that concerns a module without naming it is not listed there, so this whole file still applies.
 
 ## 8. Not in scope for v0.1
 

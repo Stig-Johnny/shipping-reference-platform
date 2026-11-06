@@ -1,0 +1,128 @@
+---
+title: "C4 view: Components of the API"
+description: "Component view of the API. The seven modules of the API. Thick solid arrows are REQUIRED, dashed arrows PERMITTED, faded dotted elements and arrows are planned."
+status: accepted
+updated: 2026-11-06
+---
+
+> Generated—do not hand-edit. Source: `architecture/workspace.dsl`, view `ApiComponents`. Regenerate with
+> `./gradlew :tools:docs:generate`; `:tools:docs:checkGenerated` fails on any difference.
+
+# C4 view: Components of the API
+
+The seven modules of the API. Thick solid arrows are REQUIRED, dashed arrows PERMITTED, faded dotted elements and arrows are planned.
+
+```mermaid
+flowchart LR
+    accTitle: Components of the API
+    accDescr: Component view with 11 elements and 21 relationships. The tables on the page list every one of them.
+    3["Webshop [Software System]"]
+    style 3 fill:#64748b,stroke:#475569,color:#ffffff
+    4["Carrier (simulated) [Software System]"]
+    style 4 fill:#64748b,stroke:#475569,color:#ffffff
+    subgraph 5 ["Shipping reference platform"]
+        style 5 fill:#ffffff,stroke:#475569,color:#475569
+        subgraph 7 ["API"]
+            style 7 fill:#ffffff,stroke:#475569,color:#475569
+            10["Tenants [Component: Spring Modulith module] (planned)"]
+            style 10 fill:#f1f5f9,stroke:#64748b,color:#334155
+            11["Audit [Component: Spring Modulith module] (planned)"]
+            style 11 fill:#f1f5f9,stroke:#64748b,color:#334155
+            12["Orders [Component: Spring Modulith module] (planned)"]
+            style 12 fill:#f1f5f9,stroke:#64748b,color:#334155
+            13["Tracking [Component: Spring Modulith module] (planned)"]
+            style 13 fill:#f1f5f9,stroke:#64748b,color:#334155
+            14["Returns [Component: Spring Modulith module] (planned)"]
+            style 14 fill:#f1f5f9,stroke:#64748b,color:#334155
+            8["Quotes [Component: Spring Modulith module] (planned)"]
+            style 8 fill:#f1f5f9,stroke:#64748b,color:#334155
+            9["Shipments [Component: Spring Modulith module] (planned)"]
+            style 9 fill:#f1f5f9,stroke:#64748b,color:#334155
+        end
+        15[("Database [Container: PostgreSQL 18.6]")]
+        style 15 fill:#115e59,stroke:#475569,color:#ffffff
+        6["Web app [Container: React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client]"]
+        style 6 fill:#115e59,stroke:#475569,color:#ffffff
+    end
+    6 -->|"Authenticates every API request with the demo bearer token; reads the current membership and prototype flags [JSON over HTTPS]"| 10
+    6 -->|"Creates and reads quotes [JSON over HTTPS]"| 8
+    6 -->|"Books, lists, reads and cancels shipments; downloads labels [JSON over HTTPS]"| 9
+    3 -.->|"Planned: Will submit orders to ship [JSON over HTTPS]"| 12
+    8 -->|"Stores quotes and offers in schema quotes [Spring Data JDBC]"| 15
+    9 -->|"Stores shipments and idempotency keys in schema shipments; writes event publications [Spring Data JDBC]"| 15
+    10 -->|"Resolves demo tokens through a security-definer function, reads prototype flags, sets app.tenant_id in every transaction [JDBC]"| 15
+    11 -->|"Appends audit entries in schema audit [Spring Data JDBC]"| 15
+    8 -->|"Prices each service level from the carrier's synthetic tariff (simulated in-process) [In-process simulation]"| 4
+    9 -->|"Assigns simulated tracking numbers and renders simulated labels (in-process) [In-process simulation]"| 4
+    13 -.->|"Planned: Will receive tracking events [HTTPS webhook]"| 4
+    8 ==>|"REQUIRED: Resolves the caller's tenant (tenants.api: CurrentTenant, TenantId) [Java]"| 10
+    9 ==>|"REQUIRED: Resolves the caller's tenant (tenants.api: CurrentTenant, TenantId) [Java]"| 10
+    9 ==>|"REQUIRED: Books only against an existing, unexpired offer (quotes.api: QuoteOffers, OfferLookup, Money, ServiceLevel) [Java]"| 8
+    11 ==>|"REQUIRED: Records the ShipmentBooked and ShipmentCancelled events that shipments publishes (shipments.api) [Spring Modulith event listener]"| 9
+    11 ==>|"REQUIRED: Writes each audit entry inside the event's tenant scope (tenants.api: TenantScope, TenantId) [Java]"| 10
+    11 -.->|"PERMITTED: May record QuoteIssued events; no listener exists in v0.1, so the report shows no static evidence [Spring Modulith event listener]"| 8
+    12 -.->|"PERMITTED, planned: Will request quotes for imported orders [Java]"| 8
+    12 -.->|"PERMITTED, planned: Will book shipments for imported orders [Java]"| 9
+    13 -.->|"PERMITTED, planned: Will move shipments through carrier transit states [Java]"| 9
+    14 -.->|"PERMITTED, planned: Will create return shipments for delivered shipments [Java]"| 9
+```
+
+The same definition is in [api-components.mmd](api-components.mmd).
+
+## How to read it
+
+- Each box is an element of the model, with its C4 type in brackets.
+- "(planned)" marks an element that has no code yet.
+- A thick line is a REQUIRED dependency between modules: the code must reference it, and the build fails when it does not.
+- A dotted line labelled PERMITTED is a dependency between modules that the code may have; without a reference the report says "no static evidence", and the build stays green.
+- A dotted line labelled Planned is a relationship that does not exist yet.
+- A solid thin line is a relationship of people, systems or containers, which the Java check does not evaluate.
+- Arrows point from the element that depends on the other.
+
+## Elements
+
+| ID | Element | Type | Technology | Status | Description |
+|---|---|---|---|---|---|
+| 3 | Webshop | Software System |  | external | A merchant's online shop (simulated). Source of the orders that need shipping. |
+| 4 | Carrier (simulated) | Software System |  | external, simulated | A fictional parcel carrier. v0.1 simulates its tariff, tracking numbers and labels inside the API; no network calls. |
+| 6 | Web app | Container | React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client | no status: not a checked module | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
+| 8 | Quotes | Component | Spring Modulith module | planned | Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes. |
+| 9 | Shipments | Component | Spring Modulith module | planned | Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled. |
+| 10 | Tenants | Component | Spring Modulith module | planned | Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags. |
+| 11 | Audit | Component | Spring Modulith module | planned | Appends one tenant-scoped audit entry per shipment event, deduplicated by event ID; replayed from the publication registry after failures. |
+| 12 | Orders | Component | Spring Modulith module | planned | Planned: imports webshop orders and turns them into quote and booking requests. |
+| 13 | Tracking | Component | Spring Modulith module | planned | Planned: receives carrier tracking events and moves shipments through transit states. |
+| 14 | Returns | Component | Spring Modulith module | planned | Planned: creates return shipments for delivered shipments. |
+| 15 | Database | Container | PostgreSQL 18.6 | no status: not a checked module | One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data. |
+
+## Relationships
+
+| # | From | To | Description | Technology | Line |
+|---|---|---|---|---|---|
+| 1 | Web app | Tenants | Authenticates every API request with the demo bearer token; reads the current membership and prototype flags | JSON over HTTPS | solid: not checked by the Java check |
+| 2 | Web app | Quotes | Creates and reads quotes | JSON over HTTPS | solid: not checked by the Java check |
+| 3 | Web app | Shipments | Books, lists, reads and cancels shipments; downloads labels | JSON over HTTPS | solid: not checked by the Java check |
+| 4 | Webshop | Orders | Will submit orders to ship | JSON over HTTPS | dotted: planned |
+| 5 | Quotes | Database | Stores quotes and offers in schema quotes | Spring Data JDBC | solid: not checked by the Java check |
+| 6 | Shipments | Database | Stores shipments and idempotency keys in schema shipments; writes event publications | Spring Data JDBC | solid: not checked by the Java check |
+| 7 | Tenants | Database | Resolves demo tokens through a security-definer function, reads prototype flags, sets app.tenant_id in every transaction | JDBC | solid: not checked by the Java check |
+| 8 | Audit | Database | Appends audit entries in schema audit | Spring Data JDBC | solid: not checked by the Java check |
+| 9 | Quotes | Carrier (simulated) | Prices each service level from the carrier's synthetic tariff (simulated in-process) | In-process simulation | solid: not checked by the Java check |
+| 10 | Shipments | Carrier (simulated) | Assigns simulated tracking numbers and renders simulated labels (in-process) | In-process simulation | solid: not checked by the Java check |
+| 11 | Tracking | Carrier (simulated) | Will receive tracking events | HTTPS webhook | dotted: planned |
+| 12 | Quotes | Tenants | Resolves the caller's tenant (tenants.api: CurrentTenant, TenantId) | Java | thick: REQUIRED dependency |
+| 13 | Shipments | Tenants | Resolves the caller's tenant (tenants.api: CurrentTenant, TenantId) | Java | thick: REQUIRED dependency |
+| 14 | Shipments | Quotes | Books only against an existing, unexpired offer (quotes.api: QuoteOffers, OfferLookup, Money, ServiceLevel) | Java | thick: REQUIRED dependency |
+| 15 | Audit | Shipments | Records the ShipmentBooked and ShipmentCancelled events that shipments publishes (shipments.api) | Spring Modulith event listener | thick: REQUIRED dependency |
+| 16 | Audit | Tenants | Writes each audit entry inside the event's tenant scope (tenants.api: TenantScope, TenantId) | Java | thick: REQUIRED dependency |
+| 17 | Audit | Quotes | May record QuoteIssued events; no listener exists in v0.1, so the report shows no static evidence | Spring Modulith event listener | dotted: PERMITTED dependency |
+| 18 | Orders | Quotes | Will request quotes for imported orders | Java | dotted: PERMITTED dependency, planned |
+| 19 | Orders | Shipments | Will book shipments for imported orders | Java | dotted: PERMITTED dependency, planned |
+| 20 | Tracking | Shipments | Will move shipments through carrier transit states | Java | dotted: PERMITTED dependency, planned |
+| 21 | Returns | Shipments | Will create return shipments for delivered shipments | Java | dotted: PERMITTED dependency, planned |
+
+## What this view cannot show
+
+- A diagram shows the model, not the code. Only the API's modules are checked against the code (docs/gaps.md, section 1).
+- Arrows between modules are static code dependencies, not runtime data flow: an event listener's arrow points to the module whose event type it uses.
+- A REQUIRED arrow proves that a reference exists, not that the behaviour behind it runs; reflection, configuration and SQL are invisible to the check.

@@ -1,0 +1,19 @@
+%% Generated—do not hand-edit. Source: architecture/workspace.dsl, view SystemContext.
+flowchart LR
+    accTitle: System context
+    accDescr: System context view with 5 elements and 5 relationships. The tables on the page list every one of them.
+    1["Shipping clerk [Person]"]
+    style 1 fill:#0f766e,stroke:#475569,color:#ffffff
+    2["Platform administrator [Person]"]
+    style 2 fill:#0f766e,stroke:#475569,color:#ffffff
+    3["Webshop [Software System]"]
+    style 3 fill:#64748b,stroke:#475569,color:#ffffff
+    4["Carrier (simulated) [Software System]"]
+    style 4 fill:#64748b,stroke:#475569,color:#ffffff
+    5["Shipping reference platform [Software System]"]
+    style 5 fill:#334155,stroke:#475569,color:#ffffff
+    1 -->|"Manages the orders that need shipping in"| 3
+    1 -->|"Prices parcels, books shipments and downloads labels with"| 5
+    2 -->|"Provisions tenants and memberships for (v0.1: reviewed seed migrations only)"| 5
+    3 -.->|"Planned: Will submit orders to ship (planned: orders module) [JSON over HTTPS]"| 5
+    5 -->|"Obtains rates, tracking numbers and labels from (simulated in-process in v0.1) [In-process simulation]"| 4

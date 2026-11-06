@@ -1,6 +1,7 @@
 # Capabilities and controls of shipping-reference-platform, with the evidence for each.
 #
-# Read by tools/brain (ADR 0010); `brain --check` validates this file. Changing a status is a claim and is reviewed.
+# Read by tools/docs (ADR 0010); `./gradlew :tools:docs:check` validates this file. Changing a status is a claim and is
+# reviewed.
 #
 # Fields
 #   id               Stable identifier, "<module>.<kebab-name>" for capabilities, "control.<kebab-name>" for controls.
@@ -12,15 +13,17 @@
 #                      planned  no acceptance test exists yet.
 #   target           v0.1 (committed for the first release) or later.
 #   evidence         Test class names (Java) or test file names (TypeScript, JavaScript) that exist and pass at this
-#                    commit, or the string "none yet". Must be "none yet" when status is planned.
+#                    commit, or the string "none yet". Must be "none yet" when status is planned. tools/docs counts a
+#                    test as passing only when its JUnit report in the same build shows tests run and none failed,
+#                    errored or was skipped; TypeScript tests have no such report yet.
 #   acceptanceTests  The tests that must exist and pass before status may become shipped. Implementers create
 #                    them with exactly these names, red first.
 #   docs             The document that specifies the capability.
 #
-# This file belongs to the specification pull request. No code exists yet, so every status is planned and every
-# evidence value is "none yet". A pull request that adds passing acceptance tests moves their names into `evidence`
-# and changes the status in the same commit; brain --check rejects a shipped or partial status whose evidence does
-# not exist, and never shows a planned capability as available because its package exists.
+# A pull request that adds passing acceptance tests moves their names into `evidence` and changes the status in the
+# same commit; `:tools:docs:checkGenerated` rejects a shipped or partial status whose evidence does not exist or did
+# not pass, and never shows a planned capability as available because its package exists. Only the docs tool's own
+# control is shipped so far; every other status is planned and its evidence is "none yet".
 
 schemaVersion: 1
 
@@ -407,11 +410,11 @@ controls:
     docs: README.md
   - id: control.brain-check
     title: Generated brain and docs are deterministic, within budget, and never claim unevidenced capabilities.
-    where: tools/brain
-    check: docs-brain
-    status: planned
+    where: tools/docs
+    check: java
+    status: shipped
     target: v0.1
-    evidence: none yet
+    evidence: [BrainGeneratorTest, BrainCheckTest]
     acceptanceTests: [BrainGeneratorTest, BrainCheckTest]
     negativeFixture: A shipped capability without evidence; a hand-edited BRAIN.md.
     docs: docs/adr/0010-documentation-as-code-with-a-generated-brain.md

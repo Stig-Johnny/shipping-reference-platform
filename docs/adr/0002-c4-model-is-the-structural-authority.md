@@ -5,10 +5,10 @@ status: accepted
 updated: 2026-11-06
 date: 2026-11-06
 decision-makers: repository owner
-enforcedBy: [not enforced yet]
+enforcedBy:
+  - "java: :tools:docs:checkGenerated regenerates the view pages in docs/architecture/ and fails on any difference (BrainCheckTest)"
 plannedEnforcement:
   - "java: ArchitectureConformanceTest (c4-contract-kit, both directions)"
-  - "docs-brain: views and model pages regenerate without diff"
   - "risk-approval: architecture/ is level 3"
 ---
 
@@ -75,7 +75,8 @@ Chosen option 1.
 - Model validation (overlapping, empty or uncovered mappings; planned components with code; tag and property
   disagreements; cycles; forbidden directives) is part of the same call and covered by the library's tests
   (`RestrictedDslParserTest`, `MappingValidationTest`).
-- `docs-brain` regenerates views and model pages and fails on any diff.
+- `java` runs `:tools:docs:checkGenerated` (ADR 0010), which regenerates the view pages in `docs/architecture/` from
+  the model and fails on any difference.
 - `risk-approval` classifies `architecture/**` as level 3; `.github/CODEOWNERS` assigns it to the owner.
 
 ## More Information
