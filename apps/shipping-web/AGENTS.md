@@ -5,10 +5,11 @@ design, behaviour, states and accessibility; changes require an explicit design 
 
 ## Stack
 
-- Vitest component tests use `jsdom`; `happy-dom` was rejected by dependency review.
 React 19.3.0, TypeScript 7.0.2, Vite 8.3.6, Node 26.13.0, npm 11.20.0. Tests: Vitest 5.1.0 with Testing Library
 16.3.3; Playwright 1.65.0 with axe-core 4.14.0. No router, state-management, data-fetching, form or component
 library: adding any runtime package needs a review and an allowlist entry (`security/AGENTS.md`).
+
+- Vitest component tests use `jsdom`; `happy-dom` was rejected by dependency review.
 
 ## Structure and import rules
 
