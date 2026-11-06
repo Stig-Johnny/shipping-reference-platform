@@ -219,7 +219,43 @@ class RestrictedDslParserTest {
                 });
     }
 
-    /** A ${NAME} in every kind of place a model can hold text. */
+    /** StructurizrDslParser.STRING_SUBSTITUTION_PATTERN. */
+    private static final java.util.regex.Pattern REFERENCE =
+            java.util.regex.Pattern.compile("\\$\\{([a-zA-Z0-9-_.]+?)}");
+
+    /** Where the check of the parsed strings finds each name of {@link #EVERY_PLACE}. */
+    private static final org.assertj.core.groups.Tuple[] EVERY_PLACE_FOUND = {
+        tuple("app", "KEY"), tuple("app", "TAG"), tuple("app", "TECH"), tuple("app", "VALUE"),
+        tuple("appInstance", "DEPLOYMENT_GROUP"), tuple("appInstance", "ENVIRONMENT"),
+        tuple("appInstance", "HEALTH_CHECK"),
+        tuple("clerk", "PERSON_NAME"),
+        tuple("clerk -> app", "NOTE"), tuple("clerk -> app", "PROTOCOL"), tuple("clerk -> app", "RELATIONSHIP"),
+        tuple("clerk -> app", "RELATIONSHIP_TAG"),
+        tuple("configuration", "USER"),
+        tuple("custom", "CUSTOM_DESCRIPTION"), tuple("custom", "METADATA"),
+        tuple("gateway", "ENVIRONMENT"), tuple("gateway", "PROXY"),
+        tuple("model", "MODEL_PROPERTY"),
+        tuple("orders", "COMPONENT_TECH"), tuple("orders", "GROUP"), tuple("orders", "PERSPECTIVE_BLOCK"),
+        tuple("orders", "PERSPECTIVE_TEXT"), tuple("orders", "PERSPECTIVE_VALUE"),
+        tuple("server", "ENVIRONMENT"), tuple("server", "OS"),
+        tuple("shop", "SYSTEM_DESCRIPTION"),
+        tuple("view Components", "VIEW_DESCRIPTION"), tuple("view Components", "VIEW_PROPERTY"),
+        tuple("view Components", "VIEW_TITLE"),
+        tuple("view Filtered", "FILTER_TAG"),
+        tuple("view Flow", "DYNAMIC_DESCRIPTION"), tuple("view Flow", "STEP"), tuple("view Flow", "STEP_PROPERTY"),
+        tuple("view LiveDeployment", "ENVIRONMENT"),
+        tuple("views", "COMPONENT_TERM"), tuple("views", "CONTAINER_TERM"), tuple("views", "INFRASTRUCTURE_TERM"),
+        tuple("views", "NODE_TERM"), tuple("views", "RELATIONSHIP_STYLE_PROPERTY"),
+        tuple("views", "RELATIONSHIP_STYLE_TAG"), tuple("views", "RELATIONSHIP_TERM"), tuple("views", "STYLE_PROPERTY"),
+        tuple("views", "STYLE_TAG"), tuple("views", "SYSTEM_TERM"), tuple("views", "TERM"),
+        tuple("views", "VIEWS_PROPERTY"),
+        tuple("workspace", "WORKSPACE_DESCRIPTION"), tuple("workspace", "WORKSPACE_NAME"),
+        tuple("workspace", "WORKSPACE_PROPERTY")};
+
+    /**
+     * A ${NAME} in every place of the workspace that the restricted DSL lets a model write text into. The tests below
+     * take the names from this text, so a place added here must be found by both checks.
+     */
     private static final String EVERY_PLACE = """
             workspace "${WORKSPACE_NAME}" "${WORKSPACE_DESCRIPTION}" {
                 !identifiers flat
@@ -231,7 +267,7 @@ class RestrictedDslParserTest {
                     properties {
                         "m" "${MODEL_PROPERTY}"
                     }
-                    shop = softwareSystem "Shop" {
+                    shop = softwareSystem "Shop" "Sells ${SYSTEM_DESCRIPTION}" {
                         app = container "App" "" "${TECH}" "${TAG}" {
                             properties {
                                 "contract.root" "fx.shop"
@@ -245,22 +281,29 @@ class RestrictedDslParserTest {
                                         "contract.status" "built"
                                     }
                                     perspectives {
-                                        "Security" "${PERSPECTIVE_TEXT}"
+                                        "Security" "${PERSPECTIVE_TEXT}" "${PERSPECTIVE_VALUE}"
+                                        perspective "Cost" {
+                                            description "${PERSPECTIVE_BLOCK}"
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                    clerk = person "Clerk"
-                    custom = element "Custom" "${METADATA}"
-                    clerk -> app "Uses ${RELATIONSHIP}" "${PROTOCOL}" {
+                    clerk = person "Clerk ${PERSON_NAME}"
+                    custom = element "Custom" "${METADATA}" "Custom ${CUSTOM_DESCRIPTION}"
+                    clerk -> app "Uses ${RELATIONSHIP}" "${PROTOCOL}" "${RELATIONSHIP_TAG}" {
                         properties {
                             "note" "${NOTE}"
                         }
                     }
-                    live = deploymentEnvironment "Live" {
+                    live = deploymentEnvironment "Live ${ENVIRONMENT}" {
+                        cluster = deploymentGroup "Group ${DEPLOYMENT_GROUP}"
                         server = deploymentNode "Server" "" "${OS}" {
                             gateway = infrastructureNode "Gateway" "" "${PROXY}"
+                            appInstance = containerInstance app cluster {
+                                healthCheck "Check ${HEALTH_CHECK}" "https://example.com/health"
+                            }
                         }
                     }
                 }
@@ -272,15 +315,30 @@ class RestrictedDslParserTest {
                             "shown" "${VIEW_PROPERTY}"
                         }
                     }
-                    dynamic shop "Flow" {
+                    filtered "Components" include "Tag ${FILTER_TAG}" "Filtered"
+                    dynamic shop "Flow" "Flow ${DYNAMIC_DESCRIPTION}" {
                         clerk -> app "Asks ${STEP}"
+                        clerk -> app {
+                            properties {
+                                "p" "${STEP_PROPERTY}"
+                            }
+                        }
+                    }
+                    deployment * "Live ${ENVIRONMENT}" "LiveDeployment" {
+                        include *
                     }
                     styles {
                         element "${STYLE_TAG}" {
                             color #000000
+                            properties {
+                                "p" "${STYLE_PROPERTY}"
+                            }
                         }
                         relationship "${RELATIONSHIP_STYLE_TAG}" {
                             color #000000
+                            properties {
+                                "p" "${RELATIONSHIP_STYLE_PROPERTY}"
+                            }
                         }
                     }
                     properties {
@@ -288,6 +346,17 @@ class RestrictedDslParserTest {
                     }
                     terminology {
                         person "${TERM}"
+                        softwareSystem "${SYSTEM_TERM}"
+                        container "${CONTAINER_TERM}"
+                        component "${COMPONENT_TERM}"
+                        deploymentNode "${NODE_TERM}"
+                        infrastructureNode "${INFRASTRUCTURE_TERM}"
+                        relationship "${RELATIONSHIP_TERM}"
+                    }
+                }
+                configuration {
+                    users {
+                        "${USER}" read
                     }
                 }
             }
@@ -295,41 +364,31 @@ class RestrictedDslParserTest {
 
     @Test
     void anUnresolvedReferenceAnywhereInTheFileIsAProblem(@TempDir Path dir) throws IOException {
-        String dsl = EVERY_PLACE;
+        List<String> lines = EVERY_PLACE.lines().toList();
+        List<String> expected = java.util.stream.IntStream.range(0, lines.size()).boxed()
+                .flatMap(index -> REFERENCE.matcher(lines.get(index)).results()
+                        .map(reference -> unresolvedAt(index + 1, reference.group(1))))
+                .toList();
 
-        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+        assertThat(expected).hasSizeGreaterThan(40);
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, EVERY_PLACE), "workspace.dsl"))
                 .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactlyInAnyOrderElementsOf(Stream.of("WORKSPACE_NAME", "WORKSPACE_DESCRIPTION",
-                                        "WORKSPACE_PROPERTY", "MODEL_PROPERTY", "TECH", "TAG", "KEY", "VALUE", "GROUP",
-                                        "COMPONENT_TECH", "PERSPECTIVE_TEXT", "METADATA", "RELATIONSHIP", "PROTOCOL",
-                                        "NOTE", "OS", "PROXY", "VIEW_DESCRIPTION", "VIEW_TITLE", "VIEW_PROPERTY",
-                                        "STEP", "STYLE_TAG", "RELATIONSHIP_STYLE_TAG", "VIEWS_PROPERTY", "TERM")
-                                .map(name -> unresolved(dsl, name))
-                                .toList()));
+                        .containsExactlyInAnyOrderElementsOf(expected));
     }
 
     @Test
     void afterParsingEveryStringTheWorkspaceHoldsIsCheckedToo(@TempDir Path dir) throws Exception {
         ParsedModel parsed = RestrictedDslParser.parse(write(dir, EVERY_PLACE), "workspace.dsl", new Problems());
 
-        assertThat(ParsedStrings.unresolved(parsed.workspace(), new ElementNames(parsed.identifiers())))
-                .extracting(ParsedStrings.Reference::place, ParsedStrings.Reference::name)
-                .containsExactly(
-                        tuple("app", "KEY"), tuple("app", "TAG"), tuple("app", "TECH"), tuple("app", "VALUE"),
-                        tuple("clerk -> app", "NOTE"), tuple("clerk -> app", "PROTOCOL"),
-                        tuple("clerk -> app", "RELATIONSHIP"),
-                        tuple("custom", "METADATA"),
-                        tuple("gateway", "PROXY"),
-                        tuple("model", "MODEL_PROPERTY"),
-                        tuple("orders", "COMPONENT_TECH"), tuple("orders", "GROUP"), tuple("orders", "PERSPECTIVE_TEXT"),
-                        tuple("server", "OS"),
-                        tuple("view Components", "VIEW_DESCRIPTION"), tuple("view Components", "VIEW_PROPERTY"),
-                        tuple("view Components", "VIEW_TITLE"),
-                        tuple("view Flow", "STEP"),
-                        tuple("views", "RELATIONSHIP_STYLE_TAG"), tuple("views", "STYLE_TAG"), tuple("views", "TERM"),
-                        tuple("views", "VIEWS_PROPERTY"),
-                        tuple("workspace", "WORKSPACE_DESCRIPTION"), tuple("workspace", "WORKSPACE_NAME"),
-                        tuple("workspace", "WORKSPACE_PROPERTY"));
+        List<ParsedStrings.Reference> found =
+                ParsedStrings.unresolved(parsed.workspace(), new ElementNames(parsed.identifiers()));
+
+        // Every name the fixture writes is found somewhere: a place the walk skips fails here.
+        assertThat(found.stream().map(ParsedStrings.Reference::name).distinct().sorted().toList())
+                .isEqualTo(REFERENCE.matcher(EVERY_PLACE).results().map(reference -> reference.group(1)).distinct()
+                        .sorted().toList());
+        assertThat(found).extracting(ParsedStrings.Reference::place, ParsedStrings.Reference::name)
+                .containsExactly(EVERY_PLACE_FOUND);
     }
 
     @Test
@@ -472,22 +531,106 @@ class RestrictedDslParserTest {
     }
 
     @Test
-    void aDefinitionInABlockThatReadsEachLineAsDataIsCaughtInTheParsedStrings(@TempDir Path dir) throws Exception {
-        // In perspectives { }, this line is a perspective named !const, with a description and a value. The source
-        // scan takes it as a definition; the check of the parsed strings finds ${PERSPECTIVE} in the description.
+    void aReferenceThatOnlySubstitutionPutsTogetherIsCaughtInTheParsedStrings(@TempDir Path dir) throws Exception {
+        // The file holds ${DOLLAR}{HOME}, which refers to DOLLAR only. The parser makes it ${HOME} and does not
+        // substitute that again, so only the check of the parsed strings can see it.
+        String dsl = VALID.replace("!identifiers flat", "!identifiers flat\n    !const DOLLAR \"$\"")
+                .replace("orders = component \"Orders\" {",
+                        "orders = component \"Orders\" \"Reads ${DOLLAR}{HOME}\" {");
+
+        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads ${HOME}");
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly("orders: ${HOME} is not substituted: environment variables are not read, "
+                                + "and nothing in the model defines HOME"));
+    }
+
+    /** A perspectives block on orders with a line that reads like a definition: the parser makes it a perspective. */
+    private static final String FAKE_DEFINITION = """
+            orders = component "Orders" {
+                perspectives {
+                    !const HIDDEN x
+                }
+            """;
+
+    @Test
+    void aDefinitionInAPerspectivesBlockHidesNoReferenceInADeploymentEnvironmentName(@TempDir Path dir)
+            throws Exception {
+        String dsl = VALID.replace("orders = component \"Orders\" {", FAKE_DEFINITION).replace("// MODEL", """
+                deploymentEnvironment "Live ${HIDDEN}" {
+                    deploymentNode "Server"
+                }
+                """);
+
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(unresolved(dsl, "HIDDEN")));
+    }
+
+    @Test
+    void aDefinitionInAPerspectivesBlockHidesNoReferenceInTheTagsOfAFilteredView(@TempDir Path dir)
+            throws Exception {
+        String dsl = VALID.replace("orders = component \"Orders\" {", FAKE_DEFINITION).replace("// VIEWS", """
+                component app "Components" {
+                    include *
+                }
+                filtered "Components" include "Tag ${HIDDEN}" "Filtered"
+                """);
+
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(unresolved(dsl, "HIDDEN")));
+    }
+
+    @Test
+    void onlyALineThatTheParserReadsAsADirectiveDefinesAName(@TempDir Path dir) throws Exception {
+        // In perspectives { } each line is a perspective, unless it opens a perspective block (perspective <name> {),
+        // whose lines are directives again. In properties { } each line is a property. After a block, they are
+        // directives too.
         String dsl = VALID.replace("orders = component \"Orders\" {", """
                 orders = component "Orders" {
                     perspectives {
-                        !const PERSPECTIVE x
+                        perspective "Security" {
+                            !const INSIDE "x"
+                            description "${INSIDE}"
+                        }
+                        perspective "Looks" "like an opener, but has no brace"
+                        "Braced" "value" "{"
+                        !const HIDDEN x
                     }
-                    description "Reads ${PERSPECTIVE}"
+                    properties {
+                        !const PROPERTY
+                    }
+                    !const AFTER "y"
+                    description "${HIDDEN} ${PROPERTY} ${AFTER}"
                 """);
 
-        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads ${PERSPECTIVE}");
+        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("${HIDDEN} ${PROPERTY} y");
         assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
                 .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly("orders: ${PERSPECTIVE} is not substituted: environment variables are not "
-                                + "read, and nothing in the model defines PERSPECTIVE"));
+                        .containsExactly(unresolved(dsl, "HIDDEN"), unresolved(dsl, "PROPERTY")));
+    }
+
+    /** The other blocks that read each line as data: there, a !const or !var line does not parse at all. */
+    static Stream<Arguments> blocksWhoseLinesCannotBeDefinitions() {
+        return Stream.of(
+                arguments("a dynamic view", "// VIEWS", "dynamic shop \"Flow\" {\n    !const A b\n}"),
+                arguments("a parallel sequence", "// VIEWS",
+                        "dynamic shop \"Flow\" {\n    {\n        !var A b\n    }\n}"),
+                arguments("an animation", "// VIEWS",
+                        "component app \"Components\" {\n    include *\n    animation {\n        !const A b\n    }\n}"),
+                arguments("the users", "// WORKSPACE", "configuration {\n    users {\n        !const A b\n    }\n}"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("blocksWhoseLinesCannotBeDefinitions")
+    void aDefinitionInAnyOtherBlockThatReadsLinesAsDataDoesNotParse(String block, String slot, String lines,
+            @TempDir Path dir) throws IOException {
+        Path model = write(dir, VALID.replace(slot, lines));
+
+        assertThatThrownBy(() -> ContractModelReader.read(model, "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .singleElement(STRING).contains(" at line ").contains(" of workspace.dsl: "));
     }
 
     @Test

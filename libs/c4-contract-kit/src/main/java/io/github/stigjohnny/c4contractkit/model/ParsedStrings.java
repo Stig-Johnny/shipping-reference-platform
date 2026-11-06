@@ -2,25 +2,35 @@ package io.github.stigjohnny.c4contractkit.model;
 
 import com.structurizr.PropertyHolder;
 import com.structurizr.Workspace;
+import com.structurizr.configuration.User;
 import com.structurizr.model.Component;
 import com.structurizr.model.Container;
 import com.structurizr.model.CustomElement;
+import com.structurizr.model.DeploymentElement;
 import com.structurizr.model.DeploymentNode;
 import com.structurizr.model.Element;
 import com.structurizr.model.GroupableElement;
+import com.structurizr.model.HttpHealthCheck;
 import com.structurizr.model.InfrastructureNode;
 import com.structurizr.model.ModelItem;
 import com.structurizr.model.Perspective;
 import com.structurizr.model.Relationship;
+import com.structurizr.model.StaticStructureElementInstance;
 import com.structurizr.view.AbstractStyle;
 import com.structurizr.view.Configuration;
+import com.structurizr.view.DeploymentView;
+import com.structurizr.view.ElementStyle;
+import com.structurizr.view.FilteredView;
 import com.structurizr.view.ModelView;
+import com.structurizr.view.RelationshipStyle;
 import com.structurizr.view.RelationshipView;
 import com.structurizr.view.Terminology;
 import com.structurizr.view.View;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -28,9 +38,29 @@ import java.util.stream.Stream;
 
 /**
  * The check after parsing that backs up {@link UnresolvedReferences}: a {@code ${NAME}} still in a string of the
- * parsed workspace was not substituted, whatever the source scan concluded. It reads the strings of the workspace and
- * the model, of every element (with its perspectives) and relationship, of every view and the relationships it shows,
- * and of the view configuration: terminology, styles and properties.
+ * parsed workspace was not substituted, whatever the source scan concluded.
+ *
+ * <p>It reads every text that the Structurizr 6.2.4 types reachable from a parsed workspace hold, taken from their
+ * public getters (javap of structurizr-core 6.2.4) and walked explicitly, without reflection:
+ * <ul>
+ *   <li>the workspace: name, description, version, thumbnail, last modifying user and agent, properties, and the
+ *       users of its configuration;</li>
+ *   <li>the model: properties;</li>
+ *   <li>every element, of any type: name, description, tags, URL, properties, perspectives (name, description,
+ *       value, URL) and group; the technology of a container, component, deployment node or infrastructure node;
+ *       the metadata of a custom element; the environment of a deployment node, infrastructure node or instance;
+ *       the instances and deployment groups of a deployment node; the deployment groups and health checks (name,
+ *       URL, headers) of a software system or container instance;</li>
+ *   <li>every relationship: description, technology, tags, URL, properties and perspectives;</li>
+ *   <li>every view: key, title, description, properties, and in a model view the relationships it shows
+ *       (description, order, URL, properties); the environment of a deployment view; the base view key and tags of
+ *       a filtered view;</li>
+ *   <li>the view configuration: default view, terminology, properties, and every element and relationship style
+ *       (tag, properties and colours, and the icon of an element style).</li>
+ * </ul>
+ * Not read: identifiers the model generates (element, relationship and view element ids), names derived from the
+ * texts above (canonical names, view names), values that are not text (enums, numbers, dates), and image views and
+ * themes, which the kit rejects as they are.
  */
 final class ParsedStrings {
 
@@ -44,7 +74,7 @@ final class ParsedStrings {
      * One unresolved reference.
      *
      * @param place where it stands: an element or relationship by DSL identifier, {@code view <key>}, {@code views}
-     *     for the view configuration, {@code model} or {@code workspace}
+     *     for the view configuration, {@code model}, {@code workspace} or {@code configuration}
      * @param name the name in {@code ${name}}
      */
     record Reference(String place, String name) {
@@ -53,8 +83,10 @@ final class ParsedStrings {
     /** Every unresolved reference in the parsed workspace, once per place and name, sorted. */
     static List<Reference> unresolved(Workspace workspace, ElementNames names) {
         List<Reference> found = new ArrayList<>();
-        find("workspace", Stream.concat(Stream.of(workspace.getName(), workspace.getDescription()),
-                properties(workspace)), found);
+        find("workspace", Stream.concat(Stream.of(workspace.getName(), workspace.getDescription(),
+                workspace.getVersion(), workspace.getThumbnail(), workspace.getLastModifiedUser(),
+                workspace.getLastModifiedAgent()), properties(workspace)), found);
+        find("configuration", workspace.getConfiguration().getUsers().stream().map(User::getUsername), found);
         find("model", properties(workspace.getModel()), found);
         for (Element element : workspace.getModel().getElements()) {
             find(names.of(element), texts(element), found);
@@ -83,22 +115,39 @@ final class ParsedStrings {
     }
 
     private static Stream<String> texts(Element element) {
-        String technology = switch (element) {
-            case Container container -> container.getTechnology();
-            case Component component -> component.getTechnology();
-            case DeploymentNode node -> node.getTechnology();
-            case InfrastructureNode node -> node.getTechnology();
-            case CustomElement custom -> custom.getMetadata();
-            default -> "";
-        };
-        String group = element instanceof GroupableElement groupable ? groupable.getGroup() : "";
-        return Stream.concat(Stream.of(element.getName(), element.getDescription(), technology, group),
-                texts((ModelItem) element));
+        List<Stream<String>> texts = new ArrayList<>();
+        texts.add(Stream.of(element.getName(), element.getDescription()));
+        texts.add(texts((ModelItem) element));
+        if (element instanceof GroupableElement groupable) {
+            texts.add(Stream.of(groupable.getGroup()));
+        }
+        if (element instanceof DeploymentElement deployment) {
+            texts.add(Stream.of(deployment.getEnvironment()));
+        }
+        switch (element) {
+            case Container container -> texts.add(Stream.of(container.getTechnology()));
+            case Component component -> texts.add(Stream.of(component.getTechnology()));
+            case CustomElement custom -> texts.add(Stream.of(custom.getMetadata()));
+            case DeploymentNode node -> texts.add(Stream.concat(Stream.of(node.getTechnology(), node.getInstances()),
+                    node.getDeploymentGroups().stream()));
+            case InfrastructureNode node -> texts.add(Stream.of(node.getTechnology()));
+            case StaticStructureElementInstance instance -> texts.add(Stream.concat(
+                    instance.getDeploymentGroups().stream(),
+                    instance.getHealthChecks().stream().flatMap(ParsedStrings::texts)));
+            default -> {
+                // A person or software system holds no text beyond the above.
+            }
+        }
+        return texts.stream().flatMap(stream -> stream);
     }
 
     private static Stream<String> texts(Relationship relationship) {
         return Stream.concat(Stream.of(relationship.getDescription(), relationship.getTechnology()),
                 texts((ModelItem) relationship));
+    }
+
+    private static Stream<String> texts(HttpHealthCheck check) {
+        return Stream.concat(Stream.of(check.getName(), check.getUrl()), entries(check.getHeaders()));
     }
 
     private static Stream<String> texts(ModelItem item) {
@@ -113,10 +162,19 @@ final class ParsedStrings {
     }
 
     private static Stream<String> texts(View view) {
-        Stream<String> relationships = view instanceof ModelView modelView
-                ? modelView.getRelationships().stream().flatMap(ParsedStrings::texts) : Stream.empty();
-        return Stream.of(Stream.of(view.getKey(), view.getTitle(), view.getDescription()),
-                properties(view), relationships).flatMap(texts -> texts);
+        List<Stream<String>> texts = new ArrayList<>();
+        texts.add(Stream.of(view.getKey(), view.getTitle(), view.getDescription()));
+        texts.add(properties(view));
+        if (view instanceof ModelView modelView) {
+            texts.add(modelView.getRelationships().stream().flatMap(ParsedStrings::texts));
+        }
+        if (view instanceof DeploymentView deployment) {
+            texts.add(Stream.of(deployment.getEnvironment()));
+        }
+        if (view instanceof FilteredView filtered) {
+            texts.add(Stream.concat(Stream.of(filtered.getBaseViewKey()), filtered.getTags().stream()));
+        }
+        return texts.stream().flatMap(stream -> stream);
     }
 
     private static Stream<String> texts(RelationshipView relationship) {
@@ -129,15 +187,25 @@ final class ParsedStrings {
         Stream<String> terminology = Stream.of(terms.getEnterprise(), terms.getPerson(), terms.getSoftwareSystem(),
                 terms.getContainer(), terms.getComponent(), terms.getCode(), terms.getDeploymentNode(),
                 terms.getInfrastructureNode(), terms.getRelationship());
-        Stream<AbstractStyle> styles = Stream.concat(configuration.getStyles().getElements().stream(),
-                configuration.getStyles().getRelationships().stream());
+        Collection<ElementStyle> elementStyles = configuration.getStyles().getElements();
+        Collection<RelationshipStyle> relationshipStyles = configuration.getStyles().getRelationships();
         return Stream.of(Stream.of(configuration.getDefaultView()), terminology, properties(configuration),
-                styles.flatMap(style -> Stream.concat(Stream.of(style.getTag()), properties(style))))
+                        elementStyles.stream().flatMap(style -> Stream.concat(style(style), Stream.of(
+                                style.getBackground(), style.getStroke(), style.getColor(), style.getIcon()))),
+                        relationshipStyles.stream().flatMap(style -> Stream.concat(style(style),
+                                Stream.of(style.getColor()))))
                 .flatMap(texts -> texts);
     }
 
+    private static Stream<String> style(AbstractStyle style) {
+        return Stream.concat(Stream.of(style.getTag()), properties(style));
+    }
+
     private static Stream<String> properties(PropertyHolder holder) {
-        return holder.getProperties().entrySet().stream()
-                .flatMap(property -> Stream.of(property.getKey(), property.getValue()));
+        return entries(holder.getProperties());
+    }
+
+    private static Stream<String> entries(Map<String, String> map) {
+        return map.entrySet().stream().flatMap(entry -> Stream.of(entry.getKey(), entry.getValue()));
     }
 }

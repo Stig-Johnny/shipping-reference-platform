@@ -1,6 +1,8 @@
 package io.github.stigjohnny.c4contractkit.model;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -20,11 +22,18 @@ import java.util.regex.Pattern;
  * keeps nothing else of that line). A text block is text: the lines in it are never comments or definitions, and its
  * references are resolved where the line that holds it is read. Then line by line: a byte order mark is dropped,
  * line comments are skipped, block comments nest, an identifier assignment ({@code x =}) is dropped from the tokens,
- * and a {@code !const} or {@code !var} line defines its name for the lines after it.
+ * and a {@code !const} or {@code !var} line defines its name for the lines after it, where the parser reads it as that
+ * directive.
  *
- * <p>A {@code !const} line inside a block that reads each line as data (properties, perspectives) defines nothing for
- * the parser, but this scan takes it as a definition. {@link ParsedStrings} checks the parsed workspace afterwards
- * and catches a reference that such a line would hide.
+ * <p>The parser does not, inside a block whose parser reads every line as data. In {@code properties} each line is a
+ * property, and in {@code perspectives} each line is a perspective, except a <code>perspective &lt;name&gt; {</code>
+ * line, which opens a block of directives again. The other such blocks in StructurizrDslParser 6.2.4 (a dynamic view
+ * and its parallel sequences, an animation, the users of the configuration) read a line as a step or a user, and a
+ * {@code !const} or {@code !var} line there does not parse, so the scan need not follow them. So the scan keeps only
+ * those two kinds of block, and the perspective blocks inside the second: a line that starts with {@code properties}
+ * or {@code perspectives} opens one, and a line that starts with <code>}</code> closes the innermost block. Neither
+ * kind holds any other block, so the other blocks of the file need no record: the brace that closes one of them finds
+ * no block of those kinds open. {@link ParsedStrings} checks the parsed workspace afterwards as well.
  */
 final class UnresolvedReferences {
 
@@ -39,6 +48,11 @@ final class UnresolvedReferences {
     private static final String BYTE_ORDER_MARK = "\uFEFF";
     private static final String BLOCK_COMMENT_START = "/*";
     private static final String BLOCK_COMMENT_END = "*/";
+    private static final String BLOCK_START = "{";
+    private static final String BLOCK_END = "}";
+
+    /** A block of the two kinds that read each line as data, or a perspective block, whose lines are directives. */
+    private enum Block { PROPERTIES, PERSPECTIVES, OTHER }
 
     private UnresolvedReferences() {
     }
@@ -51,6 +65,7 @@ final class UnresolvedReferences {
     static Set<String> check(List<String> lines, String displayPath, Problems problems) {
         Set<String> defined = new HashSet<>();
         Set<String> reported = new HashSet<>();
+        Deque<Block> blocks = new ArrayDeque<>();
         int openComments = 0;
         for (LogicalLine line : logicalLines(lines)) {
             Located code = line.code().text().startsWith(BYTE_ORDER_MARK)
@@ -77,11 +92,30 @@ final class UnresolvedReferences {
             }
             report(code, defined, displayPath, problems, reported);
             line.textBlock().ifPresent(block -> report(block, defined, displayPath, problems, reported));
-            if (first.equalsIgnoreCase("!const") || first.equalsIgnoreCase("!var")) {
-                tokens.stream().skip(1).findFirst().ifPresent(defined::add);
+            Block current = blocks.isEmpty() ? Block.OTHER : blocks.peek();
+            if (BLOCK_END.equals(first)) {
+                blocks.poll();
+            } else if (current == Block.PERSPECTIVES) {
+                // StructurizrDslParser opens a perspective block only for: perspective <name> {
+                if (first.equalsIgnoreCase("perspective") && tokens.size() == 3 && opensBlock(tokens)) {
+                    blocks.push(Block.OTHER);
+                }
+            } else if (current == Block.OTHER) {
+                if (first.equalsIgnoreCase("!const") || first.equalsIgnoreCase("!var")) {
+                    tokens.stream().skip(1).findFirst().ifPresent(defined::add);
+                } else if (first.equalsIgnoreCase("properties")) {
+                    blocks.push(Block.PROPERTIES);
+                } else if (first.equalsIgnoreCase("perspectives")) {
+                    blocks.push(Block.PERSPECTIVES);
+                }
             }
         }
         return reported;
+    }
+
+    /** StructurizrDslParser.shouldStartContext: the last token is the opening brace. */
+    private static boolean opensBlock(List<String> tokens) {
+        return !tokens.isEmpty() && tokens.get(tokens.size() - 1).equalsIgnoreCase(BLOCK_START);
     }
 
     private static void report(Located text, Set<String> defined, String displayPath, Problems problems,
