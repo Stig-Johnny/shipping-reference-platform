@@ -54,7 +54,9 @@ A version bump, including one Dependabot proposes, is a new review.
 ## Acceptance
 
 The reviews are written by AI subagents. A human owner accepts them before first use: `allowlist.json` records that
-acceptance under `acceptance`, and the checker fails while it is missing.
+acceptance under `acceptance`, and the checker fails while it is missing. The acceptance is bound to the exact reviewed
+set: it stores a SHA-256 of every entry's enforced fields (`entriesSha256`), and the checker recomputes it. Changing,
+adding or removing an entry afterwards fails the check until the owner accepts again.
 
 ## What this does not stop
 

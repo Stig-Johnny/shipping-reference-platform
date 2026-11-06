@@ -11,8 +11,8 @@ Several reviews in `security/reviews/` require, before first use, that the artif
 checked and the result recorded. This file is that record.
 
 **Who checked:** the orchestrator, an AI agent, on the owner's MacBook. The reviews say "a human verifies". The
-checks below are mechanical and reproducible, and the owner's acceptance of this record is what makes them a human
-decision (see `security/README.md`, "Acceptance").
+checks below are mechanical and reproducible. **The owner accepted this record** together with the reviewed set on
+2026-11-06T17:42:45.744Z (`acceptance` in `security/allowlist.json`), which makes it a human decision.
 
 **How:** every signature was checked in a fresh, isolated `GNUPGHOME`, with the signing key fetched over HTTPS from a
 public keyserver by the full fingerprint recorded in the review. A `VALIDSIG` whose primary-key fingerprint differs from

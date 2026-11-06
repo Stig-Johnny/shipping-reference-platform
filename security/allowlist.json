@@ -2,8 +2,12 @@
   "schemaVersion": 1,
   "description": "Every third-party component this repository may use: build tools, JDKs, Maven and npm packages, GitHub Actions, container images and host tools. Each entry points at its security review. Anything absent, expired, or with a verdict other than APPROVE or APPROVE-WITH-CONDITIONS must not be used, and the preflight check fails the pull request that tries. See docs/adr/0007 and security/README.md.",
   "acceptance": {
-    "status": "pending",
-    "note": "The reviews ask a human code owner to accept them before first use. Pending the owner's yes."
+    "status": "accepted",
+    "by": "Stig-Johnny (repository owner and code owner)",
+    "at": "2026-11-06T17:42:45.744Z",
+    "how": "In chat to the orchestrator: \"I approve yes\", after being shown pull request #3 with its 58 reviews, this allowlist and security/verifications/2026-11-06-toolchain.md.",
+    "scope": "Exactly the entries whose digest is entriesSha256, and the toolchain verification record. Changing, adding or removing an entry changes the digest, and the checker then fails until the owner accepts again.",
+    "entriesSha256": "0af5cc94568eaf98ffd25b758073e366ca5a8b0a1871af14b4a28e7096ce2be5"
   },
   "counts": {
     "entries": 217,

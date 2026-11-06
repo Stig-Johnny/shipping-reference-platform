@@ -129,10 +129,40 @@ public final class PolicyCheck {
         }
     }
 
+    /**
+     * The owner's acceptance is bound to the exact reviewed set: it records a digest of every entry's enforced fields,
+     * so changing, adding or removing an entry afterwards needs the owner's acceptance again.
+     */
     void checkAcceptance() {
-        String status = allowlist.get("acceptance").asObject().text("status");
+        Json.JObject acceptance = allowlist.get("acceptance").asObject();
+        String status = acceptance.text("status");
         if (!"accepted".equals(status)) {
             add("acceptance", "the owner has not accepted the reviewed set (acceptance.status is '%s')".formatted(status));
+            return;
+        }
+        String accepted = acceptance.text("entriesSha256");
+        String current = entriesDigest(entries);
+        if (!current.equals(accepted)) {
+            add("acceptance", "the reviewed set changed after the owner accepted it (entries digest %s, accepted %s)"
+                    .formatted(current, accepted.isBlank() ? "none" : accepted));
+        }
+    }
+
+    /**
+     * SHA-256 over one line per entry, sorted, of the fields the check enforces:
+     * {@code kind|coordinate|version|artifact|sha256|verdict|reviewRecord|expiresAt}, joined with '\n', UTF-8.
+     */
+    static String entriesDigest(List<Entry> entries) {
+        String canonical = entries.stream()
+                .map(e -> String.join("|", e.kind(), e.coordinate(), e.version(), e.artifact(), e.sha256(),
+                        e.verdict(), e.reviewRecord(), e.expiresAt()))
+                .sorted()
+                .collect(java.util.stream.Collectors.joining("\n"));
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
         }
     }
 
