@@ -31,6 +31,12 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * The conditions of security/reviews/maven--archunit--1.5.1.md and maven--structurizr-dsl--6.2.4.md, and the
  * boundaries of libs/c4-contract-kit/AGENTS.md, checked with ArchUnit on the library's own class files.
+ *
+ * <p>A rule on a forbidden method or constructor matches its owner and name in a call or in a method or constructor
+ * reference. A call through {@code java.lang.invoke}, a method handle looked up by name, is outside these rules; only
+ * {@code java.lang.reflect} is banned outright. No production class uses {@code java.lang.invoke} today, and
+ * policy/risk.json raises an added {@code MethodHandles.} in production code to level 3. docs/gaps.md section 5
+ * records this gap.
  */
 class ReviewConditionsTest {
 

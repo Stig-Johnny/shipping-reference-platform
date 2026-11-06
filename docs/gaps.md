@@ -129,6 +129,11 @@ closes it.
 - **Risk signals are patterns.** Behaviour signals in `policy/risk.json` match paths, symbols and SQL keywords.
   Unknown paths escalate to level 3; an ordinary-looking change with a sensitive meaning can still be classified too
   low. The AI reviewer may raise the level; nothing may lower it.
+- **The review-condition tests match calls by name.** `ReviewConditionsTest` finds a forbidden method or constructor
+  (`reflect()`, a class-path import, a second parser factory, `System.getenv`, `Class.forName` and the others) by its
+  owner and name, in a call or a method or constructor reference. A call through `java.lang.invoke`, a method handle
+  looked up by name, is outside those rules; only `java.lang.reflect` is banned outright. No production class uses
+  `java.lang.invoke` today, and `policy/risk.json` raises an added `MethodHandles.` in production code to level 3.
 
 ## 6. Tests and quality gates
 
