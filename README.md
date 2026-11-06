@@ -100,19 +100,17 @@ BRAIN.md                         generated agent entry point (later)
 
 ## Running it
 
-The build bootstrap pull request provides these commands; until then they are placeholders.
+From a clean clone, with the reviewed JDK (Temurin 25.0.5+8) on `JAVA_HOME`. Install it by hand from the archive
+whose SHA-256 is in `security/verifications/2026-11-06-toolchain.md`: Gradle's toolchain auto-download is off.
 
 | Step | Command |
 |---|---|
-| Install the reviewed toolchain (JDK 25.0.5+8, Node 26.13.0, npm 11.20.0) | `<bootstrap>` |
-| Start PostgreSQL 18.6 with the two roles | `<db-up>` |
-| Start the API with the `demo` profile and synthetic seed (port 8080) | `<api-run-demo>` |
-| Start the workbench (port 5173, proxies `/api`) and sign in as `clerk-alpha` | `<web-run>` |
-| Run all Java checks | `<java-check>` |
-| Run web checks | `<web-check>` |
-| Run contract and end-to-end tests | `<contract-e2e>` |
+| Check every dependency against the allowlist (the JDK alone; nothing from the repository runs) | `java tools/policy/PolicyCheck.java .` |
+| Run all Java checks (compile with Error Prone and NullAway, tests) | `./gradlew check` |
 | Run mutation tests on changed code | `<mutation>` |
-| Check docs and regenerate the brain | `<docs-brain>` |
+
+Not built yet; their commands arrive with their code: a toolchain bootstrap script, PostgreSQL 18.6 with the two
+roles, the API with the `demo` profile, the workbench, web checks, contract and end-to-end tests, and the brain.
 
 ## Honest limits
 
