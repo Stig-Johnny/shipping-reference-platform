@@ -3,11 +3,12 @@
 # Every path listed here is risk level 3 in policy/risk.json, and every level 3 path rule has an entry here. Planned:
 # CodeownersRiskConsistencyTest (tools/policy) fails when the two disagree.
 #
-# What GitHub enforces today: changes reach main only through pull requests, and main cannot be force-pushed or
-# deleted. GitHub does NOT yet require code owner review or the CI checks (docs/gaps.md, section 5). The planned
-# main-branch ruleset (ADR 0008) requires both, dismisses stale approvals and allows no routine bypass, and the
-# planned risk-approval check catches semantic level 3 changes outside these paths. Changing this file is itself
-# level 3 (it lives under .github/).
+# What GitHub enforces today: changes reach main only through pull requests whose `preflight` and `java` checks
+# passed, for administrators too; main cannot be force-pushed or deleted. GitHub does NOT require code owner review:
+# the only code owner authors the pull requests, and GitHub refuses self-approval (docs/gaps.md, section 5). The
+# planned main-branch ruleset (ADR 0008) adds it once agents have their own identity, and the planned risk-approval
+# check catches semantic level 3 changes outside these paths. Changing this file is itself level 3 (it lives under
+# .github/).
 #
 # GitHub applies the last matching pattern; every pattern here has the same owner.
 

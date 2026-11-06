@@ -5,10 +5,15 @@ status: accepted
 updated: 2026-11-06
 date: 2026-11-06
 decision-makers: repository owner
-enforcedBy: [not enforced yet]
+enforcedBy:
+  - "branch protection on main: pull request required, required status checks preflight and java (strict, administrators included), stale reviews dismissed, conversation resolution required, no force push, no deletion"
+  - "GitHub Actions setting: selected actions only, SHA pinning required, six allowed patterns"
 plannedEnforcement:
+  - "ruleset on main: stored in policy/rulesets.json, applied by a trusted admin workflow that fails on drift"
+  - "code owner review for owned paths"
   - "risk-approval: classifier from the base branch plus approval binding to the head SHA"
   - "ai-review: recorded findings bound to the final SHA"
+  - "identities: a dedicated GitHub App that opens pull requests, and a separate reviewer identity"
   - "tools/policy tests: RiskClassifierTest, CodeownersRiskConsistencyTest"
 ---
 
@@ -68,13 +73,38 @@ Chosen option 1, with CODEOWNERS as the path-based half of it.
 
 ### Confirmation
 
-- `risk-approval` (required check) runs the classifier from the base branch, posts the level and every matching
-  rule, and fails a level 3 pull request until the owner has approved its current head SHA.
-- `ai-review` (required check) fails unless an AI review record exists for the final SHA with findings and their
-  disposition.
-- `RiskClassifierTest` (`:tools:policy`) covers each rule with positive and negative fixtures, including: unknown
-  path gives 3; SQL in a level 2 file gives 3; rename from a level 3 path keeps 3; an AI attempt to lower is rejected.
-- `CodeownersRiskConsistencyTest` fails when a CODEOWNERS path is below level 3 or a level 3 path glob lacks an owner.
+- **Planned.** `risk-approval` (required check) runs the classifier from the base branch, posts the level and every
+  matching rule, and fails a level 3 pull request until the owner has approved its current head SHA.
+- **Planned.** `ai-review` (required check) fails unless an AI review record exists for the final SHA with findings
+  and their disposition.
+- **Planned.** `RiskClassifierTest` (`:tools:policy`) covers each rule with positive and negative fixtures, including:
+  unknown path gives 3; SQL in a level 2 file gives 3; rename from a level 3 path keeps 3; an AI attempt to lower is
+  rejected.
+- **Planned.** `CodeownersRiskConsistencyTest` fails when a CODEOWNERS path is below level 3 or a level 3 path glob
+  lacks an owner.
+
+## Implementation status (2026-11-06)
+
+What is built, and where it differs from the decision above. The decision stands; the differences are open work.
+
+- **What GitHub enforces.** Branch protection on `main` (not a ruleset) requires a pull request with 0 approvals,
+  dismisses stale reviews, requires conversation resolution and forbids force pushes and deletion. It requires the
+  status checks `preflight` and `java`, strict (the branch must be up to date with `main`), for administrators too.
+  The Actions setting allows selected actions only, requires SHA pinning and lists six allowed patterns, with no
+  GitHub-owned or verified wildcard. The default `GITHUB_TOKEN` permission is read, and Actions cannot approve pull
+  requests. A tag ruleset makes existing tags immutable.
+- **What is planned.** No branch ruleset exists, and `policy/rulesets.json` does not exist. No trusted admin workflow
+  applies settings or reports drift. Code owner review is not required. No `risk-approval` or `ai-review` check exists,
+  so nothing computes a level or records an AI approval yet; `policy/risk.json` is policy data that no check reads.
+  `mutation`, `web`, `contract-e2e` and `docs-brain` are not required checks: the `mutation` job arrives with pull
+  request #13, and no frontend or API code exists for `web` and `contract-e2e`. No dedicated GitHub App and no
+  separate reviewer identity exist. `RiskClassifierTest` and `CodeownersRiskConsistencyTest` do not exist.
+- **Why code owner review cannot be required today.** The only code owner authors the pull requests: the AI agents
+  open them on the owner's GitHub account, and GitHub refuses an author's approval of their own pull request.
+  Requiring code owner review would block every merge. It needs the agents to open pull requests under their own
+  identity first.
+- **Visibility.** The decision assumes a private repository. The repository goes public, by the owner's decision,
+  and so does its GitHub Pages documentation site.
 
 ## More Information
 

@@ -1,8 +1,9 @@
 # AGENTS.md: security/ (dependency reviews and the allowlist)
 
 Adds to the root `AGENTS.md`. Decision: ADR 0007. Everything under `security/` is risk level 3 and owned by the
-owner in `.github/CODEOWNERS`. AI agents write reviews and propose allowlist entries; the owner's approval of the
-pull request's current head is what makes an entry effective.
+owner in `.github/CODEOWNERS`. AI agents write reviews and propose allowlist entries; the owner's acceptance,
+recorded in `allowlist.json` with a digest of the exact reviewed set, is what makes an entry effective
+(`security/README.md`, "Acceptance").
 
 ## What needs a review
 
@@ -36,22 +37,23 @@ Every exact component the project downloads or runs, one allowlist entry per art
    - **Maintenance:** release history, open security issues.
    - **Licence:** SPDX identifier. Acceptable without conditions: Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause,
      EPL-2.0, MPL-2.0. Anything else needs the owner's explicit decision in `conditions`.
-4. Decide: `approve`, `approve-with-conditions` or `reject`. Conditions must be checkable (for example "test scope
+4. Decide: `APPROVE`, `APPROVE-WITH-CONDITIONS` or `REJECT`. Conditions must be checkable (for example "test scope
    only", "only `npm rebuild esbuild` may run").
 5. Write the review record and the allowlist entry in the same pull request. Never approve a component you proposed
    as the deciding human; the owner accepts.
 
 ## Files
 
-- Review record: `security/reviews/<ecosystem>/<coordinate>@<version>.md`, where `<coordinate>` has `:` and `/`
-  replaced by `__` (for example `security/reviews/maven/org.postgresql__postgresql@42.7.14.md`). YAML frontmatter:
-  `title`, `description`, `status`, `updated`, plus the allowlist fields below. Body: one section per inspection item
-  in step 3, each with the evidence you looked at.
-- Allowlist: `security/allowlist.json`, validated against `security/allowlist.schema.json`. Each entry has
-  `ecosystem`, `coordinate`, `version`, `artifact` or `platform`, `sourceHost`, `digest` or `integrity`, `purpose`,
-  `scope`, `licence`, `reviewRef`, `reviewedAt`, `expiresAt`, `findings`, `conditions`, `decision`.
-  `expiresAt` is at most 12 months after `reviewedAt`; shorter when findings warrant it. Expired entries fail
-  preflight.
+- Review record: `security/reviews/<kind>--<name>--<version>.md`, one per component or family (for example
+  `security/reviews/maven--pgjdbc--42.7.14.md`). YAML frontmatter: `component`, `kind`, `version`, `verdict`,
+  `scope`, `conditions` (a list), `reviewer`, `reviewedAt`, `expiresAt`. Body: the verdict, then one section per
+  inspection item in step 3, each with the evidence you looked at, and what was not verified. A scope extension (an
+  existing review applied to another project) is its own record that names the records it extends.
+- Allowlist: `security/allowlist.json`. Each entry has `kind`, `coordinate`, `version`, `artifact`, `sha256` (or
+  `null` where the review records none), `project`, `configuration`, `verdict`, `conditions`, `reviewRecord`,
+  `reviewer`, `reviewedAt` and `expiresAt`. There is no JSON schema file yet; `tools/policy/PolicyCheck.java`
+  validates what it enforces. `expiresAt` is at most 12 months after `reviewedAt`, shorter when findings warrant it.
+  Expired entries fail preflight.
 
 ## Never
 

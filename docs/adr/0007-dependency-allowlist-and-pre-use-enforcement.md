@@ -5,12 +5,19 @@ status: accepted
 updated: 2026-11-06
 date: 2026-11-06
 decision-makers: repository owner
-enforcedBy: [not enforced yet]
+enforcedBy:
+  - "preflight (required check): the base branch's tools/policy/PolicyCheck.java run in a pull_request_target workflow on the pull request's head, checked out as data"
+  - "java (required check): Gradle strict dependency locking and SHA-256 dependency verification"
+  - "tools/ci/stage-temurin.sh: SHA-256 check of the reviewed JDK archive before actions/setup-java installs it"
+  - "GitHub Actions setting: selected actions only, SHA pinning required, six allowed patterns"
+  - "acceptance: PolicyCheck recomputes acceptance.reviewedSetSha256 on every run"
 plannedEnforcement:
-  - "preflight: tools/policy run from the base branch in a pull_request_target workflow"
-  - "java: Gradle strict dependency verification and locking"
+  - "allowlist schema: security/allowlist.schema.json with the fields named in the decision"
   - "web: npm ci --ignore-scripts against the single root lockfile"
-  - "tools/policy tests: AllowlistCheckTest, GradleVerificationCheckTest, NpmLockCheckTest, WorkflowPinCheckTest, ApprovalBindingTest"
+  - "tools/policy tests: AllowlistCheckTest, GradleVerificationCheckTest, NpmLockCheckTest, WorkflowPinCheckTest, ApprovalBindingTest, StrictJsonParserTest"
+  - "approval binding: an allowlist entry added by a pull request is effective only after the owner approves that exact head SHA"
+  - "verification workflow: dispatched by preflight from the base branch, with a trusted job publishing the check results"
+  - "agent identity: a GitHub App that opens pull requests and lacks workflow-write permission"
 ---
 
 # ADR 0007: Dependency allowlist with pre-use enforcement
@@ -80,15 +87,60 @@ Chosen option 1, with option 2 kept as integrity evidence and option 3 as option
 
 ### Confirmation
 
-- `preflight` is a required check.
-- `tools/policy` tests (Gradle project `:tools:policy`), each with negative fixtures: `AllowlistCheckTest` (unknown,
-  expired, rejected, condition unmet), `GradleVerificationCheckTest` (missing or mismatched SHA-256, wildcard,
-  exclusion), `NpmLockCheckTest` (unapproved host, missing integrity, lockfile not matching allowlist),
+- **Enforced.** `preflight` is a required check (branch protection on `main`, strict, administrators included).
+- **Planned.** `tools/policy` tests (Gradle project `:tools:policy`), each with negative fixtures: `AllowlistCheckTest`
+  (unknown, expired, rejected, condition unmet), `GradleVerificationCheckTest` (missing or mismatched SHA-256,
+  wildcard, exclusion), `NpmLockCheckTest` (unapproved host, missing integrity, lockfile not matching allowlist),
   `WorkflowPinCheckTest` (tag instead of SHA, unlisted action), `ApprovalBindingTest` (approval of an older head is
-  ignored), `StrictJsonParserTest`.
-- `java` runs Gradle with strict verification and locked configurations; `web` runs `npm ci --ignore-scripts`.
-- `.github/CODEOWNERS` protects `security/`, `tools/`, `build-logic/`, `gradle/`, `.github/`, lockfiles and build
-  files; `policy/risk.json` classifies them as level 3.
+  ignored), `StrictJsonParserTest`. None of these exists yet.
+- **Enforced** for `java`, **planned** for `web`. `java` runs Gradle with strict verification and locked
+  configurations, and is a required check. `web` (`npm ci --ignore-scripts`) does not exist yet.
+- **Planned.** `.github/CODEOWNERS` protects `security/`, `tools/`, `build-logic/`, `gradle/`, `.github/`, lockfiles
+  and build files; `policy/risk.json` classifies them as level 3. Both files exist, but GitHub does not require code
+  owner review and no check evaluates `policy/risk.json` yet (ADR 0008).
+
+## Implementation status (2026-11-06)
+
+What is built, and where it differs from the decision above. The decision stands; the differences are open work.
+
+- **The allowlist fields.** `security/allowlist.json` has `schemaVersion` 1 and entries with `kind`, `coordinate`,
+  `version`, `artifact`, `sha256`, `project`, `configuration`, `verdict`, `conditions`, `reviewRecord`, `reviewer`,
+  `reviewedAt` and `expiresAt`, plus `alsoReviewedIn` on some entries. Kinds in use: `maven`, `gradle-distribution`,
+  `jdk`, `github-action`, `container-image`, `homebrew`, `npm`, `vendored-js`, `browser-binary`, `runtime` and
+  `runner-image`. Verdicts: `APPROVE`, `APPROVE-WITH-CONDITIONS`, `REJECT`. There is no
+  `security/allowlist.schema.json`, and the names `ecosystem`, `sourceHost`, `purpose`, `licence`, `reviewRef` and
+  `decision` are not used. `project` and `configuration` record the scope; the checker does not enforce it.
+- **The checker is one file without tests.** `tools/policy/PolicyCheck.java` runs with the JDK's source launcher
+  (`java PolicyCheck.java`). There is no `module-info.java`, no `:tools:policy` Gradle project and no test class. It
+  imports only JDK packages. It was proven by mutation by hand: 13 scripted tamperings, recorded in pull requests #3,
+  #7 and #10, not an automated suite. It checks the lockfiles, the SHA-256 values in
+  `gradle/verification-metadata.xml`, the wrapper JAR and distribution checksum, workflow `uses:` pins, any
+  `package-lock.json` (none exists yet), files under `vendor/` directories, review record presence, verdicts, expiry
+  dates and the acceptance digest. It does not validate the allowlist against a schema. Its XML parser has
+  doctype declarations and external entities switched off.
+- **The pull request is checked out as data, not fetched through the API.** `preflight` checks out the base commit
+  into `base/` and the pull request's head into `pr/`, both with `persist-credentials: false`, and runs
+  `java base/tools/policy/PolicyCheck.java pr`. Nothing from `pr/` is executed. The JDK comes from the base branch's
+  `tools/ci/stage-temurin.sh`, which checks its SHA-256. Pull requests from forks fail the job. Exit 1 (findings)
+  and exit 2 (could not complete) fail it too.
+- **An acceptance digest, not an approval bound to a head SHA.** The owner's acceptance is recorded in
+  `security/allowlist.json` as `acceptance.reviewedSetSha256`: a SHA-256 over every entry in canonical JSON and every
+  review record's bytes. The checker recomputes it on every run, so an entry or review that changes after acceptance
+  fails `preflight`. The digest proves that the reviewed set did not change after acceptance. It does not prove that
+  a human accepted it: the owner and the AI agents use the same GitHub account, and the agent that records the
+  acceptance also computes the digest. The record quotes the owner's words and their timestamp from the chat
+  transcript. Nothing binds an approval to a head SHA.
+- **No base-dispatched verification workflow.** `preflight` dispatches nothing, and no trusted job publishes check
+  results. `java` is an ordinary `pull_request` workflow. It runs the candidate's own JDK staging script, wrapper
+  SHA-256 check and `./gradlew check` under strict locking and checksum verification, and does not run the checker
+  first. It does not wait for `preflight`, so a candidate's build scripts run in `java` whatever `preflight`
+  reports. A pull request can edit `java.yml` itself. `preflight`, run from the base branch, is the gate a pull request
+  cannot weaken: today it stops the merge, not the candidate build.
+- **No agent App identity.** The AI agents open pull requests on the owner's GitHub account. No GitHub App exists
+  for them, so their pull requests have the same author as the owner's.
+- **Repository settings.** The Actions setting is applied: selected actions only, SHA pinning required, six allowed
+  patterns and no GitHub-owned or verified wildcard. `preflight` and `java` are required status checks on `main`.
+- **npm.** No `package.json`, `package-lock.json` or `web` job exists yet, so the npm rules have nothing to apply to.
 
 ## More Information
 
