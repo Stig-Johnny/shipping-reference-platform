@@ -88,14 +88,8 @@ final class PageShell {
         return out.toString();
     }
 
-    /** A commit ID in code type; a local build says so in words; any other text is plain. */
+    /** The full commit SHA the site was built from, as plain text; the builder accepts nothing else. */
     static String revision(String revision) {
-        if (revision.isBlank()) {
-            return "Built locally, not from a published commit.";
-        }
-        if (revision.matches("[0-9a-f]{7,64}")) {
-            return "Revision <code>" + revision + "</code>.";
-        }
-        return "Revision " + Html.escape(revision) + ".";
+        return "Source revision: <code>" + Html.escape(revision) + "</code>.";
     }
 }

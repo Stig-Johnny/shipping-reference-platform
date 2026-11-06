@@ -96,8 +96,9 @@ SnakeYAML Engine 3.2.
   also publishes the repository's LICENSE and NOTICE, complete and unchanged, beside the third-party notices, as the
   Apache License 2.0 asks of a redistribution.
 - A link in a document to a file the site does not publish becomes plain text, and a link to the repository on
-  GitHub is not published. A link to a missing file or anchor fails the build. Two builds from the same sources and
-  revision are byte-identical.
+  GitHub is not published. A link to a missing file or anchor fails the build. Every page names the full commit SHA
+  it was built from, GITHUB_SHA in CI and the checked-out commit locally, and the build fails without one. Two builds
+  of the same commit are byte-identical.
 - The four view pages, and the flow page with the dynamic view of its flow, draw their diagram with Mermaid 11.17.2,
   the reviewed, unmodified `dist/mermaid.min.js`, vendored at `tools/docs/vendor/mermaid/11.17.2/`. The build copies
   it only after its SHA-256 matches the allowlist, and serves it from the site's own origin. The site's script

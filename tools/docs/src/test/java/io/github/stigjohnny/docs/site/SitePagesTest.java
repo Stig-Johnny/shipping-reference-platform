@@ -31,7 +31,7 @@ class SitePagesTest {
     static void buildTheSite() {
         Fixture fixture = Fixture.copy(dir).passingEvidence();
         sources = Sources.read(fixture.root(), List.of(fixture.reports()));
-        SiteBuilder.build(sources, dir.resolve("site"), "test-revision");
+        SiteBuilder.build(sources, dir.resolve("site"), "0123456789abcdef0123456789abcdef01234567");
         site = BuiltSite.read(dir.resolve("site"));
     }
 
@@ -255,6 +255,12 @@ class SitePagesTest {
         assertThat(flow).doesNotContain("<h2 id=\"sequence\">").contains("Enlarge diagram",
                 "<script src=\"../assets/mermaid/11.17.2/mermaid.min.js\" defer></script>",
                 "href=\"quote-book-label.html\"");
+    }
+
+    @Test
+    void theStartPageSaysTheSiteIsPublicAndTheRepositoryIsPlannedToBe() {
+        assertThat(site.text("index.html")).contains("The documentation site is public. The repository itself is "
+                + "planned to become public; repository links will be enabled after that change.");
     }
 
     @Test

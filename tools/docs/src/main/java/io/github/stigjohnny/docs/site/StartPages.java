@@ -30,10 +30,11 @@ final class StartPages {
         body.append("<h2 id=\"the-data\">The data</h2>\n<p class=\"prose\">Everything on this site is synthetic: the ")
                 .append("tenants, users, recipients and addresses are invented, and the carrier is simulated. The demo ")
                 .append("tokens in the module documents are public test fixtures, not credentials.</p>\n")
-                .append("<h2 id=\"public-site\">What this site publishes</h2>\n<p class=\"prose\">This site is ")
-                .append("generated from the repository by <code>tools/docs</code> and scanned before publication. ")
-                .append("Paths of files that it does not publish, such as source code and workflows, appear as plain ")
-                .append("text, and it does not link to the repository on GitHub.</p>\n");
+                .append("<h2 id=\"public-site\">What this site publishes</h2>\n<p class=\"prose\">The documentation ")
+                .append("site is public. The repository itself is planned to become public; repository links will be ")
+                .append("enabled after that change.</p>\n<p class=\"prose\">The site is generated from the repository ")
+                .append("by <code>tools/docs</code> and scanned before publication. Paths of files that it does not ")
+                .append("publish, such as source code and workflows, appear as plain text.</p>\n");
         body.append("<h2 id=\"reading-paths\">Two reading paths</h2>\n<div class=\"card-grid\">\n");
         body.append(path("path-coo", "Reading path for a COO", "What is promised, who approves what, and "
                 + "what is not proven yet.", List.of(

@@ -42,6 +42,10 @@ public final class SiteBuilder {
 
     /** Writes the site to {@code out}, which is emptied first; returns the number of files written. */
     public static int build(Sources sources, Path out, String revision) {
+        if (!revision.matches("[0-9a-f]{40}|[0-9a-f]{64}")) {
+            throw new DocsException("the source revision must be a full commit SHA: in CI it is GITHUB_SHA, locally "
+                    + "the checked-out commit; the site never names a made-up revision");
+        }
         Consistency.check(sources);
         SiteMap map = SiteMap.of(sources);
         SiteContext context = new SiteContext(sources, map, Diagrams.of(sources.workspace(), sources.elementStatus()));

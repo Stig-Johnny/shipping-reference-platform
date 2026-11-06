@@ -72,14 +72,23 @@ val checkGenerated = tasks.register<JavaExec>("checkGenerated") {
     docsTool("check-generated")
 }
 
-// The site: build/site, relative links only, rebuilt from scratch on every run. The revision is GITHUB_SHA in CI.
+// The site: build/site, relative links only, rebuilt from scratch on every run. Every page names the full commit SHA
+// it was built from: GITHUB_SHA in CI, the checked-out commit locally. It is read when the site is built, and the
+// tool fails without a full SHA, so a site never names a made-up revision.
 val siteDirectory: String = layout.buildDirectory.dir("site").get().asFile.absolutePath
-val sourceRevision: String = providers.environmentVariable("GITHUB_SHA").orElse("").get()
+val sourceRevision: Provider<String> = providers.environmentVariable("GITHUB_SHA").orElse(
+    providers.exec {
+        commandLine("git", "-C", repositoryRoot, "rev-parse", "HEAD")
+        isIgnoreExitValue = true
+    }.standardOutput.asText.map { it.trim() },
+)
 
 val site = tasks.register<JavaExec>("site") {
     description = "Builds the public documentation site into build/site."
     docsTool("site")
-    args("--out", siteDirectory, "--revision", sourceRevision)
+    args("--out", siteDirectory)
+    val revision = sourceRevision
+    argumentProviders.add(CommandLineArgumentProvider { listOf("--revision", revision.get()) })
 }
 
 // check also builds the site, so that a pull request with a broken link, anchor or diagram fails before main.

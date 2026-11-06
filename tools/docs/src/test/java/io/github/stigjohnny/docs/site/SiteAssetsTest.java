@@ -26,7 +26,7 @@ class SiteAssetsTest {
     @BeforeAll
     static void buildTheSite() {
         Fixture fixture = Fixture.copy(dir).passingEvidence();
-        SiteBuilder.build(Sources.read(fixture.root(), List.of(fixture.reports())), dir.resolve("site"), "rev");
+        SiteBuilder.build(Sources.read(fixture.root(), List.of(fixture.reports())), dir.resolve("site"), "0123456789abcdef0123456789abcdef01234567");
         BuiltSite site = BuiltSite.read(dir.resolve("site"));
         css = site.text("assets/site.css");
         js = site.text("assets/site.js");

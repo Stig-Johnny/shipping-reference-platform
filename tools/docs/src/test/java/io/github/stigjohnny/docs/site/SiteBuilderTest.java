@@ -19,6 +19,8 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The site as a whole: deterministic, self-contained, relatively linked, and under the Content Security Policies of
@@ -236,23 +238,24 @@ class SiteBuilderTest {
     }
 
     @Test
-    void theSourceRevisionIsPlainTextOnEveryPage() {
-        BuiltSite site = build("site", "0123456789abcdef0123456789abcdef01234567");
+    void everyPageNamesItsSourceRevisionAsPlainText() {
+        BuiltSite site = build("site", "fedcba9876543210fedcba9876543210fedcba98");
 
         assertThat(site.pages()).allSatisfy(page -> assertThat(site.text(page)).as(page)
-                .contains("<code>0123456789abcdef0123456789abcdef01234567</code>"));
+                .contains("Source revision: <code>fedcba9876543210fedcba9876543210fedcba98</code>.")
+                .doesNotContain("Built locally"));
     }
 
-    @Test
-    void aLocalBuildSaysSoInWordsInsteadOfARevision() {
-        BuiltSite site = build("site", "");
-
-        assertThat(site.pages()).allSatisfy(page -> assertThat(site.text(page)).as(page)
-                .contains("Built locally, not from a published commit.").doesNotContain("<code></code>"));
+    @ParameterizedTest
+    @ValueSource(strings = {"", "a local build", "test-revision", "0123456", "0123456789ABCDEF0123456789ABCDEF01234567",
+        "0123456789abcdef0123456789abcdef0123456"})
+    void aRevisionThatIsNotAFullCommitShaFailsTheBuild(String revision) {
+        assertThatThrownBy(() -> build("site", revision)).isInstanceOf(DocsException.class)
+                .hasMessageContaining("the source revision must be a full commit SHA");
     }
 
     private BuiltSite build(String name) {
-        return build(name, "test-revision");
+        return build(name, "0123456789abcdef0123456789abcdef01234567");
     }
 
     private BuiltSite build(String name, String revision) {
