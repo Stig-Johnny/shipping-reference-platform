@@ -33,6 +33,19 @@ dependencies {
     }
 }
 
+// The tests read the repository's own sources (the documents, the model, the contract, the policy, the allowlist, the
+// workflows), so a change to any of them reruns the tests instead of reusing their earlier result.
+val repositoryInputs = listOf(
+    "README.md", "AGENTS.md", "BRAIN.md", "LICENSE", "NOTICE", "SECURITY.md", "THIRD-PARTY-NOTICES.md", "docs",
+    "architecture", "contracts", "policy", "security", ".github/workflows", "libs/c4-contract-kit/AGENTS.md",
+    "apps/shipping-api/AGENTS.md", "apps/shipping-web/AGENTS.md", "tools/docs/vendor",
+    "tools/docs/publication-scan-exceptions.json",
+).map { rootDir.resolve(it) }
+
+tasks.test {
+    inputs.files(repositoryInputs).withPathSensitivity(PathSensitivity.RELATIVE).withPropertyName("repositoryInputs")
+}
+
 // The docs tool runs as a plain JavaExec on its own runtime classpath: no new configuration, nothing else resolved.
 // Each run has a timeout (the tool also stops itself after ten minutes), and any exception or error fails the task.
 val repositoryRoot: String = rootDir.absolutePath

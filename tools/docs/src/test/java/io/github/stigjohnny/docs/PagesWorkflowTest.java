@@ -69,7 +69,8 @@ class PagesWorkflowTest {
         List<YMap> steps = steps(BUILD);
 
         assertThat(steps.getFirst().string("uses")).isEqualTo(CHECKOUT);
-        assertThat(texts(steps.getFirst().map("with"))).containsExactly(Map.entry("persist-credentials", "false"));
+        assertThat(texts(steps.getFirst().map("with"))).containsExactlyInAnyOrderEntriesOf(Map.of(
+                "ref", "${{ github.sha }}", "persist-credentials", "false"));
         assertThat(order(steps, "stage-temurin.sh", SETUP_JAVA, "PolicyCheck.java . | tee -a \"$GITHUB_STEP_SUMMARY\"",
                 "gradle-wrapper.jar\" | sha256sum --check --strict", ":tools:docs:check :tools:docs:site",
                 ":tools:docs:scanSite", "mermaid.min.js\" | sha256sum --check --strict", "-type l", UPLOAD))
@@ -85,6 +86,27 @@ class PagesWorkflowTest {
 
         assertThat(guard).contains("find \"$site\" -type l", "find \"$site\" -type f -links +1",
                 "-name '.*'", "exit 1");
+    }
+
+    @Test
+    void eachSearchOfTheGuardRunsAloneAndASearchThatFailsFailsTheJobWithoutPrintingAPath() {
+        List<YMap> steps = steps(BUILD);
+        String guard = steps.get(steps.size() - 2).string("run");
+
+        assertThat(guard).contains("if ! links=\"$(find \"$site\" -type l -print -quit 2>/dev/null)\"; then",
+                "if ! hard_links=\"$(find \"$site\" -type f -links +1 -print -quit 2>/dev/null)\"; then",
+                "if ! hidden=\"$(find \"$site\" -mindepth 1 -name '.*' -print -quit 2>/dev/null)\"; then")
+                .doesNotContain("[[ -n \"$(find");
+        assertThat(count(guard, "could not be searched")).isEqualTo(3);
+    }
+
+    @Test
+    void theHeaderNamesTheStagingAndTheAllowlistCheckAsTheTrustedBootstrap() {
+        String header = TEXT.substring(0, TEXT.indexOf("name: pages"));
+
+        assertThat(header).contains("trusted bootstrap", "already on main")
+                .doesNotContain("before any of its code runs");
+        assertThat(TEXT).doesNotContain("before any of its code runs");
     }
 
     @Test
@@ -125,7 +147,8 @@ class PagesWorkflowTest {
         }
 
         assertThat(actions).containsExactly(CHECKOUT, SETUP_JAVA, UPLOAD, DEPLOY_PAGES);
-        assertThat(TEXT).doesNotContain("configure-pages", "ref:", "include-hidden-files", "retention-days");
+        assertThat(TEXT).doesNotContain("configure-pages", "include-hidden-files", "retention-days");
+        assertThat(count(TEXT, "ref:")).isEqualTo(1);
     }
 
     @Test

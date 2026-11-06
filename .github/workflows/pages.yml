@@ -1,7 +1,8 @@
 # pages: build the documentation site on main, scan it, and publish it on GitHub Pages (ADR 0011).
-# The build job checks the commit against the allowlist before any of its code runs, builds the site from scratch,
-# scans the final directory with the dictionary from the github-pages environment, re-checks Mermaid's SHA-256 and
-# refuses links, and only then uploads the site directory. The deploy job has one step and the only write permissions.
+# The build job runs on a commit that is already on main. Staging the reviewed JDK and the allowlist check are its
+# trusted bootstrap; then it verifies the Gradle wrapper, builds the site from scratch, scans the final directory with
+# the dictionary from the github-pages environment, re-checks Mermaid's SHA-256 and refuses links, and only then
+# uploads the site directory. The deploy job has one step and the only write permissions.
 # The conditions of the Pages actions' reviews in security/reviews/ apply to every line here.
 name: pages
 
@@ -37,6 +38,7 @@ jobs:
       - name: Check out the commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Stage the reviewed JDK
@@ -52,7 +54,7 @@ jobs:
           architecture: x64
           token: ''
 
-      - name: Check the commit against the allowlist before any of its code runs
+      - name: Check the commit against the allowlist (trusted bootstrap)
         # 1 = findings and 2 = the check could not complete both fail the job (pipefail).
         run: java tools/policy/PolicyCheck.java . | tee -a "$GITHUB_STEP_SUMMARY"
 
@@ -77,18 +79,31 @@ jobs:
         run: echo "581ed7d74bd9048d0e3a91363927d72ef22942d7722546b27f7cc29e35390eb8  tools/docs/build/site/assets/mermaid/11.17.2/mermaid.min.js" | sha256sum --check --strict
 
       - name: Refuse links and hidden files in the site
-        # The upload's tar dereferences symbolic and hard links and would publish their targets' content.
+        # The upload's tar dereferences symbolic and hard links and would publish their targets' content. Each search
+        # runs on its own; a search that fails fails the job, and its errors are not printed, since they name paths.
         run: |
           site=tools/docs/build/site
           if [[ ! -f "$site/index.html" ]]; then
             echo "::error::There is no built site to upload."
             exit 1
           fi
-          if [[ -n "$(find "$site" -type l -print -quit)" || -n "$(find "$site" -type f -links +1 -print -quit)" ]]; then
+          if ! links="$(find "$site" -type l -print -quit 2>/dev/null)"; then
+            echo "::error::The site directory could not be searched for symbolic links."
+            exit 1
+          fi
+          if ! hard_links="$(find "$site" -type f -links +1 -print -quit 2>/dev/null)"; then
+            echo "::error::The site directory could not be searched for hard links."
+            exit 1
+          fi
+          if ! hidden="$(find "$site" -mindepth 1 -name '.*' -print -quit 2>/dev/null)"; then
+            echo "::error::The site directory could not be searched for hidden files."
+            exit 1
+          fi
+          if [[ -n "$links" || -n "$hard_links" ]]; then
             echo "::error::The site directory contains a symbolic link or a hard-linked file; refusing to upload it."
             exit 1
           fi
-          if [[ -n "$(find "$site" -mindepth 1 -name '.*' -print -quit)" ]]; then
+          if [[ -n "$hidden" ]]; then
             echo "::error::The site directory contains a hidden file; refusing to upload it."
             exit 1
           fi
