@@ -5,11 +5,17 @@ name: java
 
 on:
   pull_request:
+    branches: [main]
   push:
     branches: [main]
 
 permissions:
   contents: read
+
+# bash -eo pipefail in every run step (without it, a pipeline takes its last command's exit code).
+defaults:
+  run:
+    shell: bash
 
 concurrency:
   group: java-${{ github.ref }}
@@ -47,16 +53,20 @@ jobs:
           TESTCONTAINERS_RYUK_DISABLED: 'true'
         run: ./gradlew --no-daemon --console=plain check
 
-      - name: Refuse symbolic links in the reports
-        if: always()
+      - name: Refuse symbolic links before uploading reports
+        # Any link under libs/ or apps/, the report directories themselves included: the upload follows links.
+        id: report_guard
+        if: ${{ !cancelled() }}
         run: |
-          if find libs apps -path '*/build/reports/*' -type l 2>/dev/null | grep -q .; then
-            echo "::error::A report directory contains a symbolic link; refusing to upload."
+          links="$(find libs apps -type l -print -quit 2>/dev/null || true)"
+          if [[ -n "$links" ]]; then
+            echo "::error::A symbolic link was found under libs/ or apps/; refusing to upload the reports."
             exit 1
           fi
 
       - name: Upload the reports
-        if: always()
+        # Only when the guard ran and passed: always() would upload even after the guard failed.
+        if: ${{ !cancelled() && steps.report_guard.outcome == 'success' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2, reviewed
         with:
           name: java-reports

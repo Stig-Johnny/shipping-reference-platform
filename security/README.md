@@ -35,6 +35,11 @@ without a review record and an allowlist entry, and both of those files belong t
 | GitHub's allowed-actions setting (**planned**, not applied yet) | An Action that is not on the repository's list. It is set through OpenTofu in the operator's infrastructure repository. | GitHub, before the workflow starts. |
 | `.github/CODEOWNERS` (**not enforced yet**) | A change to `security/`, the lockfiles, the build logic or the workflows that the owner has not approved. | Pull request review, once the planned ruleset requires code owner review. |
 
+**Every check must be able to fail.** Until 2026-11-06, `preflight` could not. Its `java … | tee` step ran under
+GitHub's default `bash -e`, without `pipefail`, so the step took `tee`'s exit code and passed with findings. A review
+found it before the repository went public. The workflows now name `bash`, which runs with `pipefail`. The upload
+guard had a similar flaw: `if: always()` uploaded the reports even after the guard step had failed.
+
 **What GitHub enforces today.** Changes reach `main` only through pull requests, and `main` cannot be force-pushed or
 deleted. GitHub does not yet require the `preflight` and `java` checks to pass before a merge, and it does not require
 code owner review: both come with the ruleset that ADR 0008 plans. Until then, a red check blocks a merge by process,
