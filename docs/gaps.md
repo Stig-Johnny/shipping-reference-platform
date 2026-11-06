@@ -100,7 +100,12 @@ closes it.
   review; that acceptance is a judgement, not a proof.
 - **One accountable human.** Level 3 changes need the owner's approval. This is accountable human oversight, not
   independent two-person review. Repository administrators can technically bypass rulesets; the policy is "no
-  routine bypass", and the trusted admin workflow reports ruleset drift.
+  routine bypass".
+- **GitHub does not enforce the checks yet.** Today `main` requires a pull request and cannot be force-pushed or
+  deleted. The ruleset that makes `preflight` and `java` required and requires code owner review, and the trusted
+  admin workflow that reports drift (ADR 0008), are not applied yet. A red check blocks a merge by process only.
+  Code owner review also cannot be required while the only code owner authors the pull requests: GitHub does not let
+  authors approve their own pull requests, so it needs the agents to open pull requests under their own identity.
 - **Scope is recorded, not enforced.** The allowlist check matches coordinate, version and checksum. Which projects
   and configurations a review approved is a condition the code owner checks in review: a reviewed library added to a
   project its review does not cover passes CI.
