@@ -28,6 +28,14 @@ Adds to the root `AGENTS.md`. Decisions: ADR 0003 (modules), 0004 (contract), 00
 - No Lombok. No field injection. No `Optional` fields or parameters. No `null` returns from public methods; use
   `Optional` or a sealed outcome.
 - NullAway and Error Prone findings are compile errors. Do not suppress them.
+- Jackson 3 is held at 3.1.8 by a constraint in `build.gradle.kts`. Spring Boot 4.1.2 manages 3.1.7, which a critical
+  advisory covers (`security/reviews/maven--jackson--3.1.8.md`). Never use default typing (`activateDefaultTyping`),
+  and never put `@JsonTypeInfo(use = CLASS)` or `MINIMAL_CLASS` on a type read from a request, an event or other
+  untrusted JSON. The first module's tests add an ArchUnit rule that enforces the annotation part.
+- `jackson-dataformat-yaml` is for tests only. The contract tests read `contracts/shipping.openapi.yaml` through the
+  default `YAMLFactory`.
+- Every dependency's review conditions bind this code. They are in the `conditions` frontmatter of its record in
+  `security/reviews/`.
 - `BigDecimal` for money, never `double`. Rounding happens once, in `SyntheticTariff`, half-up to cents.
 
 ## HTTP
@@ -61,6 +69,10 @@ Adds to the root `AGENTS.md`. Decisions: ADR 0003 (modules), 0004 (contract), 00
 ## Tests
 
 - Set `TESTCONTAINERS_RYUK_DISABLED=true` for local and CI Testcontainers runs. Ryuk is rejected; the test harness and runner own container cleanup.
+- Mockito's inline mock maker runs as an explicit `-javaagent` on every Gradle `Test` task, which is Mockito's recipe
+  for Java 21 and later. Never set `-XX:+EnableDynamicAgentLoading` or `jdk.attach.allowAttachSelf`
+  (`security/reviews/maven--test-libraries--mockito-5.23.0-byte-buddy-1.18.15-and-assertion-libs.md`).
+
 | Suffix | Kind | Runs in |
 |---|---|---|
 | `*Test` | Unit or slice by default; RowLevelSecurityCatalogTest, CrossTenantAccessTest and TableOwnershipTest use PostgreSQL where their assertions require it | `java` |

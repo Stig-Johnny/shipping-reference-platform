@@ -19,6 +19,10 @@ guava = "33.7.2-jre"
 # Not used directly: in tools/docs, aligns the slf4j-api 1.7.36 that httpclient5 brings (through Structurizr) to the
 # version reviewed with Structurizr's transitives, which the kit already resolves.
 slf4j = "2.0.19"
+# The shipping API (apps/shipping-api): the Spring Boot and Spring Modulith BOMs, and the contract-test validator.
+spring-boot = "4.1.2"
+spring-modulith = "2.1.2"
+json-schema-validator = "3.0.9"
 
 [libraries]
 structurizr-dsl = { module = "com.structurizr:structurizr-dsl", version.ref = "structurizr" }
@@ -37,3 +41,6 @@ commonmark = { module = "org.commonmark:commonmark", version.ref = "commonmark" 
 commonmark-ext-gfm-tables = { module = "org.commonmark:commonmark-ext-gfm-tables", version.ref = "commonmark" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 snakeyaml-engine = { module = "org.snakeyaml:snakeyaml-engine", version.ref = "snakeyaml-engine" }
+spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
+spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
+json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }

@@ -228,10 +228,12 @@ public final class PolicyCheck {
                     add("gradle", "%s:%s %s has no SHA-256 in verification-metadata.xml".formatted(coordinate, version, name));
                     continue;
                 }
-                find("maven", coordinate, version)
-                        .filter(e -> !e.sha256().isBlank() && e.artifact().equals(name))
+                // Match the artifact itself: a coordinate can have one entry per file (its jar and its POM).
+                entries.stream()
+                        .filter(e -> e.kind().equals("maven") && e.coordinate().equals(coordinate)
+                                && e.version().equals(version) && e.artifact().equals(name) && !e.sha256().isBlank())
                         .filter(e -> !e.sha256().equalsIgnoreCase(sha.getAttribute("value")))
-                        .ifPresent(e -> add("gradle", "%s:%s %s: downloaded SHA-256 %s differs from the reviewed %s".formatted(
+                        .forEach(e -> add("gradle", "%s:%s %s: downloaded SHA-256 %s differs from the reviewed %s".formatted(
                                 coordinate, version, name, sha.getAttribute("value"), e.sha256())));
             }
         }
