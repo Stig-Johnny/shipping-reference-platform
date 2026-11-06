@@ -74,9 +74,13 @@ files (no `reflect()`, file-path imports only, one parser factory, no URL or fea
 
 ```bash
 ./gradlew :libs:c4-contract-kit:check     # tests, Error Prone and NullAway
-./gradlew :libs:c4-contract-kit:pitest    # mutation testing, at least 90 % killed
+./gradlew :libs:c4-contract-kit:pitest    # mutation testing, at least 90 % killed: CI only, see below
 ```
 
 Test fixtures are Java sources compiled at test time (`testing.FixtureCompiler`) into class roots of their own, so
-they are never on the class path. The tests compile into `build/test-classes`: PIT treats a class directory with that
-name as test code, which keeps mutation testing on the production classes.
+they are never on the class path.
+
+Mutation testing runs in CI only, in the `mutation` job of `.github/workflows/java.yml`. PIT's parent JVM listens on
+all network interfaces without authentication, so its review allows it only on a disposable worker or a host whose
+firewall blocks inbound connections to `java`. The `pitest` task passes `--mutableCodePaths` with the main output
+directories, so PIT mutates the production classes and never the tests.

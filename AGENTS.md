@@ -102,6 +102,6 @@ Placeholders until the build bootstrap pull request provides them; `README.md` h
 | All Java checks | `<java-check>` |
 | Web checks | `<web-check>` |
 | Contract and end-to-end tests | `<contract-e2e>` |
-| Mutation tests on changed code | `<mutation>` |
+| Mutation tests (CI only: the `mutation` job; never run `pitest` on a machine whose firewall lets inbound connections reach `java`) | `./gradlew :libs:c4-contract-kit:pitest` |
 | Brain and docs check | `<docs-brain>` |
 | Risk level of the current branch | `<risk-level>` |

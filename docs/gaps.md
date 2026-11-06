@@ -126,11 +126,13 @@ closes it.
 
 - Contract conformance covers only the responses that tests exercise. Not enforced yet: a check that every
   documented operation and status code is exercised, and OpenAPI style linting.
-- Mutation testing measures changed lines only, and equivalent-mutant exclusions are reviewed by hand.
-- PIT mutates every class directory on its class path whose path does not end in `test-classes` or `bin-test`, and
-  the `pitest` task in `build-logic` passes no `--mutableCodePaths`. A project that keeps Gradle's default
-  `build/classes/java/test` therefore gets its tests mutated as well, and a mutant that removes an assertion from a
-  test can never be killed. `libs/c4-contract-kit` compiles its tests into `build/test-classes` for this reason.
+- Mutation testing runs for `libs/c4-contract-kit` only, in CI (the `mutation` job), over all its production classes,
+  at a 90 % threshold. The planned measure per change (80 % of mutants on changed lines, 90 % for pricing and checker
+  code) is not built yet, and equivalent-mutant exclusions are reviewed by hand.
+- PIT runs only on disposable CI workers. Its parent JVM listens on all network interfaces and accepts its workers'
+  first connection without authentication, so its review forbids developer machines whose firewall lets inbound
+  connections reach `java`. On 2026-11-06 the library's development ran PIT on such a machine (firewall off) before
+  that condition was checked; the exposure was one listening socket per run, for the length of the run.
 - axe-core finds a subset of accessibility problems; manual keyboard and screen reader checks are required and
   recorded by hand.
 - The web app's static checks cover import boundaries and cycles only. dependency-cruiser and required frontend

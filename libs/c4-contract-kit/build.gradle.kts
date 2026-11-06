@@ -30,15 +30,6 @@ mutationTesting {
     targetClasses = "io.github.stigjohnny.c4contractkit.*"
 }
 
-// PIT mutates every class directory on its class path whose path does not end in "test-classes" or "bin-test"
-// (DefaultCodePathPredicate in PIT 1.30.2), and the pitest task passes the whole test runtime class path without
-// --mutableCodePaths. With Gradle's default build/classes/java/test, PIT would mutate the tests themselves, and a
-// mutant that removes an assertion from a test can never be killed. Compiling the tests into build/test-classes keeps
-// mutation testing on the production classes, as the pitest task's description says, without changing build-logic.
-sourceSets.test {
-    java.destinationDirectory = layout.buildDirectory.dir("test-classes")
-}
-
 // The Javadoc JAR documents the public API only; every other package is internal (AGENTS.md, "Boundaries").
 tasks.javadoc {
     include("io/github/stigjohnny/c4contractkit/api/**")

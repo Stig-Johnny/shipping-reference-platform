@@ -111,7 +111,7 @@ The build bootstrap pull request provides these commands; until then they are pl
 | Run all Java checks | `<java-check>` |
 | Run web checks | `<web-check>` |
 | Run contract and end-to-end tests | `<contract-e2e>` |
-| Run mutation tests on changed code | `<mutation>` |
+| Run mutation tests (CI only, the `mutation` job: PIT's control socket accepts unauthenticated connections) | `./gradlew :libs:c4-contract-kit:pitest` |
 | Check docs and regenerate the brain | `<docs-brain>` |
 
 ## Honest limits
