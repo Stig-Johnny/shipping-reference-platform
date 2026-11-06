@@ -27,6 +27,11 @@ final class Problems {
     /** {@link #fatal(String, String)} for a parser error, which names its file and line itself. */
     InvalidModelException fatal(String parserError) {
         problems.add(parserError);
+        return failure();
+    }
+
+    /** The exception that lists every problem found so far, for when nothing more can be checked. */
+    InvalidModelException failure() {
         return new InvalidModelException(problems);
     }
 

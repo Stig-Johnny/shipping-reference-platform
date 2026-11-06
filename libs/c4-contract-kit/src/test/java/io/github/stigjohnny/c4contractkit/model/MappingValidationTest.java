@@ -152,6 +152,41 @@ class MappingValidationTest {
     }
 
     @Test
+    void withoutTheContractRootEveryPropertyCheckThatNeedsNoContainerStillReports() {
+        // Whichever container is checked, these properties stand on the wrong kind of element or relationship.
+        String dsl = VALID.replace("\"contract.root\" \"fx.shop\"", "")
+                .replace("clerk = person \"Clerk\"", "clerk = person \"Clerk\" {\n properties {\n"
+                        + " \"contract.typo\" \"x\"\n \"contract.id\" \"clerk\"\n }\n }")
+                .replace("tables = component \"Tables\"",
+                        "tables = component \"Tables\" {\n properties {\n \"contract.isolated\" \"fx.X\"\n }\n }")
+                .replace("web -> app \"Calls\" \"JSON\"",
+                        "web -> app \"Calls\" \"JSON\" {\n properties {\n \"contract.mode\" \"PERMITTED\"\n }\n }")
+                .replace("orders -> tables \"Reads\"",
+                        "orders -> tables \"Reads\" {\n properties {\n \"contract.mode\" \"PERMITTED\"\n }\n }");
+
+        assertRejected(dsl,
+                "clerk: contract.id is only allowed on components of the container with contract.root",
+                "clerk: contract.typo is not a contract property",
+                "model: no container has contract.root; exactly one must",
+                "orders -> tables: contract.mode is only allowed on relationships between two components of the "
+                        + "container with contract.root",
+                "tables: contract.isolated is only allowed on the container with contract.root",
+                "web -> app: contract.mode is only allowed on relationships between two components of the container "
+                        + "with contract.root");
+    }
+
+    @Test
+    void withTwoContractRootsThePropertyChecksThatNeedNoContainerStillReport() {
+        assertRejected(VALID
+                        .replace("web = container \"Web\"",
+                                "web = container \"Web\" {\n properties {\n \"contract.root\" \"fx.web\"\n }\n }")
+                        .replace("shop = softwareSystem \"Shop\" {",
+                                "shop = softwareSystem \"Shop\" {\n properties {\n \"contract.status\" \"built\"\n }"),
+                "app, web: more than one container has contract.root; exactly one may",
+                "shop: contract.status is only allowed on components of the container with contract.root");
+    }
+
+    @Test
     void theContractRootIsNotAPackageName() {
         assertRejected(VALID.replace("\"contract.root\" \"fx.shop\"", "\"contract.root\" \"fx shop\""),
                 "app: contract.root 'fx shop' is not a Java package name");

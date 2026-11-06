@@ -15,7 +15,8 @@ import javax.lang.model.SourceVersion;
 /**
  * Validates a parsed workspace against the model rules of libs/c4-contract-kit/AGENTS.md and builds the
  * {@link ContractModel}. It adds its problems to those the parser found and fails once, listing them all. Without the
- * one checked container it skips only the checks that need it.
+ * one checked container, it still checks for implied relationships and for contract properties on the wrong kind of
+ * element, and skips only the checks that need that container.
  *
  * <p>Implied relationships are disabled: a model in which the parser created one is rejected. Every relationship the
  * parser created, implied or not, is checked for misplaced contract properties.
@@ -35,8 +36,9 @@ final class ContractModelBuilder {
     ContractModel build() throws InvalidModelException {
         List<Relationship> parsed = List.copyOf(model.getRelationships());
         rejectImpliedRelationships(parsed);
-        CheckedContainer checked = checkedContainer();
-        new PropertyPlacement(checked, names, problems).check(model.getElements(), parsed);
+        Optional<CheckedContainer> found = checkedContainer();
+        new PropertyPlacement(found, names, problems).check(model.getElements(), parsed);
+        CheckedContainer checked = found.orElseThrow(problems::failure);
 
         // The checked container has contract.root; the default is never used.
         String root = Objects.requireNonNullElse(checked.container().getProperties().get(ROOT), "");
@@ -72,20 +74,23 @@ final class ContractModelBuilder {
         }
     }
 
-    private CheckedContainer checkedContainer() throws InvalidModelException {
+    /** The one container with contract.root; when there is none, or more than one, that is a problem. */
+    private Optional<CheckedContainer> checkedContainer() {
         List<Container> containers = model.getElements().stream()
                 .filter(Container.class::isInstance)
                 .map(Container.class::cast)
                 .filter(container -> container.getProperties().containsKey(ROOT))
                 .toList();
         if (containers.isEmpty()) {
-            throw problems.fatal("model", "no container has contract.root; exactly one must");
+            problems.add("model", "no container has contract.root; exactly one must");
+            return Optional.empty();
         }
         if (containers.size() > 1) {
-            throw problems.fatal(containers.stream().map(names::of).sorted().collect(Collectors.joining(", ")),
+            problems.add(containers.stream().map(names::of).sorted().collect(Collectors.joining(", ")),
                     "more than one container has contract.root; exactly one may");
+            return Optional.empty();
         }
         Container container = containers.get(0);
-        return new CheckedContainer(container, names.of(container));
+        return Optional.of(new CheckedContainer(container, names.of(container)));
     }
 }
