@@ -46,9 +46,11 @@ The parser runs with all ten Structurizr features off, as
 `!docs`, `!adrs`, `!decisions`, `!components`, `workspace extends`, plugin classes for `!impliedRelationships`, files
 and URLs are rejected, and so are image views and themes. Environment variables are never read: a `${NAME}` that no
 `!const` or `!var` defines before it, anywhere in the file outside comments (the workspace, an element, a group, a
-view, a style or the configuration), is a model problem located by its line. The model file must be UTF-8. Implied relationships never count, whatever the file
-says. Any other `contract.*` property, or one on the wrong kind of element, is a model problem, so a misspelt
-`contract.mode` cannot turn a `REQUIRED` relationship into a `PERMITTED` one.
+view, a style or the configuration), is a model problem located by its line. The model file must be UTF-8. Implied
+relationships are disabled: the DSL creates them unless the file says `!impliedRelationships false`, and a model in
+which the parser created one is a model problem (a deployment instance's copy of its container's relationship is not
+implied). Any other `contract.*` property, or one on the wrong kind of element or relationship, is a model problem,
+so a misspelt `contract.mode` cannot turn a `REQUIRED` relationship into a `PERMITTED` one.
 
 Details the specification leaves open, decided here:
 

@@ -370,30 +370,87 @@ class RestrictedDslParserTest {
         assertThat(contract.components()).extracting(ContractComponent::name).containsExactly("Orders");
     }
 
+    /** A component of another container, and a relationship to it from orders that implies three more. */
+    private static final String OTHER_CONTAINER = """
+            !element shop {
+                db = container "Database" {
+                    tables = component "Tables"
+                }
+            }
+            orders -> tables "Reads"
+            """;
+
+    private static final String IMPLIED = ": implied by orders -> tables; implied relationships are disabled, so the "
+            + "model must say !impliedRelationships false and never switch them on";
+
     @Test
-    void impliedRelationshipsAreIgnoredWhateverTheFileSays(@TempDir Path dir) throws Exception {
-        // The file switches implied relationships on and then gives the implied app -> db relationship a contract
-        // property. Were implied relationships part of the model, contract.mode on a container relationship would be
-        // rejected; they are not, so the model is valid and only the written relationships count.
+    void anImpliedRelationshipIsRejectedAndSoIsTheContractPropertyItWasGiven(@TempDir Path dir) throws IOException {
+        // The file switches implied relationships on and gives the implied app -> db relationship contract.mode.
         Path model = write(dir, VALID
                 .replace("!impliedRelationships false", "!impliedRelationships true")
-                .replace("// MODEL", """
-                        !element shop {
-                            db = container "Database" {
-                                tables = component "Tables"
-                            }
-                        }
-                        orders -> tables "Reads"
+                .replace("// MODEL", OTHER_CONTAINER + """
                         !relationships "app->db" {
                             properties {
                                 "contract.mode" "REQUIRED"
                             }
                         }"""));
 
-        ContractModel contract = ContractModelReader.read(model, "workspace.dsl");
+        assertThatThrownBy(() -> ContractModelReader.read(model, "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems()).containsExactly(
+                        "app -> db: contract.mode is only allowed on relationships between two components of app",
+                        "app -> db" + IMPLIED,
+                        "app -> tables" + IMPLIED,
+                        "orders -> db" + IMPLIED));
+    }
 
-        assertThat(contract.components()).extracting(ContractComponent::id).containsExactly("orders");
-        assertThat(contract.relationships()).isEmpty();
+    @Test
+    void aModelThatLeavesImpliedRelationshipsOnIsRejectedWhenItCreatesOne(@TempDir Path dir) throws IOException {
+        // Without !impliedRelationships false the DSL creates implied relationships by default.
+        Path model = write(dir, VALID
+                .replace("!impliedRelationships false\n", "")
+                .replace("// MODEL", OTHER_CONTAINER));
+
+        assertThatThrownBy(() -> ContractModelReader.read(model, "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems()).containsExactly(
+                        "app -> db" + IMPLIED, "app -> tables" + IMPLIED, "orders -> db" + IMPLIED));
+    }
+
+    @Test
+    void parsingAValidModelCreatesNoImpliedRelationship(@TempDir Path dir) throws Exception {
+        Path model = write(dir, VALID.replace("// MODEL", OTHER_CONTAINER));
+
+        ParsedModel parsed = RestrictedDslParser.parse(model, "workspace.dsl");
+
+        assertThat(parsed.workspace().getModel().getRelationships())
+                .extracting(relationship -> relationship.getSource().getName() + " -> "
+                        + relationship.getDestination().getName())
+                .containsExactly("Orders -> Tables");
+        assertThat(parsed.workspace().getModel().getRelationships())
+                .allSatisfy(relationship -> assertThat(relationship.getLinkedRelationshipId()).isNull());
+        assertThat(ContractModelReader.read(model, "workspace.dsl").components()).hasSize(1);
+    }
+
+    @Test
+    void theCopyOfARelationshipBetweenDeploymentInstancesIsNotAnImpliedOne(@TempDir Path dir) throws Exception {
+        // Structurizr links each copy to the container relationship it copies, as it links an implied relationship.
+        Path model = write(dir, VALID.replace("// MODEL", OTHER_CONTAINER + """
+                app -> db "Writes"
+                deploymentEnvironment "Live" {
+                    deploymentNode "Server" {
+                        containerInstance app
+                        containerInstance db
+                    }
+                }
+                """));
+
+        ParsedModel parsed = RestrictedDslParser.parse(model, "workspace.dsl");
+
+        assertThat(parsed.workspace().getModel().getRelationships())
+                .filteredOn(relationship -> relationship.getLinkedRelationshipId() != null)
+                .extracting(relationship -> relationship.getSource().getClass().getSimpleName() + " "
+                        + relationship.getSource().getName() + " -> " + relationship.getDestination().getName())
+                .containsExactly("ContainerInstance App -> Database");
+        assertThat(ContractModelReader.read(model, "workspace.dsl").components()).hasSize(1);
     }
 
     @Test

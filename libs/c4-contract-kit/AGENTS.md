@@ -59,7 +59,8 @@ Parsing:
 - Use the parser's feature controls to reject `!include` (local and remote), `!script`, `!plugin`, `!docs`, `!adrs`,
   `!decisions`, `workspace extends` and environment variable substitution. A rejected feature is a `ModelException`,
   never a warning.
-- Implied relationships are disabled, whatever the file says.
+- Implied relationships are disabled. The DSL creates them unless the file says `!impliedRelationships false`, so a
+  model in which the parser created one is a `ModelException`.
 
 Validation (each is a `ModelException` entry with element identifiers):
 
