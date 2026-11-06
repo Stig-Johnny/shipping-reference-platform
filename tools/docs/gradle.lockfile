@@ -68,3 +68,4 @@ org.safere:safere:1.0.0=annotationProcessor,errorprone,testAnnotationProcessor
 org.slf4j:slf4j-api:2.0.19=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.snakeyaml:snakeyaml-engine:3.2=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 empty=
+com.example:unreviewed-library:1.0.0=runtimeClasspath
