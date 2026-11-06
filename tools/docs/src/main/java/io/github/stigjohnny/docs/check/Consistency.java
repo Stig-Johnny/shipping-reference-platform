@@ -24,7 +24,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Consistency of the documentation sources, checked before anything is generated (ADR 0001 and ADR 0010):
+ * Consistency of the documentation sources, checked before anything is generated (ADR 0001 and ADR 0011):
  *
  * <ul>
  *   <li>every document under {@code docs/} has the required frontmatter: title, description, a known status and an
@@ -136,6 +136,13 @@ public final class Consistency {
     }
 
     private static void adrs(Sources sources, Problems problems) {
+        Set<String> numbers = new HashSet<>();
+        for (DocFile adr : sources.docsUnder("docs/adr/")) {
+            Matcher file = ADR_FILE.matcher(adr.path());
+            if (file.matches()) {
+                numbers.add(file.group(1));
+            }
+        }
         int expected = 1;
         for (DocFile adr : sources.docsUnder("docs/adr/")) {
             Matcher file = ADR_FILE.matcher(adr.path());
@@ -155,8 +162,15 @@ public final class Consistency {
                 if (!ADR_STATUSES.contains(adr.status())) {
                     problems.add(adr.path() + ": status '" + adr.status() + "' is not one of " + ADR_STATUSES);
                 }
-                if ("superseded".equals(adr.status()) && adr.optional("supersededBy").isEmpty()) {
+                Optional<String> successor = adr.optional("supersededBy");
+                if ("superseded".equals(adr.status()) && successor.isEmpty()) {
                     problems.add(adr.path() + ": a superseded ADR names its successor in supersededBy");
+                }
+                if (successor.isPresent() && !"superseded".equals(adr.status())) {
+                    problems.add(adr.path() + ": only a superseded ADR has supersededBy");
+                }
+                if (successor.isPresent() && (!numbers.contains(successor.get()) || successor.get().equals(number))) {
+                    problems.add(adr.path() + ": supersededBy names ADR " + successor.get() + ", which does not exist");
                 }
                 date(adr, "date", problems);
                 if (adr.text("decision-makers").isBlank()) {

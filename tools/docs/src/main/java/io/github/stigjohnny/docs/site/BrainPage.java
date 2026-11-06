@@ -63,13 +63,13 @@ final class BrainPage {
         return new SitePage(PAGE, "Project brain", "Brain", SiteSection.BRAIN, "What is shipped and what is only "
                 + "planned, with the evidence for each, then one summary per module. Generated with the site from the "
                 + "same sources as BRAIN.md, which agents read first.", new StatusPanel(
-                        Statuses.design("accepted", "ADR 0010: a generated, budgeted brain that never claims more "
+                        Statuses.design("accepted", "ADR 0011: a generated, budgeted brain that never claims more "
                                 + "than its evidence."), Statuses.implementation(brainControls),
                         Statuses.evidence(brainControls, evidence)),
                 List.of(new SitePage.Contents("capabilities", "Capabilities"),
                         new SitePage.Contents("controls", "Controls"), new SitePage.Contents("modules", "Modules"),
                         new SitePage.Contents("agent-context-heading", "Agent context")),
-                body.toString(), context.mentioned("ADR 0010 docs/gaps.md", PAGE), Capabilities.PATH + ", "
+                body.toString(), context.mentioned("ADR 0011 docs/gaps.md", PAGE), Capabilities.PATH + ", "
                         + Sources.WORKSPACE + ", " + ApiContract.PATH + " and docs/", false);
     }
 

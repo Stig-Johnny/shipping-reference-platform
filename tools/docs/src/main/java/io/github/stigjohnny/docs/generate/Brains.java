@@ -22,7 +22,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * {@code BRAIN.md} and {@code docs/brain/<module>.md} (ADR 0010): a compact, current entry point for agents that
+ * {@code BRAIN.md} and {@code docs/brain/<module>.md} (ADR 0011): a compact, current entry point for agents that
  * never claims more than the evidence supports. Each file is generated from the sources, links to the full documents
  * instead of copying them, and stays within its byte budget: 12 KiB for the root, 8 KiB per module.
  */
@@ -58,7 +58,7 @@ public final class Brains {
         int bytes = text.getBytes(StandardCharsets.UTF_8).length;
         if (bytes > budget) {
             throw new DocsException(path + " is " + bytes + " bytes; its budget is " + budget
-                    + " bytes (ADR 0010). Shorten its sources or link instead of copying.");
+                    + " bytes (ADR 0011). Shorten its sources or link instead of copying.");
         }
         return text;
     }
@@ -106,8 +106,10 @@ public final class Brains {
         }
         out.append("\n## Decisions\n\n| ADR | Status | Enforced by |\n|---|---|---|\n");
         for (DocFile adr : sources.docsUnder("docs/adr/")) {
+            String status = adr.optional("supersededBy").filter(n -> "superseded".equals(adr.status()))
+                    .map(n -> "superseded by ADR " + n).orElse(adr.status());
             out.append("| [").append(cell(adr.title())).append("](").append(adr.path()).append(") | ")
-                    .append(adr.status()).append(" | ").append(cell(enforcement(adr))).append(" |\n");
+                    .append(status).append(" | ").append(cell(enforcement(adr))).append(" |\n");
         }
         Allowlist allowlist = sources.allowlist();
         Acceptance accepted = allowlist.current();

@@ -75,8 +75,7 @@ Chosen option 1.
 - Model validation (overlapping, empty or uncovered mappings; planned components with code; tag and property
   disagreements; cycles; forbidden directives) is part of the same call and covered by the library's tests
   (`RestrictedDslParserTest`, `MappingValidationTest`).
-- `java` runs `:tools:docs:checkGenerated` (ADR 0010), which regenerates the view pages in `docs/architecture/` from
-  the model and fails on any difference.
+- `docs-brain` regenerates views and model pages and fails on any diff.
 - `risk-approval` classifies `architecture/**` as level 3; `.github/CODEOWNERS` assigns it to the owner.
 
 ## More Information

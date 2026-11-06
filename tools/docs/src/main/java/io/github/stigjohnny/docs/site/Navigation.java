@@ -29,9 +29,11 @@ final class Navigation {
                     out.append("\n<ul>\n");
                     for (SitePage child : children) {
                         boolean isCurrent = child.path().equals(current.path());
+                        String badge = child.navBadge();
                         out.append("<li><a href=\"").append(Html.escape(url.apply(child.path()))).append('"')
                                 .append(isCurrent ? " aria-current=\"page\"" : "").append('>')
-                                .append(Html.escape(child.navLabel())).append("</a></li>\n");
+                                .append(Html.escape(child.navLabel()))
+                                .append(badge == null ? "" : " " + Badge.NEUTRAL.html(badge)).append("</a></li>\n");
                     }
                     out.append("</ul>\n");
                 }

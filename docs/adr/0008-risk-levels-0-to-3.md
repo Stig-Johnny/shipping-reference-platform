@@ -54,8 +54,7 @@ Chosen option 1, with CODEOWNERS as the path-based half of it.
   owner's approval of the current head SHA before merge, which is therefore before release. A push after approval
   dismisses it.
 - Repository settings (private repository on GitHub Pro): a ruleset on `main` with required checks `preflight`,
-  `java` (which also runs the documentation and brain checks of ADR 0010), `web`, `contract-e2e`, `mutation`,
-  `ai-review`, `risk-approval`; code owner review for
+  `java`, `web`, `contract-e2e`, `mutation`, `docs-brain`, `ai-review`, `risk-approval`; code owner review for
   owned paths; stale approval dismissal; no force push, no deletion, no routine bypass. Rulesets are stored as JSON in
   `policy/rulesets.json`, applied by a trusted admin workflow, and drift between file and API fails that workflow.
 - Every path owned in `.github/CODEOWNERS` is level 3 in `policy/risk.json`, and every level 3 path glob has a
@@ -98,8 +97,9 @@ What is built, and where it differs from the decision above. The decision stands
   applies settings or reports drift. Code owner review is not required. No `risk-approval` or `ai-review` check exists,
   so nothing computes a level or records an AI approval yet; `policy/risk.json` is policy data that no check reads.
   `mutation`, `web` and `contract-e2e` are not required checks: the `mutation` job arrives with pull request #13, and
-  no frontend or API code exists for `web` and `contract-e2e`. The documentation and brain checks run inside `java`. No dedicated GitHub App and no
-  separate reviewer identity exist. `RiskClassifierTest` and `CodeownersRiskConsistencyTest` do not exist.
+  no frontend or API code exists for `web` and `contract-e2e`. There is no `docs-brain` check: the documentation and
+  brain checks run inside the required `java` check (ADR 0011). No dedicated GitHub App and no separate reviewer
+  identity exist. `RiskClassifierTest` and `CodeownersRiskConsistencyTest` do not exist.
 - **Why code owner review cannot be required today.** The only code owner authors the pull requests: the AI agents
   open them on the owner's GitHub account, and GitHub refuses an author's approval of their own pull request.
   Requiring code owner review would block every merge. It needs the agents to open pull requests under their own

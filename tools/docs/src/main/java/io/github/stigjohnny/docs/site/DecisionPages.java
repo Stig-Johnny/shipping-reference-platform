@@ -6,7 +6,10 @@ import io.github.stigjohnny.docs.repo.TestEvidence;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -25,6 +28,10 @@ final class DecisionPages {
         List<DocFile> adrs = context.sources().docsUnder("docs/adr/");
         HtmlTable table = HtmlTable.of("Architecture decision records (" + adrs.size() + ")",
                 "Decisions, scrolls sideways", "Decision", "Status", "Date", "Enforced by");
+        Map<String, String> pageOfNumber = new TreeMap<>();
+        for (DocFile adr : adrs) {
+            pageOfNumber.put(number(adr), context.map().site(adr.path()).orElseThrow());
+        }
         for (DocFile adr : adrs) {
             String page = context.map().site(adr.path()).orElseThrow();
             List<String> enforcedBy = adr.frontmatter().strings("enforcedBy");
@@ -32,9 +39,17 @@ final class DecisionPages {
                     Html.escape(adr.text("date")), Html.escape(String.join("; ", enforcedBy)));
             SitePage doc = DocPages.of(context, adr, SiteSection.DECISIONS, adr.title().replaceFirst("^ADR ", ""), "",
                     List.of());
-            pages.add(new SitePage(doc.path(), doc.title(), doc.navLabel(), doc.section(), doc.summary(),
-                    status(adr, context.sources().evidence()), doc.contents(), doc.body(), doc.related(),
-                    doc.source(), false));
+            Optional<String> successor = adr.optional("supersededBy").filter(n -> "superseded".equals(adr.status()));
+            List<String> predecessors = adrs.stream()
+                    .filter(other -> adr.optional("supersededBy").isEmpty()
+                            && other.optional("supersededBy").filter(number(adr)::equals).isPresent())
+                    .map(DecisionPages::number).toList();
+            StatusPanel status = successor.isPresent()
+                    ? superseded(page, successor.get(), String.valueOf(pageOfNumber.get(successor.get())))
+                    : status(adr, context.sources().evidence(), page, predecessors, pageOfNumber);
+            pages.add(new SitePage(doc.path(), doc.title(), doc.navLabel(), doc.section(), doc.summary(), status,
+                    doc.contents(), doc.body(), doc.related(), doc.source(), false,
+                    successor.isPresent() ? "Superseded" : null));
         }
         pages.addFirst(new SitePage(INDEX, "Decisions", "Overview", SiteSection.DECISIONS, "Every significant decision "
                 + "is a numbered record with its context, the options considered, the outcome and the check that "
@@ -46,8 +61,22 @@ final class DecisionPages {
         return pages;
     }
 
+    /** The four-digit number of an ADR, from its file name. */
+    private static String number(DocFile adr) {
+        return adr.path().substring("docs/adr/".length(), "docs/adr/".length() + 4);
+    }
+
+    /** A superseded ADR decides nothing any more: its status names and links the record that replaced it. */
+    private static StatusPanel superseded(String page, String successor, String successorPage) {
+        String link = SiteContext.link(page, successorPage, "ADR " + successor);
+        return new StatusPanel(Badge.NEUTRAL.html("Superseded") + " Superseded by " + link + ".",
+                Badge.NEUTRAL.html("Not applicable") + " A superseded record plans no enforcement.",
+                Badge.NEUTRAL.html("Not applicable") + " The checks of " + link + " apply instead.");
+    }
+
     /** An ADR's own status: its decision, its planned enforcement, and the enforcement that exists. */
-    private static StatusPanel status(DocFile adr, TestEvidence evidence) {
+    private static StatusPanel status(DocFile adr, TestEvidence evidence, String page, List<String> predecessors,
+            Map<String, String> pageOfNumber) {
         List<String> planned = adr.frontmatter().has("plannedEnforcement")
                 ? adr.frontmatter().strings("plannedEnforcement") : List.of();
         String implementation = planned.isEmpty() ? Badge.NEUTRAL.html("None planned") + " Nothing is listed."
@@ -70,7 +99,12 @@ final class DecisionPages {
                     + Html.escape(String.join("; ", enforcedBy) + "." + (passing.isEmpty() ? ""
                             : " Passed in the build that generated this site: " + String.join(", ", passing) + "."));
         }
-        return new StatusPanel(Statuses.design(adr.status(), "Decided " + adr.text("date") + "; updated "
-                + adr.updated() + "."), implementation, verified);
+        StringBuilder design = new StringBuilder(Statuses.design(adr.status(), "Decided " + adr.text("date")
+                + "; updated " + adr.updated() + "."));
+        for (String predecessor : predecessors) {
+            design.append(" Supersedes ").append(SiteContext.link(page, String.valueOf(pageOfNumber.get(predecessor)),
+                    "ADR " + predecessor)).append('.');
+        }
+        return new StatusPanel(design.toString(), implementation, verified);
     }
 }

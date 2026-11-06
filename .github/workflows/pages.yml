@@ -1,4 +1,4 @@
-# pages: build the documentation site on main, scan it, and publish it on GitHub Pages (ADR 0010).
+# pages: build the documentation site on main, scan it, and publish it on GitHub Pages (ADR 0011).
 # The build job checks the commit against the allowlist before any of its code runs, builds the site from scratch,
 # scans the final directory with the dictionary from the github-pages environment, re-checks Mermaid's SHA-256 and
 # refuses links, and only then uploads the site directory. The deploy job has one step and the only write permissions.

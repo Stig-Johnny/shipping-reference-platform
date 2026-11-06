@@ -17,13 +17,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * ADR 0010's negative fixtures for the generated brain and docs: each changes one thing in a copy of the repository's
+ * ADR 0011's negative fixtures for the generated brain and docs: each changes one thing in a copy of the repository's
  * documentation and expects the check to fail and say why. Acceptance test of control.brain-check.
  */
 class BrainCheckTest {
 
     private static final String CAPABILITIES = "docs/capabilities/capabilities.yaml";
     private static final String ADR_0010 = "docs/adr/0010-documentation-as-code-with-a-generated-brain.md";
+    private static final String ADR_0011 = "docs/adr/0011-java-documentation-tool-and-publication.md";
 
     @TempDir
     Path dir;
@@ -126,16 +127,37 @@ class BrainCheckTest {
 
     @Test
     void anAdrWithoutARequiredSectionFails() {
-        fixture.edit(ADR_0010, text -> text.replace("### Confirmation", "### How it is checked"));
+        fixture.edit(ADR_0011, text -> text.replace("### Confirmation", "### How it is checked"));
 
-        assertFails().hasMessageContaining(ADR_0010 + ": the required section 'Confirmation' is missing");
+        assertFails().hasMessageContaining(ADR_0011 + ": the required section 'Confirmation' is missing");
     }
 
     @Test
     void aGapInTheAdrNumbersFails() {
-        fixture.move(ADR_0010, "docs/adr/0011-documentation-as-code-with-a-generated-brain.md");
+        fixture.move(ADR_0011, "docs/adr/0012-java-documentation-tool-and-publication.md");
 
-        assertFails().hasMessageContaining("ADR numbers run from 0001 without gaps; expected 0010");
+        assertFails().hasMessageContaining("ADR numbers run from 0001 without gaps; expected 0011");
+    }
+
+    @Test
+    void aSupersededAdrMustNameItsSuccessor() {
+        fixture.edit(ADR_0010, text -> text.replace("supersededBy: \"0011\"\n", ""));
+
+        assertFails().hasMessageContaining(ADR_0010 + ": a superseded ADR names its successor in supersededBy");
+    }
+
+    @Test
+    void aSuccessorThatDoesNotExistFails() {
+        fixture.edit(ADR_0010, text -> text.replace("supersededBy: \"0011\"", "supersededBy: \"0042\""));
+
+        assertFails().hasMessageContaining(ADR_0010 + ": supersededBy names ADR 0042, which does not exist");
+    }
+
+    @Test
+    void anAdrThatIsNotSupersededNamesNoSuccessor() {
+        fixture.edit(ADR_0011, text -> text.replace("status: accepted", "status: accepted\nsupersededBy: \"0010\""));
+
+        assertFails().hasMessageContaining(ADR_0011 + ": only a superseded ADR has supersededBy");
     }
 
     @Test

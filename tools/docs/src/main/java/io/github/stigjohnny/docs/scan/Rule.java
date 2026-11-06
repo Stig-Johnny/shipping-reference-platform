@@ -41,7 +41,7 @@ enum Rule {
     /** A quoted value of twelve or more characters assigned to a password, secret, key or token. */
     SECRET_ASSIGNMENT("(?i)\\b(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token"
             + "|client[_-]?secret|private[_-]?key)\\b[\"']?[ \\t]*[:=][ \\t]*[\"'][^\"'\\s]{12,}[\"']"),
-    /** The repository on GitHub, which the site never links (ADR 0010). */
+    /** The repository on GitHub, which the site never links (ADR 0011). */
     PRIVATE_REPOSITORY_LINK("(?i)github\\.com[/:]stig-johnny/shipping-reference-platform"),
     /** An absolute path of a build machine or a developer's computer. */
     LOCAL_PATH("(?:/Users/|/home/|/private/|\\b[A-Za-z]:\\\\)"),

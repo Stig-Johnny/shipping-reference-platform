@@ -22,9 +22,12 @@ final class Statuses {
     }
 
     static String design(String status, String detail) {
-        Badge badge = "accepted".equals(status) ? Badge.ACCEPTED
-                : "rejected".equals(status) || "deprecated".equals(status) || "superseded".equals(status)
-                        ? Badge.REJECTED : Badge.PLANNED;
+        Badge badge = switch (status) {
+            case "accepted" -> Badge.ACCEPTED;
+            case "superseded" -> Badge.NEUTRAL;
+            case "rejected", "deprecated" -> Badge.REJECTED;
+            default -> Badge.PLANNED;
+        };
         return badge.html(words(status)) + " " + Html.escape(detail);
     }
 

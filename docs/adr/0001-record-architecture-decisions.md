@@ -57,9 +57,8 @@ Chosen option 1.
 
 ### Confirmation
 
-- `java` runs `:tools:docs:checkGenerated` (ADR 0010), which fails when an ADR lacks a required frontmatter field or
-  section, uses an unknown status, breaks the numbering, or names an `enforcedBy` test class that does not exist in
-  the repository (`BrainCheckTest`).
+- `docs-brain` runs `brain --check`, which fails when an ADR lacks a required frontmatter field or section, uses an
+  unknown status, breaks the numbering, or names an `enforcedBy` test class that does not exist in the repository.
 - `.github/CODEOWNERS` assigns `docs/adr/` to the owner, and `policy/risk.json` classifies it as level 3.
 
 ## More Information

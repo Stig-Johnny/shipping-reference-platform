@@ -16,14 +16,22 @@ import org.jspecify.annotations.Nullable;
  * @param related links to other pages, as site paths with titles
  * @param source what the page is generated from, as repository paths in words
  * @param diagrams whether the page draws Mermaid diagrams (and so loads Mermaid under its own policy)
+ * @param navBadge a status word shown as a neutral badge after the label in the navigation, such as "Superseded"
  */
 public record SitePage(String path, String title, String navLabel, SiteSection section, String summary,
         @Nullable StatusPanel status, List<Contents> contents, String body, List<Related> related, String source,
-        boolean diagrams) {
+        boolean diagrams, @Nullable String navBadge) {
 
     public SitePage {
         contents = List.copyOf(contents);
         related = List.copyOf(related);
+    }
+
+    /** A page without a badge in the navigation. */
+    public SitePage(String path, String title, String navLabel, SiteSection section, String summary,
+            @Nullable StatusPanel status, List<Contents> contents, String body, List<Related> related, String source,
+            boolean diagrams) {
+        this(path, title, navLabel, section, summary, status, contents, body, related, source, diagrams, null);
     }
 
     /** An entry of the table of contents. */

@@ -74,6 +74,27 @@ class SitePagesTest {
     }
 
     @Test
+    void aSupersededDecisionSaysSoInWordsAndLinksBothWays() {
+        String old = site.text("decisions/0010-documentation-as-code-with-a-generated-brain.html");
+        String successor = site.text("decisions/0011-java-documentation-tool-and-publication.html");
+        String index = site.text("decisions/index.html");
+
+        assertThat(old).contains("<span class=\"badge badge-neutral\">Superseded</span> Superseded by "
+                + "<a href=\"0011-java-documentation-tool-and-publication.html\">ADR 0011</a>.");
+        assertThat(successor).contains("<span class=\"badge badge-accepted\">Accepted</span> Decided 2026-11-06",
+                "Supersedes <a href=\"0010-documentation-as-code-with-a-generated-brain.html\">ADR 0010</a>.");
+        assertThat(index).containsPattern("0010: Documentation as code[^<]*</a></th>\\s*<td><span class=\"badge "
+                + "badge-neutral\">Superseded</span>");
+        int at0010 = successor.indexOf(">0010: Documentation as code with a generated brain");
+        int at0011 = successor.indexOf(">0011: ");
+        assertThat(at0010).isPositive().isLessThan(at0011);
+        assertThat(successor.substring(at0010, at0011)).contains("<span class=\"badge badge-neutral\">Superseded"
+                + "</span>");
+        assertThat(site.text("assets/site.css")).doesNotContain("line-through", "opacity");
+        assertThat(site.text("brain/index.html")).contains("ADR 0011: ");
+    }
+
+    @Test
     void plannedElementsAreLabelledNotFaded() {
         String page = site.text("model/api-components.html");
 
