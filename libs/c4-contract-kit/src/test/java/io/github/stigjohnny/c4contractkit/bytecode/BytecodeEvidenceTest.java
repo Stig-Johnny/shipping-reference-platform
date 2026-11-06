@@ -555,6 +555,55 @@ class BytecodeEvidenceTest {
     }
 
     @Test
+    void whatTheClassFileDoesNotRecordIsNotADependency() {
+        // A known limit (docs/gaps.md): javac copies compile-time constants into the using class, and ArchUnit 1.5.1
+        // reports no casts, local variable types, explicit type arguments of calls or array creation. If this test
+        // fails, ArchUnit sees more than before: update docs/gaps.md and this test.
+        FixtureSource invisible = new FixtureSource("fx/app/a/Invisible.java", """
+                package fx.app.a;
+
+                import fx.app.b.Constants;
+                import fx.app.b.Target;
+                import java.util.List;
+
+                public class Invisible {
+                    static final int COPIED = Constants.LIMIT;
+
+                    Object cast(Object value) {
+                        return (Target) value;
+                    }
+
+                    void local() {
+                        Target target = null;
+                        List<Target> targets = null;
+                    }
+
+                    Object array() {
+                        return new Target[3];
+                    }
+
+                    Object typeArgument() {
+                        return List.<Target>of();
+                    }
+
+                    int constant() {
+                        return Constants.LIMIT + Constants.NAME.length();
+                    }
+                }
+                """);
+        FixtureSource constants = new FixtureSource("fx/app/b/Constants.java", """
+                package fx.app.b;
+
+                public class Constants {
+                    public static final int LIMIT = 7;
+                    public static final String NAME = "seven";
+                }
+                """);
+
+        assertThat(referencesToTargets(invisible, "fx.app.a.Invisible", constants)).isEmpty();
+    }
+
+    @Test
     void classesAndReferencesAreSortedAndTheOrderOfRootsDoesNotMatter() {
         Path targets = compile();
         Path origins = FixtureCompiler.compile(INITIALISER);
@@ -585,8 +634,14 @@ class BytecodeEvidenceTest {
         assertThat(PARAMETER_ANNOTATION_MEMBER.label()).isEqualTo("parameter annotation member");
     }
 
-    private static List<CodeReference> referencesToTargets(FixtureSource origin, String className) {
-        return imported(origin, className).references().stream()
+    private static List<CodeReference> referencesToTargets(FixtureSource origin, String className,
+                                                           FixtureSource... more) {
+        FixtureSource[] sources = new FixtureSource[more.length + 1];
+        sources[0] = origin;
+        System.arraycopy(more, 0, sources, 1, more.length);
+        return ClassRootImporter.importRoots(List.of(compile(sources))).stream()
+                .filter(imported -> imported.name().equals(className))
+                .flatMap(imported -> imported.references().stream())
                 .filter(reference -> reference.targetClass().startsWith("fx.app.b."))
                 .toList();
     }

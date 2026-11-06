@@ -14,15 +14,16 @@ closes it.
 ## 0. State of this commit
 
 - The specification, the reviewed toolchain and the dependency allowlist with its enforcement are in place, and so
-  are the reviewed dependencies of the docs generator and of the shipping API. No application or library code exists
-  yet. Every capability in
-  `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named in the documents is
-  still to be written (red first).
+  are the reviewed dependencies of the docs generator and of the shipping API. The library `libs/c4-contract-kit`
+  (its slices 1 to 4) exists; no application code exists yet. Every product capability in
+  `docs/capabilities/capabilities.yaml` is still `planned` with no evidence; the library's controls carry their tests
+  as evidence, and every other test class named in the documents is still to be written (red first).
 - The versions in the ADRs were checked against their sources on 2026-11-06. Their combination (JDK 25, Gradle
   9.8.2, Spring Boot 4.1.2, Spring Modulith 2.1.2, Error Prone 2.51.0, NullAway 0.14.3, JUnit 6.0.3 (property
   tests as `@ParameterizedTest` in the normal test task), PIT 1.30.2 with its JUnit 5 plugin 1.2.3) has not been
   built together yet. In particular,
   PIT's JUnit 5 plugin with JUnit 6 is unverified; the fallback is running PIT against a JUnit 5.14.4 test task.
+  The library runs PIT with JUnit 5.14.4, and that combination works.
 
 ## 1. What the architecture check cannot prove
 
@@ -42,6 +43,11 @@ closes it.
   assert it.
 - **Only direct references.** A transitive path neither satisfies nor violates an edge. Two modules can be coupled
   through a third without any report.
+- **Only what the class file records, as ArchUnit 1.5.1 reads it.** javac copies compile-time constants
+  (`static final` primitives and strings) into the class that uses them, so using another module's constant leaves
+  no reference. Casts, the types of local variables, explicit type arguments of method calls and array creation
+  (`new T[n]`) are not reported either. A module that uses another only in these ways shows no divergence, and such
+  a use does not satisfy a REQUIRED edge. `BytecodeEvidenceTest` pins this list.
 - **Granularity.** Mapping is by package root. A class placed in the wrong module's package is attributed to that
   module. Encapsulation inside a module (which internal class may call which) is Spring Modulith's and ArchUnit's
   job, and both see the same static references only.
@@ -121,6 +127,10 @@ closes it.
 - Contract conformance covers only the responses that tests exercise. Not enforced yet: a check that every
   documented operation and status code is exercised, and OpenAPI style linting.
 - Mutation testing measures changed lines only, and equivalent-mutant exclusions are reviewed by hand.
+- PIT mutates every class directory on its class path whose path does not end in `test-classes` or `bin-test`, and
+  the `pitest` task in `build-logic` passes no `--mutableCodePaths`. A project that keeps Gradle's default
+  `build/classes/java/test` therefore gets its tests mutated as well, and a mutant that removes an assertion from a
+  test can never be killed. `libs/c4-contract-kit` compiles its tests into `build/test-classes` for this reason.
 - axe-core finds a subset of accessibility problems; manual keyboard and screen reader checks are required and
   recorded by hand.
 - The web app's static checks cover import boundaries and cycles only. dependency-cruiser and required frontend

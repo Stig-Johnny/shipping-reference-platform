@@ -5,8 +5,9 @@ API contract and the documentation lead and the code follows, and when each clai
 check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is
 synthetic and the carrier is simulated.
 
-**State of this commit:** specification only. The model, contract, decisions, module specifications, risk policy
-and agent rules are here; no code is. Every capability in `docs/capabilities/capabilities.yaml` is `planned`.
+**State of this commit:** the model, contract, decisions, module specifications, risk policy and agent rules are
+here, with the build bootstrap and the model-versus-code checker `libs/c4-contract-kit`; no application code is. Every
+product capability in `docs/capabilities/capabilities.yaml` is `planned`; the checker's controls carry their tests.
 
 ## The idea
 
@@ -60,7 +61,7 @@ data, enforced in queries and by forced PostgreSQL row-level security.
 
 | Control | Fails the build when | What it cannot catch | Where it runs |
 |---|---|---|---|
-| C4 conformance: divergence | A class in one module references another module without a relationship in the model. | Use through reflection, SQL, HTTP or configuration; a model widened to allow the dependency (that change needs the owner). | `java`: `ArchitectureConformanceTest` |
+| C4 conformance: divergence | A class in one module references another module without a relationship in the model. | Use through reflection, SQL, HTTP or configuration; references the class file does not record (compile-time constants, casts); a model widened to allow the dependency (that change needs the owner). | `java`: `ArchitectureConformanceTest` |
 | C4 conformance: absence | A `REQUIRED` relationship has no static reference in the bytecode. | A reference that exists while the behaviour behind it does nothing. | `java`: `ArchitectureConformanceTest` |
 | Model validity | Package mappings overlap, are empty or leave classes uncovered; a planned module has code; forbidden DSL directives; tags disagree with contract properties; cycles. | Whether the model describes the right architecture. | `java` |
 | Module boundaries and layering | Access to another module's internal packages, module cycles, Spring in domain code, unexpected packages. | Coupling through shared data or timing. | `java`: `ModularityTest`, `HexagonalLayeringTest` |
@@ -75,7 +76,8 @@ data, enforced in queries and by forced PostgreSQL row-level security.
 | Web behaviour and accessibility | Quote, book and label fail in a real browser against the real API; axe-core finds violations; import cycles or boundary breaks. | Accessibility problems that automated tools miss; unused frontend modules. | `web`, `contract-e2e` |
 | Documentation and brain | Generated docs or `BRAIN.md` drift; budgets exceeded; a capability claims `shipped` without passing evidence; code changed without its module document. | Whether the prose is right. | `docs-brain` |
 
-Every advertised failure requires a deliberate negative fixture; none exists yet. The full list of limits is in `docs/gaps.md`.
+Every advertised failure requires a deliberate negative fixture. The checker's own tests have theirs; the
+application's do not exist yet. The full list of limits is in `docs/gaps.md`.
 
 ## Layout
 

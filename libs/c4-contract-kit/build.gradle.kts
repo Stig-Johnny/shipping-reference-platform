@@ -38,3 +38,8 @@ mutationTesting {
 sourceSets.test {
     java.destinationDirectory = layout.buildDirectory.dir("test-classes")
 }
+
+// The Javadoc JAR documents the public API only; every other package is internal (AGENTS.md, "Boundaries").
+tasks.javadoc {
+    include("io/github/stigjohnny/c4contractkit/api/**")
+}
