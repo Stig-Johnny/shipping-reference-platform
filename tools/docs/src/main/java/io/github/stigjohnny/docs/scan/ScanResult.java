@@ -8,7 +8,7 @@ import java.util.List;
  * paths and digests only: never a matched value, never a dictionary term.
  */
 public record ScanResult(List<Finding> findings, List<ScanException> applied, String siteDigest, int files,
-        String revision, boolean dictionaryPresent) {
+        String revision, Dictionary.State dictionary) {
 
     public ScanResult {
         findings = List.copyOf(findings);
@@ -31,8 +31,12 @@ public record ScanResult(List<Finding> findings, List<ScanException> applied, St
                 .append("directory.\n")
                 .append(revision.isBlank() ? "- Source revision: not set (a local scan).\n"
                         : "- Source revision: `" + revision + "`.\n")
-                .append(dictionaryPresent ? "- Dictionary: present.\n"
-                        : "- Dictionary: unset or empty, so the scan fails closed.\n")
+                .append(switch (dictionary) {
+                    case PRESENT -> "- Dictionary: present.\n";
+                    case UNSET -> "- Dictionary: unset or empty, so the scan fails closed.\n";
+                    case MALFORMED -> "- Dictionary: malformed (an entry holds a control character, or no entry is "
+                            + "valid), so the scan fails closed.\n";
+                })
                 .append("- Rules: ").append(String.join(", ", rules)).append(", on file contents and on file and ")
                 .append("directory names.\n")
                 .append("- A path whose name fails a rule is never printed: `[withheld path, sha256 <12 digits>]` ")

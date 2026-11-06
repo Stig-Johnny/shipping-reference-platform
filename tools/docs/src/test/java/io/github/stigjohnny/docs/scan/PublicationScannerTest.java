@@ -158,6 +158,31 @@ class PublicationScannerTest {
         assertThat(result.findings()).containsExactly(new Finding("DICTIONARY_UNSET", ""));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"\u0001", "synthetic-" + "term-one\n\u0001", "\u0001\u0002\n\u0003", "synthetic\u0000term",
+        "synthetic\tterm", "synthetic\u0085term", "\u200B", "\u200B\n\u00AD"})
+    void aDictionaryWithAControlCharacterOrNoValidEntryIsMalformedAndFailsClosed(String dictionary)
+            throws IOException {
+        write("index.html", CLEAN);
+
+        ScanResult result = PublicationScanner.scan(dir.resolve("site"), dictionary, ScanExceptions.none(), "");
+
+        assertThat(result.passed()).isFalse();
+        assertThat(result.findings()).containsExactly(new Finding("DICTIONARY_MALFORMED", ""));
+        assertThat(result.summary()).contains("Dictionary: malformed").doesNotContain("synthetic");
+    }
+
+    @Test
+    void aMalformedDictionaryStillScansWithItsValidEntries() throws IOException {
+        write("page.html", "<p>" + "synthetic-" + "term-one</p>");
+
+        ScanResult result = PublicationScanner.scan(dir.resolve("site"), "synthetic-" + "term-one\n\u0007",
+                ScanExceptions.none(), "");
+
+        assertThat(result.findings()).containsExactly(new Finding("DICTIONARY_MALFORMED", ""),
+                new Finding("DICTIONARY", "page.html"));
+    }
+
     @Test
     void anUnsetDictionaryFailsClosed() throws IOException {
         write("index.html", CLEAN);

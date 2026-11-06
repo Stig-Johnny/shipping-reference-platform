@@ -57,7 +57,8 @@ public final class DocsTool {
     /** Runs a command line; {@code environment} gives the environment variables the scan reads. */
     static int run(String[] args, PrintStream out, PrintStream err, Duration timeout,
             Function<String, @Nullable String> environment) {
-        return guarded(() -> execute(Arguments.parse(args), out, environment), err, timeout);
+        boolean sanitized = args.length > 0 && "scan".equals(args[0]);
+        return guarded(() -> execute(Arguments.parse(args), out, environment), err, timeout, sanitized);
     }
 
     /** One command. */
@@ -68,6 +69,14 @@ public final class DocsTool {
 
     /** Runs a command on its own thread and returns the exit code. */
     static int guarded(Command command, PrintStream err, Duration timeout) {
+        return guarded(command, err, timeout, false);
+    }
+
+    /**
+     * Runs a command; a sanitized run (the scan) prints only the kind of an unexpected failure, never its message or
+     * stack trace, which could name a path or a value of the site.
+     */
+    static int guarded(Command command, PrintStream err, Duration timeout, boolean sanitized) {
         ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(runnable, "docs-tool");
             thread.setDaemon(true);
@@ -93,11 +102,22 @@ public final class DocsTool {
                 err.println("docs: " + problem.getMessage());
                 return 1;
             }
+            if (sanitized) {
+                err.println("docs: failed unexpectedly with " + cause.getClass().getSimpleName()
+                        + "; the details are not printed, because they could name a path or a value of the site");
+                return 2;
+            }
             err.println("docs: failed with " + cause.getClass().getName() + ": " + cause.getMessage());
             cause.printStackTrace(err);
             return 2;
         } finally {
+            // Stop the command and wait briefly for it, so that it prints and writes nothing after this returns.
             executor.shutdownNow();
+            try {
+                executor.awaitTermination(5, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 

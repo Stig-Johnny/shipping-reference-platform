@@ -1,6 +1,7 @@
 package io.github.stigjohnny.docs;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assumptions.assumeThat;
 
 import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.scan.PublicationScanner;
@@ -12,9 +13,11 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -26,7 +29,8 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class DocsToolTest {
 
-    private static final String DICTIONARY = "synthetic-term-one\nsynthetic-term-two";
+    private static final String TERM = "synthetic-" + "term-one";
+    private static final String DICTIONARY = TERM + "\n" + "synthetic-" + "term-two";
     private static final String REVISION = "0123456789abcdef0123456789abcdef01234567";
 
     @TempDir
@@ -101,7 +105,7 @@ class DocsToolTest {
     void theScanPrintsOnlyTheRuleAndTheFileNeverTheValueOrTheTerm() throws IOException {
         Path site = builtSite();
         String key = "-----BEGIN " + "RSA PRIVATE KEY-----";
-        Files.writeString(site.resolve("trust/gaps.html"), "<p>" + key + " synthetic-term-two</p>\n");
+        Files.writeString(site.resolve("trust/gaps.html"), "<p>" + key + " synthetic-" + "term-two</p>\n");
 
         int code = run(Map.of(PublicationScanner.DICTIONARY_VARIABLE, DICTIONARY), "scan", "--repo",
                 repo().toString(), "--site", site.toString(), "--summary", dir.resolve("summary.md").toString());
@@ -126,6 +130,108 @@ class DocsToolTest {
 
         assertThat(stepSummary).content(StandardCharsets.UTF_8).startsWith("## Earlier step\n")
                 .contains("Publication scan");
+    }
+
+    @Test
+    void aFindingInAFileNameFailsTheScanAndPrintsTheNameWithheld() throws IOException {
+        Path site = builtSite();
+        Files.writeString(site.resolve(TERM + ".html"), "<p>clean</p>\n");
+
+        int code = scan(Map.of(PublicationScanner.DICTIONARY_VARIABLE, DICTIONARY));
+
+        assertThat(code).isEqualTo(1);
+        assertThat(out.toString(StandardCharsets.UTF_8)).contains("scan: DICTIONARY [withheld path, sha256 ");
+        assertNothingDisclosed();
+    }
+
+    @Test
+    void aMalformedDictionaryFailsTheScanWithoutPrintingAnyOfIt() throws IOException {
+        builtSite();
+
+        int code = scan(Map.of(PublicationScanner.DICTIONARY_VARIABLE, TERM + "\n\u0001"));
+
+        assertThat(code).isEqualTo(1);
+        assertThat(out.toString(StandardCharsets.UTF_8)).contains("scan: DICTIONARY_MALFORMED");
+        assertNothingDisclosed();
+    }
+
+    @Test
+    void anUnreadableFileFailsTheScanWithoutItsNameOrALocalPath() throws IOException {
+        Path site = builtSite();
+        Path file = site.resolve(TERM + ".html");
+        Files.writeString(file, "<p>clean</p>\n");
+        Files.setPosixFilePermissions(file, Set.of());
+        try {
+            assumeThat(Files.isReadable(file)).as("the test user can still read the file").isFalse();
+
+            int code = scan(Map.of(PublicationScanner.DICTIONARY_VARIABLE, DICTIONARY));
+
+            assertThat(code).isEqualTo(1);
+            assertThat(err.toString(StandardCharsets.UTF_8)).contains("cannot be read");
+            assertNothingDisclosed();
+        } finally {
+            Files.setPosixFilePermissions(file, Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE));
+        }
+    }
+
+    @Test
+    void aDirectoryThatCannotBeListedFailsTheScanWithoutItsNameOrALocalPath() throws IOException {
+        Path site = builtSite();
+        Path directory = site.resolve(TERM);
+        Files.createDirectories(directory);
+        Files.writeString(directory.resolve("page.html"), "<p>clean</p>\n");
+        Files.setPosixFilePermissions(directory, Set.of());
+        try {
+            assumeThat(Files.isReadable(directory)).as("the test user can still read the directory").isFalse();
+
+            int code = scan(Map.of(PublicationScanner.DICTIONARY_VARIABLE, DICTIONARY));
+
+            assertThat(code).isEqualTo(1);
+            assertThat(err.toString(StandardCharsets.UTF_8)).contains("the site cannot be listed");
+            assertNothingDisclosed();
+        } finally {
+            Files.setPosixFilePermissions(directory, Set.of(PosixFilePermission.OWNER_READ,
+                    PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
+        }
+    }
+
+    @Test
+    void aScanThatTakesTooLongIsStoppedAndPrintsNothingElse() throws IOException {
+        Path site = builtSite();
+        Files.writeString(site.resolve(TERM + ".html"), "<p>" + TERM + "</p>\n");
+
+        int code = DocsTool.run(new String[] {"scan", "--repo", repo().toString(), "--site", site.toString(),
+            "--summary", dir.resolve("summary.md").toString()}, stream(out), stream(err), Duration.ofMillis(1),
+                Map.of(PublicationScanner.DICTIONARY_VARIABLE, DICTIONARY)::get);
+
+        assertThat(code).isEqualTo(1);
+        assertThat(err.toString(StandardCharsets.UTF_8)).contains("timed out");
+        assertNothingDisclosed();
+    }
+
+    @Test
+    void anUnexpectedFailureOfTheScanPrintsItsKindOnly() {
+        String detail = "/Us" + "ers/someone/" + TERM;
+        int code = DocsTool.guarded(() -> {
+            throw new IllegalStateException(detail);
+        }, stream(err), Duration.ofSeconds(10), true);
+
+        assertThat(code).isEqualTo(2);
+        assertThat(err.toString(StandardCharsets.UTF_8)).contains("IllegalStateException")
+                .doesNotContain(detail, "someone", "\tat ");
+    }
+
+    private int scan(Map<String, String> environment) {
+        return run(environment, "scan", "--repo", repo().toString(), "--site", dir.resolve("site").toString(),
+                "--summary", dir.resolve("summary.md").toString());
+    }
+
+    /** Nothing printed or written names a dictionary term, the term-named paths or the test's local paths. */
+    private void assertNothingDisclosed() throws IOException {
+        Path summary = dir.resolve("summary.md");
+        String printed = out.toString(StandardCharsets.UTF_8) + err.toString(StandardCharsets.UTF_8)
+                + (Files.exists(summary) ? Files.readString(summary) : "");
+        assertThat(printed).doesNotContainIgnoringCase("synthetic-" + "term").doesNotContain(dir.toString());
     }
 
     private Path repo() {
