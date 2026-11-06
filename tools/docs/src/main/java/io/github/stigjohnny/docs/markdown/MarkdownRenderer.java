@@ -1,0 +1,281 @@
+package io.github.stigjohnny.docs.markdown;
+
+import io.github.stigjohnny.docs.DocsException;
+import io.github.stigjohnny.docs.Html;
+import io.github.stigjohnny.docs.markdown.LinkDecision.Keep;
+import io.github.stigjohnny.docs.markdown.LinkDecision.Reject;
+import io.github.stigjohnny.docs.markdown.LinkDecision.Rewrite;
+import io.github.stigjohnny.docs.markdown.LinkDecision.Unlink;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import org.commonmark.Extension;
+import org.commonmark.ext.gfm.tables.TableBlock;
+import org.commonmark.ext.gfm.tables.TablesExtension;
+import org.commonmark.node.Code;
+import org.commonmark.node.FencedCodeBlock;
+import org.commonmark.node.HardLineBreak;
+import org.commonmark.node.Heading;
+import org.commonmark.node.Image;
+import org.commonmark.node.Link;
+import org.commonmark.node.Node;
+import org.commonmark.node.SoftLineBreak;
+import org.commonmark.node.Text;
+import org.commonmark.parser.Parser;
+import org.commonmark.renderer.html.HtmlRenderer;
+import org.jspecify.annotations.Nullable;
+
+/**
+ * Markdown to HTML for the public site, under the CommonMark conditions of
+ * security/reviews/maven--docs-tool-scope-extension.md. It is the only class that uses CommonMark
+ * (ReviewConditionsTest).
+ *
+ * <ul>
+ *   <li>One parser and one renderer, built once: the GFM tables extension and nothing else; the renderer escapes raw
+ *       HTML ({@code escapeHtml(true)}) and sanitises URLs ({@code sanitizeUrls(true)}) with {@link SiteUrlSanitizer},
+ *       which allows only http, https, mailto, relative and fragment URLs. No node renderer calls {@code raw()} and no
+ *       attribute provider exists.
+ *   <li>Links are rewritten on the parsed {@link Link} nodes, before rendering: a {@link LinkResolver} turns links to
+ *       published sources into site links and links the public cannot open into plain text, and rejects broken ones.
+ *       In-page anchors must exist. A destination the sanitizer would empty fails the build instead of rendering
+ *       {@code href=""}, and images fail (the site publishes none).
+ *   <li>Headings get GitHub's anchor IDs, written by this class's own template from a slug of letters, digits,
+ *       {@code _} and {@code -}; tables are wrapped in labelled, keyboard-scrollable regions; Mermaid fences are shown
+ *       as source, because only the generator's validated diagrams are ever rendered.
+ *   <li>CommonMark 0.29.0 has no nesting limits, so the tree is measured before rendering and anything deeper than
+ *       {@link #MAX_DEPTH} fails; any exception or error, {@link StackOverflowError} included, fails the build.
+ * </ul>
+ */
+public final class MarkdownRenderer {
+
+    /** Deepest nesting of Markdown nodes that is rendered (real documents stay under 12). */
+    public static final int MAX_DEPTH = 64;
+
+    private static final List<Extension> EXTENSIONS = List.of(TablesExtension.create());
+    private static final Parser PARSER = Parser.builder().extensions(EXTENSIONS).build();
+    private static final HtmlRenderer RENDERER = HtmlRenderer.builder().extensions(EXTENSIONS).escapeHtml(true)
+            .sanitizeUrls(true).urlSanitizer(new SiteUrlSanitizer()).build();
+    private static final SiteUrlSanitizer SANITIZER = new SiteUrlSanitizer();
+    private static final String RESERVED_PREFIX = "site-";
+
+    private MarkdownRenderer() {
+    }
+
+    /** Renders a document; {@code dropTitle} leaves out its first level-1 heading, which the page template shows. */
+    public static RenderedMarkdown render(String markdown, String source, LinkResolver links, boolean dropTitle) {
+        try {
+            Node document = parse(markdown, source);
+            Map<Node, Section> headings = headings(children(document));
+            Node title = dropTitle ? title(children(document)) : null;
+            if (title != null) {
+                title.unlink();
+            }
+            List<Node> blocks = children(document);
+            Set<String> anchors = Set.copyOf(headings.values().stream()
+                    .map(Section::id).toList());
+            rewriteLinks(document, source, links, anchors);
+            StringBuilder html = new StringBuilder();
+            List<Section> shown = new ArrayList<>();
+            String section = "";
+            int tables = 0;
+            for (Node block : blocks) {
+                switch (block) {
+                    case Heading heading -> {
+                        Section entry = headings.get(heading);
+                        if (entry == null) {
+                            throw new DocsException(source + ": a heading has no ID");
+                        }
+                        shown.add(entry);
+                        section = entry.text();
+                        html.append("<h").append(entry.level()).append(" id=\"").append(Html.escape(entry.id()))
+                                .append("\">");
+                        for (Node child : children(heading)) {
+                            html.append(RENDERER.render(child));
+                        }
+                        html.append("</h").append(entry.level()).append(">\n");
+                    }
+                    case TableBlock table -> {
+                        tables++;
+                        String label = "Table " + tables + (section.isEmpty() ? "" : " in " + section)
+                                + ", scrolls sideways";
+                        html.append("<div class=\"table-scroll\" role=\"region\" tabindex=\"0\" aria-label=\"")
+                                .append(Html.escape(label)).append("\">\n").append(RENDERER.render(table))
+                                .append("</div>\n");
+                    }
+                    case FencedCodeBlock code when "mermaid".equals(code.getInfo().strip()) -> html
+                            .append("<details class=\"diagram-source-block\">\n<summary>Diagram source (Mermaid). "
+                                    + "GitHub draws this diagram; the text around it says the same.</summary>\n")
+                            .append(RENDERER.render(code)).append("</details>\n");
+                    default -> html.append(RENDERER.render(block));
+                }
+            }
+            return new RenderedMarkdown(html.toString(), shown);
+        } catch (DocsException e) {
+            throw e;
+        } catch (StackOverflowError e) {
+            throw new DocsException(source + ": the document is nested too deeply to render", e);
+        } catch (RuntimeException e) {
+            throw new DocsException(source + ": the document cannot be rendered: " + e, e);
+        }
+    }
+
+    /** The headings of a document with their anchor IDs, title included, without rendering it. */
+    public static List<Section> headings(String markdown, String source) {
+        try {
+            return List.copyOf(headings(children(parse(markdown, source))).values());
+        } catch (StackOverflowError e) {
+            throw new DocsException(source + ": the document is nested too deeply to read", e);
+        }
+    }
+
+    private static Node parse(String markdown, String source) {
+        Node document = PARSER.parse(markdown);
+        Deque<Node> pending = new ArrayDeque<>();
+        Deque<Integer> depths = new ArrayDeque<>();
+        pending.push(document);
+        depths.push(0);
+        while (!pending.isEmpty()) {
+            Node node = pending.pop();
+            int depth = depths.pop();
+            if (depth > MAX_DEPTH) {
+                throw new DocsException(source + ": Markdown nested deeper than " + MAX_DEPTH + " levels");
+            }
+            for (Node child = node.getFirstChild(); child != null; child = child.getNext()) {
+                pending.push(child);
+                depths.push(depth + 1);
+            }
+        }
+        return document;
+    }
+
+    /** Top-level headings in order, with GitHub's IDs: unique, lower case, punctuation dropped, spaces as hyphens. */
+    private static Map<Node, Section> headings(List<Node> blocks) {
+        Map<Node, Section> out = new LinkedHashMap<>();
+        Map<String, Integer> seen = new HashMap<>();
+        for (Node block : blocks) {
+            if (block instanceof Heading heading) {
+                String text = text(heading).strip();
+                String slug = slug(text);
+                int count = seen.merge(slug, 1, Integer::sum);
+                String id = count == 1 ? slug : slug + "-" + (count - 1);
+                out.put(heading, new Section(heading.getLevel(), text, id));
+            }
+        }
+        return out;
+    }
+
+    static String slug(String text) {
+        String slug = text.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{M}\\p{N}\\p{Pc}\\- ]", "")
+                .replace(' ', '-');
+        if (slug.isEmpty()) {
+            return "section";
+        }
+        return slug.startsWith(RESERVED_PREFIX) ? "doc-" + slug : slug;
+    }
+
+    private static @Nullable Node title(List<Node> blocks) {
+        for (Node block : blocks) {
+            if (block instanceof Heading heading) {
+                return heading.getLevel() == 1 ? heading : null;
+            }
+        }
+        return null;
+    }
+
+    /** Applies the resolver to every link, checks in-page anchors, and fails on images and unsafe destinations. */
+    private static void rewriteLinks(Node document, String source, LinkResolver links, Set<String> anchors) {
+        List<Node> found = new ArrayList<>();
+        Deque<Node> pending = new ArrayDeque<>();
+        pending.push(document);
+        while (!pending.isEmpty()) {
+            Node node = pending.pop();
+            if (node instanceof Link || node instanceof Image) {
+                found.add(node);
+            }
+            for (Node child = node.getFirstChild(); child != null; child = child.getNext()) {
+                pending.push(child);
+            }
+        }
+        for (Node node : found) {
+            if (node instanceof Image image) {
+                throw new DocsException(source + ": image '" + image.getDestination() + "': the site publishes no "
+                        + "images, and a remote one would be a request to another origin");
+            }
+            Link link = (Link) node;
+            String destination = link.getDestination();
+            if (destination.startsWith("#")) {
+                if (!anchors.contains(destination.substring(1))) {
+                    throw new DocsException(source + ": link to '" + destination + "': no heading has that anchor");
+                }
+                continue;
+            }
+            switch (links.resolve(destination)) {
+                case Keep ignored -> {
+                    // External or already site-relative.
+                }
+                case Rewrite rewrite -> link.setDestination(rewrite.href());
+                case Unlink unlink -> {
+                    unlink(link, unlink.text());
+                    continue;
+                }
+                case Reject reject -> throw new DocsException(source + ": link to '" + destination + "': "
+                        + reject.reason());
+            }
+            if (SANITIZER.sanitizeLinkUrl(link.getDestination()).isEmpty()) {
+                throw new DocsException(source + ": link to '" + destination + "' is not an http, https, mailto, "
+                        + "relative or fragment URL");
+            }
+        }
+    }
+
+    /** Replaces a link with its text; a link whose text is its own URL gets {@code replacement} instead. */
+    private static void unlink(Link link, String replacement) {
+        boolean urlAsText = text(link).strip().equals(link.getDestination())
+                || ("mailto:" + text(link).strip()).equals(link.getDestination());
+        if (urlAsText && !replacement.isEmpty()) {
+            link.insertBefore(new Text(replacement));
+        } else {
+            for (Node child : children(link)) {
+                link.insertBefore(child);
+            }
+        }
+        link.unlink();
+    }
+
+    private static List<Node> children(Node parent) {
+        List<Node> children = new ArrayList<>();
+        for (Node child = parent.getFirstChild(); child != null; child = child.getNext()) {
+            children.add(child);
+        }
+        return children;
+    }
+
+    /** The plain text of a node: text and code literals, with line breaks as spaces. */
+    private static String text(Node node) {
+        StringBuilder out = new StringBuilder();
+        Deque<Node> pending = new ArrayDeque<>();
+        pending.push(node);
+        while (!pending.isEmpty()) {
+            Node current = pending.pop();
+            switch (current) {
+                case Text text -> out.append(text.getLiteral());
+                case Code code -> out.append(code.getLiteral());
+                case SoftLineBreak ignored -> out.append(' ');
+                case HardLineBreak ignored -> out.append(' ');
+                default -> {
+                    List<Node> children = children(current);
+                    for (int i = children.size() - 1; i >= 0; i--) {
+                        pending.push(children.get(i));
+                    }
+                }
+            }
+        }
+        return out.toString();
+    }
+}
