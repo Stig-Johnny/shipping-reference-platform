@@ -3,7 +3,10 @@
 Checks compiled Java classes against a C4 model written in Structurizr DSL, in both directions. A dependency between
 two components that the model does not declare fails (a divergence), and so does a `REQUIRED` relationship without
 any static reference (an absence). A `PERMITTED` relationship without references is reported as "no static
-evidence", never as unused. Every finding carries class-level evidence: class, member, kind and source line.
+evidence", never as unused. A finding about dependencies (a divergence or an isolation breach) carries each reference
+as evidence: class, member, kind, and the source file and line when the class file records them. Absences, empty
+components, planned components with code and unmapped classes have no reference to show; they name the components
+and classes concerned.
 
 The specification is [`AGENTS.md`](AGENTS.md); the decision behind it is
 [ADR 0002](../../docs/adr/0002-c4-model-is-the-structural-authority.md). What the check cannot prove is in
