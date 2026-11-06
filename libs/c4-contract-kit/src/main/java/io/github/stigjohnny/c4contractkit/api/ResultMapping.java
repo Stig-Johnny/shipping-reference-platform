@@ -10,7 +10,7 @@ import io.github.stigjohnny.c4contractkit.rules.Finding;
 import io.github.stigjohnny.c4contractkit.rules.FindingType;
 import java.util.List;
 
-/** Turns the internal comparison into the public result records. */
+/** Turns the internal comparison into the public result records, and back for the report writers. */
 final class ResultMapping {
 
     private ResultMapping() {
@@ -21,6 +21,58 @@ final class ResultMapping {
                 comparison.components().stream().map(ResultMapping::component).toList(),
                 comparison.edges().stream().map(ResultMapping::edge).toList(),
                 comparison.findings().stream().map(ResultMapping::violation).toList());
+    }
+
+    /** The way back, for the report writers, which see only the internal comparison. */
+    static Comparison toComparison(Report report) {
+        return new Comparison(
+                report.components().stream().map(component -> new ComponentSummary(component.id(), component.name(),
+                        status(component.status()), component.packages(), component.classCount())).toList(),
+                report.edges().stream().map(edge -> new EdgeOutcome(edge.source(), edge.target(), mode(edge.mode()),
+                        verdict(edge.status()), items(edge.evidence()))).toList(),
+                report.violations().stream().map(violation -> new Finding(type(violation.type()),
+                        violation.identifiers(), violation.message(), items(violation.evidence()))).toList());
+    }
+
+    private static List<EvidenceItem> items(List<Evidence> evidence) {
+        return evidence.stream().map(item -> new EvidenceItem(item.originClass(), item.originMember(),
+                item.targetClass(), item.targetMember(), item.kind(), item.sourceFile(), item.line())).toList();
+    }
+
+    private static io.github.stigjohnny.c4contractkit.model.ComponentStatus status(ComponentStatus status) {
+        return switch (status) {
+            case BUILT -> io.github.stigjohnny.c4contractkit.model.ComponentStatus.BUILT;
+            case PLANNED -> io.github.stigjohnny.c4contractkit.model.ComponentStatus.PLANNED;
+        };
+    }
+
+    private static EdgeMode mode(Mode mode) {
+        return switch (mode) {
+            case REQUIRED -> EdgeMode.REQUIRED;
+            case PERMITTED -> EdgeMode.PERMITTED;
+            case UNDECLARED -> EdgeMode.UNDECLARED;
+        };
+    }
+
+    private static EdgeVerdict verdict(EdgeStatus status) {
+        return switch (status) {
+            case CONVERGENCE -> EdgeVerdict.CONVERGENCE;
+            case DIVERGENCE -> EdgeVerdict.DIVERGENCE;
+            case ABSENCE -> EdgeVerdict.ABSENCE;
+            case NO_STATIC_EVIDENCE -> EdgeVerdict.NO_STATIC_EVIDENCE;
+            case NOT_EVALUATED -> EdgeVerdict.NOT_EVALUATED;
+        };
+    }
+
+    private static FindingType type(ViolationType type) {
+        return switch (type) {
+            case DIVERGENCE -> FindingType.DIVERGENCE;
+            case ABSENCE -> FindingType.ABSENCE;
+            case UNMAPPED_CLASS -> FindingType.UNMAPPED_CLASS;
+            case ISOLATION_BREACH -> FindingType.ISOLATION_BREACH;
+            case PLANNED_COMPONENT_HAS_CODE -> FindingType.PLANNED_COMPONENT_HAS_CODE;
+            case BUILT_COMPONENT_EMPTY -> FindingType.BUILT_COMPONENT_EMPTY;
+        };
     }
 
     private static ComponentResult component(ComponentSummary component) {
