@@ -2,19 +2,29 @@ package io.github.stigjohnny.docs;
 
 import io.github.stigjohnny.docs.generate.GeneratedFiles;
 import io.github.stigjohnny.docs.repo.Sources;
+import io.github.stigjohnny.docs.scan.Finding;
+import io.github.stigjohnny.docs.scan.PublicationScanner;
+import io.github.stigjohnny.docs.scan.ScanExceptions;
+import io.github.stigjohnny.docs.scan.ScanResult;
 import io.github.stigjohnny.docs.site.SiteBuilder;
+import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -24,7 +34,11 @@ import org.jspecify.annotations.Nullable;
  * DocsTool generate        --repo DIR [--test-results DIR]...   write docs/architecture/, BRAIN.md, docs/brain/
  * DocsTool check-generated --repo DIR [--test-results DIR]...   fail on any difference from what is committed
  * DocsTool site            --repo DIR [--test-results DIR]... --out DIR [--revision TEXT]   build the public site
+ * DocsTool scan            --repo DIR --site DIR --summary FILE   scan the built site before it is published
  * </pre>
+ *
+ * <p>The scan reads {@code PUBLIC_SCAN_DICTIONARY} and {@code GITHUB_SHA} from the environment, and appends its summary
+ * to {@code GITHUB_STEP_SUMMARY} when that is set.
  *
  * <p>Every command runs under a timeout, and any exception or {@link Error}, {@link StackOverflowError} included, fails
  * it: exit code 1 for a documentation problem, 2 for anything unexpected.
@@ -37,11 +51,23 @@ public final class DocsTool {
     }
 
     public static void main(String[] args) {
-        System.exit(run(args, System.out, System.err, TIMEOUT));
+        System.exit(run(args, System.out, System.err, TIMEOUT, System::getenv));
+    }
+
+    /** Runs a command line; {@code environment} gives the environment variables the scan reads. */
+    static int run(String[] args, PrintStream out, PrintStream err, Duration timeout,
+            Function<String, @Nullable String> environment) {
+        return guarded(() -> execute(Arguments.parse(args), out, environment), err, timeout);
+    }
+
+    /** One command. */
+    @FunctionalInterface
+    interface Command {
+        void run() throws Exception;
     }
 
     /** Runs a command on its own thread and returns the exit code. */
-    static int run(String[] args, PrintStream out, PrintStream err, Duration timeout) {
+    static int guarded(Command command, PrintStream err, Duration timeout) {
         ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(runnable, "docs-tool");
             thread.setDaemon(true);
@@ -49,7 +75,7 @@ public final class DocsTool {
         });
         try {
             Future<?> task = executor.submit(() -> {
-                execute(Arguments.parse(args), out);
+                command.run();
                 return null;
             });
             task.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
@@ -75,7 +101,7 @@ public final class DocsTool {
         }
     }
 
-    private static void execute(Arguments arguments, PrintStream out) {
+    private static void execute(Arguments arguments, PrintStream out, Function<String, @Nullable String> environment) {
         Path repo = arguments.repo();
         switch (arguments.command()) {
             case "generate" -> {
@@ -102,14 +128,56 @@ public final class DocsTool {
                         arguments.revision());
                 out.println("docs: wrote the site, " + files + " files");
             }
+            case "scan" -> scan(arguments, out, environment);
             default -> throw new DocsException("unknown command '" + arguments.command()
-                    + "' (generate, check-generated, site)");
+                    + "' (generate, check-generated, site, scan)");
         }
+    }
+
+    /**
+     * Scans the built site. The dictionary and the revision come from the environment when the scan runs, so that the
+     * build never stores them; the output names rules and files only.
+     */
+    private static void scan(Arguments arguments, PrintStream out, Function<String, @Nullable String> environment) {
+        Path site = arguments.site();
+        Path summary = arguments.summary();
+        if (site == null || summary == null) {
+            throw new DocsException("scan needs --site DIR and --summary FILE");
+        }
+        ScanExceptions exceptions = ScanExceptions.parse(Sources.text(arguments.repo(), PublicationScanner.EXCEPTIONS),
+                PublicationScanner.EXCEPTIONS);
+        String revision = Objects.requireNonNullElse(environment.apply("GITHUB_SHA"), "");
+        ScanResult result = PublicationScanner.scan(site, environment.apply(PublicationScanner.DICTIONARY_VARIABLE),
+                exceptions, revision);
+        String text = result.summary();
+        try {
+            Path parent = summary.toAbsolutePath().getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.writeString(summary, text, StandardCharsets.UTF_8);
+            String stepSummary = environment.apply("GITHUB_STEP_SUMMARY");
+            if (stepSummary != null && !stepSummary.isBlank()) {
+                Files.writeString(Path.of(stepSummary), text, StandardCharsets.UTF_8, StandardOpenOption.CREATE,
+                        StandardOpenOption.APPEND);
+            }
+        } catch (IOException e) {
+            throw new DocsException("the scan summary cannot be written (" + e.getClass().getSimpleName() + ")", e);
+        }
+        for (Finding finding : result.findings()) {
+            out.println("scan: " + finding.rule() + (finding.file().isEmpty() ? "" : " " + finding.file()));
+        }
+        if (!result.passed()) {
+            int count = result.findings().size();
+            throw new DocsException("the publication scan failed with " + count + (count == 1 ? " finding" : " findings")
+                    + ", listed above by rule and file; the site must not be published");
+        }
+        out.println("scan: passed, " + result.files() + " files, site digest sha256:" + result.siteDigest());
     }
 
     /** The parsed command line. */
     record Arguments(String command, Path repo, List<Path> testResults, @Nullable Path out, String revision,
-            @Nullable Path summary) {
+            @Nullable Path summary, @Nullable Path site) {
 
         static Arguments parse(String[] args) {
             if (args.length == 0) {
@@ -119,6 +187,7 @@ public final class DocsTool {
             Path repo = null;
             Path out = null;
             Path summary = null;
+            Path site = null;
             String revision = "";
             List<Path> testResults = new ArrayList<>();
             for (int i = 1; i < args.length; i++) {
@@ -133,6 +202,7 @@ public final class DocsTool {
                     case "--out" -> out = Path.of(value);
                     case "--revision" -> revision = value;
                     case "--summary" -> summary = Path.of(value);
+                    case "--site" -> site = Path.of(value);
                     default -> throw new DocsException("unknown option " + option);
                 }
             }
@@ -140,7 +210,7 @@ public final class DocsTool {
                 throw new DocsException("--repo is required");
             }
             return new Arguments(args[0], repo.toAbsolutePath().normalize(), List.copyOf(testResults), out, revision,
-                    summary);
+                    summary, site);
         }
     }
 }

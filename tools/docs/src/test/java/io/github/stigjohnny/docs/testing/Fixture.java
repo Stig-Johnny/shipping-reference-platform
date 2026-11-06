@@ -24,7 +24,7 @@ public final class Fixture {
             "security/AGENTS.md",
             "architecture/workspace.dsl", "contracts", "policy/risk.json", "security/allowlist.json",
             "security/README.md", "security/reviews", ".github/workflows", "tools/docs/src/test/java",
-            "tools/docs/vendor");
+            "tools/docs/vendor", "tools/docs/publication-scan-exceptions.json");
 
     private final Path root;
     private final Path reports;

@@ -145,6 +145,10 @@ closes it.
   TypeScript test name stays an acceptance target until the web build writes reports that the docs tool reads.
 - The module brains list the entries of this file that name a module in code, by its document or as "the X module".
   An entry that concerns a module without naming it is not listed there, so this whole file still applies.
+- The publication scan matches shapes and listed terms. It cannot catch a paraphrase, a confidential name or detail
+  that is not in its dictionary, or what a sentence means; nor a secret whose shape it does not know. A person
+  still reads every public page that changes. The dictionary lives outside the repository, so whether it is
+  complete is not checked here.
 
 ## 8. Not in scope for v0.1
 

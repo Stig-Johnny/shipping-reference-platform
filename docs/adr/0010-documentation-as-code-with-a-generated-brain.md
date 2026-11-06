@@ -8,6 +8,7 @@ decision-makers: repository owner
 enforcedBy:
   - "java: :tools:docs:checkGenerated, part of check (BrainGeneratorTest, BrainCheckTest)"
   - "java: :tools:docs:site, part of check (SiteBuilderTest, SitePagesTest, SiteAccessibilityTest, SiteAssetsTest)"
+  - "scanSite: :tools:docs:scanSite reads the built site before it is published (PublicationScannerTest, DocsToolTest)"
 plannedEnforcement:
   - "a check that a pull request changing a module's code or tests also changes a document that names the module"
 ---
@@ -92,6 +93,17 @@ documentation alone; the Java tool reuses libraries that were already reviewed f
   carry a Content-Security-Policy that allows scripts only from the site; every other page allows no third-party
   script at all and does not load Mermaid. Each diagram has its elements and relationships as tables, so nothing is
   only in the picture.
+- Before the site is published, `:tools:docs:scanSite` reads it as data, every file, and fails on: private keys and
+  the token shapes of GitHub, AWS, Slack, Discord, Google, Stripe, npm and JWTs; a bearer credential, a URL with a
+  password and a quoted secret assignment; a link to the repository on GitHub; an absolute path into a macOS, Linux
+  or Windows home or temporary directory; a private, link-local or Tailscale address and a Tailscale or private-zone
+  host name; an HTML comment; and any term of a dictionary. The dictionary is never committed: it comes from the
+  environment variable `PUBLIC_SCAN_DICTIONARY`, one term per line, matched in any case, also inside words, after
+  HTML entities are decoded and the text is normalised with NFKC (and without tags, zero-width characters or
+  dash variants). Without it the scan fails closed. It prints the rule and the file only, never the value. Its
+  exceptions, in `tools/docs/publication-scan-exceptions.json`, are exact (the file, the rule and the SHA-256 of
+  the value) and exist only for the documented public demo tokens; one that no longer matches fails the scan. Its
+  summary binds the result to the digest of the site's files and to the source revision.
 
 ### Consequences
 
@@ -123,6 +135,10 @@ documentation alone; the Java tool reuses libraries that were already reviewed f
   link, one H1 and the page order, labelled controls and scroll regions, `aria-current`, the copy status) and
   `SiteAssetsTest` (the design tokens in both themes, the layout, focus and motion rules, and the Mermaid
   conditions on the script).
+- `PublicationScannerTest` (a negative fixture for every rule, the dictionary through entities, NFKC, tags and
+  zero-width characters, failing closed without a dictionary, exact and stale exceptions, links and unreadable
+  files, the digest and the revision in the summary, and no value or term in any output) and `DocsToolTest` (the
+  scan command, and exit codes for errors, `StackOverflowError` included, and for timeouts).
 - The review conditions on the tool's libraries: `SafeYamlTest`, `RestrictedStructurizrTest`, `WorkspacesTest`,
   `MermaidValidatorTest`, `MermaidAdapterTest`, `MarkdownRendererTest`, `SiteUrlSanitizerTest` and
   `ReviewConditionsTest`.

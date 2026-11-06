@@ -73,3 +73,19 @@ val site = tasks.register<JavaExec>("site") {
 tasks.named("check") {
     dependsOn(checkGenerated, site)
 }
+
+// The publication scan reads build/site as data, as it is, and is not part of check: without its dictionary it fails
+// closed. The tool reads PUBLIC_SCAN_DICTIONARY from its own environment when it runs; this build script never reads
+// it, and the task is kept out of the configuration cache so that no task state from such a run is stored.
+val scanSummary: String = layout.buildDirectory.file("publication-scan/summary.md").get().asFile.absolutePath
+
+tasks.register<JavaExec>("scanSite") {
+    group = "documentation"
+    description = "Scans build/site before publication; needs PUBLIC_SCAN_DICTIONARY and fails closed without it."
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass = "io.github.stigjohnny.docs.DocsTool"
+    timeout = Duration.ofMinutes(15)
+    args("scan", "--repo", repositoryRoot, "--site", siteDirectory, "--summary", scanSummary)
+    mustRunAfter(site)
+    notCompatibleWithConfigurationCache("the scan's dictionary must never be stored with the build's state")
+}

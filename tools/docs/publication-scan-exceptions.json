@@ -1,0 +1,11 @@
+{
+  "about": "Exact exceptions of the publication scan, :tools:docs:scanSite. An entry lets one value, named by the SHA-256 of its UTF-8 text, through one rule in one file of the site. Only the public demo tokens documented in docs/modules/tenants.md may be listed, and only under BEARER_TOKEN. An entry that no longer matches fails the scan.",
+  "exceptions": [
+    {
+      "file": "model/flow-quote-book-label.html",
+      "rule": "BEARER_TOKEN",
+      "sha256": "15f63476c5f89879ce0753b4b42fb8d98f3bedb22e8f497754d174c031f47cdf",
+      "reason": "The Authorization header of clerk-alpha in the flow's sequence diagram: its demo token is a public test fixture, listed in docs/modules/tenants.md."
+    }
+  ]
+}
