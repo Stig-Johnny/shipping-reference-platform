@@ -23,10 +23,11 @@ public final class Conformance {
      * Parses the model in restricted mode, imports the class roots and compares them with the model.
      *
      * @param model the Structurizr DSL file, for example {@code architecture/workspace.dsl}
-     * @param productionClassRoots directories or JAR files of compiled production classes, in any order
+     * @param productionClassRoots directories of compiled production classes, such as {@code build/classes/java/main},
+     *     in any order
      * @return what the comparison found; {@link Report#passed()} tells whether the classes conform
      * @throws ModelException listing every model problem, when the model is invalid or uses a rejected construct
-     * @throws IllegalArgumentException if a class root does not exist
+     * @throws IllegalArgumentException if a class root is not a directory
      */
     public static Report check(Path model, List<Path> productionClassRoots) {
         String modelPath = displayPath(model);

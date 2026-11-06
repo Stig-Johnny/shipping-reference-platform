@@ -31,6 +31,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.github.stigjohnny.c4contractkit.testing.ClassPathLabel;
 import io.github.stigjohnny.c4contractkit.testing.FixtureCompiler;
 import io.github.stigjohnny.c4contractkit.testing.FixtureSource;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -619,12 +621,22 @@ class BytecodeEvidenceTest {
     }
 
     @Test
+    void aJarFileIsNotAClassRoot(@TempDir Path dir) throws IOException {
+        // ArchUnit would read a JAR given as a path as one non-class file and import nothing from it.
+        Path jar = Files.write(dir.resolve("classes.jar"), new byte[] {'P', 'K', 3, 4});
+
+        assertThatThrownBy(() -> ClassRootImporter.importRoots(List.of(compile(), jar)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("class root is not a directory: " + jar);
+    }
+
+    @Test
     void aClassRootThatDoesNotExistIsAnError(@TempDir Path dir) {
         Path missing = dir.resolve("classes");
 
         assertThatThrownBy(() -> ClassRootImporter.importRoots(List.of(missing)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("class root does not exist: " + missing);
+                .hasMessage("class root is not a directory: " + missing);
     }
 
     @Test

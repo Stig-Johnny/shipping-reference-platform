@@ -25,8 +25,8 @@ void theCodeConformsToTheModel() {
 
 - `Conformance.check(model, productionClassRoots)` parses the model in restricted mode, reads the class files without
   loading them, and compares. It throws `ModelException` listing every model problem, each starting with the DSL
-  identifiers of the elements it concerns, and `IllegalArgumentException` for a class root that does not exist.
-  Class roots are directories or JAR files, in any order.
+  identifiers of the elements it concerns, and `IllegalArgumentException` for a class root that is not a directory.
+  Class roots are directories of class files, such as `build/classes/java/main`, in any order.
 - `ConformanceAssertions.assertConforms(report, directory)` always writes `report.json` and `report.md`, then throws an
   `AssertionError` listing the violations if there are any.
 - `Report` holds the components (`ComponentResult`), every edge (`EdgeResult`: mode `REQUIRED`, `PERMITTED` or
@@ -40,10 +40,11 @@ The contract properties (`contract.root`, `contract.isolated`, `contract.id`, `c
 `contract.mode`) and their rules are in the header of [`architecture/workspace.dsl`](../../architecture/workspace.dsl).
 The parser runs with all ten Structurizr features off, as
 [its review](../../security/reviews/maven--structurizr-dsl--6.2.4.md) requires: `!include`, `!script`, `!plugin`,
-`!docs`, `!adrs`, `!decisions`, `!components`, `workspace extends`, plugin classes for `!impliedRelationships`, files,
-URLs and environment variables are rejected, and so are image views and themes. Implied relationships never count,
-whatever the file says. Any other `contract.*` property, or one on the wrong kind of element, is a model problem, so
-a misspelt `contract.mode` cannot turn a `REQUIRED` relationship into a `PERMITTED` one.
+`!docs`, `!adrs`, `!decisions`, `!components`, `workspace extends`, plugin classes for `!impliedRelationships`, files
+and URLs are rejected, and so are image views and themes. Environment variables are never read: a `${NAME}` that no
+`!const` or `!var` of the model defines is a model problem. Implied relationships never count, whatever the file
+says. Any other `contract.*` property, or one on the wrong kind of element, is a model problem, so a misspelt
+`contract.mode` cannot turn a `REQUIRED` relationship into a `PERMITTED` one.
 
 Details the specification leaves open, decided here:
 

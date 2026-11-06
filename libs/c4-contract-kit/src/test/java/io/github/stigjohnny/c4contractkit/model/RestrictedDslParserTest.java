@@ -195,16 +195,60 @@ class RestrictedDslParserTest {
     }
 
     @Test
-    void environmentVariablesAreNotSubstituted(@TempDir Path dir) throws Exception {
-        String variable = System.getenv("PATH") != null ? "PATH" : "HOME";
-        assertThat(System.getenv(variable)).as("the test needs %s in its environment", variable).isNotBlank();
+    void environmentVariablesAreNeitherSubstitutedNorIgnored(@TempDir Path dir) throws IOException {
+        String value = System.getenv("PATH");
+        assertThat(value).as("the test needs PATH in its environment").isNotBlank();
         Path model = write(dir, VALID.replace("orders = component \"Orders\"",
-                "orders = component \"${" + variable + "}\""));
+                "orders = component \"Orders\" \"Reads ${PATH} and ${HOME}.\""));
+
+        assertThatThrownBy(() -> Conformance.check(model, List.of()))
+                .isInstanceOfSatisfying(ModelException.class, e -> {
+                    assertThat(e.problems()).containsExactly(
+                            "orders: ${HOME} is not substituted: environment variables are not read, and the model "
+                                    + "defines no constant HOME",
+                            "orders: ${PATH} is not substituted: environment variables are not read, and the model "
+                                    + "defines no constant PATH");
+                    assertThat(e.getMessage()).doesNotContain(value);
+                });
+    }
+
+    @Test
+    void anUnresolvedReferenceAnywhereInTheModelIsAProblem(@TempDir Path dir) throws IOException {
+        Path model = write(dir, VALID
+                .replace("app = container \"App\" {", "app = container \"App\" \"\" \"${TECH}\" \"${TAG}\" {")
+                .replace("\"contract.root\" \"fx.shop\"", "\"contract.root\" \"fx.shop\"\n \"${KEY}\" \"${VALUE}\"")
+                .replace("// MODEL", """
+                        clerk = person "Clerk"
+                        clerk -> app "Uses ${RELATIONSHIP}" "${PROTOCOL}" {
+                            properties {
+                                "note" "${NOTE}"
+                            }
+                        }
+                        live = deploymentEnvironment "Live" {
+                            server = deploymentNode "Server" "" "${OS}" {
+                                gateway = infrastructureNode "Gateway" "" "${PROXY}"
+                            }
+                        }"""));
+
+        assertThatThrownBy(() -> Conformance.check(model, List.of()))
+                .isInstanceOfSatisfying(ModelException.class, e -> assertThat(e.problems())
+                        .extracting(problem -> problem.substring(0, problem.indexOf(" is not substituted")))
+                        .containsExactly("app: ${KEY}", "app: ${TAG}", "app: ${TECH}", "app: ${VALUE}",
+                                "clerk -> app: ${NOTE}", "clerk -> app: ${PROTOCOL}", "clerk -> app: ${RELATIONSHIP}",
+                                "gateway: ${PROXY}", "server: ${OS}"));
+    }
+
+    @Test
+    void constantsDefinedInTheModelAreStillSubstituted(@TempDir Path dir) throws Exception {
+        Path model = write(dir, VALID
+                .replace("!identifiers flat", "!identifiers flat\n!const ROOT \"fx.shop\"\n!const NAME \"Orders\"")
+                .replace("\"contract.root\" \"fx.shop\"", "\"contract.root\" \"${ROOT}\"")
+                .replace("orders = component \"Orders\"", "orders = component \"${NAME}\""));
 
         ContractModel contract = ContractModelReader.read(model, "workspace.dsl");
 
-        assertThat(contract.components()).extracting(ContractComponent::name)
-                .containsExactly("${" + variable + "}");
+        assertThat(contract.root()).isEqualTo("fx.shop");
+        assertThat(contract.components()).extracting(ContractComponent::name).containsExactly("Orders");
     }
 
     @Test

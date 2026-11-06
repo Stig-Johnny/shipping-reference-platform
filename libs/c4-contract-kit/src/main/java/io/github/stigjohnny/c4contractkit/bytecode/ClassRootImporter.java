@@ -23,15 +23,16 @@ public final class ClassRootImporter {
     /**
      * Imports every class under the roots.
      *
-     * @param roots directories or JAR files; their order and duplicates do not matter
+     * @param roots directories of class files; their order and duplicates do not matter
      * @return the classes by name, each with its references
-     * @throws IllegalArgumentException if a root does not exist
+     * @throws IllegalArgumentException if a root is not a directory
      */
     public static List<ImportedClass> importRoots(List<Path> roots) {
         List<Path> paths = roots.stream().map(root -> root.toAbsolutePath().normalize()).distinct().sorted().toList();
         for (Path path : paths) {
-            if (!Files.exists(path)) {
-                throw new IllegalArgumentException("class root does not exist: " + path);
+            // ArchUnit reads a JAR given as a path as one non-class file, so only directories are accepted.
+            if (!Files.isDirectory(path)) {
+                throw new IllegalArgumentException("class root is not a directory: " + path);
             }
         }
         JavaClasses classes = ArchConfiguration.withThreadLocalScope(configuration -> {
