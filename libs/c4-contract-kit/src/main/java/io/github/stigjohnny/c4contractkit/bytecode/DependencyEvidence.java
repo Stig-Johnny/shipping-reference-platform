@@ -87,7 +87,8 @@ final class DependencyEvidence {
                 .distinct()
                 .sorted(CodeReference.ORDER)
                 .toList();
-        return new ImportedClass(javaClass.getName(), javaClass.getSimpleName().equals("package-info"), references);
+        return new ImportedClass(javaClass.getName(), javaClass.getSimpleName().equals("package-info"),
+                javaClass.getEnclosingClass().map(JavaClass::getName), references);
     }
 
     private Optional<CodeReference> reference(Dependency dependency) {

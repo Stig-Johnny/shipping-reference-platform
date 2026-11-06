@@ -131,11 +131,11 @@ class MappingValidationTest {
         assertThat(model.isUnderRoot("fx.shop.orders.Order")).isTrue();
         assertThat(model.isUnderRoot("fx.shopping.Main")).isFalse();
         assertThat(model.isUnderRoot("fx.shop")).isFalse();
-        assertThat(model.isolatedEntryOf("fx.shop.Main")).hasValue("fx.shop.Main");
-        assertThat(model.isolatedEntryOf("fx.shop.Main$Inner")).hasValue("fx.shop.Main");
-        assertThat(model.isolatedEntryOf("fx.shop.Main$1")).hasValue("fx.shop.Main");
-        assertThat(model.isolatedEntryOf("fx.shop.MainView")).isEmpty();
-        assertThat(model.isolatedEntryOf("fx.shop.orders.Order")).isEmpty();
+        // contract.isolated names classes exactly; whether a class is nested in one is read from the class files.
+        assertThat(model.isIsolated("fx.shop.Main")).isTrue();
+        assertThat(model.isIsolated("fx.shop.Main$Inner")).isFalse();
+        assertThat(model.isIsolated("fx.shop.MainView")).isFalse();
+        assertThat(model.isIsolated("fx.shop.orders.Order")).isFalse();
     }
 
     @Test
@@ -554,12 +554,29 @@ class MappingValidationTest {
     }
 
     @Test
-    void nestedAndAnonymousClassesOfAnIsolatedClassAreIsolated() {
+    void aDollarInAClassOrPackageNameIsNotNestingInAnIsolatedClass() {
+        // fx.shop.Main is isolated. A top-level class named Main$Helper, and a class in a package named Main$helpers,
+        // are legal Java and have nothing to do with it.
+        Report report = checkClasses(
+                new FixtureSource("fx/shop/Main$Helper.java", "package fx.shop;\n\npublic class Main$Helper {\n}\n"),
+                new FixtureSource("fx/shop/Main$helpers/Tool.java",
+                        "package fx.shop.Main$helpers;\n\npublic class Tool {\n}\n"));
+
+        assertThat(report.violations()).extracting(Violation::type, Violation::identifiers).containsExactly(
+                tuple(ViolationType.UNMAPPED_CLASS, List.of("fx.shop.Main$Helper")),
+                tuple(ViolationType.UNMAPPED_CLASS, List.of("fx.shop.Main$helpers.Tool")));
+    }
+
+    @Test
+    void memberNestedAnonymousAndLocalClassesOfAnIsolatedClassAreIsolated() {
         Report report = checkClasses(new FixtureSource("fx/shop/Main.java", """
                 package fx.shop;
 
                 public class Main {
                     static class Settings {
+                    }
+
+                    class Member {
                     }
 
                     Runnable task() {
@@ -568,6 +585,12 @@ class MappingValidationTest {
                             public void run() {
                             }
                         };
+                    }
+
+                    Object local() {
+                        class Local {
+                        }
+                        return new Local();
                     }
                 }
                 """));

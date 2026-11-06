@@ -51,7 +51,9 @@ says. Any other `contract.*` property, or one on the wrong kind of element, is a
 
 Details the specification leaves open, decided here:
 
-- A class nested in an isolated class, including anonymous and local classes, is isolated too.
+- A class declared in an isolated class (a member, local or anonymous class) is isolated too, by the enclosing class
+  its class file records. A `$` in a name is not nesting: a top-level class `Main$Helper`, or a class in a package
+  `Main$helpers`, is not covered by an isolated `Main`.
 - `package-info` declares a package, not a class. Its annotations count as references, but it never makes a
   component non-empty, a planned component built, or a class unmapped.
 - References come exactly from ArchUnit's direct dependencies of each class. An array type counts as its element

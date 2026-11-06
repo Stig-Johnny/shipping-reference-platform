@@ -223,6 +223,46 @@ class ConformanceDivergenceTest {
     }
 
     @Test
+    void aTopLevelClassWithADollarInItsNameIsNotNestedInTheIsolatedClass() {
+        // Main$Wiring is a class of its own, not a nested class of the isolated fx.shop.Main: it is unmapped, and
+        // neither its reference to stock nor stock's reference to it is an isolation breach.
+        Report report = check("",
+                new FixtureSource("fx/shop/Main$Wiring.java", """
+                        package fx.shop;
+
+                        public class Main$Wiring {
+                            fx.shop.stock.Item item;
+                        }
+                        """),
+                source("fx/shop/stock/Shelf.java", "public class Shelf {\n    fx.shop.Main$Wiring wiring;\n}"));
+
+        assertThat(report.violations()).extracting(Violation::type, Violation::identifiers)
+                .containsExactly(tuple(ViolationType.UNMAPPED_CLASS, List.of("fx.shop.Main$Wiring")));
+    }
+
+    @Test
+    void aLocalClassOfAnIsolatedClassIsIsolatedToo() {
+        Report report = check("", new FixtureSource("fx/shop/Main.java", """
+                package fx.shop;
+
+                public class Main {
+                    public static void main(String[] arguments) {
+                        class Startup {
+                            Object item = new fx.shop.stock.Item();
+                        }
+                        new Startup();
+                    }
+                }
+                """));
+
+        assertThat(report.violations()).singleElement().satisfies(violation -> {
+            assertThat(violation.type()).isEqualTo(ViolationType.ISOLATION_BREACH);
+            assertThat(violation.identifiers()).containsExactly("fx.shop.Main", "stock");
+            assertThat(violation.evidence()).extracting(Evidence::originClass).containsOnly("fx.shop.Main$1Startup");
+        });
+    }
+
+    @Test
     void aDependencyOnAPlannedComponentWithoutARelationshipIsADivergence() {
         Report report = check("", source("fx/shop/stock/Shelf.java", "public class Shelf {\n    fx.shop.audit.Log log;\n}"),
                 new FixtureSource("fx/shop/audit/Log.java", "package fx.shop.audit;\n\npublic class Log {\n}\n"));

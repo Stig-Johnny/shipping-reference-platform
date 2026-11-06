@@ -35,11 +35,9 @@ public record ContractModel(String root, List<String> isolated, List<ContractCom
         return components.stream().filter(component -> component.owns(packageName)).findFirst();
     }
 
-    /** The {@code contract.isolated} entry that covers a class: the class itself or the class it is nested in. */
-    public Optional<String> isolatedEntryOf(String className) {
-        return isolated.stream()
-                .filter(entry -> className.equals(entry) || className.startsWith(entry + "$"))
-                .findFirst();
+    /** Whether {@code contract.isolated} names exactly this class. */
+    public boolean isIsolated(String className) {
+        return isolated.contains(className);
     }
 
     /** Whether a class lies under {@code contract.root}. */

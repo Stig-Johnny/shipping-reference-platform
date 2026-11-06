@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Compares a validated model with the imported classes, in both directions (libs/c4-contract-kit/AGENTS.md,
@@ -27,18 +28,25 @@ import java.util.Set;
  *   <li>Only direct references count, and references inside one component are ignored.
  *   <li>{@code package-info} declares a package, not a class: its annotations count as references, but it never
  *       makes a component non-empty, a planned component built, or a class unmapped.
+ *   <li>A class declared in an isolated class (a member, local or anonymous class) is isolated too, by the
+ *       enclosing classes its class file records.
  * </ul>
  */
 public final class ConformanceRules {
 
     private final ContractModel model;
+    private final Map<String, String> enclosingClasses;
     private final Map<String, Integer> classCounts = new HashMap<>();
     private final Map<List<String>, Set<EvidenceItem>> dependencies = new HashMap<>();
     private final Map<Breach, Set<EvidenceItem>> breaches = new HashMap<>();
     private final List<Finding> findings = new ArrayList<>();
 
-    private ConformanceRules(ContractModel model) {
+    private ConformanceRules(ContractModel model, List<ImportedClass> classes) {
         this.model = model;
+        this.enclosingClasses = new HashMap<>();
+        for (ImportedClass imported : classes) {
+            imported.enclosingClass().ifPresent(enclosing -> enclosingClasses.put(imported.name(), enclosing));
+        }
     }
 
     /**
@@ -49,7 +57,7 @@ public final class ConformanceRules {
      * @return the components, the edges with their verdicts and the violations, in report order
      */
     public static Comparison compare(ContractModel model, List<ImportedClass> classes) {
-        ConformanceRules rules = new ConformanceRules(model);
+        ConformanceRules rules = new ConformanceRules(model, classes);
         classes.forEach(rules::read);
         return rules.result();
     }
@@ -59,7 +67,7 @@ public final class ConformanceRules {
         if (!model.isUnderRoot(name)) {
             return;
         }
-        Optional<String> isolated = model.isolatedEntryOf(name);
+        Optional<String> isolated = isolatedEntryOf(name);
         Optional<ContractComponent> component = model.componentOf(name);
         if (!imported.packageInfo()) {
             checkClass(name, isolated, component);
@@ -97,7 +105,7 @@ public final class ConformanceRules {
                     "The isolated class " + entry + " depends on " + depended.id() + "."), evidence));
             return;
         }
-        Optional<String> targetIsolated = model.isolatedEntryOf(target);
+        Optional<String> targetIsolated = isolatedEntryOf(target);
         component.ifPresent(owner -> {
             if (targetIsolated.isPresent()) {
                 String entry = targetIsolated.get();
@@ -108,6 +116,22 @@ public final class ConformanceRules {
                         .ifPresent(depended -> add(dependencies, List.of(owner.id(), depended.id()), evidence));
             }
         });
+    }
+
+    /**
+     * The {@code contract.isolated} entry that covers a class: the class itself, or a class it is declared in, by the
+     * enclosing classes its class file records. A {@code $} in a name is not nesting: {@code Main$Helper} can be a
+     * top-level class, and {@code Main$helpers} a package.
+     */
+    private Optional<String> isolatedEntryOf(String className) {
+        Set<String> visited = new HashSet<>();
+        for (@Nullable String current = className; current != null && visited.add(current);
+                current = enclosingClasses.get(current)) {
+            if (model.isIsolated(current)) {
+                return Optional.of(current);
+            }
+        }
+        return Optional.empty();
     }
 
     private Comparison result() {

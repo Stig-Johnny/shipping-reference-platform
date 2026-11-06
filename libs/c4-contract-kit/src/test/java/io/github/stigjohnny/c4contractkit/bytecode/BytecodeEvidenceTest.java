@@ -27,6 +27,7 @@ import static io.github.stigjohnny.c4contractkit.bytecode.ReferenceKind.THROWS;
 import static io.github.stigjohnny.c4contractkit.bytecode.ReferenceKind.TYPE_PARAMETER_BOUND;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import io.github.stigjohnny.c4contractkit.testing.ClassPathLabel;
 import io.github.stigjohnny.c4contractkit.testing.FixtureCompiler;
@@ -35,6 +36,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -451,6 +453,25 @@ class BytecodeEvidenceTest {
         assertThat(targetsOf(classes, "fx.app.a.Outer$1")).containsExactly(
                 reference("fx.app.a.Outer$1", "run()", "fx.app.b.Target", "touch()", METHOD_CALL,
                         OUTER.lineOf("L:anonymous"), "Outer.java"));
+    }
+
+    @Test
+    void theEnclosingClassComesFromTheClassFileNotFromADollarInTheName() {
+        FixtureSource dollar = new FixtureSource("fx/app/a/Outer$Helper.java",
+                "package fx.app.a;\n\npublic class Outer$Helper {\n}\n");
+        FixtureSource dollarPackage = new FixtureSource("fx/app/a/Outer$helpers/Tool.java",
+                "package fx.app.a.Outer$helpers;\n\npublic class Tool {\n}\n");
+
+        assertThat(ClassRootImporter.importRoots(List.of(compile(OUTER, dollar, dollarPackage))))
+                .filteredOn(imported -> imported.name().startsWith("fx.app.a."))
+                .extracting(ImportedClass::name, ImportedClass::enclosingClass)
+                .containsExactly(
+                        tuple("fx.app.a.Outer", Optional.empty()),
+                        tuple("fx.app.a.Outer$1", Optional.of("fx.app.a.Outer")),
+                        tuple("fx.app.a.Outer$Helper", Optional.empty()),
+                        tuple("fx.app.a.Outer$Inner", Optional.of("fx.app.a.Outer")),
+                        tuple("fx.app.a.Outer$Nested", Optional.of("fx.app.a.Outer")),
+                        tuple("fx.app.a.Outer$helpers.Tool", Optional.empty()));
     }
 
     @Test
