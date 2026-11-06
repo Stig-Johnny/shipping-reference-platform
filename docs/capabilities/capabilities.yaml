@@ -19,6 +19,9 @@
 #   acceptanceTests  The tests that must exist and pass before status may become shipped. Implementers create
 #                    them with exactly these names, red first.
 #   docs             The document that specifies the capability.
+#   enforcedSubset   Optional, for a control that is not shipped: the part enforced today, in one sentence. It never
+#                    changes the status; the document named in docs gives the details.
+#   plannedRemainder Optional, for a control that is not shipped: the part still planned, in one sentence.
 #
 # A pull request that adds passing acceptance tests moves their names into `evidence` and changes the status in the
 # same commit; `:tools:docs:checkGenerated` rejects a shipped or partial status whose evidence does not exist or did
@@ -387,6 +390,8 @@ controls:
     evidence: none yet
     acceptanceTests: [AllowlistCheckTest, GradleVerificationCheckTest, NpmLockCheckTest, WorkflowPinCheckTest, ApprovalBindingTest, StrictJsonParserTest]
     negativeFixture: Demo pull request adding an unreviewed dependency; it is stopped before the build.
+    enforcedSubset: Current enforcement covers preflight, dependency verification and acceptance-digest checks.
+    plannedRemainder: Schema validation, policy tests and approval binding remain planned.
     docs: docs/adr/0007-dependency-allowlist-and-pre-use-enforcement.md
   - id: control.risk-classification
     title: Risk level from base-branch policy; level 3 waits for the owner's approval of the current head.

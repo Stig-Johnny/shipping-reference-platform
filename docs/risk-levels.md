@@ -7,8 +7,12 @@ updated: 2026-11-06
 
 # Risk levels, explained
 
-Every proposed change to this repository, a pull request, gets a risk level from 0 to 3. The level decides who must
-say yes before the change is merged. The rules are in `policy/risk.json`; the decision behind them is ADR 0008.
+Risk classification is currently manual: the author states the level and the owner records approval for level 3.
+Automated classification and approval enforcement are planned.
+
+Under the accepted policy, every proposed change to this repository, a pull request, gets a risk level from 0 to 3.
+The level decides who must say yes before the change is merged. The rules are in `policy/risk.json`; the decision
+behind them is ADR 0008.
 
 ## The four levels
 
@@ -24,7 +28,7 @@ another webshop's quotes or shipments.
 
 ## How a change gets its level
 
-The level is the highest of three answers:
+The policy defines the level as the highest of three answers:
 
 1. **Where does the change touch?** Each folder and file type has a level. A change to the price calculation is in
    a level 3 folder. A change to a screen's layout is in a level 1 folder.
@@ -34,7 +38,7 @@ The level is the highest of three answers:
 3. **Is anything unclear?** A file that no rule covers, a binary file, an incomplete list of changes, or a generated
    file that changed without its source all count as level 3. When the rules cannot tell, the answer is "sensitive".
 
-Three safeguards keep this honest:
+The policy adds three safeguards, which the planned checks are to enforce:
 
 - The rules are always read from the approved version of the repository, never from the change being judged. A
   change cannot lower its own level by editing the rules.
@@ -57,8 +61,7 @@ Three safeguards keep this honest:
 
 ## Where this runs
 
-Today nothing computes the level automatically: the author states it in the pull request, and the owner approves level
-3 changes in writing. The checks below are planned (ADR 0008):
+The checks below are planned (ADR 0008); until they exist, the level is stated by hand, as the top of this page says:
 
 - The `risk-approval` check computes the level, shows every rule that matched, and blocks a level 3 change until the
   owner has approved its current version.

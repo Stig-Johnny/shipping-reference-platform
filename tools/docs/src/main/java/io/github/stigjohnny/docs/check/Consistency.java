@@ -256,6 +256,10 @@ public final class Consistency {
                             problems.add(where + ": evidence " + test + " is not one of its acceptance tests");
                         }
                     }
+                    if (capability.status() == Capability.Status.SHIPPED && (!capability.enforcedSubset().isEmpty()
+                            || !capability.plannedRemainder().isEmpty())) {
+                        problems.add(where + ": a shipped control has no planned remainder or enforced subset");
+                    }
                     if (capability.status() == Capability.Status.SHIPPED) {
                         for (String test : capability.acceptanceTests()) {
                             if (!capability.evidence().contains(test)) {

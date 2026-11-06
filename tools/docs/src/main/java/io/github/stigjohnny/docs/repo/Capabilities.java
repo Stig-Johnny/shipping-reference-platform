@@ -68,7 +68,9 @@ public record Capabilities(List<Capability> capabilities, List<Capability> contr
                     evidence(entry, where),
                     entry.strings("acceptanceTests"),
                     entry.string("docs"),
-                    control ? entry.string("negativeFixture") : ""));
+                    control ? entry.string("negativeFixture") : "",
+                    entry.optionalString("enforcedSubset").orElse(""),
+                    entry.optionalString("plannedRemainder").orElse("")));
         }
         return out;
     }

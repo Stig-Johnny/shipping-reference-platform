@@ -11,10 +11,12 @@ import java.util.List;
  * @param check for controls, the CI check that runs their tests; empty for capabilities
  * @param evidence test names that exist and pass at this commit; empty means "none yet"
  * @param acceptanceTests the tests that must exist and pass before the status may be shipped
+ * @param enforcedSubset for a control not yet shipped, the part that is enforced today, in one sentence; may be empty
+ * @param plannedRemainder for a control not yet shipped, the part that is still planned, in one sentence; may be empty
  */
 public record Capability(String id, boolean control, String module, String where, String check, String title,
         Status status, String target, List<String> evidence, List<String> acceptanceTests, String docs,
-        String negativeFixture) {
+        String negativeFixture, String enforcedSubset, String plannedRemainder) {
 
     public Capability {
         evidence = List.copyOf(evidence);

@@ -258,6 +258,36 @@ class SitePagesTest {
     }
 
     @Test
+    void trustKeepsTheEnforcedSubsetApartFromThePlannedControl() {
+        String planned = "Schema validation, policy tests and approval binding remain planned.";
+        String enforced = "Current enforcement covers preflight, dependency verification and acceptance-digest checks.";
+        String allowlist = site.text("trust/allowlist.html");
+        String trust = site.text("trust/index.html");
+        String adr = site.text("decisions/0007-dependency-allowlist-and-pre-use-enforcement.html");
+
+        for (String page : List.of(allowlist, trust)) {
+            String status = page.substring(page.indexOf("status-grid"), page.indexOf("</dl>", page.indexOf("status-grid")));
+            assertThat(status).contains(planned, enforced, "Partly enforced").doesNotContain(">Shipped<");
+        }
+        String adrStatus = adr.substring(adr.indexOf("status-grid"), adr.indexOf("</dl>", adr.indexOf("status-grid")));
+        assertThat(adrStatus).contains("<a href=\"#implementation-status-2026-11-06\">" + planned + "</a>",
+                "<a href=\"#implementation-status-2026-11-06\">" + enforced + "</a>")
+                .doesNotContain("pull_request_target workflow on the pull request");
+    }
+
+    @Test
+    void riskLevelsSayFirstThatClassificationIsManual() {
+        String risk = site.text("trust/risk-levels.html").replaceAll("\\s+", " ");
+        String statement = "Risk classification is currently manual: the author states the level and the owner records "
+                + "approval for level 3. Automated classification and approval enforcement are planned.";
+
+        assertThat(risk).contains(statement).doesNotContain("Today nothing computes the level automatically");
+        assertThat(risk.indexOf(statement)).isLessThan(risk.indexOf("<h2 id=\"the-four-levels\">"))
+                .isGreaterThan(risk.indexOf("class=\"page-body\""));
+        assertThat(risk).contains("Under the accepted policy", "No check applies these rules yet.");
+    }
+
+    @Test
     void theRepositoryPageSaysPlannedWhereNothingIsBuilt() {
         String repository = site.text("start/repository.html");
 

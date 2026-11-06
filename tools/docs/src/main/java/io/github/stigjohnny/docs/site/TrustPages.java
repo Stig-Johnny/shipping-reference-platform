@@ -80,8 +80,9 @@ final class TrustPages {
     /** The policy's rules and signals, as committed in policy/risk.json. */
     private static String rules(SiteContext context, RiskPolicy policy) {
         StringBuilder out = new StringBuilder("<h2 id=\"path-rules\">Path rules</h2>\n<p class=\"prose\">From "
-                + "<code>policy/risk.json</code>. Every changed path is matched against every rule; the highest level "
-                + "counts, and a path that matches no rule is level 3.</p>\n");
+                + "<code>policy/risk.json</code>. Under the accepted policy, every changed path is to be matched against "
+                + "every rule; the highest level counts, and a path that matches no rule is level 3. No check applies "
+                + "these rules yet.</p>\n");
         HtmlTable paths = HtmlTable.of("Path rules (" + policy.pathRules().size() + ")", "Path rules, scrolls sideways",
                 "Rule", "Level", "Paths", "Reason");
         for (RiskPolicy.Rule rule : policy.pathRules()) {

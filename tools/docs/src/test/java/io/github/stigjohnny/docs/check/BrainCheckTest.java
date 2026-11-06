@@ -100,6 +100,15 @@ class BrainCheckTest {
     }
 
     @Test
+    void aShippedControlCannotHaveAPlannedRemainder() {
+        fixture.edit(CAPABILITIES, text -> text.replace("    evidence: [BrainGeneratorTest, BrainCheckTest]\n",
+                "    evidence: [BrainGeneratorTest, BrainCheckTest]\n    plannedRemainder: Nothing.\n"));
+
+        assertFails().hasMessageContaining("control.brain-check: a shipped control has no planned remainder or "
+                + "enforced subset");
+    }
+
+    @Test
     void aShippedControlWhoseCheckIsNoWorkflowJobFails() {
         fixture.edit(CAPABILITIES, text -> text.replace("where: tools/docs\n    check: java",
                 "where: tools/docs\n    check: docs-brain"));

@@ -1,6 +1,9 @@
 package io.github.stigjohnny.docs.site;
 
 import io.github.stigjohnny.docs.Html;
+import io.github.stigjohnny.docs.markdown.MarkdownRenderer;
+import io.github.stigjohnny.docs.markdown.Section;
+import io.github.stigjohnny.docs.repo.Capability;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.TestEvidence;
 import java.util.ArrayList;
@@ -46,7 +49,8 @@ final class DecisionPages {
                     .map(DecisionPages::number).toList();
             StatusPanel status = successor.isPresent()
                     ? superseded(page, successor.get(), String.valueOf(pageOfNumber.get(successor.get())))
-                    : status(adr, context.sources().evidence(), page, predecessors, pageOfNumber);
+                    : status(adr, context.sources().evidence(), page, predecessors, pageOfNumber,
+                            context.sources().capabilities().documentedIn(adr.path()));
             pages.add(new SitePage(doc.path(), doc.title(), doc.navLabel(), doc.section(), doc.summary(), status,
                     doc.contents(), doc.body(), doc.related(), doc.source(), false,
                     successor.isPresent() ? "Superseded" : null));
@@ -59,6 +63,11 @@ final class DecisionPages {
                         Badge.NEUTRAL.html("See each record") + " Each record lists the checks that enforce it."),
                 List.of(), table.html(), context.mentioned("ADR 0001", INDEX), "docs/adr/", false));
         return pages;
+    }
+
+    private static String linked(String text, String anchor) {
+        return anchor.isEmpty() ? Html.escape(text) : "<a href=\"#" + Html.escape(anchor) + "\">" + Html.escape(text)
+                + "</a>";
     }
 
     /** The four-digit number of an ADR, from its file name. */
@@ -76,7 +85,7 @@ final class DecisionPages {
 
     /** An ADR's own status: its decision, its planned enforcement, and the enforcement that exists. */
     private static StatusPanel status(DocFile adr, TestEvidence evidence, String page, List<String> predecessors,
-            Map<String, String> pageOfNumber) {
+            Map<String, String> pageOfNumber, List<Capability> documented) {
         List<String> planned = adr.frontmatter().has("plannedEnforcement")
                 ? adr.frontmatter().strings("plannedEnforcement") : List.of();
         String implementation = planned.isEmpty() ? Badge.NEUTRAL.html("None planned") + " Nothing is listed."
@@ -98,6 +107,17 @@ final class DecisionPages {
             verified = (passing.isEmpty() ? Badge.NEUTRAL.html("Enforced") : Badge.SHIPPED.html("Passing")) + " "
                     + Html.escape(String.join("; ", enforcedBy) + "." + (passing.isEmpty() ? ""
                             : " Passed in the build that generated this site: " + String.join(", ", passing) + "."));
+        }
+        List<Capability> summarised = documented.stream()
+                .filter(c -> !c.enforcedSubset().isEmpty() || !c.plannedRemainder().isEmpty()).toList();
+        if (!summarised.isEmpty()) {
+            // The control's own two sentences, linked to the details in the record's implementation status.
+            String anchor = MarkdownRenderer.headings(adr.body(), adr.path()).stream()
+                    .filter(h -> h.text().startsWith("Implementation status")).map(Section::id).findFirst().orElse("");
+            implementation = Badge.PLANNED.html("Planned") + " " + linked(String.join(" ", summarised.stream()
+                    .map(Capability::plannedRemainder).filter(t -> !t.isEmpty()).toList()), anchor);
+            verified = Badge.PARTIAL.html("Partly enforced") + " " + linked(String.join(" ", summarised.stream()
+                    .map(Capability::enforcedSubset).filter(t -> !t.isEmpty()).toList()), anchor);
         }
         StringBuilder design = new StringBuilder(Statuses.design(adr.status(), "Decided " + adr.text("date")
                 + "; updated " + adr.updated() + "."));

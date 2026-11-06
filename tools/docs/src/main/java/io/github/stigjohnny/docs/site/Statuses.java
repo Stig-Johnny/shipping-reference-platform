@@ -49,8 +49,10 @@ final class Statuses {
                         : Badge.PARTIAL;
         String named = capabilities.size() <= 3
                 ? " (" + String.join(", ", capabilities.stream().map(Capability::id).toList()) + ")" : "";
+        String remainder = String.join(" ", capabilities.stream().map(Capability::plannedRemainder)
+                .filter(text -> !text.isEmpty()).toList());
         return badge.html(allPlanned ? "Planned" : badge == Badge.SHIPPED ? "Shipped" : "Partly shipped") + " "
-                + Html.escape(String.join(", ", parts) + named + ".");
+                + Html.escape(String.join(", ", parts) + named + "." + (remainder.isEmpty() ? "" : " " + remainder));
     }
 
     /** The passing evidence of the given capabilities; named tests that do not pass are never listed. */
@@ -60,6 +62,12 @@ final class Statuses {
             capability.evidence().stream().filter(evidence::passed).forEach(passing::add);
         }
         if (passing.isEmpty()) {
+            String subset = String.join(" ", capabilities.stream().map(Capability::enforcedSubset)
+                    .filter(text -> !text.isEmpty()).toList());
+            if (!subset.isEmpty()) {
+                return Badge.PARTIAL.html("Partly enforced") + " " + Html.escape(subset + " No acceptance test of "
+                        + (capabilities.size() == 1 ? "the control" : "these controls") + " passes yet.");
+            }
             return Badge.NONE.html("None yet") + " No passing test is evidence for this page yet; test names in its "
                     + "text are acceptance targets.";
         }
