@@ -1,0 +1,69 @@
+# CODEOWNERS for shipping-reference-platform.
+#
+# Every path listed here is risk level 3 in policy/risk.json, and every level 3 path rule has an entry here;
+# CodeownersRiskConsistencyTest (tools/policy) fails when the two disagree. The main-branch ruleset requires code
+# owner review, dismisses stale approvals and allows no routine bypass. Semantic level 3 changes outside these paths
+# are caught by the risk-approval check. Changing this file is itself level 3 (it lives under .github/).
+#
+# GitHub applies the last matching pattern; every pattern here has the same owner.
+
+# Controls: model, contract, security reviews, policy, tools, CI, build logic and toolchain.
+/architecture/                                                        @Stig-Johnny
+/contracts/                                                           @Stig-Johnny
+/security/                                                            @Stig-Johnny
+/reviews/                                                             @Stig-Johnny
+/policy/                                                              @Stig-Johnny
+/tools/                                                               @Stig-Johnny
+/build-logic/                                                         @Stig-Johnny
+/gradle/                                                              @Stig-Johnny
+/.github/                                                             @Stig-Johnny
+
+# Decisions and agent instructions.
+/docs/adr/                                                            @Stig-Johnny
+/AGENTS.md                                                            @Stig-Johnny
+**/AGENTS.md                                                          @Stig-Johnny
+
+# Build definitions, wrapper and lockfiles.
+/gradlew                                                              @Stig-Johnny
+/gradlew.bat                                                          @Stig-Johnny
+/gradle.properties                                                    @Stig-Johnny
+/settings.gradle.kts                                                  @Stig-Johnny
+/build.gradle.kts                                                     @Stig-Johnny
+**/build.gradle.kts                                                   @Stig-Johnny
+/settings-gradle.lockfile                                             @Stig-Johnny
+**/gradle.lockfile                                                    @Stig-Johnny
+/package.json                                                         @Stig-Johnny
+**/package.json                                                       @Stig-Johnny
+/package-lock.json                                                    @Stig-Johnny
+/.npmrc                                                               @Stig-Johnny
+/.nvmrc                                                               @Stig-Johnny
+/renovate.json                                                        @Stig-Johnny
+/compose.yaml                                                         @Stig-Johnny
+
+# Level 3 application paths: pricing, bookings, tenants and authentication, planned modules.
+/apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/quotes/     @Stig-Johnny
+/apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/quotes/     @Stig-Johnny
+/apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/shipments/  @Stig-Johnny
+/apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/shipments/  @Stig-Johnny
+/apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/tenants/    @Stig-Johnny
+/apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/tenants/    @Stig-Johnny
+/apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/orders/     @Stig-Johnny
+/apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/orders/     @Stig-Johnny
+/apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/tracking/   @Stig-Johnny
+/apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/tracking/   @Stig-Johnny
+/apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/returns/    @Stig-Johnny
+/apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/returns/    @Stig-Johnny
+/apps/shipping-web/src/auth/                                          @Stig-Johnny
+
+# Migrations, database roles and runtime configuration.
+/apps/shipping-api/src/main/resources/                                @Stig-Johnny
+/apps/shipping-api/postgres/                                          @Stig-Johnny
+
+# Gate tests and their fixtures.
+/apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/architecture/  @Stig-Johnny
+/apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/      @Stig-Johnny
+/apps/shipping-api/src/test/resources/                                @Stig-Johnny
+
+# The architecture checker library and its self-model.
+/libs/c4-contract-kit/src/                                            @Stig-Johnny
+/libs/c4-contract-kit/architecture/                                   @Stig-Johnny

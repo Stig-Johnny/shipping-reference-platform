@@ -1,0 +1,463 @@
+{
+  "schemaVersion": 1,
+  "description": "Risk classification policy for pull requests (ADR 0008). Plain-language explanation: docs/risk-levels.md. Evaluated by tools/policy in the risk-approval check, always using the copy of this file on the base branch.",
+  "evaluation": {
+    "formula": "level = max(pathLevel, behaviourLevel, uncertaintyLevel)",
+    "policySource": "base-branch",
+    "pathLevel": "For every changed path (both old and new path for renames and copies), every path rule is tested and the highest matching level counts. The pull request's path level is the highest over all changed paths.",
+    "behaviourLevel": "The highest level of any behaviour signal that fires on the diff. Line signals inspect added and removed lines only, not unchanged context lines.",
+    "uncertaintyLevel": "The highest level of any uncertainty signal that fires.",
+    "unmatchedPathLevel": 3,
+    "falsePositives": "Signals are deliberately broad. A false positive escalates and costs an owner review; a false negative is a gap. When in doubt, a signal fires.",
+    "aiReviewer": "May raise the level with a written reason recorded in the AI review record. Can never lower a deterministic result.",
+    "globSyntax": "Paths are repository-relative, use '/', and are case-sensitive. '**' matches zero or more whole path segments, '*' matches any characters within one segment, '?' matches one character other than '/'. No braces or character classes. A glob without '/' matches only at the repository root.",
+    "regexSyntax": "java.util.regex.Pattern, applied per line with find()."
+  },
+  "levels": [
+    {
+      "level": 0,
+      "name": "Prose",
+      "covers": "Prose and documentation presentation.",
+      "approval": {
+        "requiredChecks": "all green",
+        "aiApproval": "recorded for the head SHA",
+        "ownerApproval": "not required"
+      }
+    },
+    {
+      "level": 1,
+      "name": "Presentation",
+      "covers": "UI presentation and non-sensitive prototypes.",
+      "approval": {
+        "requiredChecks": "all green",
+        "aiApproval": "recorded for the head SHA",
+        "ownerApproval": "not required"
+      }
+    },
+    {
+      "level": 2,
+      "name": "Behaviour",
+      "covers": "Ordinary application behaviour.",
+      "approval": {
+        "requiredChecks": "all green",
+        "aiApproval": "recorded for the head SHA",
+        "ownerApproval": "not required"
+      }
+    },
+    {
+      "level": 3,
+      "name": "Sensitive",
+      "covers": "Pricing, bookings, invoicing, personal data, authentication, tenant isolation, migrations, dependencies and controls.",
+      "approval": {
+        "requiredChecks": "all green",
+        "aiApproval": "recorded for the head SHA",
+        "ownerApproval": "the owner named in .github/CODEOWNERS approves the current head SHA before merge; a later push dismisses the approval"
+      }
+    }
+  ],
+  "pathRules": [
+    {
+      "id": "controls-architecture",
+      "level": 3,
+      "reason": "The C4 model and its mappings are the structural contract; weakening them makes failing checks pass.",
+      "globs": ["architecture/**", "libs/c4-contract-kit/architecture/**"]
+    },
+    {
+      "id": "api-contract",
+      "level": 3,
+      "reason": "API and schema changes affect every client and the generated TypeScript client.",
+      "globs": ["contracts/**"]
+    },
+    {
+      "id": "controls-security",
+      "level": 3,
+      "reason": "Dependency allowlist, security reviews and the review-evidence index.",
+      "globs": ["security/**", "reviews/**"]
+    },
+    {
+      "id": "controls-policy",
+      "level": 3,
+      "reason": "Risk policy and repository rulesets.",
+      "globs": ["policy/**"]
+    },
+    {
+      "id": "controls-tools",
+      "level": 3,
+      "reason": "Policy checker, brain generator and other enforcement tools.",
+      "globs": ["tools/**"]
+    },
+    {
+      "id": "controls-ci",
+      "level": 3,
+      "reason": "Workflows, CODEOWNERS, issue templates and repository automation.",
+      "globs": [".github/**"]
+    },
+    {
+      "id": "dependencies-and-build",
+      "level": 3,
+      "reason": "Build definitions, lockfiles, wrapper, verification metadata, toolchain pins and container definitions decide what code runs.",
+      "globs": [
+        "build-logic/**",
+        "gradle/**",
+        "gradlew",
+        "gradlew.bat",
+        "gradle.properties",
+        "settings.gradle.kts",
+        "build.gradle.kts",
+        "**/build.gradle.kts",
+        "settings-gradle.lockfile",
+        "**/gradle.lockfile",
+        "package.json",
+        "**/package.json",
+        "package-lock.json",
+        ".npmrc",
+        ".nvmrc",
+        "renovate.json",
+        "compose.yaml"
+      ]
+    },
+    {
+      "id": "decisions",
+      "level": 3,
+      "reason": "Architecture decision records state why controls exist.",
+      "globs": ["docs/adr/**"]
+    },
+    {
+      "id": "agent-instructions",
+      "level": 3,
+      "reason": "Instructions that govern what AI agents may do are controls.",
+      "globs": ["AGENTS.md", "**/AGENTS.md"]
+    },
+    {
+      "id": "pricing-quotes",
+      "level": 3,
+      "reason": "Pricing: tariff, rounding, expiry and the offers that bookings rely on.",
+      "globs": [
+        "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/quotes/**",
+        "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/quotes/**"
+      ]
+    },
+    {
+      "id": "bookings-shipments",
+      "level": 3,
+      "reason": "Bookings, idempotency and recipient personal data.",
+      "globs": [
+        "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/shipments/**",
+        "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/shipments/**"
+      ]
+    },
+    {
+      "id": "tenant-isolation-and-authentication",
+      "level": 3,
+      "reason": "Authentication, tenant derivation, tenant binding for row-level security, and the web app's token handling.",
+      "globs": [
+        "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/tenants/**",
+        "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/tenants/**",
+        "apps/shipping-web/src/auth/**"
+      ]
+    },
+    {
+      "id": "planned-modules",
+      "level": 3,
+      "reason": "Code in a planned module's package turns a planned component into code and requires a model change.",
+      "globs": [
+        "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/orders/**",
+        "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/tracking/**",
+        "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/returns/**",
+        "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/orders/**",
+        "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/tracking/**",
+        "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/returns/**"
+      ]
+    },
+    {
+      "id": "migrations",
+      "level": 3,
+      "reason": "Schema, row-level security policies, grants, roles and seed data.",
+      "globs": ["apps/shipping-api/src/main/resources/db/**", "apps/shipping-api/postgres/**"]
+    },
+    {
+      "id": "runtime-configuration",
+      "level": 3,
+      "reason": "Profiles, datasource roles, event registry settings and other runtime configuration.",
+      "globs": ["apps/shipping-api/src/main/resources/**"]
+    },
+    {
+      "id": "gate-tests",
+      "level": 3,
+      "reason": "Architecture, database and gate tests and their fixtures; weakening them weakens a control.",
+      "globs": [
+        "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/architecture/**",
+        "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/**",
+        "apps/shipping-api/src/test/resources/**"
+      ]
+    },
+    {
+      "id": "checker-library",
+      "level": 3,
+      "reason": "c4-contract-kit is the architecture control itself.",
+      "globs": ["libs/c4-contract-kit/src/**"]
+    },
+    {
+      "id": "audit",
+      "level": 2,
+      "reason": "Ordinary behaviour: audit consumption of shipment events. SQL, tenant scope and listener changes escalate through behaviour signals.",
+      "globs": [
+        "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/audit/**",
+        "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/audit/**"
+      ]
+    },
+    {
+      "id": "http-edge",
+      "level": 2,
+      "reason": "Isolated root classes: application entry point, correlation IDs, framework problem mapping, and their tests.",
+      "globs": [
+        "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/*.java",
+        "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/*.java",
+        "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/http/**"
+      ]
+    },
+    {
+      "id": "web-api-layer",
+      "level": 2,
+      "reason": "The web app's calls to the API and their state handling.",
+      "globs": ["apps/shipping-web/src/api/**"]
+    },
+    {
+      "id": "web-end-to-end",
+      "level": 2,
+      "reason": "End-to-end and accessibility tests and their configuration.",
+      "globs": ["apps/shipping-web/e2e/**", "apps/shipping-web/playwright.config.ts"]
+    },
+    {
+      "id": "web-build-configuration",
+      "level": 2,
+      "reason": "Build and type-check configuration of the web app.",
+      "globs": ["apps/shipping-web/vite.config.ts", "apps/shipping-web/vitest.config.ts", "apps/shipping-web/tsconfig*.json", "tsconfig*.json"]
+    },
+    {
+      "id": "generated-client",
+      "level": 2,
+      "reason": "Generated from contracts/; regeneration must produce no diff.",
+      "globs": ["packages/shipping-client/**"]
+    },
+    {
+      "id": "capability-claims",
+      "level": 2,
+      "reason": "Statements of what is shipped and what is not; brain --check validates evidence.",
+      "globs": ["docs/capabilities/**", "docs/gaps.md"]
+    },
+    {
+      "id": "repository-attributes",
+      "level": 2,
+      "reason": "Git attributes change how files are diffed, merged and exported.",
+      "globs": [".gitattributes"]
+    },
+    {
+      "id": "web-presentation",
+      "level": 1,
+      "reason": "UI presentation, styles and non-sensitive prototypes behind default-off flags.",
+      "globs": ["apps/shipping-web/src/**", "apps/shipping-web/index.html", "apps/shipping-web/public/**"]
+    },
+    {
+      "id": "docs-site-presentation",
+      "level": 1,
+      "reason": "Documentation site theme and configuration.",
+      "globs": ["docs/.vitepress/**"]
+    },
+    {
+      "id": "editor-and-ignore-files",
+      "level": 1,
+      "reason": "Editor settings and ignore rules.",
+      "globs": [".editorconfig", ".gitignore", "**/.gitignore"]
+    },
+    {
+      "id": "prose",
+      "level": 0,
+      "reason": "Prose documentation.",
+      "globs": ["README.md", "**/README.md", "CHANGELOG.md", "docs/**/*.md", "docs/assets/**"]
+    },
+    {
+      "id": "generated-brain",
+      "level": 0,
+      "reason": "Generated from reviewed sources; docs-brain fails on any hand edit or drift.",
+      "globs": ["BRAIN.md", "docs/brain/**", "docs/public/llms.txt"]
+    }
+  ],
+  "behaviourSignals": [
+    {
+      "id": "sql-change",
+      "level": 3,
+      "reason": "Changed SQL can bypass repository tenant predicates, other modules' ownership or migrations.",
+      "appliesTo": ["**/*.java", "**/*.sql"],
+      "detect": {
+        "kind": "changedLineRegex",
+        "pattern": "(?i)\\b(select\\s|insert\\s+into|update\\s+[a-z_\\.]+\\s+set|delete\\s+from|merge\\s+into|create\\s+(table|index|policy|function|schema|role|sequence|view)|alter\\s|drop\\s|grant\\s|revoke\\s|truncate\\s|set_config|current_setting|row\\s+level\\s+security|bypassrls|security\\s+definer)"
+      }
+    },
+    {
+      "id": "tenant-and-authentication-symbols",
+      "level": 3,
+      "reason": "Tenant derivation, tenant binding and authentication.",
+      "appliesTo": ["apps/**", "libs/**", "packages/**"],
+      "detect": {
+        "kind": "changedLineRegex",
+        "pattern": "\\b(TenantId|CurrentTenant|TenantScope|TenantBindingTransactionManager|TenantPrincipal|MissingTenantContextException|SecurityFilterChain|SecurityContext|permitAll|resolve_demo_token|demoBearer)\\b|app\\.tenant_id|Authorization|WWW-Authenticate"
+      }
+    },
+    {
+      "id": "pricing-and-invoicing-symbols",
+      "level": 3,
+      "reason": "Money, rounding, tariffs and invoicing.",
+      "appliesTo": ["apps/shipping-api/**"],
+      "detect": {
+        "kind": "changedLineRegex",
+        "pattern": "\\b(Money|SyntheticTariff|Rating|WeightBand|ServiceLevel|BigDecimal|RoundingMode|setScale|Invoice\\w*)\\b"
+      }
+    },
+    {
+      "id": "booking-symbols",
+      "level": 3,
+      "reason": "Booking, idempotency and offer validity.",
+      "appliesTo": ["apps/**", "packages/**"],
+      "detect": {
+        "kind": "changedLineRegex",
+        "pattern": "\\b(IdempotencyKey|RequestFingerprint|BookShipment|BookingOutcome|BookingRejection|QuoteOffers|OfferLookup|BookableOffer)\\b|Idempotency-Key|Idempotency-Replayed"
+      }
+    },
+    {
+      "id": "transaction-and-event-semantics",
+      "level": 3,
+      "reason": "Transaction boundaries and event delivery decide what commits together and what is replayed.",
+      "appliesTo": ["apps/shipping-api/**"],
+      "detect": {
+        "kind": "changedLineRegex",
+        "pattern": "@Transactional|@ApplicationModuleListener|@TransactionalEventListener|@Async|publishEvent\\(|IncompleteEventPublications|TransactionTemplate|spring\\.modulith\\.events"
+      }
+    },
+    {
+      "id": "event-payload-change",
+      "level": 3,
+      "reason": "Event records are persisted in the publication registry and must stay readable for replay.",
+      "appliesTo": ["apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/*/api/**"],
+      "detect": {
+        "kind": "fileContentRegex",
+        "pattern": "\\brecord\\s+\\w+(Booked|Cancelled|Issued|Recorded|Created)\\b"
+      }
+    },
+    {
+      "id": "public-api-affected-callers",
+      "level": "computed",
+      "reason": "A change to a module's api package affects every module that depends on it.",
+      "appliesTo": ["apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/*/api/**"],
+      "detect": {
+        "kind": "affectedCallers",
+        "rule": "Find the component whose contract.packages contain the changed file (architecture/workspace.dsl on the base branch). The signal's level is the highest path level of the production and test directories of every component with a relationship to it, and at least 2."
+      }
+    },
+    {
+      "id": "personal-data",
+      "level": 3,
+      "reason": "Storing, transmitting or logging personal data (recipient names and addresses).",
+      "appliesTo": ["apps/shipping-api/**", "contracts/**", "apps/shipping-web/src/api/**", "packages/shipping-client/**"],
+      "detect": {
+        "kind": "changedLineRegex",
+        "pattern": "(?i)\\b(recipient\\w*|address_?line\\w*|addressLine\\w*|postcode|city|email|phone)\\b"
+      }
+    },
+    {
+      "id": "logging-personal-data",
+      "level": 3,
+      "reason": "Log statements near personal data fields.",
+      "appliesTo": ["apps/**"],
+      "detect": {
+        "kind": "changedLineRegex",
+        "pattern": "(?i)(log|logger|console)\\.(trace|debug|info|warn|error|log)\\(.*(recipient|address|name|postcode|token)"
+      }
+    },
+    {
+      "id": "test-weakening",
+      "level": 3,
+      "reason": "Disabled, skipped or deleted tests and removed assertions weaken controls.",
+      "appliesTo": ["**/src/test/**", "apps/shipping-web/**/*.test.ts", "apps/shipping-web/**/*.test.tsx", "apps/shipping-web/e2e/**", "tools/**"],
+      "detect": {
+        "kind": "composite",
+        "anyOf": [
+          {"kind": "fileDeleted"},
+          {"kind": "addedLineRegex", "pattern": "@Disabled|@DisabledIf\\w*|@EnabledIf\\w*|Assumptions\\.|assume(True|False|That)\\(|\\.skip\\(|\\.only\\(|\\.todo\\(|\\.fixme\\(|\\bxit\\(|\\bxdescribe\\(|test\\.fail\\("},
+          {"kind": "removedAssertionsExceedAdded", "assertionPattern": "\\bassert\\w*\\(|\\bexpect\\(|\\bverify\\(|\\bthen\\(|assertThat"}
+        ]
+      }
+    },
+    {
+      "id": "nullness-suppression",
+      "level": 3,
+      "reason": "Suppressing NullAway or Error Prone removes a compile-time control.",
+      "appliesTo": ["**/*.java"],
+      "detect": {
+        "kind": "addedLineRegex",
+        "pattern": "@SuppressWarnings\\(.*(NullAway|\"all\"|ErrorProne)|@NullUnmarked|-Xep:|-XepDisable"
+      }
+    },
+    {
+      "id": "reflection-execution-and-egress",
+      "level": 3,
+      "reason": "Reflection hides dependencies from the architecture check; process execution and network or file access widen what code can do.",
+      "appliesTo": ["apps/shipping-api/src/main/**", "libs/**/src/main/**"],
+      "detect": {
+        "kind": "addedLineRegex",
+        "pattern": "Class\\.forName|setAccessible\\(true\\)|MethodHandles\\.|ProcessBuilder|Runtime\\.getRuntime|ObjectInputStream|ScriptEngine|java\\.net\\.(Socket|ServerSocket|URL\\b|http\\.)|HttpClient|URLConnection|Files\\.(write|delete|move|copy)"
+      }
+    },
+    {
+      "id": "unsafe-web-apis",
+      "level": 3,
+      "reason": "Script injection and token storage in the browser.",
+      "appliesTo": ["apps/shipping-web/**", "packages/shipping-client/**", "docs/.vitepress/**"],
+      "detect": {
+        "kind": "addedLineRegex",
+        "pattern": "dangerouslySetInnerHTML|\\.innerHTML|outerHTML|insertAdjacentHTML|localStorage|sessionStorage|document\\.cookie|\\beval\\(|new Function\\(|<script"
+      }
+    }
+  ],
+  "uncertaintySignals": [
+    {
+      "id": "unmatched-path",
+      "level": 3,
+      "reason": "A changed path matches no path rule."
+    },
+    {
+      "id": "binary-file",
+      "level": 3,
+      "reason": "A binary file was added or changed outside docs/assets/** and apps/shipping-web/public/**.",
+      "exceptGlobs": ["docs/assets/**", "apps/shipping-web/public/**"]
+    },
+    {
+      "id": "generated-without-source",
+      "level": 3,
+      "reason": "A generated file changed without its source: packages/shipping-client/src/schema.d.ts without contracts/**, or BRAIN.md or docs/brain/** without any brain input."
+    },
+    {
+      "id": "mode-or-link-change",
+      "level": 3,
+      "reason": "A file became executable, or a symbolic link or submodule was added or changed."
+    },
+    {
+      "id": "incomplete-diff",
+      "level": 3,
+      "reason": "The classifier could not read the complete list of changed files or the complete diff (truncated API response, unreadable encoding, more than 3000 files)."
+    },
+    {
+      "id": "policy-changed-in-pull-request",
+      "level": 3,
+      "reason": "The pull request changes policy/risk.json; the base-branch policy is used for this pull request and the change itself is level 3."
+    }
+  ],
+  "pullRequestRules": {
+    "closesIssue": "The pull request body contains 'Closes #<number>' for exactly one issue.",
+    "conventionalTitle": "^(feat|fix|docs|test|refactor|perf|build|ci|chore|revert)(\\([a-z0-9-]+\\))?!?: [a-z].{2,70}$",
+    "authoredLineLimit": 500,
+    "authoredLinesExclude": ["**/gradle.lockfile", "settings-gradle.lockfile", "package-lock.json", "gradle/verification-metadata.xml", "packages/shipping-client/src/schema.d.ts", "BRAIN.md", "docs/brain/**"],
+    "overLimit": "Allowed only with a 'Size reason:' paragraph in the pull request body.",
+    "behaviourChanges": "Need acceptance criteria in domain language and red-green evidence (the failing test run before the fix, and the passing run after)."
+  }
+}

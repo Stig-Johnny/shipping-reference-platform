@@ -1,0 +1,417 @@
+# Capabilities and controls of shipping-reference-platform, with the evidence for each.
+#
+# Read by tools/brain (ADR 0010); `brain --check` validates this file. Changing a status is a claim and is reviewed.
+#
+# Fields
+#   id               Stable identifier, "<module>.<kebab-name>" for capabilities, "control.<kebab-name>" for controls.
+#   module           A C4 component contract.id (quotes, shipments, tenants, audit, orders, tracking, returns), or
+#                    "web" for the Web app container. Controls use `where` instead.
+#   status           The truth at the current commit:
+#                      shipped  every acceptance test exists and passes in the required checks;
+#                      partial  at least one acceptance test exists and passes, others are missing;
+#                      planned  no acceptance test exists yet.
+#   target           v0.1 (committed for the first release) or later.
+#   evidence         Test class names (Java) or test file names (TypeScript, JavaScript) that exist and pass at this
+#                    commit, or the string "none yet". Must be "none yet" when status is planned.
+#   acceptanceTests  The tests that must exist and pass before status may become shipped. Implementers create
+#                    them with exactly these names, red first.
+#   docs             The document that specifies the capability.
+#
+# This file belongs to the specification pull request. No code exists yet, so every status is planned and every
+# evidence value is "none yet". A pull request that adds passing acceptance tests moves their names into `evidence`
+# and changes the status in the same commit; brain --check rejects a shipped or partial status whose evidence does
+# not exist, and never shows a planned capability as available because its package exists.
+
+schemaVersion: 1
+
+capabilities:
+  # quotes
+  - id: quotes.synthetic-tariff
+    module: quotes
+    title: Price a parcel by zone, billable weight band, service level and fuel surcharge, rounded half-up to cents.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [SyntheticTariffTest, SyntheticTariffPropertiesTest, MoneyTest, ParcelTest]
+    docs: docs/modules/quotes.md
+  - id: quotes.create-quote
+    module: quotes
+    title: Issue a tenant-scoped quote with one offer per available service level, or a reasoned refusal.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [RatingTest, CreateQuoteTest, QuotesHttpContractTest]
+    docs: docs/modules/quotes.md
+  - id: quotes.get-quote
+    module: quotes
+    title: Read a quote of the caller's tenant with its computed OPEN or EXPIRED status.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [QuotesModuleIntegrationTest, QuotesHttpContractTest]
+    docs: docs/modules/quotes.md
+  - id: quotes.quote-expiry
+    module: quotes
+    title: Offers expire 30 minutes after issue, decided by the injected clock.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [QuoteExpiryTest]
+    docs: docs/modules/quotes.md
+  - id: quotes.offer-lookup
+    module: quotes
+    title: Tell shipments whether an offer exists for a tenant and is bookable at an instant (QuoteOffers).
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [QuotesModuleIntegrationTest, QuoteExpiryTest]
+    docs: docs/modules/quotes.md
+
+  # shipments
+  - id: shipments.book-from-offer
+    module: shipments
+    title: Book one shipment per quote from an unexpired offer whose destination matches the recipient.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [BookShipmentTest, RecipientTest, ShipmentsHttpContractTest]
+    docs: docs/modules/shipments.md
+  - id: shipments.idempotent-booking
+    module: shipments
+    title: The same tenant, Idempotency-Key and body return the same shipment; a reused key with another body is refused.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [BookingIdempotencyIntegrationTest, RequestFingerprintTest]
+    docs: docs/modules/shipments.md
+  - id: shipments.cancel-shipment
+    module: shipments
+    title: Cancel a booked shipment idempotently (BOOKED to CANCELLED).
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [ShipmentTest, CancelShipmentTest]
+    docs: docs/modules/shipments.md
+  - id: shipments.list-and-read
+    module: shipments
+    title: List the tenant's shipments newest first with cursor pagination and a status filter; read one shipment.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [ShipmentListingIntegrationTest, ShipmentsHttpContractTest]
+    docs: docs/modules/shipments.md
+  - id: shipments.simulated-label
+    module: shipments
+    title: Download a deterministic, clearly marked simulated SVG label for a booked shipment.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [SvgLabelRendererTest, ShipmentsHttpContractTest]
+    docs: docs/modules/shipments.md
+  - id: shipments.publish-events
+    module: shipments
+    title: Publish ShipmentBooked and ShipmentCancelled once on commit, never on rollback.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [ShipmentEventsIntegrationTest]
+    docs: docs/modules/shipments.md
+
+  # tenants
+  - id: tenants.demo-authentication
+    module: tenants
+    title: Authenticate synthetic users with demo bearer tokens; never derive tenant identity from client-supplied tenant hints.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [DemoTokenTest, DemoTokenAuthenticationTest]
+    docs: docs/modules/tenants.md
+  - id: tenants.current-membership
+    module: tenants
+    title: Return the caller's membership and enabled prototype flags (GET /api/v1/me).
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [TenantsHttpContractTest]
+    docs: docs/modules/tenants.md
+  - id: tenants.row-level-security
+    module: tenants
+    title: Forced PostgreSQL row-level security on every tenant-owned table, with a runtime role that cannot bypass it.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest]
+    docs: docs/modules/tenants.md
+  - id: tenants.cross-tenant-denial
+    module: tenants
+    title: Another tenant's quote or shipment IDs behave exactly like unknown IDs over HTTP and in the UI.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [CrossTenantAccessTest, tenant-denial.spec.ts]
+    docs: docs/modules/tenants.md
+  - id: tenants.tenant-scope-for-events
+    module: tenants
+    title: Asynchronous listeners write only under the event's tenant (TenantScope).
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [TenantScopeTest, RowLevelSecurityIntegrationTest]
+    docs: docs/modules/tenants.md
+  - id: tenants.prototype-flags
+    module: tenants
+    title: Server-evaluated, tenant-scoped prototype flags, default off, with owner and expiry.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [PrototypeFlagsTest, PrototypeFlagExpiryTest, prototype-flag.spec.ts]
+    docs: docs/modules/tenants.md
+
+  # audit
+  - id: audit.record-shipment-events
+    module: audit
+    title: One tenant-scoped audit entry per ShipmentBooked and ShipmentCancelled event.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [ShipmentAuditIntegrationTest]
+    docs: docs/modules/audit.md
+  - id: audit.idempotent-consumer
+    module: audit
+    title: A redelivered event has no second effect (deduplication by event ID).
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [AuditDeduplicationTest]
+    docs: docs/modules/audit.md
+  - id: audit.replay-after-failure
+    module: audit
+    title: A failed audit write is replayed from the publication registry after restart, with exactly one effect.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [AuditReplayIntegrationTest]
+    docs: docs/modules/audit.md
+
+  # web app
+  - id: web.quote-workbench
+    module: web
+    title: Parcel form and comparable quote cards with tabular prices and expiry.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [ParcelForm.test.tsx, QuoteCardList.test.tsx, quote-book-label.spec.ts]
+    docs: docs/ui/workbench.md
+  - id: web.booking-and-label
+    module: web
+    title: Book an offer twice safely, open the shipment drawer and download the label.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [BookingForm.test.tsx, ShipmentDrawer.test.tsx, quote-book-label.spec.ts]
+    docs: docs/ui/workbench.md
+  - id: web.explicit-states
+    module: web
+    title: Explicit loading, empty, expired and failed states with labelled problem messages.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [ProblemAlert.test.tsx, expired-quote.spec.ts]
+    docs: docs/ui/workbench.md
+  - id: web.accessibility
+    module: web
+    title: Keyboard operation, visible focus, AA contrast, reduced motion and system dark mode with override.
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [ThemeToggle.test.tsx, accessibility.spec.ts]
+    docs: docs/ui/workbench.md
+
+  # planned modules
+  - id: orders.import-webshop-orders
+    module: orders
+    title: Import webshop orders and turn them into quote and booking requests.
+    status: planned
+    target: later
+    evidence: none yet
+    acceptanceTests: []
+    docs: docs/modules/orders.md
+  - id: tracking.carrier-tracking-events
+    module: tracking
+    title: Receive carrier tracking events and move shipments through transit states.
+    status: planned
+    target: later
+    evidence: none yet
+    acceptanceTests: []
+    docs: docs/modules/tracking.md
+  - id: returns.return-shipments
+    module: returns
+    title: Create return shipments for delivered shipments.
+    status: planned
+    target: later
+    evidence: none yet
+    acceptanceTests: []
+    docs: docs/modules/returns.md
+
+controls:
+  # Each control lists the deliberate failure (negative fixture) that proves it catches what it advertises.
+  - id: control.c4-divergence
+    title: A dependency between modules that the C4 model does not declare fails the build.
+    where: libs/c4-contract-kit, apps/shipping-api
+    check: java
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [ConformanceDivergenceTest, ArchitectureConformanceTest]
+    negativeFixture: A quotes class referencing shipments.api.ShipmentId (demo pull request "undeclared dependency").
+    docs: docs/adr/0002-c4-model-is-the-structural-authority.md
+  - id: control.c4-absence
+    title: A REQUIRED relationship without any static reference fails the build.
+    where: libs/c4-contract-kit, apps/shipping-api
+    check: java
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [ConformanceAbsenceTest, ArchitectureConformanceTest]
+    negativeFixture: Removing ShipmentAuditListener's dependency on shipments.api (demo pull request "missing required edge").
+    docs: docs/adr/0002-c4-model-is-the-structural-authority.md
+  - id: control.no-static-evidence-report
+    title: A PERMITTED relationship without references is reported as "no static evidence", never as unused, and does not fail.
+    where: libs/c4-contract-kit
+    check: java
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [ReportNoStaticEvidenceTest]
+    negativeFixture: The audit -> quotes relationship in architecture/workspace.dsl.
+    docs: docs/adr/0002-c4-model-is-the-structural-authority.md
+  - id: control.model-validation
+    title: Restricted DSL parsing and mapping validation (overlaps, empty or uncovered mappings, planned code, tag mismatches, cycles, forbidden directives).
+    where: libs/c4-contract-kit
+    check: java
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [RestrictedDslParserTest, MappingValidationTest]
+    negativeFixture: Fixture models with !include, overlapping packages, a planned component with a class, an invalid contract.mode value.
+    docs: libs/c4-contract-kit/AGENTS.md
+  - id: control.bytecode-evidence
+    title: Class, member, reference kind and source line evidence for every dependency, including inheritance, annotations, generics and lambdas.
+    where: libs/c4-contract-kit
+    check: java
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [BytecodeEvidenceTest]
+    negativeFixture: Fixture classes for each reference kind; a missing kind fails the test.
+    docs: libs/c4-contract-kit/AGENTS.md
+  - id: control.deterministic-reports
+    title: Byte-identical JSON and Markdown reports for identical inputs, written before an assertion fails.
+    where: libs/c4-contract-kit
+    check: java
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [ReportDeterminismTest, ConformanceAssertionsTest, SelfConformanceTest]
+    negativeFixture: Shuffled input order must produce the same bytes.
+    docs: libs/c4-contract-kit/AGENTS.md
+  - id: control.modulith-verification
+    title: No access to another module's internal packages and no module cycles.
+    where: apps/shipping-api
+    check: java
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [ModularityTest]
+    negativeFixture: A shipments class importing quotes.internal.domain.Quote.
+    docs: docs/adr/0003-modular-monolith-with-spring-modulith-and-hexagonal-modules.md
+  - id: control.hexagonal-layering
+    title: Domain code free of Spring, Jakarta, JDBC and adapters; only the five allowed packages per module; @NullMarked everywhere.
+    where: apps/shipping-api
+    check: java
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [HexagonalLayeringTest]
+    negativeFixture: A domain class annotated with a Spring stereotype.
+    docs: docs/adr/0003-modular-monolith-with-spring-modulith-and-hexagonal-modules.md
+  - id: control.table-ownership
+    title: Each module maps only tables in its own schema.
+    where: apps/shipping-api
+    check: java
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [TableOwnershipTest]
+    negativeFixture: An audit entity mapped to a table in schema shipments.
+    docs: docs/adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md
+  - id: control.migrations
+    title: Migrations apply cleanly to an empty database as the owner role; the runtime role cannot run DDL.
+    where: apps/shipping-api
+    check: java
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [MigrationsIntegrationTest]
+    negativeFixture: A DDL statement attempted as shipping_app.
+    docs: docs/adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md
+  - id: control.http-contract
+    title: Exercised HTTP responses, including framework problems, conform to contracts/shipping.openapi.yaml.
+    where: apps/shipping-api
+    check: java
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest]
+    negativeFixture: A response with an undocumented member fails validation.
+    docs: docs/adr/0004-contract-first-openapi-with-rfc-9457-problems.md
+  - id: control.web-import-boundaries
+    title: Web app import boundaries and cycles (dependency-cruiser deferred).
+    where: tools/web-imports, apps/shipping-web
+    check: web
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [check-imports.test.mjs]
+    negativeFixture: Fixture files with a cycle and a cross-feature internal import.
+    docs: docs/adr/0009-react-workbench-with-a-generated-client.md
+  - id: control.dependency-allowlist
+    title: No third-party component is downloaded or run on the sanctioned CI path unless reviewed and allowlisted.
+    where: tools/policy, security/
+    check: preflight
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [AllowlistCheckTest, GradleVerificationCheckTest, NpmLockCheckTest, WorkflowPinCheckTest, ApprovalBindingTest, StrictJsonParserTest]
+    negativeFixture: Demo pull request adding an unreviewed dependency; it is stopped before the build.
+    docs: docs/adr/0007-dependency-allowlist-and-pre-use-enforcement.md
+  - id: control.risk-classification
+    title: Risk level from base-branch policy; level 3 waits for the owner's approval of the current head.
+    where: tools/policy, policy/
+    check: risk-approval
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [RiskClassifierTest, CodeownersRiskConsistencyTest]
+    negativeFixture: Demo pull requests "pricing change requires owner approval" and "model weakening awaits human".
+    docs: docs/adr/0008-risk-levels-0-to-3.md
+  - id: control.mutation-testing
+    title: At least 80 % killed mutants on changed lines, 90 % for pricing and checker logic; zero mutants reports "not applicable".
+    where: build-logic
+    check: mutation
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [MutationThresholdTest]
+    negativeFixture: A fixture PIT report below threshold fails; one with zero mutants reports not applicable.
+    docs: README.md
+  - id: control.brain-check
+    title: Generated brain and docs are deterministic, within budget, and never claim unevidenced capabilities.
+    where: tools/brain
+    check: docs-brain
+    status: planned
+    target: v0.1
+    evidence: none yet
+    acceptanceTests: [BrainGeneratorTest, BrainCheckTest]
+    negativeFixture: A shipped capability without evidence; a hand-edited BRAIN.md.
+    docs: docs/adr/0010-documentation-as-code-with-a-generated-brain.md
