@@ -499,6 +499,28 @@ class MappingValidationTest {
     }
 
     @Test
+    void aClassFileTheImportCannotReadIsNeverASilentPass() throws IOException {
+        // Every built component has classes, so BUILT_COMPONENT_EMPTY cannot be what fails this check. Readable,
+        // fx.shop.misc.Stray would be an unmapped class; truncated, ArchUnit would skip it.
+        Path classes = dir.resolve("classes");
+        Path compiled = FixtureCompiler.compile(MAIN, CONFIG, ORDER, QUEUE, ITEM,
+                new FixtureSource("fx/shop/misc/Stray.java", "package fx.shop.misc;\n\npublic class Stray {\n}\n"));
+        try (Stream<Path> files = Files.walk(compiled)) {
+            for (Path file : files.filter(Files::isRegularFile).toList()) {
+                Path copy = classes.resolve(compiled.relativize(file).toString());
+                Files.createDirectories(copy.getParent());
+                Files.copy(file, copy);
+            }
+        }
+        Path stray = classes.resolve("fx/shop/misc/Stray.class");
+        Files.write(stray, java.util.Arrays.copyOf(Files.readAllBytes(stray), 30));
+
+        assertThatThrownBy(() -> check(VALID, classes))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(stray.toString());
+    }
+
+    @Test
     void aClassInAPlannedComponentFailsUntilTheComponentIsBuilt() {
         Report report = checkClasses(
                 new FixtureSource("fx/shop/billing/Invoice.java", "package fx.shop.billing;\n\npublic class Invoice {\n}\n"));

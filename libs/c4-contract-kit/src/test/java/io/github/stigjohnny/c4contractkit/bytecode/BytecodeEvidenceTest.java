@@ -621,6 +621,44 @@ class BytecodeEvidenceTest {
     }
 
     @Test
+    void aClassFileThatCannotBeReadFailsTheImportInsteadOfBeingSkipped(@TempDir Path dir) throws IOException {
+        // ArchUnit logs a class file it cannot parse and goes on without it; the check would then miss its class.
+        Path root = copyOf(compile(CODE), dir.resolve("classes"));
+        byte[] code = Files.readAllBytes(root.resolve("fx/app/a/Code.class"));
+        Path truncated = Files.write(root.resolve("fx/app/a/Truncated.class"), java.util.Arrays.copyOf(code, 40));
+        Path text = Files.writeString(root.resolve("fx/app/b/Notes.class"), "not a class file");
+
+        assertThatThrownBy(() -> ClassRootImporter.importRoots(List.of(root)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("ArchUnit could not import these class files, so the check would miss their classes: "
+                        + List.of(truncated, text) + ". A corrupt or truncated file, a file "
+                        + "that is not a class file, or a second definition of a class in another root is not a "
+                        + "supported input.");
+    }
+
+    @Test
+    void aSecondDefinitionOfAClassInAnotherRootFailsTheImport(@TempDir Path dir) throws IOException {
+        // ArchUnit keeps the first definition of a class and drops the second without a word.
+        Path first = copyOf(compile(CODE), dir.resolve("a"));
+        Path second = copyOf(compile(CODE), dir.resolve("b"));
+
+        assertThatThrownBy(() -> ClassRootImporter.importRoots(List.of(second, first)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageStartingWith("ArchUnit could not import these class files, so the check would miss their "
+                        + "classes: [" + second.resolve("fx/app/a/Code.class") + ", ");
+    }
+
+    @Test
+    void aModuleDescriptorIsNotAClassAndIsAccepted() {
+        Path root = FixtureCompiler.compile(withTargets(CODE, new FixtureSource("module-info.java",
+                "module fx.app {\n    exports fx.app.a;\n}\n")));
+
+        assertThat(ClassRootImporter.importRoots(List.of(root))).extracting(ImportedClass::name)
+                .contains("fx.app.a.Code")
+                .doesNotContain("module-info");
+    }
+
+    @Test
     void aJarFileIsNotAClassRoot(@TempDir Path dir) throws IOException {
         // ArchUnit would read a JAR given as a path as one non-class file and import nothing from it.
         Path jar = Files.write(dir.resolve("classes.jar"), new byte[] {'P', 'K', 3, 4});
@@ -644,6 +682,18 @@ class BytecodeEvidenceTest {
         assertThat(METHOD_CALL.label()).isEqualTo("method call");
         assertThat(FIELD_TYPE_ARGUMENT.label()).isEqualTo("field type argument");
         assertThat(PARAMETER_ANNOTATION_MEMBER.label()).isEqualTo("parameter annotation member");
+    }
+
+    /** A copy of a class root, to change without touching the compiled fixture that other tests share. */
+    private static Path copyOf(Path root, Path target) throws IOException {
+        try (java.util.stream.Stream<Path> files = Files.walk(root)) {
+            for (Path file : files.filter(Files::isRegularFile).toList()) {
+                Path copy = target.resolve(root.relativize(file).toString());
+                Files.createDirectories(copy.getParent());
+                Files.copy(file, copy);
+            }
+        }
+        return target;
     }
 
     private static List<CodeReference> referencesToTargets(FixtureSource origin, String className,
