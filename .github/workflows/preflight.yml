@@ -7,10 +7,17 @@ name: preflight
 
 on:
   pull_request_target:
+    branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
+
+# bash -eo pipefail. Without a shell named here, GitHub runs `bash -e` without pipefail, and a step that pipes the
+# checker into tee takes tee's exit code: until 2026-11-06 this check passed with findings.
+defaults:
+  run:
+    shell: bash
 
 concurrency:
   group: preflight-${{ github.event.pull_request.number }}
@@ -56,4 +63,6 @@ jobs:
           token: ''
 
       - name: Check the pull request against the allowlist
+        # The checker's exit code decides the step (pipefail, above): 1 = findings and 2 = the check could not
+        # complete both fail the job.
         run: java base/tools/policy/PolicyCheck.java pr | tee -a "$GITHUB_STEP_SUMMARY"
