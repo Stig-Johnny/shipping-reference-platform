@@ -3,11 +3,13 @@ package io.github.stigjohnny.c4contractkit.model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.assertj.core.api.InstanceOfAssertFactories.STRING;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import com.structurizr.dsl.Features;
 import com.structurizr.dsl.StructurizrDslParser;
+import com.structurizr.model.Element;
 import io.github.stigjohnny.c4contractkit.api.Conformance;
 import io.github.stigjohnny.c4contractkit.api.ModelException;
 import io.github.stigjohnny.c4contractkit.testing.Serialization;
@@ -217,71 +219,117 @@ class RestrictedDslParserTest {
                 });
     }
 
-    @Test
-    void anUnresolvedReferenceAnywhereInTheFileIsAProblem(@TempDir Path dir) throws IOException {
-        String dsl = """
-                workspace "${WORKSPACE_NAME}" "${WORKSPACE_DESCRIPTION}" {
-                    !identifiers flat
-                    !impliedRelationships false
+    /** A ${NAME} in every kind of place a model can hold text. */
+    private static final String EVERY_PLACE = """
+            workspace "${WORKSPACE_NAME}" "${WORKSPACE_DESCRIPTION}" {
+                !identifiers flat
+                !impliedRelationships false
+                properties {
+                    "owner" "${WORKSPACE_PROPERTY}"
+                }
+                model {
                     properties {
-                        "owner" "${WORKSPACE_PROPERTY}"
+                        "m" "${MODEL_PROPERTY}"
                     }
-                    model {
-                        shop = softwareSystem "Shop" {
-                            app = container "App" "" "${TECH}" "${TAG}" {
-                                properties {
-                                    "contract.root" "fx.shop"
-                                    "${KEY}" "${VALUE}"
-                                }
-                                group "${GROUP}" {
-                                    orders = component "Orders" {
-                                        properties {
-                                            "contract.id" "orders"
-                                            "contract.packages" "fx.shop.orders"
-                                            "contract.status" "built"
-                                        }
+                    shop = softwareSystem "Shop" {
+                        app = container "App" "" "${TECH}" "${TAG}" {
+                            properties {
+                                "contract.root" "fx.shop"
+                                "${KEY}" "${VALUE}"
+                            }
+                            group "${GROUP}" {
+                                orders = component "Orders" "" "${COMPONENT_TECH}" {
+                                    properties {
+                                        "contract.id" "orders"
+                                        "contract.packages" "fx.shop.orders"
+                                        "contract.status" "built"
+                                    }
+                                    perspectives {
+                                        "Security" "${PERSPECTIVE_TEXT}"
                                     }
                                 }
                             }
                         }
-                        clerk = person "Clerk"
-                        clerk -> app "Uses ${RELATIONSHIP}" "${PROTOCOL}" {
-                            properties {
-                                "note" "${NOTE}"
-                            }
-                        }
-                        live = deploymentEnvironment "Live" {
-                            server = deploymentNode "Server" "" "${OS}" {
-                                gateway = infrastructureNode "Gateway" "" "${PROXY}"
-                            }
+                    }
+                    clerk = person "Clerk"
+                    custom = element "Custom" "${METADATA}"
+                    clerk -> app "Uses ${RELATIONSHIP}" "${PROTOCOL}" {
+                        properties {
+                            "note" "${NOTE}"
                         }
                     }
-                    views {
-                        component app "Components" "${VIEW_DESCRIPTION}" {
-                            title "${VIEW_TITLE}"
-                            include *
-                            properties {
-                                "shown" "${VIEW_PROPERTY}"
-                            }
-                        }
-                        properties {
-                            "set" "${VIEWS_PROPERTY}"
-                        }
-                        terminology {
-                            person "${TERM}"
+                    live = deploymentEnvironment "Live" {
+                        server = deploymentNode "Server" "" "${OS}" {
+                            gateway = infrastructureNode "Gateway" "" "${PROXY}"
                         }
                     }
                 }
-                """;
+                views {
+                    component app "Components" "${VIEW_DESCRIPTION}" {
+                        title "${VIEW_TITLE}"
+                        include *
+                        properties {
+                            "shown" "${VIEW_PROPERTY}"
+                        }
+                    }
+                    dynamic shop "Flow" {
+                        clerk -> app "Asks ${STEP}"
+                    }
+                    styles {
+                        element "${STYLE_TAG}" {
+                            color #000000
+                        }
+                        relationship "${RELATIONSHIP_STYLE_TAG}" {
+                            color #000000
+                        }
+                    }
+                    properties {
+                        "set" "${VIEWS_PROPERTY}"
+                    }
+                    terminology {
+                        person "${TERM}"
+                    }
+                }
+            }
+            """;
+
+    @Test
+    void anUnresolvedReferenceAnywhereInTheFileIsAProblem(@TempDir Path dir) throws IOException {
+        String dsl = EVERY_PLACE;
 
         assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
                 .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
                         .containsExactlyInAnyOrderElementsOf(Stream.of("WORKSPACE_NAME", "WORKSPACE_DESCRIPTION",
-                                        "WORKSPACE_PROPERTY", "TECH", "TAG", "KEY", "VALUE", "GROUP", "RELATIONSHIP",
-                                        "PROTOCOL", "NOTE", "OS", "PROXY", "VIEW_DESCRIPTION", "VIEW_TITLE",
-                                        "VIEW_PROPERTY", "VIEWS_PROPERTY", "TERM")
+                                        "WORKSPACE_PROPERTY", "MODEL_PROPERTY", "TECH", "TAG", "KEY", "VALUE", "GROUP",
+                                        "COMPONENT_TECH", "PERSPECTIVE_TEXT", "METADATA", "RELATIONSHIP", "PROTOCOL",
+                                        "NOTE", "OS", "PROXY", "VIEW_DESCRIPTION", "VIEW_TITLE", "VIEW_PROPERTY",
+                                        "STEP", "STYLE_TAG", "RELATIONSHIP_STYLE_TAG", "VIEWS_PROPERTY", "TERM")
                                 .map(name -> unresolved(dsl, name))
                                 .toList()));
+    }
+
+    @Test
+    void afterParsingEveryStringTheWorkspaceHoldsIsCheckedToo(@TempDir Path dir) throws Exception {
+        ParsedModel parsed = RestrictedDslParser.parse(write(dir, EVERY_PLACE), "workspace.dsl", new Problems());
+
+        assertThat(ParsedStrings.unresolved(parsed.workspace(), new ElementNames(parsed.identifiers())))
+                .extracting(ParsedStrings.Reference::place, ParsedStrings.Reference::name)
+                .containsExactly(
+                        tuple("app", "KEY"), tuple("app", "TAG"), tuple("app", "TECH"), tuple("app", "VALUE"),
+                        tuple("clerk -> app", "NOTE"), tuple("clerk -> app", "PROTOCOL"),
+                        tuple("clerk -> app", "RELATIONSHIP"),
+                        tuple("custom", "METADATA"),
+                        tuple("gateway", "PROXY"),
+                        tuple("model", "MODEL_PROPERTY"),
+                        tuple("orders", "COMPONENT_TECH"), tuple("orders", "GROUP"), tuple("orders", "PERSPECTIVE_TEXT"),
+                        tuple("server", "OS"),
+                        tuple("view Components", "VIEW_DESCRIPTION"), tuple("view Components", "VIEW_PROPERTY"),
+                        tuple("view Components", "VIEW_TITLE"),
+                        tuple("view Flow", "STEP"),
+                        tuple("views", "RELATIONSHIP_STYLE_TAG"), tuple("views", "STYLE_TAG"), tuple("views", "TERM"),
+                        tuple("views", "VIEWS_PROPERTY"),
+                        tuple("workspace", "WORKSPACE_DESCRIPTION"), tuple("workspace", "WORKSPACE_NAME"),
+                        tuple("workspace", "WORKSPACE_PROPERTY"));
     }
 
     @Test
@@ -325,6 +373,150 @@ class RestrictedDslParserTest {
     }
 
     @Test
+    void aReferenceSplitByALineContinuationIsOneReference(@TempDir Path dir) throws Exception {
+        // StructurizrDslParser joins a line that ends in a backslash with the next one, without its leading spaces.
+        String dsl = VALID.replace("orders = component \"Orders\"",
+                "orders = component \"Orders\" \"Reads ${HO\\\n        ME}\"");
+
+        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads ${HOME}");
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(unresolvedAt(lineOf(dsl, "${HO"), "HOME")));
+    }
+
+    @Test
+    void aCommentLineThatContinuesALineIsPartOfIt(@TempDir Path dir) throws Exception {
+        String dsl = VALID.replace("orders = component \"Orders\"",
+                "orders = component \"Orders\" \"Reads \\\n        // ${JOINED}\"");
+
+        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads // ${JOINED}");
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(unresolved(dsl, "JOINED")));
+    }
+
+    @Test
+    void aDefinitionInATextBlockIsTextAndDefinesNothing(@TempDir Path dir) throws Exception {
+        String dsl = VALID.replace("orders = component \"Orders\" {", """
+                orders = component "Orders" {
+                    description ""\"
+                        !const HOME safe
+                        ""\"
+                    technology "Reads ${HOME}"
+                """);
+
+        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("!const HOME safe");
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(unresolved(dsl, "HOME")));
+    }
+
+    @Test
+    void textBeforeTheClosingMarkerOfATextBlockIsDropped(@TempDir Path dir) throws Exception {
+        // The line after the block is a line of its own again: its !const defines AFTER.
+        String dsl = VALID.replace("orders = component \"Orders\" {", """
+                orders = component "Orders" {
+                    description ""\"
+                        Reads orders
+                        and ${DROPPED}""\"
+                    !const AFTER "fx"
+                    technology "${AFTER}"
+                """);
+
+        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads orders");
+        assertThat(ContractModelReader.read(write(dir, dsl), "workspace.dsl").components()).hasSize(1);
+    }
+
+    @Test
+    void aSecondMarkerOnTheOpeningLineEndsTheBlockThere(@TempDir Path dir) throws Exception {
+        // The parser keeps the text between the first two markers without its last character, and drops the rest:
+        // the tags of Clerk end in "Rest ${CUT", and ${LOST} is gone.
+        String dsl = VALID.replace("// MODEL", """
+                clerk = person "Clerk" "Reads ${OPENING}" ""\"Rest ${CUT}""\"
+                    ${LOST}
+                    ""\"
+                """);
+
+        assertThat(parsedElement(dir, dsl, "Clerk").getTags()).endsWith(",Rest ${CUT");
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(unresolved(dsl, "OPENING")));
+    }
+
+    @Test
+    void aCommentLineThatEndsInABackslashDoesNotContinue(@TempDir Path dir) throws Exception {
+        String dsl = VALID.replace("!identifiers flat", "!identifiers flat\n    // a comment \\\n    !const NAME \"x\"")
+                .replace("orders = component \"Orders\" {", "orders = component \"Orders\" \"Reads ${NAME}\" {");
+
+        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads x");
+        assertThat(ContractModelReader.read(write(dir, dsl), "workspace.dsl").components()).hasSize(1);
+    }
+
+    @Test
+    void aCommentLineWithTextBlockMarkersOpensNoTextBlock(@TempDir Path dir) throws Exception {
+        String dsl = VALID.replace("!identifiers flat",
+                        "!identifiers flat\n    // a comment with \"\"\" markers \"\"\"\n    !const NAME \"x\"")
+                .replace("orders = component \"Orders\" {", "orders = component \"Orders\" \"Reads ${NAME}\" {");
+
+        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads x");
+        assertThat(ContractModelReader.read(write(dir, dsl), "workspace.dsl").components()).hasSize(1);
+    }
+
+    @Test
+    void aVariableDefinesItsNameToo(@TempDir Path dir) throws Exception {
+        String dsl = VALID.replace("!identifiers flat", "!identifiers flat\n    !var NAME \"x\"")
+                .replace("orders = component \"Orders\" {", "orders = component \"Orders\" \"Reads ${NAME}\" {");
+
+        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads x");
+        assertThat(ContractModelReader.read(write(dir, dsl), "workspace.dsl").components()).hasSize(1);
+    }
+
+    @Test
+    void aDefinitionInABlockThatReadsEachLineAsDataIsCaughtInTheParsedStrings(@TempDir Path dir) throws Exception {
+        // In perspectives { }, this line is a perspective named !const, with a description and a value. The source
+        // scan takes it as a definition; the check of the parsed strings finds ${PERSPECTIVE} in the description.
+        String dsl = VALID.replace("orders = component \"Orders\" {", """
+                orders = component "Orders" {
+                    perspectives {
+                        !const PERSPECTIVE x
+                    }
+                    description "Reads ${PERSPECTIVE}"
+                """);
+
+        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads ${PERSPECTIVE}");
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly("orders: ${PERSPECTIVE} is not substituted: environment variables are not "
+                                + "read, and nothing in the model defines PERSPECTIVE"));
+    }
+
+    @Test
+    void aDefinitionAfterAnIdentifierAssignmentStillDefines(@TempDir Path dir) throws Exception {
+        // The parser drops "x =" from a line before it reads the keyword, so this line is a !const.
+        String dsl = VALID.replace("!identifiers flat", "!identifiers flat\n    x = !const NAME \"Orders\"")
+                .replace("orders = component \"Orders\" {", "orders = component \"Orders\" \"Reads ${NAME}\" {");
+
+        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads Orders");
+        assertThat(ContractModelReader.read(write(dir, dsl), "workspace.dsl").components()).hasSize(1);
+    }
+
+    @Test
+    void blockCommentsNestAsTheParserNestsThem(@TempDir Path dir) throws Exception {
+        String dsl = VALID.replace("// MODEL", """
+                /*
+                /* inner
+                */
+                ${STILL_IN_THE_OUTER_COMMENT}
+                */
+                clerk = person "Clerk" "${AFTER_THE_COMMENT}"
+                """);
+
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(unresolved(dsl, "AFTER_THE_COMMENT")));
+    }
+
+    @Test
     void aByteOrderMarkDoesNotHideACommentOnTheFirstLine(@TempDir Path dir) throws Exception {
         String dsl = "\uFEFF// ${COMMENTED}\n" + VALID;
 
@@ -345,8 +537,25 @@ class RestrictedDslParserTest {
 
     /** The problem for a ${name} that nothing defines, at the only line of the model that contains it. */
     private static String unresolved(String dsl, String name) {
-        return "workspace.dsl:" + lineOf(dsl, "${" + name + "}") + ": ${" + name + "} is not substituted: environment "
-                + "variables are not read, and no !const or !var defines " + name + " before this line";
+        return unresolvedAt(lineOf(dsl, "${" + name + "}"), name);
+    }
+
+    private static String unresolvedAt(int line, String name) {
+        return "workspace.dsl:" + line + ": ${" + name + "} is not substituted: environment variables are not read, "
+                + "and no !const or !var defines " + name + " before this line";
+    }
+
+    /** What the parser made of the description of the component Orders. */
+    private static String descriptionOfOrders(Path dir, String dsl) throws Exception {
+        return parsedElement(dir, dsl, "Orders").getDescription();
+    }
+
+    private static Element parsedElement(Path dir, String dsl, String name) throws Exception {
+        ParsedModel parsed = RestrictedDslParser.parse(write(dir, dsl), "workspace.dsl", new Problems());
+        return parsed.workspace().getModel().getElements().stream()
+                .filter(element -> element.getName().equals(name))
+                .findFirst()
+                .orElseThrow();
     }
 
     private static int lineOf(String text, String fragment) {
