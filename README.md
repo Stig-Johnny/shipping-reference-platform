@@ -153,3 +153,9 @@ check in both directions and what 2025–2026 studies say about coding agents an
   <https://docs.lattix.com/lattix/userGuide/Monitoring_and_Enforcing_Architecture.html>
 - **Structurizr DSL and the C4 model** by Simon Brown: the modelling language and notation.
   <https://docs.structurizr.com/dsl>, <https://c4model.com/>
+
+## Licence
+
+Except for the third-party material identified in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md), all original
+code, configuration, models, specifications, ADRs, security reviews and documentation are licensed under the
+[Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for attribution.
