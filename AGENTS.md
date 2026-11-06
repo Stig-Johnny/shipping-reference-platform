@@ -44,8 +44,10 @@ as the code. An agent that makes a check pass by weakening it has failed the tas
   "Size reason:" paragraph; prefer splitting.
 - State the risk level you expect and why. The `risk-approval` check computes the real level from base-branch
   policy; you may argue for a higher level, never a lower one.
-- Pull requests are opened by the dedicated GitHub App identity. Never use the owner's credentials. Never approve or
-  merge your own pull request. Never push to `main`, force-push a shared branch, skip hooks or bypass a check.
+- Planned: pull requests are opened by a dedicated GitHub App identity. Today agents open them on the owner's account,
+  which is why GitHub cannot require code owner review (`docs/gaps.md`, section 5). Never approve your own pull
+  request, never merge one whose checks are not green, and never push to `main`, force-push a shared branch, skip
+  hooks or bypass a check.
 
 ## Risk levels
 
@@ -95,13 +97,14 @@ reports and `CHANGELOG.md` (release-please). Change the source and regenerate.
 
 ## Commands
 
-Placeholders until the build bootstrap pull request provides them; `README.md` has the current list.
+The commands that exist today. The others arrive with their code; until then, say in the pull request what you ran.
 
 | Purpose | Command |
 |---|---|
-| All Java checks | `<java-check>` |
-| Web checks | `<web-check>` |
-| Contract and end-to-end tests | `<contract-e2e>` |
+| Dependency allowlist (the JDK alone) | `java tools/policy/PolicyCheck.java .` |
+| All Java checks | `./gradlew check` |
+| Web checks | not built yet |
+| Contract and end-to-end tests | not built yet |
 | Mutation tests (CI only: the `mutation` job; never run `pitest` on a machine whose firewall lets inbound connections reach `java`) | `./gradlew :libs:c4-contract-kit:pitest` |
-| Brain and docs check | `<docs-brain>` |
-| Risk level of the current branch | `<risk-level>` |
+| Brain and docs check | not built yet |
+| Risk level of the current branch | not built yet: state the level and why in the pull request |

@@ -1,6 +1,7 @@
-# java: build and test with the reviewed toolchain. Every dependency resolves from the lockfiles and is checked against
-# gradle/verification-metadata.xml; CI never writes either of them. GRADLE_USER_HOME starts empty on every run, because
-# the wrapper checks the distribution's SHA-256 only when it downloads it.
+# java: build and test with the reviewed toolchain, after the base branch's allowlist checker has passed the candidate.
+# Every dependency resolves from the lockfiles and is checked against gradle/verification-metadata.xml; CI never writes
+# either of them. GRADLE_USER_HOME starts empty on every run, because the wrapper checks the distribution's SHA-256
+# only when it downloads it.
 name: java
 
 on:
@@ -27,13 +28,25 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
+      # The base branch supplies the tooling that judges the candidate: the JDK staging script and the allowlist
+      # checker. Nothing from the candidate runs until the checker has passed it. A pull request can still change this
+      # workflow; preflight, which runs from the base branch, is the gate it cannot change.
+      - name: Check out the trusted tooling (the base branch)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
         with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: base
           persist-credentials: false
 
-      - name: Stage the reviewed JDK
+      - name: Check out the candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
+        with:
+          path: candidate
+          persist-credentials: false
+
+      - name: Stage the reviewed JDK (the base branch's script and checksum)
         id: jdk
-        run: tools/ci/stage-temurin.sh "$RUNNER_TEMP/jdk"
+        run: base/tools/ci/stage-temurin.sh "$RUNNER_TEMP/jdk"
 
       - name: Install the staged JDK
         uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0, reviewed
@@ -44,10 +57,16 @@ jobs:
           architecture: x64
           token: ''
 
+      - name: Check the candidate against the allowlist before any of its code runs
+        # 1 = findings and 2 = the check could not complete both fail the job (pipefail).
+        run: java base/tools/policy/PolicyCheck.java candidate | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Verify the Gradle wrapper before running it
+        working-directory: candidate
         run: echo "3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  gradle/wrapper/gradle-wrapper.jar" | sha256sum --check --strict
 
       - name: Build and test
+        working-directory: candidate
         env:
           GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
           TESTCONTAINERS_RYUK_DISABLED: 'true'
@@ -58,7 +77,7 @@ jobs:
         id: report_guard
         if: ${{ !cancelled() }}
         run: |
-          links="$(find libs apps -type l -print -quit 2>/dev/null || true)"
+          links="$(find candidate/libs candidate/apps -type l -print -quit 2>/dev/null || true)"
           if [[ -n "$links" ]]; then
             echo "::error::A symbolic link was found under libs/ or apps/; refusing to upload the reports."
             exit 1
@@ -71,8 +90,8 @@ jobs:
         with:
           name: java-reports
           path: |
-            libs/*/build/reports/
-            apps/*/build/reports/
+            candidate/libs/*/build/reports/
+            candidate/apps/*/build/reports/
           include-hidden-files: false
           archive: true
           overwrite: false
@@ -83,18 +102,28 @@ jobs:
     # PIT runs only here, on a disposable GitHub-hosted worker. Its parent JVM listens on all interfaces and accepts
     # its workers' first connection without authentication (security/reviews/maven--pitest-command-line--1.30.2.md,
     # condition 2), so the pitest task never runs on a developer machine whose firewall lets inbound connections
-    # reach java. No secret or token is in this job's environment (condition 3).
+    # reach java. No secret or token is in this job's environment (condition 3). As in `java`, the base branch supplies
+    # the tooling, and nothing from the candidate runs until the base branch's checker has passed it.
     name: mutation
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
+      - name: Check out the trusted tooling (the base branch)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
         with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: base
           persist-credentials: false
 
-      - name: Stage the reviewed JDK
+      - name: Check out the candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
+        with:
+          path: candidate
+          persist-credentials: false
+
+      - name: Stage the reviewed JDK (the base branch's script and checksum)
         id: jdk
-        run: tools/ci/stage-temurin.sh "$RUNNER_TEMP/jdk"
+        run: base/tools/ci/stage-temurin.sh "$RUNNER_TEMP/jdk"
 
       - name: Install the staged JDK
         uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0, reviewed
@@ -105,10 +134,16 @@ jobs:
           architecture: x64
           token: ''
 
+      - name: Check the candidate against the allowlist before any of its code runs
+        # 1 = findings and 2 = the check could not complete both fail the job (pipefail).
+        run: java base/tools/policy/PolicyCheck.java candidate | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Verify the Gradle wrapper before running it
+        working-directory: candidate
         run: echo "3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  gradle/wrapper/gradle-wrapper.jar" | sha256sum --check --strict
 
       - name: Mutation testing of the contract kit (at least 90 % killed)
+        working-directory: candidate
         env:
           GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
         run: ./gradlew --no-daemon --console=plain :libs:c4-contract-kit:pitest
@@ -118,7 +153,7 @@ jobs:
         id: report_guard
         if: ${{ !cancelled() }}
         run: |
-          links="$(find libs -type l -print -quit 2>/dev/null || true)"
+          links="$(find candidate/libs -type l -print -quit 2>/dev/null || true)"
           if [[ -n "$links" ]]; then
             echo "::error::A symbolic link was found under libs/; refusing to upload the mutation report."
             exit 1
@@ -130,7 +165,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2, reviewed
         with:
           name: mutation-report
-          path: libs/*/build/reports/pitest/
+          path: candidate/libs/*/build/reports/pitest/
           include-hidden-files: false
           archive: true
           overwrite: false

@@ -1,13 +1,15 @@
 # shipping-reference-platform
 
-A private reference monorepo that shows how a Java and React product can be built when the architecture model, the
+A reference monorepo that shows how a Java and React product can be built when the architecture model, the
 API contract and the documentation lead and the code follows, and when each claim about the code is backed by a
 check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is
 synthetic and the carrier is simulated.
 
-**State of this commit:** the model, contract, decisions, module specifications, risk policy and agent rules are
-here, with the build bootstrap and the model-versus-code checker `libs/c4-contract-kit`; no application code is. Every
-product capability in `docs/capabilities/capabilities.yaml` is `planned`; the checker's controls carry their tests.
+**State:** the specification (model, contract, decisions, module specifications, risk policy, agent rules), the
+reviewed toolchain, the enforced dependency allowlist and the model-versus-code checker `libs/c4-contract-kit` are
+here. Application code is not written yet: every product capability in `docs/capabilities/capabilities.yaml` is
+`planned`, and that file is the source of truth for status and evidence; the checker's controls carry their tests.
+The table below marks each control **enforced** (it runs and can fail today) or **planned**.
 
 ## The idea
 
@@ -59,22 +61,22 @@ data, enforced in queries and by forced PostgreSQL row-level security.
 
 ## Controls and how each one can fail
 
-| Control | Fails the build when | What it cannot catch | Where it runs |
-|---|---|---|---|
-| C4 conformance: divergence | A class in one module references another module without a relationship in the model. | Use through reflection, SQL, HTTP or configuration; references the class file does not record (compile-time constants, casts); a model widened to allow the dependency (that change needs the owner). | `java`: `ArchitectureConformanceTest` |
-| C4 conformance: absence | A `REQUIRED` relationship has no static reference in the bytecode. | A reference that exists while the behaviour behind it does nothing. | `java`: `ArchitectureConformanceTest` |
-| Model validity | Package mappings overlap, are empty or leave classes uncovered; a planned module has code; forbidden DSL directives; tags disagree with contract properties; cycles. | Whether the model describes the right architecture. | `java` |
-| Module boundaries and layering | Access to another module's internal packages, module cycles, Spring in domain code, unexpected packages. | Coupling through shared data or timing. | `java`: `ModularityTest`, `HexagonalLayeringTest` |
-| API contract | A response deviates from the OpenAPI schema; the regenerated TypeScript client differs from the committed one. | Operations and status codes no test exercises. | `java`: `*HttpContractTest`; `web` |
-| Tenant isolation | A tenant table lacks forced row-level security; the runtime role could bypass it; another tenant's IDs are readable through SQL or HTTP. | SQL run as the owner role; the shared event publication table; strength of the demo authentication. | `java`: `RowLevelSecurityCatalogTest`, `RowLevelSecurityIntegrationTest`, `CrossTenantAccessTest` |
-| Domain invariants | Golden tariff prices, monotonicity and rounding properties, idempotent booking, expiry rules. | Wrong requirements. | `java` (parameterized property tests included: `SyntheticTariffPropertiesTest`) |
-| Event delivery | A failed audit write is lost, or a replay has a second effect. | Consumers nobody has written yet. | `java`: `AuditReplayIntegrationTest` |
-| Mutation testing | Fewer than 80 % of mutants on changed lines are killed (90 % for pricing and checker code). | Tests that consistently assert the wrong thing; hand-reviewed equivalent mutants. | `mutation` |
-| Dependency allowlist, before use | A component lacks an approved, unexpired review; a lockfile or checksum disagrees with it; an Action is not pinned by SHA. | Build code that downloads executables itself, compromised approved artifacts, runner compromise, local agents bypassing CI. | `preflight` (base-branch workflow) |
-| Risk-levelled approval | A level 3 change lacks the owner's approval of its current head. | A sensitive change that matches no rule; a single approver is not two-person review. | `risk-approval` |
-| AI review record | No AI review with findings and dispositions is recorded for the final commit. | AI reviewers being wrong. | `ai-review` |
-| Web behaviour and accessibility | Quote, book and label fail in a real browser against the real API; axe-core finds violations; import cycles or boundary breaks. | Accessibility problems that automated tools miss; unused frontend modules. | `web`, `contract-e2e` |
-| Documentation and brain | Generated docs or `BRAIN.md` drift; budgets exceeded; a capability claims `shipped` without passing evidence; code changed without its module document. | Whether the prose is right. | `docs-brain` |
+| Control | Fails the build when | What it cannot catch | Where it runs | Status |
+|---|---|---|---|---|
+| C4 conformance: divergence | A class in one module references another module without a relationship in the model. | Use through reflection, SQL, HTTP or configuration; references the class file does not record (compile-time constants, casts); a model widened to allow the dependency (that change needs the owner). | `java`: `ArchitectureConformanceTest` | planned (the library is built and tested; there is no application code to check yet) |
+| C4 conformance: absence | A `REQUIRED` relationship has no static reference in the bytecode. | A reference that exists while the behaviour behind it does nothing. | `java`: `ArchitectureConformanceTest` | planned (as above) |
+| Model validity | Package mappings overlap, are empty or leave classes uncovered; a planned module has code; forbidden DSL directives; tags disagree with contract properties; cycles. | Whether the model describes the right architecture. | `java`: `RepositoryWorkspaceTest` reads `architecture/workspace.dsl` with the library | **enforced** for the model file; the rules that need classes (uncovered classes, code in a planned module) wait for application code |
+| Module boundaries and layering | Access to another module's internal packages, module cycles, Spring in domain code, unexpected packages. | Coupling through shared data or timing. | `java`: `ModularityTest`, `HexagonalLayeringTest` | planned |
+| API contract | A response deviates from the OpenAPI schema; the regenerated TypeScript client differs from the committed one. | Operations and status codes no test exercises. | `java`: `*HttpContractTest`; `web` | planned |
+| Tenant isolation | A tenant table lacks forced row-level security; the runtime role could bypass it; another tenant's IDs are readable through SQL or HTTP. | SQL run as the owner role; the shared event publication table; strength of the demo authentication. | `java`: `RowLevelSecurityCatalogTest`, `RowLevelSecurityIntegrationTest`, `CrossTenantAccessTest` | planned |
+| Domain invariants | Golden tariff prices, monotonicity and rounding properties, idempotent booking, expiry rules. | Wrong requirements. | `java` (parameterized property tests included: `SyntheticTariffPropertiesTest`) | planned |
+| Event delivery | A failed audit write is lost, or a replay has a second effect. | Consumers nobody has written yet. | `java`: `AuditReplayIntegrationTest` | planned |
+| Mutation testing | Fewer than 80 % of mutants on changed lines are killed (90 % for pricing and checker code). | Tests that consistently assert the wrong thing; hand-reviewed equivalent mutants. | `mutation` | planned (today the `mutation` job runs PIT on the contract kit and fails under 90 % killed; it is not a required check) |
+| Dependency allowlist, before use | A component lacks an approved, unexpired review; a lockfile or checksum disagrees with it; an Action is not pinned by SHA. | Build code that downloads executables itself, compromised approved artifacts, runner compromise, local agents bypassing CI. | `preflight` (base-branch workflow) | **enforced**: a required check, proven to fail |
+| Risk-levelled approval | A level 3 change lacks the owner's approval of its current head. | A sensitive change that matches no rule; a single approver is not two-person review. | `risk-approval` | planned |
+| AI review record | No AI review with findings and dispositions is recorded for the final commit. | AI reviewers being wrong. | `ai-review` | planned |
+| Web behaviour and accessibility | Quote, book and label fail in a real browser against the real API; axe-core finds violations; import cycles or boundary breaks. | Accessibility problems that automated tools miss; unused frontend modules. | `web`, `contract-e2e` | planned |
+| Documentation and brain | Generated docs or `BRAIN.md` drift; budgets exceeded; a capability claims `shipped` without passing evidence; code changed without its module document. | Whether the prose is right. | `docs-brain` | planned |
 
 Every advertised failure requires a deliberate negative fixture. The checker's own tests have theirs; the
 application's do not exist yet. The full list of limits is in `docs/gaps.md`.
@@ -100,19 +102,17 @@ BRAIN.md                         generated agent entry point (later)
 
 ## Running it
 
-The build bootstrap pull request provides these commands; until then they are placeholders.
+From a clean clone, with the reviewed JDK (Temurin 25.0.5+8) on `JAVA_HOME`. Install it by hand from the archive
+whose SHA-256 is in `security/verifications/2026-11-06-toolchain.md`: Gradle's toolchain auto-download is off.
 
 | Step | Command |
 |---|---|
-| Install the reviewed toolchain (JDK 25.0.5+8, Node 26.13.0, npm 11.20.0) | `<bootstrap>` |
-| Start PostgreSQL 18.6 with the two roles | `<db-up>` |
-| Start the API with the `demo` profile and synthetic seed (port 8080) | `<api-run-demo>` |
-| Start the workbench (port 5173, proxies `/api`) and sign in as `clerk-alpha` | `<web-run>` |
-| Run all Java checks | `<java-check>` |
-| Run web checks | `<web-check>` |
-| Run contract and end-to-end tests | `<contract-e2e>` |
+| Check every dependency against the allowlist (the JDK alone; nothing from the repository runs) | `java tools/policy/PolicyCheck.java .` |
+| Run all Java checks (compile with Error Prone and NullAway, tests) | `./gradlew check` |
 | Run mutation tests (CI only, the `mutation` job: PIT's control socket accepts unauthenticated connections) | `./gradlew :libs:c4-contract-kit:pitest` |
-| Check docs and regenerate the brain | `<docs-brain>` |
+
+Not built yet; their commands arrive with their code: a toolchain bootstrap script, PostgreSQL 18.6 with the two
+roles, the API with the `demo` profile, the workbench, web checks, contract and end-to-end tests, and the brain.
 
 ## Honest limits
 
@@ -155,3 +155,9 @@ check in both directions and what 2025–2026 studies say about coding agents an
   <https://docs.lattix.com/lattix/userGuide/Monitoring_and_Enforcing_Architecture.html>
 - **Structurizr DSL and the C4 model** by Simon Brown: the modelling language and notation.
   <https://docs.structurizr.com/dsl>, <https://c4model.com/>
+
+## Licence
+
+Except for the third-party material identified in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md), all original
+code, configuration, models, specifications, ADRs, security reviews and documentation are licensed under the
+[Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for attribution.
