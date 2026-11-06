@@ -131,11 +131,11 @@ What is built, and where it differs from the decision above. The decision stands
   acceptance also computes the digest. The record quotes the owner's words and their timestamp from the chat
   transcript. Nothing binds an approval to a head SHA.
 - **No base-dispatched verification workflow.** `preflight` dispatches nothing, and no trusted job publishes check
-  results. `java` is an ordinary `pull_request` workflow. It runs the candidate's own JDK staging script, wrapper
-  SHA-256 check and `./gradlew check` under strict locking and checksum verification, and does not run the checker
-  first. It does not wait for `preflight`, so a candidate's build scripts run in `java` whatever `preflight`
-  reports. A pull request can edit `java.yml` itself. `preflight`, run from the base branch, is the gate a pull request
-  cannot weaken: today it stops the merge, not the candidate build.
+  results. `java` is an ordinary `pull_request` workflow. It checks out the base branch next to the candidate, stages
+  the JDK with the base branch's script and runs the base branch's checker on the candidate before any candidate code
+  runs. Only then does it verify the wrapper and run `./gradlew check` under strict locking and checksum
+  verification. So an unreviewed dependency stops the job before Gradle starts. A pull request can still edit
+  `java.yml` itself. `preflight`, run from the base branch, is the gate a pull request cannot weaken.
 - **No agent App identity.** The AI agents open pull requests on the owner's GitHub account. No GitHub App exists
   for them, so their pull requests have the same author as the owner's.
 - **Repository settings.** The Actions setting is applied: selected actions only, SHA pinning required, six allowed
