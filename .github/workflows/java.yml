@@ -113,16 +113,20 @@ jobs:
           GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
         run: ./gradlew --no-daemon --console=plain :libs:c4-contract-kit:pitest
 
-      - name: Refuse symbolic links in the report
-        if: always()
+      - name: Refuse symbolic links before uploading the report
+        # Any link under libs/, the report directory itself included: the upload follows links.
+        id: report_guard
+        if: ${{ !cancelled() }}
         run: |
-          if find libs -path '*/build/reports/pitest/*' -type l 2>/dev/null | grep -q .; then
-            echo "::error::The mutation report contains a symbolic link; refusing to upload."
+          links="$(find libs -type l -print -quit 2>/dev/null || true)"
+          if [[ -n "$links" ]]; then
+            echo "::error::A symbolic link was found under libs/; refusing to upload the mutation report."
             exit 1
           fi
 
       - name: Upload the mutation report
-        if: always()
+        # Only when the guard ran and passed: always() would upload even after the guard failed.
+        if: ${{ !cancelled() && steps.report_guard.outcome == 'success' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2, reviewed
         with:
           name: mutation-report
