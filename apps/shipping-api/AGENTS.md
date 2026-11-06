@@ -16,6 +16,7 @@ Adds to the root `AGENTS.md`. Decisions: ADR 0003 (modules), 0004 (contract), 00
 
 ## Java
 
+- Use `spring-boot-starter-webmvc` for HTTP; `spring-boot-starter-web` was rejected by dependency review.
 - Java 25 (`--release 25`), Spring Boot 4.1.2, Spring Modulith 2.1.2, Spring Data JDBC, Flyway 12.4.0.
 - Records for values, commands, events and responses. Validate in canonical constructors.
 - Sealed interfaces for expected business outcomes (`QuoteResult`, `OfferLookup`, `BookingOutcome`,
@@ -59,6 +60,7 @@ Adds to the root `AGENTS.md`. Decisions: ADR 0003 (modules), 0004 (contract), 00
 
 ## Tests
 
+- Set `TESTCONTAINERS_RYUK_DISABLED=true` for local and CI Testcontainers runs. Ryuk is rejected; the test harness and runner own container cleanup.
 | Suffix | Kind | Runs in |
 |---|---|---|
 | `*Test` | Unit or slice by default; RowLevelSecurityCatalogTest, CrossTenantAccessTest and TableOwnershipTest use PostgreSQL where their assertions require it | `java` |

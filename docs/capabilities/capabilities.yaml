@@ -283,7 +283,7 @@ controls:
     target: v0.1
     evidence: none yet
     acceptanceTests: [ReportNoStaticEvidenceTest]
-    negativeFixture: The audit -> quotes relationship in architecture/workspace.dsl.
+    negativeFixture: A fixture with built, nonempty audit and quotes components, a PERMITTED audit -> quotes relationship, and no static reference between them.
     docs: docs/adr/0002-c4-model-is-the-structural-authority.md
   - id: control.model-validation
     title: Restricted DSL parsing and mapping validation (overlaps, empty or uncovered mappings, planned code, tag mismatches, cycles, forbidden directives).

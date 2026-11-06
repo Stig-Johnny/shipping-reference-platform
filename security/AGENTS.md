@@ -13,7 +13,7 @@ Every exact component the project downloads or runs, one allowlist entry per art
 - The JDK, per platform binary.
 - npm packages, including every transitive in `package-lock.json`.
 - GitHub Actions, by full commit SHA, including actions they call.
-- Container images (PostgreSQL, Testcontainers' helper images), by digest.
+- Container images, including PostgreSQL and any permitted Testcontainers helper images, require individual reviews and digest pins. Ryuk is rejected and must remain disabled.
 - Browser binaries downloaded by Playwright.
 - Runner tools invoked directly by workflows.
 
