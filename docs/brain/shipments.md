@@ -62,4 +62,4 @@ Books shipments from quote offers with tenant-scoped idempotency, cancels them a
 
 ## Gaps that name it
 
-None of the entries in [docs/gaps.md](../gaps.md) names this module; the whole file applies.
+No module-specific gaps are recorded here. See the project-wide known gaps in [docs/gaps.md](../gaps.md).

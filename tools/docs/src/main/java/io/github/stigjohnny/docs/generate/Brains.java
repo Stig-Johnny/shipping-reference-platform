@@ -204,7 +204,8 @@ public final class Brains {
         }
         out.append("\n## Gaps that name it\n\n");
         if (module.gaps().isEmpty()) {
-            out.append("None of the entries in [docs/gaps.md](../gaps.md) names this module; the whole file applies.\n");
+            out.append("No module-specific gaps are recorded here. See the project-wide known gaps in "
+                    + "[docs/gaps.md](../gaps.md).\n");
         }
         for (ModuleFacts.Gap gap : module.gaps()) {
             out.append("- ").append(gap.section()).append(": ").append(gap.text()).append('\n');

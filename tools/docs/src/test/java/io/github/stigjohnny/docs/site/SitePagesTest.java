@@ -6,6 +6,7 @@ import io.github.stigjohnny.docs.Html;
 import io.github.stigjohnny.docs.generate.Brains;
 import io.github.stigjohnny.docs.repo.Allowlist;
 import io.github.stigjohnny.docs.repo.AllowlistEntry;
+import io.github.stigjohnny.docs.repo.Capability;
 import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.testing.BuiltSite;
 import io.github.stigjohnny.docs.testing.Fixture;
@@ -55,8 +56,7 @@ class SitePagesTest {
             assertThat(site.text(page)).as(page).contains("Accepted design", "Planned implementation",
                     "Verified evidence");
         }
-        assertThat(site.text("brain/index.html")).contains("BrainGeneratorTest", "BrainCheckTest")
-                .contains("1 capability shipped (control.brain-check).");
+        assertThat(site.text("brain/index.html")).contains("BrainGeneratorTest", "BrainCheckTest");
         assertThat(site.text("modules/quotes.html")).contains("5 capabilities planned").contains("None yet");
     }
 
@@ -255,6 +255,23 @@ class SitePagesTest {
         assertThat(flow).doesNotContain("<h2 id=\"sequence\">").contains("Enlarge diagram",
                 "<script src=\"../assets/mermaid/11.17.2/mermaid.min.js\" defer></script>",
                 "href=\"quote-book-label.html\"");
+    }
+
+    @Test
+    void theBrainOverviewMatchesItsTables() {
+        String brain = site.text("brain/index.html");
+        assertThat(sources.capabilities().specificationOnly()).as("every product capability is planned").isTrue();
+        long capabilities = sources.capabilities().capabilities().size();
+        long shipped = sources.capabilities().controls().stream()
+                .filter(c -> c.status() == Capability.Status.SHIPPED).count();
+        long planned = sources.capabilities().controls().size() - shipped;
+
+        assertThat(brain).contains("<span class=\"badge badge-partial\">Partly shipped</span> " + capabilities
+                + " capabilities planned; " + shipped + " controls shipped and " + planned + " controls planned.");
+        assertThat(brain).contains("Documentation controls only: BrainGeneratorTest, BrainCheckTest, "
+                + "PublicationScannerTest, PagesWorkflowTest passed in the build that generated this site.");
+        assertThat(brain).doesNotContain("names this module").contains("No module-specific gaps are recorded here. "
+                + "See the <a href=\"../trust/gaps.html\">project-wide known gaps</a>.");
     }
 
     @Test

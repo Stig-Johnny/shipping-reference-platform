@@ -9,7 +9,9 @@ import io.github.stigjohnny.docs.repo.Capability;
 import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.repo.TestEvidence;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The brain: the capability and control tables with status, risk and evidence, then one disclosure per module with
@@ -58,14 +60,13 @@ final class BrainPage {
         for (String id : List.of("capabilities", "controls", "modules", "agent-context-heading")) {
             context.map().anchor(PAGE, id);
         }
-        List<Capability> brainControls = sources.capabilities().controls().stream()
-                .filter(c -> c.id().equals("control.brain-check")).toList();
+
         return new SitePage(PAGE, "Project brain", "Brain", SiteSection.BRAIN, "What is shipped and what is only "
                 + "planned, with the evidence for each, then one summary per module. Generated with the site from the "
                 + "same sources as BRAIN.md, which agents read first.", new StatusPanel(
                         Statuses.design("accepted", "ADR 0011: a generated, budgeted brain that never claims more "
-                                + "than its evidence."), Statuses.implementation(brainControls),
-                        Statuses.evidence(brainControls, evidence)),
+                                + "than its evidence."), overview(sources.capabilities()),
+                        passing(sources.capabilities(), evidence)),
                 List.of(new SitePage.Contents("capabilities", "Capabilities"),
                         new SitePage.Contents("controls", "Controls"), new SitePage.Contents("modules", "Modules"),
                         new SitePage.Contents("agent-context-heading", "Agent context")),
@@ -119,8 +120,8 @@ final class BrainPage {
         }
         out.append("<h3>Gaps</h3>\n");
         if (module.gaps().isEmpty()) {
-            out.append("<p>No entry of ").append(SiteContext.link(PAGE, "trust/gaps.html", "the known gaps"))
-                    .append(" names this module; all of them apply.</p>\n");
+            out.append("<p>No module-specific gaps are recorded here. See the ")
+                    .append(SiteContext.link(PAGE, "trust/gaps.html", "project-wide known gaps")).append(".</p>\n");
         } else {
             out.append("<ul>\n");
             for (ModuleFacts.Gap gap : module.gaps()) {
@@ -136,6 +137,41 @@ final class BrainPage {
         String docs = context.map().site(capability.docs()).map(p -> " " + SiteContext.link(PAGE, p, "spec"))
                 .orElse("");
         return "<code>" + Html.escape(capability.id()) + "</code> " + Html.escape(capability.title()) + docs;
+    }
+
+    /** The overview of every capability and control, counted by status, so that it matches the tables below. */
+    static String overview(Capabilities capabilities) {
+        List<Capability> all = capabilities.all();
+        Badge badge = all.stream().allMatch(c -> c.status() == Capability.Status.PLANNED) ? Badge.PLANNED
+                : all.stream().allMatch(c -> c.status() == Capability.Status.SHIPPED) ? Badge.SHIPPED : Badge.PARTIAL;
+        String words = badge == Badge.PLANNED ? "Planned" : badge == Badge.SHIPPED ? "Shipped" : "Partly shipped";
+        return badge.html(words) + " " + Html.escape(counted(capabilities.capabilities(), "capability",
+                "capabilities") + "; " + counted(capabilities.controls(), "control", "controls") + ".");
+    }
+
+    private static String counted(List<Capability> entries, String one, String many) {
+        List<String> parts = new ArrayList<>();
+        for (Capability.Status status : Capability.Status.values()) {
+            long count = entries.stream().filter(c -> c.status() == status).count();
+            if (count > 0) {
+                parts.add(count + " " + (count == 1 ? one : many) + " " + status.value());
+            }
+        }
+        return parts.isEmpty() ? "no " + many : String.join(" and ", parts);
+    }
+
+    /** The tests that passed in this build as evidence, and whose they are when only the documentation tool's. */
+    static String passing(Capabilities capabilities, TestEvidence evidence) {
+        List<Capability> evidenced = capabilities.all().stream()
+                .filter(c -> c.evidence().stream().anyMatch(evidence::passed)).toList();
+        Set<String> tests = new LinkedHashSet<>();
+        evidenced.forEach(c -> c.evidence().stream().filter(evidence::passed).forEach(tests::add));
+        if (tests.isEmpty()) {
+            return Badge.NONE.html("None yet") + " No test passed as evidence in the build that generated this site.";
+        }
+        boolean documentationOnly = evidenced.stream().allMatch(c -> c.control() && c.where().startsWith("tools/docs"));
+        return Badge.SHIPPED.html("Passing") + " " + Html.escape((documentationOnly ? "Documentation controls only: "
+                : "") + String.join(", ", tests) + " passed in the build that generated this site.");
     }
 
     private static String status(Capability capability) {
