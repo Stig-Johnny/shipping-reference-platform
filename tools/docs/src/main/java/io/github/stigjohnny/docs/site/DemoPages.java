@@ -157,9 +157,9 @@ final class DemoPages {
     static String evidence(DemoRecord demo, TestEvidence evidence) {
         List<String> tests = demo.tests();
         if (tests.isEmpty()) {
-            return Badge.NONE.html("None in this build") + " This record names no test class, so the build that "
-                    + "generated this site checked nothing on it. Its evidence is recorded output, which this build "
-                    + "did not rerun.";
+            return Badge.NONE.html("None in this build") + " This record names no test class, so no named-test "
+                    + "evidence is available in this build. The documentation checks still validate its form and "
+                    + "links. Its recorded evidence was not rerun.";
         }
         List<String> passing = tests.stream().filter(evidence::passed).toList();
         String states = "\n<details class=\"evidence-tests\"><summary>Named test classes (" + tests.size()

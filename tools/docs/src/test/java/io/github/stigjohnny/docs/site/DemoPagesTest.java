@@ -171,8 +171,8 @@ class DemoPagesTest {
         String sheet = site.text("demos/42-gate.html");
 
         assertThat(evidenceOf(site)).isEqualTo("<span class=\"badge badge-none\">None in this build</span> This record "
-                + "names no test class, so the build that generated this site checked nothing on it. Its evidence is "
-                + "recorded output, which this build did not rerun.");
+                + "names no test class, so no named-test evidence is available in this build. The documentation checks "
+                + "still validate its form and links. Its recorded evidence was not rerun.");
         assertThat(sheet).doesNotContain("badge-shipped", "badge-approved", "badge-matches");
     }
 
