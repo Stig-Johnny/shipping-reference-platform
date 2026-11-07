@@ -48,7 +48,7 @@ workspace "c4-contract-kit" "The internal structure of the library that checks c
                     }
                 }
 
-                sourcesPackage = component "sources" "TypeScript and TSX read as data with a restricted import grammar, and each import resolved to a file or a package." "Java package" {
+                sourcesPackage = component "sources" "TypeScript, TSX, style sheets and the web app's configuration read as data with a restricted grammar, and each import resolved to a file, a package or a built-in module of Node.js." "Java package" {
                     properties {
                         "contract.id" "sources"
                         "contract.packages" "io.github.stigjohnny.c4contractkit.sources"

@@ -9,8 +9,9 @@ as evidence: class, member, kind, and the source file and line when the class fi
 components, planned components with code and unmapped classes have no reference to show; they name the components
 and classes concerned.
 
-Its package `sources` reads a web app's TypeScript sources as data, with a deliberately restricted import grammar and
-the JDK alone, for a web import check that is not built yet ([`AGENTS.md`](AGENTS.md), "Web imports").
+Its package `sources` reads a web app's TypeScript sources, tests, style sheets and configuration as data, with a
+deliberately restricted grammar and the JDK alone, for a web import check that is not built yet
+([`AGENTS.md`](AGENTS.md), "Web imports"). Where it cannot decide with certainty, it refuses the file.
 
 The library is built and tested, and the shipping API is its first user: `ArchitectureConformanceTest` in
 `:apps:shipping-api` checks the API's classes with it. `SelfConformanceTest` checks the

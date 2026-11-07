@@ -157,6 +157,17 @@ which a subpath of names may follow: no empty, `.` or `..` segment and no percen
 a built-in module names that module (`node:test`, `node:assert/strict`); any other `node:` specifier is unsupported.
 Absolute specifiers, other schemes (`https:`, `data:`, `virtual:`), queries and fragments are unsupported.
 
+The web app's configuration (`AppConfiguration`, read as strict JSON and as text): the check resolves specifiers
+itself, so a setting that would make TypeScript, Node.js or the browser resolve one otherwise, or add an import that no
+source file shows, is refused with its file and line. In `tsconfig*.json`: `extends`, `references`, and in
+`compilerOptions` `paths`, `baseUrl`, `rootDirs`, `typeRoots`, `moduleSuffixes`, `customConditions`,
+`allowArbitraryExtensions` and `jsxImportSource`; `types` unless it is empty, `importHelpers` when true, and a `jsx`
+that imports a JSX runtime. In `package.json`: `imports`, `overrides`, `browser` and dependencies other than
+`dependencies` and `devDependencies`, whose versions must be exact; `engines.node` names one exact version of Node.js.
+In each page (`*.html`): an import map, an inline script, a `<base>` element, a script or link from another origin, and
+a style element that names `@import`. A file that is not plain JSON (comments and trailing commas included), not UTF-8
+or not a regular file is refused too.
+
 ## Ten TDD slices
 
 One pull request each; tests first; red-green evidence in each pull request.
