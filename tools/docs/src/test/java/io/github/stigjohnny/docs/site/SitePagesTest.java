@@ -265,9 +265,15 @@ class SitePagesTest {
     }
 
     @Test
-    void theStartPageSaysTheSiteIsPublicAndTheRepositoryIsPlannedToBe() {
-        assertThat(site.text("index.html")).contains("The documentation site is public. The repository itself is "
-                + "planned to become public; repository links will be enabled after that change.");
+    void theStartPageSaysTheSiteAndTheRepositoryArePublicAndNamesTheRepositoryAsPlainText() {
+        String start = site.text("index.html");
+        String statement = "<p class=\"prose\">The documentation site and the repository are both public: the "
+                + "repository is Stig-Johnny/" + "shipping-reference-platform on GitHub.</p>";
+
+        assertThat(start).contains(statement).doesNotContain("planned to become public",
+                "repository links will be enabled", "github.com/" + "Stig-Johnny");
+        assertThat(site.text("start/repository.html")).contains("The README of the repository as committed")
+                .doesNotContain("private repository");
     }
 
     @Test

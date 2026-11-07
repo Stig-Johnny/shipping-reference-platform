@@ -31,8 +31,9 @@ final class StartPages {
                 .append("tenants, users, recipients and addresses are invented, and the carrier is simulated. The demo ")
                 .append("tokens in the module documents are public test fixtures, not credentials.</p>\n")
                 .append("<h2 id=\"public-site\">What this site publishes</h2>\n<p class=\"prose\">The documentation ")
-                .append("site is public. The repository itself is planned to become public; repository links will be ")
-                .append("enabled after that change.</p>\n<p class=\"prose\">The site is generated from the repository ")
+                .append("site and the repository are both public: the repository is ")
+                .append("Stig-Johnny/shipping-reference-platform on GitHub.</p>\n")
+                .append("<p class=\"prose\">The site is generated from the repository ")
                 .append("by <code>tools/docs</code> and scanned before publication. Paths of files that it does not ")
                 .append("publish, such as source code and workflows, appear as plain text.</p>\n");
         body.append("<h2 id=\"reading-paths\">Two reading paths</h2>\n<div class=\"card-grid\">\n");
@@ -83,7 +84,7 @@ final class StartPages {
         RenderedMarkdown rendered = context.render(sources.readme(), Sources.README, README, true);
         List<Capability> all = sources.capabilities().all();
         return new SitePage(README, "The repository's README", "The repository's README", SiteSection.START,
-                "The README of the private repository as committed: the idea, the product, the controls and how each "
+                "The README of the repository as committed: the idea, the product, the controls and how each "
                         + "can fail, and the honest limits.",
                 new StatusPanel(Statuses.design("accepted", "The README summarises the accepted specification."),
                         Statuses.implementation(all), Statuses.evidence(all, sources.evidence())),

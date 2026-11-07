@@ -121,6 +121,18 @@ class PublicationScannerTest {
     }
 
     @Test
+    void theRepositorysNameAsPlainTextIsNotALinkToIt() throws IOException {
+        String name = "Stig-Johnny/" + "shipping-reference-platform";
+        write("index.html", "<!DOCTYPE html>\n<p>The repository is " + name + " on GitHub.</p>\n");
+
+        assertThat(scan().findings()).isEmpty();
+
+        write("index.html", "<!DOCTYPE html>\n<p>The repository is https://github.com/" + name + ".</p>\n");
+
+        assertThat(scan().findings()).containsExactly(new Finding("PRIVATE_REPOSITORY_LINK", "index.html"));
+    }
+
+    @Test
     void theDocumentationSitesOwnAddressIsNotALinkToTheRepository() throws IOException {
         write("page.html", "<!DOCTYPE html>\n<p>[Open](https://stig-johnny.github.io/" + "shipping-reference-platform/"
                 + "model/system-context.html#figure-system-context)</p>\n");
