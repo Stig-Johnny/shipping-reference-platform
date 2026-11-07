@@ -9,9 +9,8 @@ as evidence: class, member, kind, and the source file and line when the class fi
 components, planned components with code and unmapped classes have no reference to show; they name the components
 and classes concerned.
 
-Its package `sources` reads a web app's TypeScript sources, tests, style sheets and configuration as data, with a
-deliberately restricted grammar and the JDK alone, for a web import check that is not built yet
-([`AGENTS.md`](AGENTS.md), "Web imports"). Where it cannot decide with certainty, it refuses the file.
+It also holds a web app's TypeScript imports to the web container of the same model, in both directions, with file,
+line and specifier evidence: the web import check, below.
 
 The library is built and tested, and the shipping API is its first user: `ArchitectureConformanceTest` in
 `:apps:shipping-api` checks the API's classes with it. `SelfConformanceTest` checks the
@@ -54,6 +53,36 @@ void theCodeConformsToTheModel() {
   `UNDECLARED`; status `CONVERGENCE`, `DIVERGENCE`, `ABSENCE`, `NO_STATIC_EVIDENCE` or `NOT_EVALUATED`), and the
   violations (`Violation`: `DIVERGENCE`, `ABSENCE`, `UNMAPPED_CLASS`, `ISOLATION_BREACH`,
   `PLANNED_COMPONENT_HAS_CODE`, `BUILT_COMPONENT_EMPTY`). `Report.passed()` is true when there is no violation.
+
+## The web import check
+
+```java
+@Test
+void theWebAppConformsToTheModel() {
+    Path repository = Path.of("../..");
+    WebReport report = WebConformance.check(repository.resolve("architecture/workspace.dsl"), repository);
+    WebConformance.assertConforms(report, Path.of("build/reports/c4-contract-web"));
+}
+```
+
+The model's web container names its source root with `web.root`, and each of its components its directories
+(`web.paths`), status, optional entry file and the npm packages it may import; relationships between them carry
+`web.mode`. The vocabulary is in the header of [`architecture/workspace.dsl`](../../architecture/workspace.dsl), and
+the rules in [`AGENTS.md`](AGENTS.md) ("Web imports").
+
+The check reads the sources as text with a deliberately restricted import grammar, so it needs the JDK alone: no
+Node, no TypeScript compiler and no parser library. It never runs, compiles or installs them. What the grammar reads
+(import declarations, type-only imports, re-exports, `import()` of a string literal) becomes evidence; what it does not
+cover fails the check with its file and line, never passes unseen: `require`, `import()` of a computed value,
+`import.meta` other than `import.meta.env`, path aliases, absolute and URL specifiers, `.js` and `.json` files,
+triple-slash directives, and JSX it cannot read with certainty. Strings, comments, templates, regular expressions and
+JSX text never count as code.
+
+It fails on an import between two components without a relationship, on a REQUIRED relationship between built
+components without an import, on a file in no component or in a planned one, on a built component without code, on an
+import of a component other than through its `web.entry`, on an unresolved import, on a package the importing
+component does not declare, on an import cycle, and on unsupported syntax or files. Its reports, `report.json`
+(`"schema": "c4-contract-kit/web-report/v1"`) and `report.md`, are deterministic like the class check's.
 
 ## The model
 

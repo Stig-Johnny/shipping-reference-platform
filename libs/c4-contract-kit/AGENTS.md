@@ -10,23 +10,22 @@ reports class-level evidence. It fails on dependencies the model does not declar
 relationships without any static reference (absences). It reports PERMITTED relationships without references as
 "no static evidence", never as "unused".
 
-Its package `sources` reads a web app's TypeScript sources as data, with a restricted import grammar, and resolves
-each import to a file or a package (section "Web imports"). The web import check that is to hold them to the web
-container of the same model is not built yet.
+The web import check does the same for a web app: it compares the web container of the same model with the imports
+of the app's TypeScript sources, read as data with a restricted import grammar, and reports file, line and specifier
+evidence (section "Web imports").
 
 ## Boundaries
 
 - Package `io.github.stigjohnny.c4contractkit` with exactly these sub-packages:
-  - `api`: the only public package. `Conformance`, `Report`, `ConformanceAssertions`, result records and
-    `ModelException`.
-  - `model`: restricted DSL parsing and validation into an immutable `ContractModel`.
+  - `api`: the only public package. `Conformance`, `Report`, `ConformanceAssertions`, `WebConformance`,
+    `WebReport`, result records and `ModelException`.
+  - `model`: restricted DSL parsing and validation into an immutable `ContractModel` and `WebModel`.
   - `bytecode`: class import with ArchUnit and evidence extraction.
   - `sources`: a web root read as data with the restricted import grammar, and each import resolved; the JDK only.
-  - `rules`: comparison and violation rules.
+  - `rules`: comparisons and violation rules.
   - `report`: deterministic JSON and Markdown writers.
-- Allowed internal dependencies: `api -> model, bytecode, rules, report`; `rules -> model, bytecode`;
-  `report -> rules, model`. `sources` depends on no other package, and no package uses it yet. No other edges; no
-  cycles. The self-model `libs/c4-contract-kit/architecture/self.dsl`
+- Allowed internal dependencies: `api -> model, bytecode, sources, rules, report`; `rules -> model, bytecode, sources`;
+  `report -> rules, model`. No other edges; no cycles. The self-model `libs/c4-contract-kit/architecture/self.dsl`
   (slice 4) states these edges and `SelfConformanceTest` checks the library against it.
 - Third-party code: `com.structurizr:structurizr-dsl:6.2.4` (in `model` only) and `com.tngtech.archunit:archunit:1.5.1`
   (in `bytecode` only). No Spring, no logging framework, no other runtime dependency. Tests: JUnit and AssertJ 3.27.7.
@@ -58,6 +57,21 @@ public final class ConformanceAssertions {
 
 Callers (for example `ArchitectureConformanceTest` in `:apps:shipping-api`) write reports to
 `build/reports/c4-contract/`.
+
+```java
+// io.github.stigjohnny.c4contractkit.api
+public final class WebConformance {
+    /** Parses the model (restricted), reads the web root its web.root names under repositoryRoot, compares. */
+    public static WebReport check(Path model, Path repositoryRoot);
+    /** Writes report.json and report.md to reportDirectory, then throws AssertionError if the report did not pass. */
+    public static void assertConforms(WebReport report, Path reportDirectory);
+}
+public record WebReport(String schema, String modelPath, String sourceRoot, List<WebComponentResult> components,
+                        List<WebEdgeResult> edges, List<WebViolation> violations) {
+    public boolean passed();   // true when violations is empty
+}
+public record ImportEvidence(String file, int line, String specifier, String kind, String target) {}
+```
 
 ## Model rules (the header of `architecture/workspace.dsl` states them for model authors)
 
@@ -112,6 +126,20 @@ Validation (each is a `ModelException` entry with element identifiers):
 - Identical inputs produce identical bytes, whatever the order of class roots or model elements.
 
 ## Web imports
+
+The web vocabulary (`web.root`, `web.id`, `web.paths`, `web.status`, `web.entry`, `web.packages`, `web.mode`) and its
+rules are in the header of `architecture/workspace.dsl`. It is separate from the contract vocabulary: the contract
+check permits exactly one checked container and rejects `contract.*` properties anywhere else, and the web check
+rejects them on the web container, its components and their relationships. Both read the model with the one
+restricted parser. The tag `Required import` marks a `REQUIRED` web relationship (the contract check reserves the tag
+`Required` for its own).
+
+Model validation (each is a `ModelException` entry): exactly one container has `web.root`, a relative path of plain
+directory names; each of its components has a unique `web.id`, non-overlapping `web.paths` and a `web.status` that
+agrees with the tag `Planned`; a `web.entry` is a `.ts` or `.tsx` file inside the component's paths; `web.packages`
+are distinct npm package names; `web.mode` is `REQUIRED` or `PERMITTED`, only between two web components, with the tag
+`Required import` exactly when `REQUIRED`; at most one relationship per ordered pair; no cycle; no implied
+relationships; no unknown or misplaced `web.*` property.
 
 Reading the sources (`sources`): every regular file under a web root, by name and the kind of root. In a source root,
 `.ts`, `.tsx` and `.d.ts` are code, and `*.test.ts` and `*.test.tsx` are tests; both are scanned. In a test root every
@@ -170,6 +198,22 @@ that imports a JSX runtime. In `package.json`: `imports`, `overrides`, `browser`
 In each page (`*.html`): an import map, an inline script, a `<base>` element, a script or link from another origin, and
 a style element that names `@import`. A file that is not plain JSON (comments and trailing commas included), not UTF-8
 or not a regular file is refused too.
+
+Comparison semantics:
+
+- A file belongs to the component one of whose paths is a directory above it.
+- An import of a file of another component is a dependency between the two components, whatever its kind. Imports
+  inside one component are not edges. Every import between code files counts for cycles.
+- Violations (each fails the check): `DIVERGENCE`, `ABSENCE` (as for classes), `UNOWNED_FILE`,
+  `PLANNED_COMPONENT_HAS_CODE` (any file), `BUILT_COMPONENT_EMPTY` (no `.ts` or `.tsx` file), `ENTRY_POINT_BYPASSED`
+  (another component imports a file other than the `web.entry`), `ENTRY_POINT_MISSING` (a built component's entry does
+  not exist), `UNRESOLVED_IMPORT`, `UNDECLARED_PACKAGE` (a bare specifier whose package the importing component's
+  `web.packages` does not list), `IMPORT_CYCLE`, `UNSUPPORTED_SYNTAX` (a refusal or an unsupported specifier) and
+  `UNSUPPORTED_FILE`.
+- Not violations: `CONVERGENCE`, `NO_STATIC_EVIDENCE` (PERMITTED, no import), `NOT_EVALUATED` (a relationship that
+  touches a planned component).
+- Reports: `report.json` (`"schema": "c4-contract-kit/web-report/v1"`) and `report.md`, deterministic as above; every
+  piece of evidence names the file (relative to the repository root), line, specifier, kind and target.
 
 ## Ten TDD slices
 

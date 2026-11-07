@@ -1,7 +1,8 @@
 // shipping-reference-platform: C4 model in Structurizr DSL (parsed with com.structurizr:structurizr-dsl 6.2.4).
 //
 // This file is the structural authority for the shipping product (ADR 0002). People read the rendered views;
-// c4-contract-kit reads this same file and compares it with the API's compiled classes in both directions.
+// c4-contract-kit reads this same file and compares it with the API's compiled classes, and with the web app's
+// TypeScript imports, in both directions.
 // Changing this file is a risk level 3 change and needs the owner's approval (policy/risk.json, .github/CODEOWNERS).
 //
 // Restrictions, enforced by c4-contract-kit's restricted parser: no !include, !script, !plugin, !docs, !adrs or
@@ -50,8 +51,44 @@
 // software systems or containers are documentation: they must not carry contract.mode and are not checked by Java
 // static analysis (the web app's calls are checked by contract and end-to-end tests instead).
 //
+// WEB PROPERTIES
+//
+// The web app is checked against this model too, by the web import check of c4-contract-kit (WebConformance), with a
+// vocabulary of its own: the contract properties above belong to the API alone, and the web container, its
+// components and their relationships must not carry them.
+//
+// On the one container whose TypeScript sources are checked (exactly one container may carry web.root):
+//   web.root      Directory of the container's source files, relative to the repository root. Every file under it
+//                 must belong to exactly one component by directory. Names that start with a dot are not part of it.
+//
+// On every component of that container:
+//   web.id        Stable identifier matching [a-z][a-z0-9-]*, unique among the web components. Used in reports.
+//   web.paths     Comma-separated directories relative to web.root. A file belongs to the component whose directory
+//                 is above it. No directory may equal or lie inside another, in one component or across components.
+//   web.status    built | planned, with the tag "Planned" exactly when planned.
+//                 built    the directories must hold at least one .ts or .tsx file (test files do not count).
+//                 planned  the directories must hold no file at all; the component's edges are not evaluated.
+//   web.entry     Optional. A .ts or .tsx file inside the component's directories, relative to web.root. Other
+//                 components may import the component through that file only.
+//   web.packages  Optional. Comma-separated npm package names that the component's files may import with a bare
+//                 specifier (react also covers react/jsx-runtime). Any other bare specifier fails the check.
+//
+// On relationships between two components of that container, and nowhere else:
+//   web.mode      REQUIRED | PERMITTED, as contract.mode above with an import in place of a reference: "a -> b"
+//                 means files of a may import files of b. Absent means PERMITTED; this file states it on every such
+//                 relationship. The tag "Required import" must be present exactly when the mode is REQUIRED. At most
+//                 one relationship per ordered pair of components; the graph must be acyclic.
+//
+// An import from one web component to another without a relationship fails the check (a divergence), and so does a
+// REQUIRED relationship between built components without any import (an absence). Type-only imports, re-exports and
+// import() of a string literal count; imports inside one component do not, but no files may import each other in a
+// cycle. Test files (*.test.ts, *.test.tsx) are owned by their component and not evaluated. The sources are read as
+// data with a deliberately restricted import grammar, never executed: whatever it does not cover (require, import()
+// of anything but a string literal, import.meta other than import.meta.env, absolute, aliased or URL specifiers,
+// .js and .json files) fails the check. The rules are in libs/c4-contract-kit/AGENTS.md ("Web imports").
+//
 // What this model cannot prove is listed in docs/gaps.md. In short: a REQUIRED edge proves that a static reference
-// exists, not that the behaviour behind it runs.
+// or import exists, not that the behaviour behind it runs.
 
 workspace "Shipping reference platform" "Reference monorepo: webshop parcel shipping with synthetic data, checked against this model." {
 

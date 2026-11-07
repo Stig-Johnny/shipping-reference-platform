@@ -40,10 +40,12 @@ class SelfConformanceTest {
                 tuple("api", "model", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
                 tuple("api", "report", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
                 tuple("api", "rules", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
+                tuple("api", "sources", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
                 tuple("report", "model", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
                 tuple("report", "rules", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
                 tuple("rules", "bytecode", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
-                tuple("rules", "model", Mode.REQUIRED, EdgeStatus.CONVERGENCE));
+                tuple("rules", "model", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
+                tuple("rules", "sources", Mode.REQUIRED, EdgeStatus.CONVERGENCE));
     }
 
     @Test
