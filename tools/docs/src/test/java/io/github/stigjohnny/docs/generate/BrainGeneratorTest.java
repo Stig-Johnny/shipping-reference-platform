@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.stigjohnny.docs.markdown.LinkDecision;
 import io.github.stigjohnny.docs.markdown.MarkdownRenderer;
+import io.github.stigjohnny.docs.repo.Capability;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.RepositoryLinks;
 import io.github.stigjohnny.docs.repo.Sources;
@@ -102,9 +103,11 @@ class BrainGeneratorTest {
 
         assertThat(file(files, "docs/brain/quotes.md")).contains("| `quotes.synthetic-tariff` | planned |")
                 .doesNotContain("| shipped |");
+        Capability planned = sources().capabilities().controls().stream()
+                .filter(c -> c.status() == Capability.Status.PLANNED).findFirst().orElseThrow();
         assertThat(file(files, "BRAIN.md")).contains("| `control.brain-check` | shipped | `java` | "
                 + "BrainGeneratorTest, BrainCheckTest |")
-                .contains("| `control.c4-divergence` | planned | `java` | none yet |");
+                .contains("| `" + planned.id() + "` | planned | `" + planned.check() + "` | none yet |");
     }
 
     @Test

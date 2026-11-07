@@ -157,7 +157,11 @@ final class BrainPage {
                 parts.add(count + " " + (count == 1 ? one : many) + " " + status.value());
             }
         }
-        return parts.isEmpty() ? "no " + many : String.join(" and ", parts);
+        if (parts.isEmpty()) {
+            return "no " + many;
+        }
+        return parts.size() == 1 ? parts.getFirst()
+                : String.join(", ", parts.subList(0, parts.size() - 1)) + " and " + parts.getLast();
     }
 
     /** The tests that passed in this build as evidence, and whose they are when only the documentation tool's. */

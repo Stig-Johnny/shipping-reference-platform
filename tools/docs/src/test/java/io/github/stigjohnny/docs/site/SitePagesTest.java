@@ -11,6 +11,7 @@ import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.testing.BuiltSite;
 import io.github.stigjohnny.docs.testing.Fixture;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -268,14 +269,28 @@ class SitePagesTest {
         String brain = site.text("brain/index.html");
         assertThat(sources.capabilities().specificationOnly()).as("every product capability is planned").isTrue();
         long capabilities = sources.capabilities().capabilities().size();
-        long shipped = sources.capabilities().controls().stream()
-                .filter(c -> c.status() == Capability.Status.SHIPPED).count();
-        long planned = sources.capabilities().controls().size() - shipped;
+        List<String> controls = new ArrayList<>();
+        for (Capability.Status status : Capability.Status.values()) {
+            long count = sources.capabilities().controls().stream().filter(c -> c.status() == status).count();
+            if (count > 0) {
+                controls.add(count + (count == 1 ? " control " : " controls ") + status.value());
+            }
+        }
+        String counted = controls.size() == 1 ? controls.getFirst() : String.join(", ",
+                controls.subList(0, controls.size() - 1)) + " and " + controls.getLast();
 
         assertThat(brain).contains("<span class=\"badge badge-partial\">Partly shipped</span> " + capabilities
-                + " capabilities planned; " + shipped + " controls shipped and " + planned + " controls planned.");
-        assertThat(brain).contains("Documentation controls only: BrainGeneratorTest, BrainCheckTest, "
-                + "PublicationScannerTest, PagesWorkflowTest passed in the build that generated this site.");
+                + " capabilities planned; " + counted + ".");
+        List<Capability> evidenced = sources.capabilities().all().stream()
+                .filter(c -> c.evidence().stream().anyMatch(sources.evidence()::passed)).toList();
+        if (evidenced.stream().allMatch(c -> c.control() && c.where().startsWith("tools/docs"))) {
+            assertThat(brain).contains("Documentation controls only: BrainGeneratorTest, BrainCheckTest, "
+                    + "PublicationScannerTest, PagesWorkflowTest passed in the build that generated this site.");
+        } else {
+            // Once other controls ship, such as the contract kit's, every passing evidence test is listed instead.
+            assertThat(brain).doesNotContain("Documentation controls only");
+            evidenced.forEach(c -> c.evidence().forEach(test -> assertThat(brain).contains(test)));
+        }
         assertThat(brain).doesNotContain("names this module").contains("No module-specific gaps are recorded here. "
                 + "See the <a href=\"../trust/gaps.html\">project-wide known gaps</a>.");
     }
