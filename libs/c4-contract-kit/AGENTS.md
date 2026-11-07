@@ -127,11 +127,14 @@ yield code; template substitutions and JSX expressions do. Whatever the lexer ca
 scan of that file with a refusal: unterminated literals or comments, a backslash in code, U+2028 and U+2029, and JSX
 it does not cover, including a `.tsx` generic arrow function that starts with `<`.
 
-Resolution: a relative specifier without an extension names `p.ts`, `p.tsx`, `p.d.ts` or the `index` file of the
-directory `p` and must match exactly one existing file, by exact name; one with a style, image or font extension names
-that file; one with a code or JSON extension is unsupported; one that leaves the web root is unresolved. A bare
-specifier names a package (scoped or not; a subpath may follow). Absolute specifiers, schemes (`node:`, `https:`,
-`virtual:`), queries and fragments are unsupported.
+Resolution: a relative specifier that ends in `.ts` names exactly that file (the form TypeScript's
+`rewriteRelativeImportExtensions` rewrites to `.js` on emit); it must exist with exactly that name, and no other
+extension, `index` file or letter case is tried in its place. One without an extension names `p.ts`, `p.tsx`,
+`p.d.ts` or the `index` file of the directory `p` and must match exactly one existing file, by exact name; one with a
+style, image or font extension names that file; one with any other code or JSON extension (`.tsx`, `.js`, `.mts`,
+`.json`, or `.TS` in another letter case) is unsupported; one that leaves the web root is unresolved. A bare specifier
+names a package (scoped or not; a subpath may follow). Absolute specifiers, schemes (`node:`, `https:`, `virtual:`),
+queries and fragments are unsupported.
 
 ## Ten TDD slices
 

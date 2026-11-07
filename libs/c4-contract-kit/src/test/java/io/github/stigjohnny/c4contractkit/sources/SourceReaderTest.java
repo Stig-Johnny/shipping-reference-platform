@@ -39,7 +39,11 @@ class SourceReaderTest {
         "'../../ui/theme.css', features/quotes/QuoteCard.tsx, ui/theme.css",
         "'../../ui/logo.svg', features/quotes/QuoteCard.tsx, ui/logo.svg",
         "'./types', features/quotes/QuoteCard.tsx, features/quotes/types.d.ts",
-        "'./../quotes/./QuoteCard', features/quotes/index.ts, features/quotes/QuoteCard.tsx"})
+        "'./../quotes/./QuoteCard', features/quotes/index.ts, features/quotes/QuoteCard.tsx",
+        "'../api/client.ts', app/App.tsx, api/client.ts",
+        "'../features/quotes/index.ts', app/App.tsx, features/quotes/index.ts",
+        "'./types.d.ts', features/quotes/QuoteCard.tsx, features/quotes/types.d.ts",
+        "'./x.ts', both/index.ts, both/x.ts"})
     void aRelativeSpecifierResolvesToExactlyOneFile(String specifier, String importer, String file) {
         assertThat(resolve(importer, specifier)).isEqualTo(new Resolution.ToFile(file));
     }
@@ -51,7 +55,12 @@ class SourceReaderTest {
         "'../ui/missing.css', app/App.tsx, 'matches no file: ui/missing.css does not exist'",
         "'./x', both/index.ts, 'is ambiguous: it matches both/x.ts and both/x/index.ts'",
         "'../../x', app/App.tsx, 'leaves the web root'",
-        "'../app/', ui/Button.tsx, 'matches no file: tried app/index.ts, app/index.tsx, app/index.d.ts'"})
+        "'../app/', ui/Button.tsx, 'matches no file: tried app/index.ts, app/index.tsx, app/index.d.ts'",
+        "'./Missing.ts', app/App.tsx, 'matches no file: app/Missing.ts does not exist'",
+        "'./App.ts', app/main.tsx, 'matches no file: app/App.ts does not exist'",
+        "'../api/Client.ts', app/App.tsx, 'matches no file: api/Client.ts does not exist'",
+        "'./types.ts', features/quotes/QuoteCard.tsx, 'matches no file: features/quotes/types.ts does not exist'",
+        "'../../api/client.ts', app/App.tsx, 'leaves the web root'"})
     void aRelativeSpecifierThatMatchesNoFileOrSeveralIsUnresolved(String specifier, String importer, String reason) {
         assertThat(resolve(importer, specifier)).isEqualTo(new Resolution.Unresolved(reason));
     }
@@ -76,9 +85,11 @@ class SourceReaderTest {
         "virtual:pwa| a module specifier with a scheme (such as node:, https: or virtual:) is not supported",
         "#internal| a query or fragment in a module specifier (such as ?url, ?raw or #name) is not supported",
         "./logo.svg?url| a query or fragment in a module specifier (such as ?url, ?raw or #name) is not supported",
-        "./App.tsx| write the import without the file extension .tsx",
-        "./App.js| write the import without the file extension .js",
-        "./data.json| write the import without the file extension .json",
+        "./App.tsx| a module specifier with the file extension .tsx is not supported: name a .ts file with its extension, or write the specifier without one",
+        "./App.js| a module specifier with the file extension .js is not supported: name a .ts file with its extension, or write the specifier without one",
+        "./App.mts| a module specifier with the file extension .mts is not supported: name a .ts file with its extension, or write the specifier without one",
+        "./App.TS| a module specifier with the file extension .TS is not supported: name a .ts file with its extension, or write the specifier without one",
+        "./data.json| a module specifier with the file extension .json is not supported: name a .ts file with its extension, or write the specifier without one",
         ".//App| an empty path segment in a module specifier is not supported",
         "React| 'React' is not a valid npm package name",
         "@scope| '@scope' is not a valid npm package name",
@@ -86,6 +97,34 @@ class SourceReaderTest {
         "@/ui/Button| '@/ui' is not a valid npm package name"})
     void whatTheGrammarCannotResolveWithCertaintyIsUnsupported(String specifier, String reason) {
         assertThat(resolve("app/App.tsx", specifier)).isEqualTo(new Resolution.Unsupported(reason.strip()));
+    }
+
+    @Test
+    void aDotTsSpecifierNamesExactlyThatFileAndNothingElseIsTried(@TempDir Path root) throws IOException {
+        // TypeScript with rewriteRelativeImportExtensions emits './QuoteCard.ts' as './QuoteCard.js'. The check names
+        // exactly the file written: no other extension, no index file and no other letter case is tried.
+        write(root, "features/quotes/index.ts", "export { QuoteCard } from './QuoteCard.ts';\n");
+        write(root, "features/quotes/QuoteCard.ts", "export const QuoteCard = 1;\n");
+        write(root, "features/quotes/Offer.tsx", "export const Offer = 1;\n");
+        write(root, "app/App.ts", """
+                import { QuoteCard } from '../features/quotes/index.ts';
+                import type { Offer } from '../features/quotes/Offer.ts';
+                const lazy = () => import('../features/quotes/quotecard.ts');
+                """);
+
+        SourceSet set = SourceReader.read(root, "src");
+
+        assertThat(set.refusals()).isEmpty();
+        assertThat(set.imports()).extracting(ResolvedImport::file, ResolvedImport::line, ResolvedImport::specifier,
+                ResolvedImport::kind, ResolvedImport::resolution).containsExactly(
+                tuple("app/App.ts", 1, "../features/quotes/index.ts", ImportKind.IMPORT,
+                        new Resolution.ToFile("features/quotes/index.ts")),
+                tuple("app/App.ts", 2, "../features/quotes/Offer.ts", ImportKind.TYPE_IMPORT,
+                        new Resolution.Unresolved("matches no file: features/quotes/Offer.ts does not exist")),
+                tuple("app/App.ts", 3, "../features/quotes/quotecard.ts", ImportKind.DYNAMIC,
+                        new Resolution.Unresolved("matches no file: features/quotes/quotecard.ts does not exist")),
+                tuple("features/quotes/index.ts", 1, "./QuoteCard.ts", ImportKind.RE_EXPORT,
+                        new Resolution.ToFile("features/quotes/QuoteCard.ts")));
     }
 
     @Test

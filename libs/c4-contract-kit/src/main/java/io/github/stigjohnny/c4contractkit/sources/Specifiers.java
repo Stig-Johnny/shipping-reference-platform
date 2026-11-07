@@ -8,15 +8,19 @@ import java.util.regex.Pattern;
 
 /**
  * Resolves a module specifier the way the restricted grammar allows, against the files that exist under the web root,
- * by exact name: a relative specifier without a file extension names {@code p.ts}, {@code p.tsx}, {@code p.d.ts} or
- * the {@code index} file of the directory {@code p}, and must match exactly one of them; a specifier of a style sheet,
- * image or font names that file. A bare specifier names a package. Everything else (absolute paths, schemes such as
- * {@code node:}, queries such as {@code ?url}, subpath imports, code extensions) is unsupported, so that what the check
- * resolves is what TypeScript and Vite resolve, whatever their configuration says.
+ * by exact name: a relative specifier that ends in {@code .ts} names exactly that file (TypeScript's
+ * {@code rewriteRelativeImportExtensions} emits it as {@code .js}), and no other file is tried in its place; one
+ * without a file extension names {@code p.ts}, {@code p.tsx}, {@code p.d.ts} or the {@code index} file of the
+ * directory {@code p}, and must match exactly one of them; a specifier of a style sheet, image or font names that file.
+ * A bare specifier names a package. Everything else (absolute paths, schemes such as {@code node:}, queries such as
+ * {@code ?url}, subpath imports, other code extensions) is unsupported, so that what the check resolves is what
+ * TypeScript and Vite resolve, whatever their configuration says.
  */
 final class Specifiers {
 
     static final List<String> CODE_SUFFIXES = List.of(".ts", ".tsx", ".d.ts");
+    /** The one code extension a relative specifier may carry: it then names exactly that file. */
+    static final String TS = ".ts";
     static final Set<String> FILE_EXTENSIONS = Set.of("css", "svg", "png", "jpg", "jpeg", "gif", "webp", "avif",
             "ico", "woff", "woff2");
     private static final Set<String> CODE_EXTENSIONS = Set.of("ts", "tsx", "mts", "cts", "js", "jsx", "mjs", "cjs",
@@ -83,10 +87,16 @@ final class Specifiers {
         String target = String.join("/", segments);
         if (!directory) {
             String name = segments.isEmpty() ? "" : segments.getLast();
+            if (name.endsWith(TS)) {
+                return files.contains(target) ? new Resolution.ToFile(target)
+                        : new Resolution.Unresolved("matches no file: " + target + " does not exist");
+            }
             int dot = name.lastIndexOf('.');
-            String extension = dot < 0 ? "" : name.substring(dot + 1).toLowerCase(Locale.ROOT);
+            String written = dot < 0 ? "" : name.substring(dot + 1);
+            String extension = written.toLowerCase(Locale.ROOT);
             if (CODE_EXTENSIONS.contains(extension)) {
-                return new Resolution.Unsupported("write the import without the file extension ." + extension);
+                return new Resolution.Unsupported("a module specifier with the file extension ." + written
+                        + " is not supported: name a .ts file with its extension, or write the specifier without one");
             }
             if (FILE_EXTENSIONS.contains(extension)) {
                 return files.contains(target) ? new Resolution.ToFile(target)
