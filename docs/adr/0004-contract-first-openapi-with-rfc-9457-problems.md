@@ -1,18 +1,20 @@
 ---
 title: "ADR 0004: Contract-first OpenAPI 3.1.2 with RFC 9457 problem details"
-description: "contracts/shipping.openapi.yaml defines the HTTP interface; controllers are tested against it, the TypeScript client is generated from it, and errors are RFC 9457 problems."
+description: "contracts/shipping.openapi.yaml defines the HTTP interface; controllers are tested against it, the TypeScript client is generated from it, and errors are RFC 9457 problems. Amended 2026-11-07: the generated client is deferred, and the server's HTTP contract tests remain the contract gate."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy: [not enforced yet]
 plannedEnforcement:
   - "java: QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest"
-  - "web: client regeneration produces no diff"
   - "contract-e2e: Playwright against the running API"
 ---
 
 # ADR 0004: Contract-first OpenAPI 3.1.2 with RFC 9457 problem details
+
+Amended on 2026-11-07: see [Amendment 2026-11-07](#amendment-2026-11-07-the-generated-client-is-deferred). The
+sections before the amendment are the decision as accepted on 2026-11-06, unchanged.
 
 ## Context and Problem Statement
 
@@ -73,6 +75,22 @@ Chosen option 1.
 - `contract-e2e` runs the Playwright suite against the real API with the demo seed.
 - Not enforced yet: a check that every documented operation and status code is exercised by at least one test, and
   OpenAPI style linting (docs/gaps.md).
+
+## Amendment 2026-11-07: the generated client is deferred
+
+- As in ADR 0009's amendment of the same date, the first runnable slice generates no TypeScript client:
+  `packages/shipping-client`, openapi-typescript 7.13.0 and openapi-fetch 0.17.0 are deferred with the rest of the
+  frontend tooling. The web app calls the API through one hand-written, typed adapter in
+  `apps/shipping-web/src/api`, whose types are written by hand from the contract.
+- The contract stays the authority, and the server's HTTP contract tests remain the contract gate:
+  `QuotesHttpContractTest`, `ShipmentsHttpContractTest`, `TenantsHttpContractTest` and
+  `ProblemDetailsHttpContractTest` validate every response they exercise against `contracts/shipping.openapi.yaml`.
+- Consequence: the first consequence above, that the UI and API teams cannot disagree silently, holds only on the
+  server's side for this slice. The web app's hand-written types can drift from the contract without failing a
+  build; the end-to-end tests catch such drift only for the operations and fields they exercise (`docs/gaps.md`).
+- Confirmation: the `web` check that regenerates `packages/shipping-client/src/schema.d.ts` is deferred; the other
+  confirmations above are unchanged. Before this amendment, the planned enforcement also listed "web: client
+  regeneration produces no diff".
 
 ## More Information
 

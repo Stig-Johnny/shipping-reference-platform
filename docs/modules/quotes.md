@@ -177,8 +177,8 @@ Worked example (the contract's example): `NO 0150` to `SE 11122`, 1200 g, 300 x 
 - `internal.adapter.in.web`: `QuotesController` (both operations), request and response records that mirror the
   contract, mapping of `QuoteResult` and validation failures to problems (`validation-failed`,
   `no-offer-available`, `quote-not-found`).
-- `internal.adapter.out.jdbc`: `JdbcQuoteStore` with Spring Data JDBC; `Quote` maps to one aggregate (quote plus
-  offers).
+- `internal.adapter.out.jdbc`: `JdbcQuoteStore` with Spring JDBC's `JdbcClient` (ADR 0005, amendment 2026-11-07);
+  it writes and reads a `Quote` as one aggregate (quote plus offers).
 
 ## Data: schema `quotes` (migration `V2__quotes.sql`)
 

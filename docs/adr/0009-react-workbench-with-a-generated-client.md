@@ -1,17 +1,22 @@
 ---
 title: "ADR 0009: React workbench with a generated API client"
-description: "One React SPA for clerks, calling the API only through a client generated from the OpenAPI contract; v0.1 checks import boundaries and cycles, not required frontend edges."
+description: "One React SPA for clerks, calling the API only through a client generated from the OpenAPI contract; v0.1 checks import boundaries and cycles, not required frontend edges. Amended 2026-11-07: the first runnable slice is a plain TypeScript app with one hand-written typed HTTP adapter; React and the generated client are deferred."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy: [not enforced yet]
 plannedEnforcement:
-  - "web: type check, Vitest and Testing Library, client regeneration without diff, import boundary and cycle check"
-  - "contract-e2e: Playwright and axe-core against the running API"
+  - "web: type check and emit with TypeScript 5.9.3, and the logic tests under node --test (amendment 2026-11-07)"
+  - "java: the JDK import checker of libs/c4-contract-kit holds apps/shipping-web/src to the model's six web parts, for import boundaries and cycles only (WebArchitectureConformanceTest; amendment 2026-11-07)"
+  - "contract-e2e: Playwright and axe-core against the API started with the demo profile on PostgreSQL"
 ---
 
 # ADR 0009: React workbench with a generated API client
+
+Amended on 2026-11-07 for the first runnable slice: see
+[Amendment 2026-11-07](#amendment-2026-11-07-a-plain-typescript-workbench-for-the-first-runnable-slice). The sections
+before the amendment are the decision as accepted on 2026-11-06, unchanged.
 
 ## Context and Problem Statement
 
@@ -67,6 +72,83 @@ Chosen option 1.
 - `contract-e2e`: Playwright specs `quote-book-label.spec.ts`, `expired-quote.spec.ts`, `tenant-denial.spec.ts`,
   `prototype-flag.spec.ts`, `accessibility.spec.ts` (axe-core on every screen and state) against the API started
   with the `demo` profile.
+
+## Amendment 2026-11-07: a plain TypeScript workbench for the first runnable slice
+
+### Why the decision is amended
+
+The first runnable slice needs a working web app within days. The stack chosen above cannot be installed before its
+packages are reviewed (ADR 0007), and its resolved tree holds about 150 packages without a review: React, Vite,
+Vitest, Testing Library, jsdom and the generated client (openapi-typescript and openapi-fetch) have approved entries,
+but most of their transitive dependencies have none. The count is derived from registry metadata, not from a
+lockfile. Reviewing that many packages overnight would produce approvals nobody had the time to make real: a control
+that only looks enforced. The slice is therefore built without them.
+
+This is an amendment, not a superseding record: the option chosen above is deferred, not rejected, and the text
+before this section is unchanged. React or the generated client come back only with their reviews and a further
+amendment or a new ADR.
+
+### Decision for the first runnable slice
+
+- **No framework.** The workbench is a plain TypeScript single-page app. Its router (History API), state, forms and
+  components are the project's own code, and it installs no runtime package. `docs/ui/workbench.md` stays binding;
+  it records this slice's scope.
+- **Compiler.** TypeScript 5.9.3 instead of 7.0.2, emitting browser ES modules, without a bundler. It is one package
+  without runtime dependencies, whereas the review of 7.0.2 approves only its Linux x64 native binary and the slice is
+  also built on macOS. Its review is pending (issue #59); until 5.9.3 has an approved allowlist entry, nothing
+  installs it. Node 26.13.0 and npm 11.20.0 stay.
+- **Erasable syntax only**, so that Node 26's built-in type stripping runs the logic tests from the sources, without
+  a build step. `tsc` rejects most departures (`erasableSyntaxOnly`, `verbatimModuleSyntax`), and relative imports
+  name their `.ts` file, which `tsc` rewrites to `.js` (`rewriteRelativeImportExtensions`). The rules are listed in
+  `apps/shipping-web/AGENTS.md`.
+- **Serving.** The Java application serves the emitted assets on loopback (`127.0.0.1`). There is no separate web
+  server.
+- **API calls.** One hand-written, typed HTTP adapter in `apps/shipping-web/src/api` is the only code that calls
+  `fetch`. It adds the bearer token and `Correlation-Id` and returns typed results and problems. Its types are
+  written by hand from `contracts/shipping.openapi.yaml`; `packages/shipping-client` is not created.
+- **Tests.** `node --test`, Node's built-in test runner, runs the logic tests. Playwright 1.65.0 with axe-core 4.14.0
+  runs the end-to-end and accessibility specs in the `contract-e2e` CI job, against the API started with the `demo`
+  profile on PostgreSQL. Their reviews approve them for that job only, so browser automation does not run on
+  developer machines.
+- **Import rules.** The JDK import checker in `libs/c4-contract-kit` (issues #62 to #64) enforces them, not
+  `tools/web-imports/check-imports.mjs`, which is not built. The model declares the web app's six parts, `app`,
+  `auth`, `api`, `quote-feature`, `shipment-feature` and `ui`, and `WebArchitectureConformanceTest` checks
+  `apps/shipping-web/src` against them in the `java` check. The rules are listed in `apps/shipping-web/AGENTS.md`.
+- **Claims.** The import check claims import boundaries and cycles only. It claims no required frontend edges, and it
+  does not verify the HTTP relationship from the web app to the API, which the end-to-end tests exercise for the
+  operations they run.
+- **Deferred, disclosed openly:** React, Vite, Vitest, Testing Library, jsdom and the generated client
+  (openapi-typescript and openapi-fetch).
+- **Unchanged:** the server decides every business rule, the demo token is held in memory only, and the app uses no
+  browser storage.
+
+### Consequences of the amendment
+
+- Good, because the slice needs one new package review instead of about 150. By the same metadata count its npm
+  packages are six: TypeScript 5.9.3, the three Playwright packages and the two axe-core packages, and only
+  TypeScript 5.9.3 lacks a review.
+- Good, because the app sends the browser only the project's own code.
+- Bad, because there is no generated-client drift guarantee. The hand-written types can drift from the contract,
+  and no type check notices. The server's HTTP contract tests (ADR 0004) and the end-to-end tests are what catch
+  drift, and only for the operations and fields they exercise (`docs/gaps.md`). The first consequence above, that
+  a contract change which breaks the UI fails type checking, does not hold for this slice.
+- Bad, because the component tests are deferred with their tooling. `ParcelForm.test.tsx`, `QuoteCardList.test.tsx`,
+  `BookingForm.test.tsx`, `ShipmentDrawer.test.tsx`, `ProblemAlert.test.tsx` and `ThemeToggle.test.tsx` stay the
+  acceptance targets in `docs/capabilities/capabilities.yaml`, so the capabilities that name them stay unshipped
+  until they exist.
+- Bad, because rendering is the project's own DOM code, with no framework that escapes text by default. The rule
+  against `innerHTML` and its relatives in `apps/shipping-web/AGENTS.md` carries that risk; only review enforces it.
+
+### Confirmation of the amendment
+
+- `web`: `npm ci --ignore-scripts` from the reviewed lockfile; `tsc` type-checks and emits; `node --test` runs the
+  logic tests. The client regeneration and the Vitest component tests above are deferred.
+- `java`: `WebArchitectureConformanceTest` runs the JDK import checker over `apps/shipping-web/src` (issue #64).
+- `contract-e2e`: the Playwright specs above, except `prototype-flag.spec.ts`, which waits for the label preview that
+  this slice defers.
+- Before this amendment, the planned enforcement read: "web: type check, Vitest and Testing Library, client
+  regeneration without diff, import boundary and cycle check" and "contract-e2e: Playwright and axe-core against the
+  running API".
 
 ## More Information
 

@@ -348,14 +348,14 @@ controls:
     negativeFixture: A domain class annotated with a Spring stereotype; one fixture for each other rule (fixtures of HexagonalLayeringTest).
     docs: docs/adr/0003-modular-monolith-with-spring-modulith-and-hexagonal-modules.md
   - id: control.table-ownership
-    title: Each module maps only tables in its own schema.
+    title: Each module's adapters run SQL only against tables in its own schema.
     where: apps/shipping-api
     check: java
     status: planned
     target: v0.1
     evidence: none yet
     acceptanceTests: [TableOwnershipTest]
-    negativeFixture: An audit entity mapped to a table in schema shipments.
+    negativeFixture: An audit adapter statement that reads shipments.shipment.
     docs: docs/adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md
   - id: control.migrations
     title: Migrations apply cleanly to an empty database as the owner role; the runtime role cannot run DDL.
@@ -379,12 +379,12 @@ controls:
     docs: docs/adr/0004-contract-first-openapi-with-rfc-9457-problems.md
   - id: control.web-import-boundaries
     title: Web app import boundaries and cycles (dependency-cruiser deferred).
-    where: tools/web-imports, apps/shipping-web
-    check: web
+    where: libs/c4-contract-kit, apps/shipping-web
+    check: java
     status: planned
     target: v0.1
     evidence: none yet
-    acceptanceTests: [check-imports.test.mjs]
+    acceptanceTests: [WebArchitectureConformanceTest]
     negativeFixture: Fixture files with a cycle and a cross-feature internal import.
     docs: docs/adr/0009-react-workbench-with-a-generated-client.md
   - id: control.dependency-allowlist

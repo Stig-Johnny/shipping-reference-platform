@@ -67,7 +67,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
 
         platform = softwareSystem "Shipping reference platform" "Quotes, books and labels parcels for webshop tenants." {
 
-            web = container "Web app" "Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer." "React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client" "WebApp,Planned"
+            web = container "Web app" "Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer." "Plain TypeScript SPA (no framework), TypeScript 5.9.3" "WebApp,Planned"
 
             api = container "API" "Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals." "Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring Data JDBC" {
                 properties {

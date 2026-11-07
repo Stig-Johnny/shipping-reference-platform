@@ -4,7 +4,7 @@ This file applies to the whole repository. Scoped files add rules for their dire
 stricter: `apps/shipping-api/AGENTS.md`, `apps/shipping-web/AGENTS.md`, `libs/c4-contract-kit/AGENTS.md`,
 `security/AGENTS.md`. Changing any `AGENTS.md` is a risk level 3 change.
 
-The repository is a public reference monorepo: a Java modular monolith and a React workbench for webshop parcel
+The repository is a public reference monorepo: a Java modular monolith and a TypeScript workbench for webshop parcel
 shipping, built model first and documentation first, with synthetic data only. The controls are the product as much
 as the code. An agent that makes a check pass by weakening it has failed the task.
 
@@ -23,8 +23,8 @@ as the code. An agent that makes a check pass by weakening it has failed the tas
 2. **Model first.** If the change adds, removes or redirects a dependency between modules, or changes a module's
    status, change `architecture/workspace.dsl` first, in the same pull request. Never add a relationship, widen a
    package mapping or switch `REQUIRED` to `PERMITTED` just to make a failing check pass; stop and report instead.
-3. **Contract first.** If the change touches the HTTP interface, change `contracts/shipping.openapi.yaml` first and
-   regenerate the client.
+3. **Contract first.** If the change touches the HTTP interface, change `contracts/shipping.openapi.yaml` first. No
+   client is generated in the first runnable slice; the web app's hand-written types follow the contract (ADR 0004).
 4. **Tests first.** Write the failing test, run it, keep the failing output, then make it pass. Behaviour changes
    need acceptance criteria in domain language and this red-green evidence in the pull request body. Test class
    names in `docs/capabilities/capabilities.yaml` are binding: use exactly those names.

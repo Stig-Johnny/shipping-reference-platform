@@ -48,8 +48,9 @@ closes it.
 - **"No static evidence" is not "unused".** Reflection, Spring wiring by type or name, serialisation, configuration
   properties and string-built class names create runtime use that bytecode analysis does not see.
 - **Invisible channels.** SQL that reads another module's schema, shared database rows, HTTP calls, message
-  payloads, files and environment variables are not dependencies to the checker. `TableOwnershipTest` covers only
-  mapped `@Table` entities, not SQL strings.
+  payloads, files and environment variables are not dependencies to the checker. `TableOwnershipTest`, planned, is to
+  check the SQL of each module's adapters against the module's schema (ADR 0005, amendment 2026-11-07); SQL anywhere
+  else stays invisible to it.
 - **Ordering and timing.** The model says who may depend on whom, not in which order things happen or whether they
   happen in the same transaction. The dynamic view and `docs/flows/quote-book-label.md` describe order; tests
   assert it.
@@ -179,6 +180,14 @@ closes it.
   recorded by hand.
 - The web app's static checks cover import boundaries and cycles only. dependency-cruiser and required frontend
   edges are deferred.
+- The first runnable slice defers the generated client and the component tests (ADR 0004 and ADR 0009, amendments
+  of 2026-11-07). So there is no generated-client drift guarantee: the web app's request and response types are
+  written by hand in `apps/shipping-web/src/api` and can drift from `contracts/shipping.openapi.yaml` without failing
+  a build. The server's HTTP contract tests and the Playwright tests catch drift only for the operations and fields
+  they exercise. The component tests (`ParcelForm.test.tsx`, `QuoteCardList.test.tsx`, `BookingForm.test.tsx`,
+  `ShipmentDrawer.test.tsx`, `ProblemAlert.test.tsx`, `ThemeToggle.test.tsx`) wait for Vitest, Testing Library and
+  jsdom. They stay acceptance targets, so the capabilities that name them stay unshipped; until they exist, only
+  logic tests under `node --test` and the Playwright specs test the web app.
 - The CI time target of 8 to 12 minutes is a target, not a measurement.
 
 ## 7. Documentation

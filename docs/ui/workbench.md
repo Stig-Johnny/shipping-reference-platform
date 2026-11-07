@@ -1,8 +1,8 @@
 ---
 title: "Shipping workbench: UI specification"
-description: "Screens, states, components, keyboard and accessibility requirements of the React workbench in apps/shipping-web."
+description: "Screens, states, components, keyboard and accessibility requirements of the workbench in apps/shipping-web."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 module: web
 ---
 
@@ -10,6 +10,27 @@ module: web
 
 This specification is binding for visual design, behavior, states and accessibility. Changes require an explicit
 design decision recorded here. ADR 0009 defines the technical approach; the OpenAPI contract defines API behavior.
+
+## Amendment 2026-11-07: scope of the first runnable slice
+
+An explicit design decision under the rule above. The rest of this specification is unchanged.
+
+- **In scope:** the synthetic user picker (`/sign-in`); the parcel form and the offer cards (`/quotes/new`,
+  `/quotes/:quoteId`); booking, with the recovery after an uncertain outcome; the shipments table and the shipment
+  drawer (`/shipments`, `/shipments/:shipmentId`); and the label download.
+- **Deferred: cancellation.** The drawer offers no "Cancel shipment" action and no confirmation, and the workbench
+  never calls `cancelShipment`.
+- **Deferred: the prototype-flag preview.** `LabelPreview` is not built. For every user the drawer behaves as it does
+  with the `label-preview` flag off: it renders no preview and makes no label request when it opens.
+- **Kept:** for everything in scope, every state in [States](#states) and every rule in
+  [Keyboard and accessibility requirements](#keyboard-and-accessibility-requirements); and the no-storage rule:
+  tokens, the theme override and the booking recovery are held in memory only.
+- **Technology:** the components are plain TypeScript, without a framework (ADR 0009, amendment 2026-11-07). Their
+  names and responsibilities in [Components](#components) stay. The component tests named there are deferred with
+  their tooling and stay acceptance targets; until they exist, logic tests under `node --test` and the end-to-end
+  specs test the workbench.
+- **End-to-end:** `prototype-flag.spec.ts` waits for the preview; the other specs in
+  [End-to-end scenarios](#end-to-end-scenarios-contract-e2e) apply to this slice.
 
 ## Users and the job
 

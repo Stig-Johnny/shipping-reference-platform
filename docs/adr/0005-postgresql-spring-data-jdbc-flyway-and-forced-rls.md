@@ -1,17 +1,21 @@
 ---
 title: "ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security"
-description: "PostgreSQL 18.6, one schema per module, Spring Data JDBC, Flyway migrations under a separate role, and forced row-level security for tenant isolation."
+description: "PostgreSQL 18.6, one schema per module, Spring Data JDBC, Flyway migrations under a separate role, and forced row-level security for tenant isolation. Amended 2026-11-07: v0.1 adapters use Spring JDBC's JdbcClient, and table ownership is shown from the SQL they run."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy: [not enforced yet]
 plannedEnforcement:
   - "java: RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, CrossTenantAccessTest"
-  - "java: MigrationsIntegrationTest, TableOwnershipTest"
+  - "java: MigrationsIntegrationTest, and TableOwnershipTest on the SQL of each module's adapters (amendment 2026-11-07)"
 ---
 
 # ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security
+
+Amended on 2026-11-07: see
+[Amendment 2026-11-07](#amendment-2026-11-07-spring-jdbc-adapters-and-sql-schema-ownership-evidence). The sections
+before the amendment are the decision as accepted on 2026-11-06, unchanged.
 
 ## Context and Problem Statement
 
@@ -86,6 +90,37 @@ Chosen option 1.
 - `MigrationsIntegrationTest` migrates an empty database as `shipping_owner` and asserts that `shipping_app` cannot
   run DDL.
 - `TableOwnershipTest` asserts that every Spring Data JDBC `@Table` in module `m` uses schema `m`.
+
+## Amendment 2026-11-07: Spring JDBC adapters and SQL schema-ownership evidence
+
+- **Persistence.** In v0.1 the adapters use Spring JDBC: `JdbcClient` from `spring-jdbc` 7.0.10, auto-configured
+  through `spring-boot-starter-jdbc` 4.1.2. Both are reviewed and already in the API's build, and their review
+  conditions bind the adapters (`security/reviews/`). Spring Data JDBC is not in the build: adding it would need a
+  dependency review and a maintenance lock pull request (ADR 0007), so v0.1 does without it (ADR 0003, amendment of
+  the same date).
+- **SQL.** Each module's SQL is written by hand in its `internal.adapter.out.jdbc` package. Every value is a bound
+  parameter; no statement is assembled from input. The predicate rule above holds for every statement: each one names
+  the tenant (`where tenant_id = :tenant`). Optimistic locking, where a table has a `version` column, is a `version`
+  check in the update's own SQL.
+- **Table ownership.** "A module reads and writes only its own schema" stands, and it needs evidence that can fail.
+  With no `@Table` mappings, the check in the Confirmation above would scan nothing and pass: an empty `@Table` scan
+  proves nothing. `TableOwnershipTest` instead shows ownership from the SQL: every statement of a module's adapters
+  touches only tables of that module's schema. One way is a test that reads each statement and requires every table
+  it names to be qualified with the module's schema; another is a check that asks PostgreSQL which relations each
+  statement uses and looks up their schemas in the catalog. Either way, a fixture in which an audit adapter statement
+  reads `shipments.shipment` must fail it.
+- **Unchanged:** forced row-level security with the `tenant_isolation` policy, the two roles `shipping_owner` and
+  `shipping_app`, and the transaction-local tenant binding: `TenantBindingTransactionManager` runs
+  `set_config('app.tenant_id', ?, true)` at the start of every transaction. Inside a transaction, `JdbcClient` runs
+  its statements on that transaction's connection, so the binding applies to them.
+- **Consequences.** Good, because v0.1 needs no new dependency, and every statement is SQL that reviewers read and
+  that the level 3 signal for changed SQL covers. Bad, because mapping rows to records is hand-written code that tests
+  must cover. The consequence above that `TableOwnershipTest` checks mapped tables and not hand-written SQL strings no
+  longer describes the plan: it checks the SQL. The database still does not stop one module's SQL from reading another
+  module's schema, because one runtime role serves all modules; the test is the control.
+- **Confirmation.** `TableOwnershipTest` asserts that every statement of each module's adapters touches only that
+  module's schema, and fails on the fixture above. The other confirmations are unchanged. Before this amendment, the
+  planned enforcement read "java: MigrationsIntegrationTest, TableOwnershipTest".
 
 ## More Information
 
