@@ -31,6 +31,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -614,9 +615,19 @@ public final class PolicyCheckTest {
             Path locked = Files.createDirectories(repo.root.resolve("locked"));
             Files.setPosixFilePermissions(locked, Set.of());
             try {
-                expect(!Files.isReadable(locked), "file permissions do not bind this user: run the tests as a non-root user");
-                IOException e = expectThrows(IOException.class, () -> new PolicyCheck(repo.root, TODAY));
-                expect(e.getMessage().contains("locked"), e.toString());
+                if (!Files.isReadable(locked)) {
+                    IOException e = expectThrows(IOException.class, () -> new PolicyCheck(repo.root, TODAY));
+                    expectEquals("locked: cannot be inspected", e.getMessage());
+                } else {
+                    // File permissions do not bind this user, so it is root: the check runs as the unprivileged nobody.
+                    List<String> command = new ArrayList<>(unprivileged().orElseThrow(() -> new AssertionError(
+                            "file permissions do not bind this user, and neither setpriv, runuser nor sudo runs the check"
+                                    + " as an unprivileged one: run the tests as a non-root user")));
+                    Path checker = Files.copy(checker(), shared(temporaryDirectory()).resolve("PolicyCheck.java"));
+                    command.addAll(List.of(java(), checker.toString(), shared(repo.root).toString()));
+                    Run run = run(command, Duration.ofMinutes(5), null);
+                    expect(run.exit() == 2 && run.output().contains("locked: cannot be inspected"), run.toString());
+                }
             } finally {
                 Files.setPosixFilePermissions(locked, PosixFilePermissions.fromString("rwx------"));
             }
@@ -636,6 +647,26 @@ public final class PolicyCheckTest {
                         && !e.getMessage().contains(MARKER), e.toString());
             }
         });
+    }
+
+    /** A command prefix that runs a command as the unprivileged user nobody, when a standard tool here can. */
+    static Optional<List<String>> unprivileged() {
+        for (List<String> prefix : List.of(List.of("setpriv", "--reuid=65534", "--regid=65534", "--clear-groups"),
+                List.of("runuser", "-u", "nobody", "--"), List.of("sudo", "-n", "-u", "nobody", "--"))) {
+            List<String> probe = new ArrayList<>(prefix);
+            probe.addAll(List.of(java(), "-version"));
+            try {
+                if (run(probe, Duration.ofMinutes(1), null).exit() == 0) return Optional.of(prefix);
+            } catch (Exception | AssertionError e) {
+                // This tool is not installed here, or cannot run the JDK as nobody.
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** Lets every user list and enter a directory that a case created. */
+    static Path shared(Path dir) throws IOException {
+        return Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwxr-xr-x"));
     }
 
     /** The check stops before it reads anything, with this reason in its message. */
@@ -733,20 +764,29 @@ public final class PolicyCheckTest {
             Run run = launch(repo.root.toString());
             expect(run.exit() == 2 && run.output().contains(LINK_REFUSED + "docs/dangling.md"), run.toString());
         });
-        test("cli: a child that does not finish fails its case by timeout, and is stopped", () -> {
-            Path hang = temporaryDirectory().resolve("Hang.java");
+        test("cli: a child that does not finish fails by timeout, counted from when it runs, and is stopped", () -> {
+            Path dir = temporaryDirectory();
+            Path hang = dir.resolve("Hang.java");
+            Path ready = dir.resolve("ready");
+            // It starts slowly, more slowly than its timeout, as a slow compile would; then it signals and never exits.
             Files.writeString(hang, """
+                    import java.nio.file.Files;
+                    import java.nio.file.Path;
+
                     public class Hang {
-                        public static void main(String[] args) throws InterruptedException {
+                        public static void main(String[] args) throws Exception {
+                            Thread.sleep(Long.parseLong(args[1]));
                             System.out.println("running, with standard output open");
+                            Files.writeString(Path.of(args[0]), "ready");
                             Thread.sleep(Long.MAX_VALUE);
                         }
                     }
                     """);
-            within(Duration.ofSeconds(60), () -> {
-                AssertionError timeout = expectThrows(AssertionError.class,
-                        () -> run(List.of(java(), hang.toString()), Duration.ofSeconds(3)));
-                expect(timeout.getMessage().startsWith("the child did not finish within"), timeout.toString());
+            within(Duration.ofMinutes(3), () -> {
+                AssertionError timeout = expectThrows(AssertionError.class, () -> run(
+                        List.of(java(), hang.toString(), ready.toString(), "2000"), Duration.ofSeconds(1), ready));
+                expect(timeout.getMessage().startsWith("the child did not finish within") && Files.exists(ready),
+                        timeout + "; the child signalled that it runs: " + Files.exists(ready));
             });
             expect(ProcessHandle.current().children().noneMatch(ProcessHandle::isAlive), "the child is still running");
         });
@@ -756,28 +796,50 @@ public final class PolicyCheckTest {
     static Run launch(String... args) throws Exception {
         List<String> command = new ArrayList<>(List.of(java(), checker().toString()));
         command.addAll(List.of(args));
-        return run(command, Duration.ofMinutes(5));
+        return run(command, Duration.ofMinutes(5), null);
     }
 
     /**
      * Runs a child process with its standard output and error in files, never in pipes that it could fill or hold open,
-     * and reads them only once it has exited. A child still running after the timeout fails the case; it is stopped
-     * and reaped whatever happens.
+     * and reads them only once it has exited. Given a ready file, the timeout starts only when the child has created
+     * it, which must happen within a minute. A child still running after the timeout fails the case; whatever happens,
+     * it is stopped with everything it started, and awaited.
      */
-    static Run run(List<String> command, Duration timeout) throws Exception {
+    static Run run(List<String> command, Duration timeout, Path ready) throws Exception {
         Path dir = temporaryDirectory();
         Path output = dir.resolve("stdout");
         Path error = dir.resolve("stderr");
         Process process = new ProcessBuilder(command).redirectOutput(output.toFile()).redirectError(error.toFile()).start();
         try {
             process.getOutputStream().close();
+            if (ready != null) awaitReady(process, ready, Duration.ofMinutes(1));
             expect(process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS), "the child did not finish within " + timeout);
             return new Run(process.exitValue(), new String(Files.readAllBytes(output), StandardCharsets.UTF_8),
                     new String(Files.readAllBytes(error), StandardCharsets.UTF_8));
         } finally {
-            if (process.isAlive()) {
-                process.destroyForcibly();
-                process.waitFor(1, TimeUnit.MINUTES);
+            stop(process.toHandle());
+        }
+    }
+
+    /** Waits, at most for the limit, until the child has created the ready file; a child that exits first fails. */
+    static void awaitReady(Process process, Path ready, Duration limit) throws InterruptedException {
+        long deadline = System.nanoTime() + limit.toNanos();
+        while (!Files.exists(ready)) {
+            expect(process.isAlive(), "the child exited before it was ready");
+            expect(System.nanoTime() < deadline, "the child was not ready within " + limit);
+            Thread.sleep(20);
+        }
+    }
+
+    /** Kills a process and every process it started, and waits until each has exited; one that does not, fails. */
+    static void stop(ProcessHandle process) throws Exception {
+        List<ProcessHandle> all = Stream.concat(process.descendants(), Stream.of(process)).toList();
+        all.forEach(ProcessHandle::destroyForcibly);
+        for (ProcessHandle each : all) {
+            try {
+                each.onExit().get(1, TimeUnit.MINUTES);
+            } catch (TimeoutException e) {
+                throw new AssertionError("process " + each.pid() + " still runs a minute after it was killed");
             }
         }
     }
@@ -786,7 +848,10 @@ public final class PolicyCheckTest {
         return Path.of(System.getProperty("java.home"), "bin", "java").toString();
     }
 
-    /** Runs the body on a thread of its own: still running after the limit, it fails, and this JVM's children stop. */
+    /**
+     * Runs the body on a thread of its own. Still running after the limit, it fails, and every child of this JVM is
+     * stopped and awaited.
+     */
     static void within(Duration limit, Case body) throws Exception {
         FutureTask<Void> task = new FutureTask<>(() -> {
             body.run();
@@ -798,7 +863,7 @@ public final class PolicyCheckTest {
         try {
             task.get(limit.toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
-            ProcessHandle.current().descendants().forEach(ProcessHandle::destroyForcibly);
+            for (ProcessHandle child : ProcessHandle.current().children().toList()) stop(child);
             throw new AssertionError("still running after " + limit + ": without the limit, the suite would hang here");
         } catch (ExecutionException e) {
             if (e.getCause() instanceof Exception cause) throw cause;
