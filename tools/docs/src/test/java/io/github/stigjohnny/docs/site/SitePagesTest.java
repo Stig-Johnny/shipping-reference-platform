@@ -63,12 +63,13 @@ class SitePagesTest {
                     "Verified evidence");
         }
         assertThat(site.text("brain/index.html")).contains("BrainGeneratorTest", "BrainCheckTest");
-        // quotes has passing tests for four of its five capabilities; tenants is built, but none of its own has one.
+        // quotes has passing tests for all five of its capabilities; tenants for two of its six.
         assertThat(site.text("modules/quotes.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
-                + "</span> 2 capabilities shipped, 2 capabilities partial, 1 capability planned.",
-                "<span class=\"badge badge-shipped\">Passing</span> 7 evidence test classes passed");
-        assertThat(site.text("modules/tenants.html")).contains("<span class=\"badge badge-planned\">Planned</span> 6 "
-                + "capabilities planned.", "<span class=\"badge badge-none\">None yet</span>");
+                + "</span> 2 capabilities shipped, 3 capabilities partial.",
+                "<span class=\"badge badge-shipped\">Passing</span> 8 evidence test classes passed");
+        assertThat(site.text("modules/tenants.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
+                + "</span> 2 capabilities partial, 4 capabilities planned.",
+                "<span class=\"badge badge-shipped\">Passing</span> 3 evidence test classes passed");
     }
 
     @Test
@@ -377,9 +378,11 @@ class SitePagesTest {
         assertThat(repository).contains("<th>Implementation state</th>", "The planned v0.1 behaviour is: a shipping "
                 + "clerk", "<td>Planned for v0.1; no code yet</td>",
                 "<td>Minimal implementation planned for v0.1; no code yet</td>",
-                "<td>Built in part: tariff, rating, quote creation and offer lookup, without HTTP or a database</td>",
-                "<td>Built in part: the tenant's identity and the tenant bound to the current thread; the rest of the "
-                        + "minimal implementation is planned</td>")
+                "<td>Built in part: tariff, rating, quote creation and reading, and offer lookup, over HTTP in tests; "
+                        + "no database yet</td>",
+                "<td>Built in part: demo authentication over HTTP, <code>GET /api/v1/me</code> and the tenant bound "
+                        + "for each request; the database adapter, row-level security and prototype flags are planned"
+                        + "</td>")
                 .doesNotContain("<td>built</td>", "<td>built (minimal)</td>", "v0.1 target, not implemented");
     }
 
@@ -396,10 +399,10 @@ class SitePagesTest {
             assertThat(site.text(page)).as(page).contains(evidence).doesNotContain(">Passing</span>",
                     "It is not implemented yet", "The planned conformance check", "the planned check");
         }
-        // The flow page keeps its own evidence: the quotes module's tests that pass.
+        // The flow page keeps its own evidence: the quotes and tenants modules' tests that pass.
         assertThat(site.text("model/flow-quote-book-label.html"))
-                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> 7 evidence "
-                        + "test classes passed")
+                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> 11 "
+                        + "evidence test classes passed")
                 .doesNotContain("Checker tests passing", "Conformance tests passing");
         String index = site.text("model/index.html");
         assertThat(index).contains("The checker in <code>libs/c4-contract-kit</code> is implemented and its own "
