@@ -64,8 +64,8 @@ The same definition is in [containers.mmd](containers.mmd).
 | 2 | Platform administrator | Person |  | Role; implementation status not applicable | Provisions tenants and memberships for webshops. |
 | 3 | Webshop | Software System |  | external | A merchant's online shop (simulated). Source of the orders that need shipping. |
 | 4 | Carrier (simulated) | Software System |  | external, simulated | A fictional parcel carrier. v0.1 simulates its tariff, tracking numbers and labels inside the API; no network calls. |
-| 6 | Web app | Container | React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
-| 7 | API | Container | Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring Data JDBC | Not covered by module conformance | Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. |
+| 6 | Web app | Container | Plain TypeScript SPA (no framework), TypeScript 5.9.3 | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
+| 7 | API | Container | Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient) | Not covered by module conformance | Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. |
 | 15 | Database | Container | PostgreSQL 18.6 | Planned; not covered by module conformance | One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data. |
 
 ## Relationships
@@ -76,7 +76,7 @@ The same definition is in [containers.mmd](containers.mmd).
 | 2 | Shipping clerk | Web app | Prices parcels, books shipments and downloads labels in | HTTPS, browser | solid: not covered by module conformance |
 | 3 | Platform administrator | Web app | Will manage tenants and memberships in (planned; no admin screens in v0.1) | HTTPS, browser | dotted: planned |
 | 4 | Platform administrator | Database | Provisions synthetic tenants and memberships through reviewed seed migrations run as the migration role | Flyway | solid: not covered by module conformance |
-| 5 | Web app | API | Calls the shipping API through the generated client | JSON over HTTPS | solid: not covered by module conformance |
+| 5 | Web app | API | Calls the shipping API through its hand-written typed HTTP adapter | JSON over HTTPS | solid: not covered by module conformance |
 | 6 | Webshop | API | Will submit orders to ship (planned) | JSON over HTTPS | dotted: planned |
 | 7 | API | Database | Reads and writes tenant-scoped data as the application role, which lacks BYPASSRLS | JDBC | solid: not covered by module conformance |
 | 8 | API | Carrier (simulated) | Obtains rates, tracking numbers and labels (simulated in-process; no network call in v0.1) | In-process simulation | solid: not covered by module conformance |

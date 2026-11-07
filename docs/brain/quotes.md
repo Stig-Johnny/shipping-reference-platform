@@ -28,7 +28,7 @@ Prices parcels with the synthetic tariff and issues quotes whose offers expire a
   - orders (PERMITTED, planned): Will request quotes for imported orders [Java]
 - **Other relationships, not checked by the Java check:**
   - from Web app (not checked): Creates and reads quotes [JSON over HTTPS]
-  - to Database (not checked): Stores quotes and offers in schema quotes [Spring Data JDBC]
+  - to Database (not checked): Stores quotes and offers in schema quotes [Spring JDBC (JdbcClient)]
   - to Carrier (simulated) (not checked): Prices each service level from the carrier's synthetic tariff (simulated in-process) [In-process simulation]
 
 ## HTTP operations
@@ -48,8 +48,8 @@ Prices parcels with the synthetic tariff and issues quotes whose offers expire a
 
 ## Decisions its specification names
 
-- [ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security](../adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md) (accepted)
 - [ADR 0006: Module events through the publication registry, with idempotent consumers](../adr/0006-module-events-through-the-publication-registry.md) (accepted)
+- [ADR 0012: First runnable slice with a plain TypeScript workbench and Spring JDBC](../adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md) (accepted)
 
 ## Flows
 

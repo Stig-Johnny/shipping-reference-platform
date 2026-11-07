@@ -118,7 +118,7 @@ I own the delivery and the technical decisions; the Java lead challenges the tec
 
 - I learned Java at university and have 17 years of experience with C# and .NET
 - I make uncertainty explicit.
-- This repository specifies Spring Data JDBC; its persistence code is still planned. We will make any JPA decisions together.
+- This repository specifies Spring JDBC (JdbcClient); its persistence code is still planned. We will make any JPA decisions together.
 
 ### Notes
 

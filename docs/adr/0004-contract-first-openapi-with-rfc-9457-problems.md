@@ -1,7 +1,8 @@
 ---
 title: "ADR 0004: Contract-first OpenAPI 3.1.2 with RFC 9457 problem details"
 description: "contracts/shipping.openapi.yaml defines the HTTP interface; controllers are tested against it, the TypeScript client is generated from it, and errors are RFC 9457 problems."
-status: accepted
+status: superseded
+supersededBy: "0012"
 updated: 2026-11-06
 date: 2026-11-06
 decision-makers: repository owner

@@ -125,8 +125,8 @@ final class DecisionPages {
             "0001", "This verifies the documentation's structure and references.",
             "0002", "This verifies the generated view pages and the built modules' static dependencies against the "
                     + "model, not runtime behaviour.",
-            "0003", "This verifies the structure of the built modules, not their behaviour.",
-            "0011", "This verifies documentation tooling and publication controls, not shipping behaviour.");
+            "0011", "This verifies documentation tooling and publication controls, not shipping behaviour.",
+            "0012", "This verifies the structure of the built modules, not their behaviour.");
 
     private static String scope(DocFile adr) {
         String file = adr.path().substring(adr.path().lastIndexOf('/') + 1);
