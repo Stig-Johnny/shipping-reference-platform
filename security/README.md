@@ -47,8 +47,10 @@ requests then made `preflight` fail on purpose and were closed unmerged:
 | #16 | Added the line `com.example:unreviewed-library:1.0.0=runtimeClasspath` to `tools/docs/gradle.lockfile`. | Exit 1 (findings), with the finding `com.example:unreviewed-library 1.0.0 (in tools/docs/gradle.lockfile) has no review on the allowlist`. | `preflight` failed with exit 1. |
 | #17 | Replaced `security/allowlist.json` with the text `{ this is not JSON`. | Exit 2 (could not complete): `## Dependency allowlist: could not complete`, then `java.lang.IllegalArgumentException: JSON expected '"' at offset 2`. | `preflight` failed with exit 2. |
 
-The expected column is the checker's own output. `tools/policy/PolicyCheck.java` was unchanged from those runs to
-2026-11-07, so both can be replayed in a clone, the missing `pipefail` too; `git checkout` undoes each change:
+The expected column is the checker's own output at the time. Both can be replayed in a clone, the missing `pipefail`
+too, with the same exit codes; `git checkout` undoes each change. Since pull request #44 the checker names the place
+of a parse error instead of quoting the parser, so replaying #17 prints `security/allowlist.json:1:3: JSON expected '"'`
+after the heading:
 
 ```bash
 echo 'com.example:unreviewed-library:1.0.0=runtimeClasspath' >> tools/docs/gradle.lockfile
