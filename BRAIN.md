@@ -10,7 +10,7 @@ updated: 2026-11-07
 
 # Brain: shipping-reference-platform
 
-A reference monorepo that shows how a Java and React product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated.
+A reference monorepo that shows how a Java and React product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. Application code is not written yet. What exists is the tooling that will judge it: a checker that holds compiled Java classes to the C4 model in both directions, a dependency allowlist check and a documentation tool.
 
 **State at this commit.** 27 capabilities: 27 planned; 17 controls: 6 shipped, 2 partial, 9 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
 

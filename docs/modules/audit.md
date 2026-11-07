@@ -2,7 +2,7 @@
 title: "Module: audit"
 description: "Appends one tenant-scoped audit entry per shipment event, deduplicated by event ID, with replay from the publication registry after failures."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 module: audit
 moduleStatus: planned
 riskLevel: 2
@@ -77,8 +77,9 @@ None in v0.1. The module has no `api` package, and no other module depends on au
 | A5 | The runtime role cannot update or delete audit entries. | `RowLevelSecurityCatalogTest` |
 
 The static check proves only that audit references `shipments.api`. A listener that compiles but never writes still
-passes it. The integration tests above catch that case; the library's slice 10 demonstration shows exactly this
-limit with a deliberately broken listener.
+passes it. The integration tests above are to catch that case. A demonstration of exactly this limit with a
+deliberately broken listener is planned as the library's slice 10 (`libs/c4-contract-kit/AGENTS.md`); like the
+tests, it does not exist yet.
 
 ## Risk levels of its paths (`policy/risk.json`)
 

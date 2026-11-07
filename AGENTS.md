@@ -4,13 +4,13 @@ This file applies to the whole repository. Scoped files add rules for their dire
 stricter: `apps/shipping-api/AGENTS.md`, `apps/shipping-web/AGENTS.md`, `libs/c4-contract-kit/AGENTS.md`,
 `security/AGENTS.md`. Changing any `AGENTS.md` is a risk level 3 change.
 
-The repository is a private reference monorepo: a Java modular monolith and a React workbench for webshop parcel
+The repository is a public reference monorepo: a Java modular monolith and a React workbench for webshop parcel
 shipping, built model first and documentation first, with synthetic data only. The controls are the product as much
 as the code. An agent that makes a check pass by weakening it has failed the task.
 
 ## Read before you change anything
 
-1. `BRAIN.md` (generated summary; once it exists) and `README.md`.
+1. `BRAIN.md` (generated summary) and `README.md`.
 2. The module document for the code you touch: `docs/modules/<module>.md`.
 3. The ADRs it links (`docs/adr/`), `docs/gaps.md` and `docs/risk-levels.md`.
 4. `architecture/workspace.dsl` for structure and `contracts/shipping.openapi.yaml` for the HTTP interface.
@@ -69,8 +69,14 @@ Unknown paths are level 3. Details: `docs/risk-levels.md`, `policy/risk.json`.
   build. They are regenerated in the controlled maintenance environment and submitted as their own pull request.
 - Install npm packages only with `npm ci --ignore-scripts`. Never run `npm install`, `npx <package>` or a package's
   scripts unless the allowlist entry's conditions name that command.
-- Never use remote `!include`, scripts or plugins in DSL files, remote Gradle scripts, or `pull_request_target`
-  workflows that check out or run pull request code.
+- Never use remote `!include`, scripts or plugins in DSL files, or remote Gradle scripts.
+- Never run pull request code in a `pull_request_target` workflow: such a workflow runs in the base repository's
+  context, where secrets and a token that can write are available. It may check out the pull request only as data,
+  into a directory of its own and without persisted credentials, for the base branch's tools to read; nothing from
+  that checkout may be executed, built, installed or sourced. `preflight` is the only such workflow. It refuses pull
+  requests from forks, has `contents: read` only, and apart from two reviewed Actions it runs only the base branch's
+  `tools/ci/stage-temurin.sh` and `tools/policy/PolicyCheck.java`, which reads the pull request's files and runs
+  nothing from them.
 
 ## Data, names and secrets
 
