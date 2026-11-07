@@ -58,7 +58,9 @@ as text, and that has a deliberate cost: a harmless comment, example or text blo
 or a trailing backslash is rejected too. After parsing, a `${` in any text that the parsed workspace holds (every
 element, relationship and view, deployment environments and groups, styles, terminology, users; `ParsedStrings` lists
 the places) is a problem too, named by its element or view: the parser can put one together from parts that hold none,
-such as nested group names joined by a `$` group separator. Only what the workspace keeps is read: a name that parsing puts together for an empty group stays in the parser's own table, no element carries it, and it cannot reach a report. The model file must be UTF-8. Implied relationships are
+such as nested group names joined by a `$` group separator. Only what the workspace keeps is read: a name that parsing
+puts together for an empty group stays in the parser's own table, no element carries it, and it cannot reach a report.
+The model file must be UTF-8. Implied relationships are
 disabled: the DSL creates them unless the file says `!impliedRelationships false`, and a model in which the parser
 created one is a model problem (a deployment instance's copy of its container's relationship is not implied). Any
 other `contract.*` property, or one on the wrong kind of element or relationship, is a model problem, so a misspelt
