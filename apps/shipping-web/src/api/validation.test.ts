@@ -121,6 +121,15 @@ describe('validateBookingRequest', () => {
     assert.deepEqual(validateBookingRequest({ ...booking, recipient: { ...booking.recipient, name: 'n'.repeat(70), city: 'c'.repeat(50) } }), []);
   });
 
+  test('text fields must be well-formed Unicode: a lone surrogate is rejected, as the contract says', () => {
+    for (const lone of ['\uD800', 'Exampleby \uDFFF', '\uDC00\uD800']) {
+      const recipient = { ...booking.recipient, name: lone, addressLine1: lone, addressLine2: lone, city: lone };
+      assert.deepEqual(pointers(validateBookingRequest({ ...booking, recipient })),
+        ['/recipient/name', '/recipient/addressLine1', '/recipient/addressLine2', '/recipient/city'], JSON.stringify(lone));
+    }
+    assert.deepEqual(validateBookingRequest({ ...booking, recipient: { ...booking.recipient, name: 'Synthetic 📦' } }), []);
+  });
+
   test('lengths count characters, not UTF-16 code units', () => {
     assert.deepEqual(validateBookingRequest({ ...booking, recipient: { ...booking.recipient, city: '\u{1F4E6}'.repeat(50) } }), []);
   });

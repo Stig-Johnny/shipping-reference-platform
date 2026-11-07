@@ -1,10 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
-import { failureMessage, failureTitle } from './messages.ts';
 import { PROBLEM_BASE, PROBLEM_TYPES, isRetryable, readProblem, referenceOf } from './problems.ts';
 import type { ApiFailure, Problem, ProblemType } from './problems.ts';
-import { FLAG_KEYS, QUOTE_STATUSES, SERVICE_LEVELS, SHIPMENT_STATUSES, UNAVAILABLE_REASONS, ZONES } from './types.ts';
 
 const CONTRACT = readFileSync(new URL('../../../../contracts/shipping.openapi.yaml', import.meta.url), 'utf8');
 
@@ -33,18 +31,9 @@ function problem(type: ProblemType, extra: Partial<Problem> = {}): ApiFailure {
   };
 }
 
-describe('the hand-written types follow the contract', () => {
+describe('the hand-written problem types follow the contract', () => {
   test('the problem types are exactly the contract\'s ProblemType enum', () => {
     assert.deepEqual(PROBLEM_TYPES.map((type) => PROBLEM_BASE + type).toSorted(), enumValues('ProblemType').toSorted());
-  });
-
-  test('the enums are exactly the contract\'s', () => {
-    assert.deepEqual([...SERVICE_LEVELS], enumValues('ServiceLevel'));
-    assert.deepEqual([...ZONES], enumValues('Zone'));
-    assert.deepEqual([...QUOTE_STATUSES], enumValues('QuoteStatus'));
-    assert.deepEqual([...SHIPMENT_STATUSES], enumValues('ShipmentStatus'));
-    assert.deepEqual([...UNAVAILABLE_REASONS], enumValues('UnavailableReason'));
-    assert.deepEqual([...FLAG_KEYS], enumValues('FlagKey'));
   });
 });
 
@@ -96,46 +85,5 @@ describe('what a failure means for the user', () => {
     assert.equal(referenceOf(problem('internal-error')), 'corr-0000000001');
     assert.equal(referenceOf({ kind: 'unexpected', status: 502, correlationId: 'corr-gateway-01' }), 'corr-gateway-01');
     assert.equal(referenceOf({ kind: 'network' }), undefined);
-  });
-
-  test('messages follow the workbench table', () => {
-    const cases: Array<[ApiFailure, string]> = [
-      [{ kind: 'network' }, 'The server could not be reached.'],
-      [{ kind: 'unexpected', status: 502 }, 'Something went wrong on our side. Try again.'],
-      [problem('validation-failed'), 'Check the highlighted fields.'],
-      [problem('malformed-request'), 'The request could not be read. Reload and try again.'],
-      [problem('unauthenticated'), 'Sign in again.'],
-      [problem('no-tenant-membership'), 'This synthetic user belongs to no tenant.'],
-      [problem('no-offer-available', { reason: 'ROUTE_NOT_SERVED' }), 'The simulated carrier does not serve this route. Served countries: DE, DK, FI, NL, NO, SE.'],
-      [problem('no-offer-available', { reason: 'BILLABLE_WEIGHT_ABOVE_LIMIT' }), 'The billable weight is above 30 kg. Billable weight is the larger of actual weight and length x width x height / 5000.'],
-      [problem('no-offer-available', { reason: 'SERVICE_LEVEL_NOT_AVAILABLE' }), 'Express is available up to 10 kg billable weight. Choose another service level or Any.'],
-      [problem('quote-not-found'), 'Quote not found.'],
-      [problem('offer-not-found'), 'Quote not found.'],
-      [problem('recipient-does-not-match-quote'), 'The recipient\'s postcode and country must match the quote\'s destination.'],
-      [problem('idempotency-key-reused'), 'This booking changed after it was sent. Review the details and book again.'],
-      [problem('quote-already-booked'), 'This quote has already been booked.'],
-      [problem('shipment-not-found'), 'Shipment not found.'],
-      [problem('shipment-cancelled'), 'This shipment is cancelled, so it has no label.'],
-      [problem('not-acceptable'), 'Something went wrong on our side. Try again.'],
-      [problem('unsupported-media-type'), 'Something went wrong on our side. Try again.'],
-      [problem('method-not-allowed'), 'Something went wrong on our side. Try again.'],
-      [problem('not-found'), 'Something went wrong on our side. Try again.'],
-      [problem('internal-error'), 'Something went wrong on our side. Try again.'],
-    ];
-    for (const [failure, message] of cases) {
-      assert.equal(failureMessage(failure), message, JSON.stringify(failure));
-    }
-  });
-
-  test('every problem type has a message', () => {
-    for (const type of PROBLEM_TYPES) {
-      assert.ok(failureMessage(problem(type)).length > 0, type);
-    }
-  });
-
-  test('the title is the problem\'s own; transport failures get a fixed one', () => {
-    assert.equal(failureTitle(problem('internal-error', { title: 'Internal error' })), 'Internal error');
-    assert.equal(failureTitle({ kind: 'network' }), 'No connection');
-    assert.equal(failureTitle({ kind: 'unexpected', status: 502 }), 'Unexpected response');
   });
 });

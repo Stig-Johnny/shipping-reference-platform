@@ -50,10 +50,20 @@ function wholeNumberWithin(value: number, bounds: { readonly min: number; readon
   return Number.isInteger(value) && value >= bounds.min && value <= bounds.max;
 }
 
-/** Length in characters (code points), as JSON Schema counts it, not in UTF-16 code units. */
+/** A code point that is half of a surrogate pair standing alone; iterating a string yields it as its own unit. */
+function isLoneSurrogate(character: string): boolean {
+  const codePoint = character.codePointAt(0) ?? 0;
+  return codePoint >= 0xd800 && codePoint <= 0xdfff;
+}
+
+/**
+ * Length in characters (code points), as JSON Schema counts it, not in UTF-16 code units; well-formed Unicode only,
+ * because the contract rejects a lone surrogate in these fields.
+ */
 function textWithin(value: string, maxLength: number): boolean {
-  const length = [...value].length;
-  return length >= 1 && length <= maxLength && TEXT.test(value);
+  const characters = [...value];
+  return characters.length >= 1 && characters.length <= maxLength && TEXT.test(value)
+    && !characters.some(isLoneSurrogate);
 }
 
 function checkPlace(errors: InvalidParam[], pointer: string, place: Place): void {
