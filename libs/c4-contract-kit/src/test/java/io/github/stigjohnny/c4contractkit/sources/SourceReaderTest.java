@@ -36,7 +36,6 @@ class SourceReaderTest {
         "'../ui', app/App.tsx, ui/index.ts",
         "'../ui/', app/App.tsx, ui/index.ts",
         "'.', ui/Button.tsx, ui/index.ts",
-        "'../../ui/theme.css', features/quotes/QuoteCard.tsx, ui/theme.css",
         "'../../ui/logo.svg', features/quotes/QuoteCard.tsx, ui/logo.svg",
         "'./types', features/quotes/QuoteCard.tsx, features/quotes/types.d.ts",
         "'./../quotes/./QuoteCard', features/quotes/index.ts, features/quotes/QuoteCard.tsx",
@@ -52,7 +51,6 @@ class SourceReaderTest {
     @CsvSource({
         "'./Missing', app/App.tsx, 'matches no file: tried app/Missing.ts, app/Missing.tsx, app/Missing.d.ts, app/Missing/index.ts, app/Missing/index.tsx, app/Missing/index.d.ts'",
         "'../ui/button', app/App.tsx, 'matches no file: tried ui/button.ts, ui/button.tsx, ui/button.d.ts, ui/button/index.ts, ui/button/index.tsx, ui/button/index.d.ts'",
-        "'../ui/missing.css', app/App.tsx, 'matches no file: ui/missing.css does not exist'",
         "'./x', both/index.ts, 'is ambiguous: it matches both/x.ts and both/x/index.ts'",
         "'../../x', app/App.tsx, 'leaves the web root'",
         "'../app/', ui/Button.tsx, 'matches no file: tried app/index.ts, app/index.tsx, app/index.d.ts'",
@@ -80,7 +78,17 @@ class SourceReaderTest {
     @CsvSource(delimiter = '|', value = {
         "''| an empty module specifier is not supported",
         "/src/app/App| an absolute module specifier is not supported: write it relative to the importing file",
-        "node:fs| a module specifier with a scheme (such as node:, https: or virtual:) is not supported",
+        "node:nonesuch| 'node:nonesuch' is not a built-in module of Node.js",
+        "data:text/javascript,export{}| a module specifier with a scheme (such as node:, https: or virtual:) is not supported",
+        "../ui/theme.css| a TypeScript import of a style sheet is not supported: link style sheets from index.html",
+        "../ui/missing.css| a TypeScript import of a style sheet is not supported: link style sheets from index.html",
+        "./Theme.CSS| a TypeScript import of a style sheet is not supported: link style sheets from index.html",
+        "allowed/../../src/private.ts| a package subpath with an empty, '.' or '..' segment is not supported",
+        "@scope/allowed/../../../src/private.ts| a package subpath with an empty, '.' or '..' segment is not supported",
+        "react/| a package subpath with an empty, '.' or '..' segment is not supported",
+        "react//jsx-runtime| a package subpath with an empty, '.' or '..' segment is not supported",
+        "react/./jsx-runtime| a package subpath with an empty, '.' or '..' segment is not supported",
+        "pkg/%2e%2e/src/private.ts| a percent sign in a package specifier is not supported: it could encode a path",
         "https://cdn.example/x.js| a module specifier with a scheme (such as node:, https: or virtual:) is not supported",
         "virtual:pwa| a module specifier with a scheme (such as node:, https: or virtual:) is not supported",
         "#internal| a query or fragment in a module specifier (such as ?url, ?raw or #name) is not supported",
@@ -125,6 +133,22 @@ class SourceReaderTest {
                         new Resolution.Unresolved("matches no file: features/quotes/quotecard.ts does not exist")),
                 tuple("features/quotes/index.ts", 1, "./QuoteCard.ts", ImportKind.RE_EXPORT,
                         new Resolution.ToFile("features/quotes/QuoteCard.ts")));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource({
+        "node:fs, node:fs", "node:assert/strict, node:assert/strict", "node:test, node:test",
+        "node:test/reporters, node:test/reporters", "fs, fs", "assert/strict, assert/strict", "fs/promises, fs/promises",
+        "child_process, child_process"})
+    void aNodeBuiltInIsNamedAsSuchWithOrWithoutItsPrefix(String specifier, String name) {
+        assertThat(resolve("app/App.tsx", specifier)).isEqualTo(new Resolution.ToBuiltin(name));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource({"test, test", "fs/extra, fs", "sqlite, sqlite"})
+    void aNameOnlyNodePrefixesOrAPathBelowABuiltInIsAPackage(String specifier, String name) {
+        // node:test and node:sqlite exist only with the prefix; fs/extra is not a module of Node.js but of package fs.
+        assertThat(resolve("app/App.tsx", specifier)).isEqualTo(new Resolution.ToPackage(name));
     }
 
     @Test
@@ -192,8 +216,8 @@ class SourceReaderTest {
                 ResolvedImport::kind, ResolvedImport::resolution).containsExactly(
                 tuple("app/App.tsx", 1, "../ui", ImportKind.TYPE_IMPORT, new Resolution.ToFile("ui/index.ts")),
                 tuple("app/main.tsx", 1, "./App", ImportKind.IMPORT, new Resolution.ToFile("app/App.tsx")),
-                tuple("app/main.tsx", 2, "../ui/theme.css", ImportKind.SIDE_EFFECT,
-                        new Resolution.ToFile("ui/theme.css")),
+                tuple("app/main.tsx", 2, "../ui/theme.css", ImportKind.SIDE_EFFECT, new Resolution.Unsupported(
+                        "a TypeScript import of a style sheet is not supported: link style sheets from index.html")),
                 tuple("ui/index.ts", 1, "./Button", ImportKind.RE_EXPORT, new Resolution.ToFile("ui/Button.tsx")));
         assertThat(set.refusals()).extracting(FileRefusal::file, FileRefusal::line, FileRefusal::reason)
                 .containsExactly(tuple("ui/theme.css", 2, ImportScanner.CSS_IMPORT));

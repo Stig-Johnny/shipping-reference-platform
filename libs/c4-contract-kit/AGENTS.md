@@ -114,8 +114,9 @@ Validation (each is a `ModelException` entry with element identifiers):
 ## Web imports
 
 Reading the sources (`sources`): every regular file under a web root, by name: `.ts`, `.tsx` and `.d.ts` are code and
-are scanned; `*.test.ts` and `*.test.tsx` are tests, owned but not scanned; `.css` is searched for `@import`, which is
-refused; images and fonts are assets; any other file is unsupported. Names that start with a dot are left out, and a
+are scanned; `*.test.ts` and `*.test.tsx` are tests, owned but not scanned; `.css` is searched, as raw text, for
+`@import` in any letter case and for an at-rule whose name holds a backslash escape (`@\69mport`), both refused
+wherever they are, comments and strings included; images and fonts are assets; any other file is unsupported. Names that start with a dot are left out, and a
 symbolic link anywhere is an error. Files must be UTF-8. No configuration file is read.
 
 The restricted import grammar reads, with the line of the specifier: `import ... from 'x'`, `import 'x'`,
@@ -145,11 +146,14 @@ The lexer fails closed: where it cannot decide with certainty, it refuses the fi
 Resolution: a relative specifier that ends in `.ts` names exactly that file (the form TypeScript's
 `rewriteRelativeImportExtensions` rewrites to `.js` on emit); it must exist with exactly that name, and no other
 extension, `index` file or letter case is tried in its place. One without an extension names `p.ts`, `p.tsx`,
-`p.d.ts` or the `index` file of the directory `p` and must match exactly one existing file, by exact name; one with a
-style, image or font extension names that file; one with any other code or JSON extension (`.tsx`, `.js`, `.mts`,
-`.json`, or `.TS` in another letter case) is unsupported; one that leaves the web root is unresolved. A bare specifier
-names a package (scoped or not; a subpath may follow). Absolute specifiers, schemes (`node:`, `https:`, `virtual:`),
-queries and fragments are unsupported.
+`p.d.ts` or the `index` file of the directory `p` and must match exactly one existing file, by exact name; one with an
+image or font extension names that file; one that names a style sheet (`.css`) is unsupported, since style sheets
+are linked from `index.html`; one with any other code or JSON extension (`.tsx`, `.js`, `.mts`, `.json`, or `.TS` in
+another letter case) is unsupported; one that leaves the web root is unresolved. A bare specifier names a built-in
+module of Node.js when it is the name of one (`fs`, `assert/strict`), and otherwise a package (scoped or not), after
+which a subpath of names may follow: no empty, `.` or `..` segment and no percent sign. `node:` followed by the name of
+a built-in module names that module (`node:test`, `node:assert/strict`); any other `node:` specifier is unsupported.
+Absolute specifiers, other schemes (`https:`, `data:`, `virtual:`), queries and fragments are unsupported.
 
 ## Ten TDD slices
 

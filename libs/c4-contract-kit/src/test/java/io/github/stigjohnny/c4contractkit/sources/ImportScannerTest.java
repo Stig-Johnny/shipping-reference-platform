@@ -416,15 +416,33 @@ class ImportScannerTest {
     @Test
     void cssImportRulesAreRefusedAndOtherCssIsNoDependency() {
         assertThat(ImportScanner.scanStyle("""
-                /* @import url('./not-a-rule.css'); */
                 :root { --action: #0f766e; }
                 .icon { background: url('./icon.svg'); }
+                @media (prefers-color-scheme: dark) { :root { --action: #5eead4; } }
                 """)).isEmpty();
         assertThat(ImportScanner.scanStyle("""
                 :root { --a: 1; }
                 @IMPORT './tokens.css';
                 """)).extracting(Refusal::line, Refusal::reason).containsExactly(tuple(2,
-                "CSS @import is not supported: import style sheets from TypeScript, where the check sees them"));
+                "CSS @import is not supported: link each style sheet from index.html"));
+    }
+
+    @Test
+    void anImportRuleIsRefusedWhereverTheTextNamesItCommentsAndStringsIncluded() {
+        // The rule is searched in the raw text: a /* inside a string cannot blank the rule that follows it.
+        assertThat(ImportScanner.scanStyle("@x \"/*\"; @import \"./hidden.css\"; /* */\n")).extracting(Refusal::reason)
+                .containsExactly("CSS @import is not supported: link each style sheet from index.html");
+        assertThat(ImportScanner.scanStyle("/* no @import here */\na { content: '@import'; }\n"))
+                .extracting(Refusal::line).containsExactly(1, 2);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"@\\69mport \"./hidden.css\";", "@\\import \"./hidden.css\";", "@imp\\6frt \"./hidden.css\";",
+        "@\\49 MPORT \"./hidden.css\";", "@media\\ screen { }"})
+    void aCssAtRuleWhoseNameHoldsAnEscapeIsRefusedUndecoded(String css) {
+        assertThat(ImportScanner.scanStyle("a { }\n" + css + "\n")).extracting(Refusal::line, Refusal::reason)
+                .contains(tuple(2, "a CSS at-rule whose name holds a backslash escape is not supported: the reader "
+                        + "does not decode escapes"));
     }
 
     /**

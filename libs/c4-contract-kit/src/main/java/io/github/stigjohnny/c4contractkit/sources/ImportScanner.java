@@ -42,11 +42,14 @@ final class ImportScanner {
     static final String EXPORT_STAR = "unsupported export declaration: expected from and a string after export *";
     static final String EXPORT_FROM = "unsupported export declaration: expected a string after from";
     static final String ESCAPE = "a module specifier with a backslash escape is not supported";
-    static final String CSS_IMPORT =
-            "CSS @import is not supported: import style sheets from TypeScript, where the check sees them";
+    static final String CSS_IMPORT = "CSS @import is not supported: link each style sheet from index.html";
+    static final String CSS_ESCAPED_AT_RULE = "a CSS at-rule whose name holds a backslash escape is not supported: "
+            + "the reader does not decode escapes";
 
-    private static final Pattern CSS_COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
-    private static final Pattern CSS_IMPORT_RULE = Pattern.compile("(?i)@import\\b");
+    /** {@code @import} in any ASCII letter case, wherever it is: in comments and strings too. */
+    private static final Pattern CSS_IMPORT_RULE = Pattern.compile("@import", Pattern.CASE_INSENSITIVE);
+    /** An at-keyword with a backslash in its name, such as {@code @\69mport}: an escape could spell import. */
+    private static final Pattern CSS_ESCAPED_NAME = Pattern.compile("@[A-Za-z0-9_-]*\\\\");
 
     /** What one file imports and what it refuses, each in source order; a refusal found twice is listed once. */
     record Scan(List<SourceImport> imports, List<Refusal> refusals) {
@@ -89,24 +92,26 @@ final class ImportScanner {
         return new Scan(scanner.imports, refusals);
     }
 
-    /** Scans one style sheet, in which only {@code @import} could make it depend on another file. */
+    /**
+     * Scans one style sheet, in which only {@code @import} could make it depend on another file. The raw text is
+     * searched, so that no comment or string can hide the rule: a style sheet that names {@code @import} anywhere,
+     * or holds an at-rule whose name holds an escape, is refused.
+     */
     static List<Refusal> scanStyle(String text) {
-        StringBuilder blanked = new StringBuilder(text);
-        Matcher comment = CSS_COMMENT.matcher(text);
-        while (comment.find()) {
-            for (int i = comment.start(); i < comment.end(); i++) {
-                if (blanked.charAt(i) != '\n') {
-                    blanked.setCharAt(i, ' ');
-                }
-            }
-        }
         List<Refusal> refusals = new ArrayList<>();
-        Matcher rule = CSS_IMPORT_RULE.matcher(blanked);
+        Matcher rule = CSS_IMPORT_RULE.matcher(text);
         while (rule.find()) {
-            int line = 1 + (int) blanked.substring(0, rule.start()).chars().filter(c -> c == '\n').count();
-            refusals.add(new Refusal(line, CSS_IMPORT));
+            refusals.add(new Refusal(lineOf(text, rule.start()), CSS_IMPORT));
         }
-        return List.copyOf(refusals);
+        Matcher escaped = CSS_ESCAPED_NAME.matcher(text);
+        while (escaped.find()) {
+            refusals.add(new Refusal(lineOf(text, escaped.start()), CSS_ESCAPED_AT_RULE));
+        }
+        return refusals.stream().distinct().sorted(Comparator.comparingInt(Refusal::line)).toList();
+    }
+
+    private static int lineOf(String text, int index) {
+        return 1 + (int) text.substring(0, index).chars().filter(c -> c == '\n').count();
     }
 
     private void read() {
