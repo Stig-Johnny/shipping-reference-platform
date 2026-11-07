@@ -134,6 +134,10 @@ closes it.
   owner and name, in a call or a method or constructor reference. A call through `java.lang.invoke`, a method handle
   looked up by name, is outside those rules; only `java.lang.reflect` is banned outright. No production class uses
   `java.lang.invoke` today, and `policy/risk.json` raises an added `MethodHandles.` in production code to level 3.
+- **The model check reads what the workspace keeps.** Before parsing it rejects `${`, constants, variables and line
+  continuations anywhere in the file; after parsing it reads every text the parsed workspace holds. A name that
+  parsing assembles for an empty group (for example with a `$` group separator) stays in the parser's own table:
+  no element carries it, so it is not checked and cannot reach a report.
 
 ## 6. Tests and quality gates
 
