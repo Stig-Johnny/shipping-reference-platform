@@ -191,7 +191,7 @@ class SourceReaderTest {
     void theReaderClassifiesScansAndResolvesEveryFile(@TempDir Path root) throws IOException {
         write(root, "app/main.tsx", "import { App } from './App';\nimport '../ui/theme.css';\n");
         write(root, "app/App.tsx", "import type { Props } from '../ui';\nexport const App = () => <div/>;\n");
-        write(root, "app/App.test.tsx", "import { App } from './App';\nrequire('never-read');\n");
+        write(root, "app/App.test.tsx", "import { App } from './App';\nrequire('refused-in-tests-too');\n");
         write(root, "ui/index.ts", "export * from './Button';\nexport type Props = { a: 1 };\n");
         write(root, "ui/Button.tsx", "export const Button = () => null;\n");
         write(root, "ui/theme.css", ":root { --a: 1; }\n@import './more.css';\n");
@@ -214,13 +214,52 @@ class SourceReaderTest {
                 tuple("ui/theme.css", FileKind.STYLE));
         assertThat(set.imports()).extracting(ResolvedImport::file, ResolvedImport::line, ResolvedImport::specifier,
                 ResolvedImport::kind, ResolvedImport::resolution).containsExactly(
+                tuple("app/App.test.tsx", 1, "./App", ImportKind.IMPORT, new Resolution.ToFile("app/App.tsx")),
                 tuple("app/App.tsx", 1, "../ui", ImportKind.TYPE_IMPORT, new Resolution.ToFile("ui/index.ts")),
                 tuple("app/main.tsx", 1, "./App", ImportKind.IMPORT, new Resolution.ToFile("app/App.tsx")),
                 tuple("app/main.tsx", 2, "../ui/theme.css", ImportKind.SIDE_EFFECT, new Resolution.Unsupported(
                         "a TypeScript import of a style sheet is not supported: link style sheets from index.html")),
                 tuple("ui/index.ts", 1, "./Button", ImportKind.RE_EXPORT, new Resolution.ToFile("ui/Button.tsx")));
         assertThat(set.refusals()).extracting(FileRefusal::file, FileRefusal::line, FileRefusal::reason)
-                .containsExactly(tuple("ui/theme.css", 2, ImportScanner.CSS_IMPORT));
+                .containsExactly(tuple("app/App.test.tsx", 2, ImportScanner.REQUIRE),
+                        tuple("ui/theme.css", 2, ImportScanner.CSS_IMPORT));
+    }
+
+    @Test
+    void aTestRootHoldsOnlyTestsAndEachIsScanned(@TempDir Path root) throws IOException {
+        write(root, "flow.ts", "import { open } from './helpers/open.ts';\nimport { test } from 'node:test';\n");
+        write(root, "helpers/open.ts", "export const open = () => undefined;\n");
+        write(root, "fixture.json", "{}\n");
+
+        SourceSet set = SourceReader.read(root, "apps/web/e2e", RootKind.TEST);
+
+        assertThat(set.files()).extracting(SourceFile::path, SourceFile::kind).containsExactly(
+                tuple("fixture.json", FileKind.UNSUPPORTED), tuple("flow.ts", FileKind.TEST),
+                tuple("helpers/open.ts", FileKind.TEST));
+        assertThat(set.imports()).extracting(ResolvedImport::file, ResolvedImport::specifier,
+                ResolvedImport::resolution).containsExactly(
+                tuple("flow.ts", "./helpers/open.ts", new Resolution.ToFile("helpers/open.ts")),
+                tuple("flow.ts", "node:test", new Resolution.ToBuiltin("node:test")));
+    }
+
+    @Test
+    void aPublicRootHoldsOnlyStyleSheetsImagesAndFontsAndItsStyleSheetsAreSearched(@TempDir Path root)
+            throws IOException {
+        write(root, "workbench.css", ":root { --a: 1; }\n@import './more.css';\n");
+        write(root, "logo.svg", "<svg/>\n");
+        write(root, "app.js", "import './x.js';\n");
+        write(root, "main.ts", "export {};\n");
+        write(root, "robots.txt", "User-agent: *\n");
+
+        SourceSet set = SourceReader.read(root, "apps/web/public", RootKind.PUBLIC);
+
+        assertThat(set.files()).extracting(SourceFile::path, SourceFile::kind).containsExactly(
+                tuple("app.js", FileKind.UNSUPPORTED), tuple("logo.svg", FileKind.ASSET),
+                tuple("main.ts", FileKind.UNSUPPORTED), tuple("robots.txt", FileKind.UNSUPPORTED),
+                tuple("workbench.css", FileKind.STYLE));
+        assertThat(set.imports()).isEmpty();
+        assertThat(set.refusals()).extracting(FileRefusal::file, FileRefusal::line, FileRefusal::reason)
+                .containsExactly(tuple("workbench.css", 2, ImportScanner.CSS_IMPORT));
     }
 
     @Test
@@ -254,6 +293,30 @@ class SourceReaderTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("The web root src holds a symbolic link, ui/Alias.tsx: the check reads only regular files "
                         + "and directories");
+    }
+
+    @Test
+    void aSymbolicLinkWithAHiddenNameIsAnErrorBecauseLinksAreCheckedBeforeAnythingIsLeftOut(@TempDir Path root)
+            throws IOException {
+        write(root, "ui/Button.tsx", "export const Button = 1;\n");
+        Files.createSymbolicLink(root.resolve("ui/.alias.ts"), root.resolve("ui/Button.tsx"));
+
+        assertThatThrownBy(() -> SourceReader.read(root, "src"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("The web root src holds a symbolic link, ui/.alias.ts: the check reads only regular files "
+                        + "and directories");
+    }
+
+    @Test
+    void aSymbolicLinkInsideAHiddenDirectoryIsAnError(@TempDir Path root) throws IOException {
+        write(root, "ui/Button.tsx", "export const Button = 1;\n");
+        write(root, ".hidden/notes.md", "kept out of the source set\n");
+        Files.createSymbolicLink(root.resolve(".hidden/link.ts"), root.resolve("ui/Button.tsx"));
+
+        assertThatThrownBy(() -> SourceReader.read(root, "src"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("The web root src holds a symbolic link, .hidden/link.ts: the check reads only regular "
+                        + "files and directories");
     }
 
     @Test

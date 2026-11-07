@@ -20,14 +20,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Reads a web root as data: classifies every regular file by its name, scans the code files and style sheets, and
- * resolves each import against the files found. Nothing is executed, compiled or loaded, and no configuration file
- * (tsconfig.json, vite.config.ts) is read, so path aliases and custom resolution do not exist for the check: a
- * specifier that relies on them is unsupported or names an undeclared package.
+ * Reads a web root as data: classifies every regular file by its name and the kind of root, scans the code files, the
+ * tests and the style sheets, and resolves each import against the files found. Nothing is executed, compiled or
+ * loaded, and the reader resolves no path alias: a specifier that relies on one is unsupported or names a package.
  *
  * <p>Files and directories whose names start with a dot are not part of the web root's source set; an import of one
- * is therefore unresolved. A symbolic link anywhere under the root, or as the root, is an error: the check reads only
- * regular files and directories.
+ * is therefore unresolved. A symbolic link anywhere under the root, hidden ones included, or as the root, is an error:
+ * links are checked before anything is left out, and hidden directories are searched for them too.
  */
 public final class SourceReader {
 
@@ -44,6 +43,14 @@ public final class SourceReader {
      * @throws UncheckedIOException if a file cannot be read
      */
     public static SourceSet read(Path directory, String root) {
+        return read(directory, root, RootKind.SOURCE);
+    }
+
+    /**
+     * Reads one root of the given kind; see {@link #read(Path, String)}. In a test root every code file is a test, and
+     * a public root may hold style sheets, images and fonts only: any other file there is unsupported.
+     */
+    public static SourceSet read(Path directory, String root, RootKind kind) {
         if (Files.isSymbolicLink(directory)) {
             throw new IllegalArgumentException("The web root " + root
                     + " is a symbolic link: the check reads only regular files and directories");
@@ -54,12 +61,12 @@ public final class SourceReader {
         if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
             throw new IllegalArgumentException("The web root " + root + " is not a directory");
         }
-        List<SourceFile> files = walk(directory, root);
+        List<SourceFile> files = walk(directory, root, kind);
         Set<String> paths = files.stream().map(SourceFile::path).collect(Collectors.toUnmodifiableSet());
         List<ResolvedImport> imports = new ArrayList<>();
         List<FileRefusal> refusals = new ArrayList<>();
         for (SourceFile file : files) {
-            if (file.kind() != FileKind.CODE && file.kind() != FileKind.STYLE) {
+            if (file.kind() != FileKind.CODE && file.kind() != FileKind.TEST && file.kind() != FileKind.STYLE) {
                 continue;
             }
             Optional<String> text = text(directory.resolve(file.path()), root + "/" + file.path());
@@ -81,12 +88,21 @@ public final class SourceReader {
         return new SourceSet(root, files, imports, refusals);
     }
 
-    /** What a file is, by its name. */
+    /** What a file of a source root is, by its name. */
     static FileKind kind(String name) {
-        if (name.endsWith(".test.ts") || name.endsWith(".test.tsx")) {
+        return kind(name, RootKind.SOURCE);
+    }
+
+    /** What a file is, by its name and the kind of root it is in. */
+    static FileKind kind(String name, RootKind root) {
+        boolean code = name.endsWith(".ts") || name.endsWith(".tsx");
+        if (root == RootKind.PUBLIC && code) {
+            return FileKind.UNSUPPORTED;
+        }
+        if (code && (root == RootKind.TEST || name.endsWith(".test.ts") || name.endsWith(".test.tsx"))) {
             return FileKind.TEST;
         }
-        if (name.endsWith(".ts") || name.endsWith(".tsx")) {
+        if (code) {
             return FileKind.CODE;
         }
         if (name.endsWith(".css")) {
@@ -97,21 +113,13 @@ public final class SourceReader {
         return Specifiers.FILE_EXTENSIONS.contains(extension) ? FileKind.ASSET : FileKind.UNSUPPORTED;
     }
 
-    private static List<SourceFile> walk(Path directory, String root) {
+    private static List<SourceFile> walk(Path directory, String root, RootKind kind) {
         List<SourceFile> files = new ArrayList<>();
         try {
             Files.walkFileTree(directory, new SimpleFileVisitor<>() {
                 @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attributes) {
-                    return !dir.equals(directory) && hidden(dir) ? FileVisitResult.SKIP_SUBTREE
-                            : FileVisitResult.CONTINUE;
-                }
-
-                @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
-                    if (hidden(file)) {
-                        return FileVisitResult.CONTINUE;
-                    }
+                    // Links and special files are refused first, hidden ones included; only then is anything left out.
                     String path = relative(directory, file);
                     if (attributes.isSymbolicLink()) {
                         throw new IllegalArgumentException("The web root " + root + " holds a symbolic link, " + path
@@ -121,7 +129,9 @@ public final class SourceReader {
                         throw new IllegalArgumentException("The web root " + root + " holds " + path
                                 + ", which is neither a regular file nor a directory");
                     }
-                    files.add(new SourceFile(path, kind(file.getFileName().toString())));
+                    if (!hidden(path)) {
+                        files.add(new SourceFile(path, kind(file.getFileName().toString(), kind)));
+                    }
                     return FileVisitResult.CONTINUE;
                 }
             });
@@ -131,9 +141,14 @@ public final class SourceReader {
         return files.stream().sorted(Comparator.comparing(SourceFile::path)).toList();
     }
 
-    private static boolean hidden(Path path) {
-        Path name = path.getFileName();
-        return name != null && name.toString().startsWith(".");
+    /** Whether a name on the path, relative to the root, starts with a dot. */
+    private static boolean hidden(String path) {
+        for (String name : path.split("/", -1)) {
+            if (name.startsWith(".")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String relative(Path directory, Path file) {

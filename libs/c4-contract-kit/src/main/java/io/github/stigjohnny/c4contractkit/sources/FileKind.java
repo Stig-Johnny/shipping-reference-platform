@@ -4,7 +4,10 @@ package io.github.stigjohnny.c4contractkit.sources;
 public enum FileKind {
     /** {@code .ts}, {@code .tsx} and {@code .d.ts}: scanned, and its imports are dependencies. */
     CODE,
-    /** {@code *.test.ts} and {@code *.test.tsx}: owned by a component, but not scanned, like test classes. */
+    /**
+     * {@code *.test.ts} and {@code *.test.tsx}, and every code file of a test root: scanned like code, but held to the
+     * rules for tests.
+     */
     TEST,
     /** {@code .css}: searched for {@code @import}, which is refused. */
     STYLE,

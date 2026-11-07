@@ -113,11 +113,13 @@ Validation (each is a `ModelException` entry with element identifiers):
 
 ## Web imports
 
-Reading the sources (`sources`): every regular file under a web root, by name: `.ts`, `.tsx` and `.d.ts` are code and
-are scanned; `*.test.ts` and `*.test.tsx` are tests, owned but not scanned; `.css` is searched, as raw text, for
-`@import` in any letter case and for an at-rule whose name holds a backslash escape (`@\69mport`), both refused
-wherever they are, comments and strings included; images and fonts are assets; any other file is unsupported. Names that start with a dot are left out, and a
-symbolic link anywhere is an error. Files must be UTF-8. No configuration file is read.
+Reading the sources (`sources`): every regular file under a web root, by name and the kind of root. In a source root,
+`.ts`, `.tsx` and `.d.ts` are code, and `*.test.ts` and `*.test.tsx` are tests; both are scanned. In a test root every
+`.ts` and `.tsx` file is a test. A public root may hold style sheets, images and fonts only. `.css` is searched, as raw
+text, for `@import` in any letter case and for an at-rule whose name holds a backslash escape (`@\69mport`), both
+refused wherever they are, comments and strings included; images and fonts are assets; any other file is unsupported.
+Names that start with a dot are left out, but a symbolic link anywhere is an error, hidden ones and those in hidden
+directories included: links are checked before anything is left out. Files must be UTF-8.
 
 The restricted import grammar reads, with the line of the specifier: `import ... from 'x'`, `import 'x'`,
 `import type`, `export * from`, `export { a } from`, their type-only forms, and `import('x')` with one plain string
