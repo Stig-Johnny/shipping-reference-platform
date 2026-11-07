@@ -45,6 +45,16 @@ in the `java` check (`WebArchitectureConformanceTest`); `tools/web-imports/check
 - A feature imports another feature only through that feature's `index.ts`.
 - `src/auth/` imports nothing from `features`.
 - No import cycles.
+- No package: no part's `web.packages` lists one. A bare specifier fails unless its part lists the package,
+  `package.json` pins it in `dependencies`, and `security/allowlist.json` approves that version for
+  `apps/shipping-web` in `dependencies`; a review for `devDependencies` does not cover code that runs in the browser.
+- No built-in module of Node.js in browser code, in any form. A test may import `node:assert/strict`, `node:test`
+  and `node:fs` (the model's `web.testBuiltins`), written with `node:`, under the review of the Node.js that
+  `engines.node` names.
+- Tests are held to the rules of their part, but never count as an import a REQUIRED relationship needs, and no
+  production file imports a test.
+- No URL, `data:` or computed import; no CSS `@import` (link each style sheet from `index.html`) and no style sheet
+  imported from TypeScript; no path alias, `baseUrl` or import map.
 
 The checker enforces import boundaries and cycles, and requires a direct import for each REQUIRED relationship whose
 endpoints are built. Relationships touching planned parts are not evaluated. The HTTP calls to the API stay outside

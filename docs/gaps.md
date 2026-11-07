@@ -18,13 +18,15 @@ closes it.
   `tools/docs`, exists: it generates the C4 view pages, `BRAIN.md` and the module brains, and builds the
   documentation site, which `.github/workflows/pages.yml` publishes from `main` after the publication scan. Its own
   controls, `control.brain-check` and `control.publication-scan`, are shipped with their tests as evidence. The
-  library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. The first
-  application code exists: the domain and application layers of the `quotes` module and of booking in the `shipments`
-  module, and the tenant context of the `tenants` module, checked by `ArchitectureConformanceTest`, `ModularityTest`
-  and `HexagonalLayeringTest`. Six capabilities have passing tests: two of the quotes module are shipped, and two of
-  it and two of the shipments module are partial. Every other capability in `docs/capabilities/capabilities.yaml` is
-  `planned` with no evidence, and every test class named for them is still to be written (red first), except
-  `ShipmentTest`, which exists for booking and does not yet assert cancellation.
+  library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. So does
+  its web import check, which holds `apps/shipping-web` to the web container of the model; every web part is
+  planned, so it evaluates no import of the web app yet. The first application code exists: the domain and
+  application layers of the `quotes` module and of booking in the `shipments` module, and the tenant context of the
+  `tenants` module, checked by `ArchitectureConformanceTest`, `ModularityTest` and `HexagonalLayeringTest`. Six
+  capabilities have passing tests: two of the quotes module are shipped, and two of it and two of the shipments
+  module are partial. Every other capability in `docs/capabilities/capabilities.yaml` is `planned` with no evidence,
+  and every test class named for them is still to be written (red first), except `ShipmentTest`, which exists for
+  booking and does not yet assert cancellation.
 - **The quotes module runs in its tests only.** No class of it is a Spring bean, and no endpoint, database or running
   application exists. `CreateQuote`'s `@Transactional` has no effect yet, and that `QuoteIssued` is published inside
   the quote's transaction is unproven until `QuotesModuleIntegrationTest` exists. The store its tests use is in
@@ -85,8 +87,31 @@ closes it.
   The checker does not understand intent. The compensating control is to be the owner's approval: `architecture/` is
   level 3 and owned by the owner. That approval is not enforced yet (section 5), and the demonstration of a weakening
   pull request waiting for it, the library's slice 8, is planned.
-- **The web app is outside the check.** The C4 relationships from the web app to the API are network calls. Java
-  static analysis does not see them; the contract tests and Playwright tests do, for the operations they exercise.
+- **The web app's calls are outside the check.** The C4 relationships from the web app to the API are network calls.
+  No static check sees them; the contract tests and Playwright tests do, for the operations they exercise.
+- **The web import check reads text, not types.** It holds the web app's imports to the model's web container with a
+  restricted import grammar, never with the TypeScript compiler, and fails closed: what it cannot read with certainty
+  fails the build with its file and line. These limits follow:
+  - It reads `package.json`, `tsconfig*.json` and the app's `*.html` pages as data and refuses every setting that
+    would make TypeScript, Node.js or the browser resolve a specifier otherwise (path aliases, `baseUrl`, `rootDirs`,
+    an import map, and more). It reads no other configuration: a bundler or test-runner configuration that resolved
+    modules differently would not be seen. ADR 0012 has no bundler; `vite.config.ts` and `vitest.config.ts` are risk
+    level 2 in `policy/risk.json` (`web-build-configuration`), which does not require the owner's approval.
+  - Tests are read and held to their part's relationships and entries, and every package and built-in they name must
+    be declared and approved, but their imports are never evidence. What a test does at run time with a built-in it
+    may import (`node:fs` reads files) is not checked.
+  - A package or built-in is approved when an entry of `security/allowlist.json` matches its kind, coordinate, exact
+    version, project and configuration with an approving verdict. The check leaves expiry to `PolicyCheck`, and an
+    approved package's own dependencies to the allowlist and lock checks; it sees only the imports in the app's files.
+    No part declares a package today.
+  - `url()` in style sheets and assets that code names in strings at run time are not dependencies to it.
+  - It refuses valid TypeScript it does not cover, such as a slash it cannot classify as division or a regular
+    expression, a generic arrow function starting with `<` in a `.tsx` file, `require`, `import.meta.glob` and
+    triple-slash directives. A refusal fails the build; it never passes unseen. A misreading the lexer does not know
+    about could still hide an import.
+  - Calls of globals, such as `fetch` outside `src/api`, are not imports; review enforces that rule
+    (`apps/shipping-web/AGENTS.md`).
+  - As in the class check, a REQUIRED web relationship proves an import, not that the imported code runs.
 - **Library self-model.** The library's internal structure is governed by `libs/c4-contract-kit/architecture/self.dsl`,
   not by `architecture/workspace.dsl`; the two are checked separately.
 
@@ -194,10 +219,10 @@ closes it.
   that condition was checked; the exposure was one listening socket per run, for the length of the run.
 - axe-core finds a subset of accessibility problems; manual keyboard and screen reader checks are required and
   recorded by hand.
-- The web app's static checks are to cover import boundaries and cycles, and a direct import for each REQUIRED
-  relationship whose endpoints are built (ADR 0012). Relationships touching planned parts are not evaluated, a direct
-  import proves a reference and not behaviour, and a part that no REQUIRED relationship reaches can be unused without
-  a report. dependency-cruiser is deferred.
+- The web app's static import check covers import boundaries and cycles, and a direct import for each REQUIRED
+  relationship whose endpoints are built (ADR 0012; its limits are in section 1). Relationships touching planned parts
+  are not evaluated, a direct import proves a reference and not behaviour, and a part that no REQUIRED relationship
+  reaches can be unused without a report. dependency-cruiser is deferred.
 - The first runnable slice defers the generated client and the component tests (ADR 0012). So there is no
   generated-client drift guarantee: the web app's request and response types are written by hand in
   `apps/shipping-web/src/api` and can drift from `contracts/shipping.openapi.yaml` without failing a build. The

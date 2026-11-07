@@ -14,7 +14,7 @@ plannedEnforcement:
   - "java: QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest"
   - "java: RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, CrossTenantAccessTest"
   - "java: MigrationsIntegrationTest, and TableOwnershipTest on the SQL of each module's adapters"
-  - "java: WebArchitectureConformanceTest, the JDK import checker over apps/shipping-web/src: import boundaries, cycles, and a direct import for each REQUIRED relationship whose endpoints are built"
+  - "java: WebArchitectureConformanceTest, the JDK import checker over apps/shipping-web: import boundaries, cycles, a direct import for each REQUIRED relationship whose endpoints are built, and every package and Node.js built-in whitelisted in the model and approved in security/allowlist.json. It runs in every build; with all six parts planned it evaluates no import yet (control.web-import-boundaries, partial)"
   - "web: type check and emit with TypeScript 5.9.3, and the logic tests under node --test"
   - "contract-e2e: Playwright and axe-core against the API started with the demo profile on PostgreSQL"
 ---

@@ -79,6 +79,9 @@ public record WebExternalImport(String file, int line, String specifier, String 
 public enum ExternalImportStatus { APPROVED, UNDECLARED, UNPINNED, UNAPPROVED, REFUSED }
 ```
 
+`WebArchitectureConformanceTest`, a test of this library, runs it on the repository's `apps/shipping-web/src` in every
+build and writes its reports to `libs/c4-contract-kit/build/reports/c4-contract-web/`.
+
 ## Model rules (the header of `architecture/workspace.dsl` states them for model authors)
 
 Parsing:

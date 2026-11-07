@@ -30,13 +30,20 @@ mutationTesting {
     targetClasses = "io.github.stigjohnny.c4contractkit.*"
 }
 
-// The tests read two models from the repository: architecture/workspace.dsl (RepositoryWorkspaceTest) and the
-// self-model architecture/self.dsl (SelfConformanceTest). Declared as inputs, a change to either reruns the tests
-// instead of reusing their earlier result. Line endings are not normalised: SelfConformanceTest matches text in the
-// self-model with LF line ends, so a change of line endings alone changes its result.
+// The tests read two models from the repository: architecture/workspace.dsl (RepositoryWorkspaceTest and
+// WebArchitectureConformanceTest) and the self-model architecture/self.dsl (SelfConformanceTest). Declared as inputs,
+// a change to either reruns the tests instead of reusing their earlier result. Line endings are not normalised:
+// SelfConformanceTest matches text in the self-model with LF line ends, so a change of line endings alone changes its
+// result. WebArchitectureConformanceTest also reads what the web import check of every build reads: the web app's
+// roots and configuration under apps/shipping-web, and security/allowlist.json. It must rerun whenever one of those
+// files changes, appears or disappears.
 tasks.test {
     inputs.files(rootDir.resolve("architecture/workspace.dsl"), file("architecture/self.dsl"))
         .withPathSensitivity(PathSensitivity.RELATIVE).withPropertyName("models")
+    inputs.files(fileTree(rootDir.resolve("apps/shipping-web")) {
+        include("src/**", "public/**", "package.json", "tsconfig*.json", "*.html")
+    }, rootDir.resolve("security/allowlist.json"))
+        .withPathSensitivity(PathSensitivity.RELATIVE).withPropertyName("webInputs")
 }
 
 // The Javadoc JAR documents the public API only; every other package is internal (AGENTS.md, "Boundaries").

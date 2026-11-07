@@ -150,6 +150,41 @@ class SitePagesTest {
     }
 
     @Test
+    void theWebViewSaysItsPartsAreCheckedByTheWebImportCheckAndStillPlanned() {
+        String web = site.text("model/web-components.html");
+
+        assertThat(web).contains("<td>planned; checked by the web import check</td>",
+                "A thick line is a REQUIRED import between parts of the web app.",
+                "A REQUIRED arrow specifies an obligation; where both parts are built, a passing web import check "
+                        + "establishes an import, not runtime behaviour.",
+                "The API adapter&#39;s calls to the API are network calls, which no static check sees.")
+                .doesNotContain("compiled classes have no static reference");
+    }
+
+    @Test
+    void theWebViewsPanelGivesTheWebPartsAndTheWebImportControlNotTheApiModules() {
+        String panel = statusPanel(site.text("model/web-components.html"));
+
+        assertThat(panel).contains("6 web parts planned in the model; a planned part has no code yet, so the web "
+                        + "import check evaluates none of the web app&#39;s imports.",
+                "Partly enforced",
+                "These tests verify the web import check on synthetic web apps; no import of the web app has been "
+                        + "checked yet.", "<p>ImportScannerTest, SourceReaderTest, JsonTest, AppConfigurationTest, "
+                        + "WebModelValidationTest, WebConformanceTest, WebReportDeterminismTest, "
+                        + "WebArchitectureConformanceTest</p>")
+                .doesNotContain("module", "Checker tests passing");
+        assertThat(statusPanel(site.text("model/api-components.html"))).contains("modules built")
+                .doesNotContain("web part");
+    }
+
+    /** The page's status panel, from its opening tag to its end. */
+    private static String statusPanel(String page) {
+        int start = page.indexOf("<section class=\"status-panel\"");
+        assertThat(start).isNotNegative();
+        return page.substring(start, page.indexOf("</section>", start));
+    }
+
+    @Test
     void theViewsSpecifyAndDoNotClaimVerifiedImplementation() {
         String containers = site.text("model/containers.html");
         String components = site.text("model/api-components.html");
@@ -434,7 +469,7 @@ class SitePagesTest {
             }
         });
         assertThat(targets).containsExactlyInAnyOrder("model/api-components.html", "model/containers.html",
-                "model/quote-book-label.html", "model/system-context.html");
+                "model/quote-book-label.html", "model/system-context.html", "model/web-components.html");
     }
 
     @Test
@@ -501,13 +536,14 @@ class SitePagesTest {
                         + "current head.</li>");
         assertThat(repository.indexOf("<li>An issue states the change.</li>"))
                 .isGreaterThan(repository.indexOf("Workflow source"));
-        assertThat(site.text("trust/third-party-notices.html")).contains("seven diagram pages");
+        assertThat(site.text("trust/third-party-notices.html")).contains("eight diagram pages");
     }
 
     @Test
     void theModulesIndexSaysTheWebAppCallsTheApiThroughItsHandWrittenAdapter() {
         // ADR 0012: the first runnable slice generates no client.
-        String row = "<tr><th scope=\"row\">Web app</th><td>a container, not a checked module</td><td></td>"
+        String row = "<tr><th scope=\"row\">Web app</th><td>a container, not an API module; the web import check "
+                + "holds its parts to the model</td><td></td>"
                 + "<td>the API, through its hand-written typed HTTP adapter</td>";
 
         assertThat(site.text("modules/index.html")).contains(row).doesNotContain("generated client");
@@ -532,6 +568,12 @@ class SitePagesTest {
         assertThat(record).contains("<span class=\"badge badge-shipped\">Passing</span> 3 evidence test classes passed "
                 + "in the build that generated this site. This verifies the structure of the built modules, not their "
                 + "behaviour.").doesNotContain(Statuses.TOOLING);
+        // A partial control the record documents adds its two sentences; it never hides the record's passing tests.
+        assertThat(record).contains("<span class=\"badge badge-partial\">Partly enforced</span> Each rule fails its "
+                + "synthetic negative fixture, and WebArchitectureConformanceTest runs the check on apps/shipping-web in "
+                + "every build, where a file under src in no part or in a planned part fails it.", "All six web parts "
+                + "are planned, so no import of the web app is evaluated yet; the rules apply to its real imports once "
+                + "the parts are built.");
         assertThat(site.text("api/index.html")).contains("The contract is the authority for the HTTP interface "
                 + "(ADR 0012).", "Contract-first (ADR 0012): OpenAPI 3.1.2").doesNotContain("ADR 0004");
         assertThat(site.text("modules/index.html")).contains("<a href=\"../decisions/" + successor + "\">ADR 0012: "

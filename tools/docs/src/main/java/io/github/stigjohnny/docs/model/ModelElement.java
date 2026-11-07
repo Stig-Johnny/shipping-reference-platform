@@ -53,6 +53,16 @@ public record ModelElement(String id, String name, String type, String descripti
         return Optional.ofNullable(properties.get("contract.id"));
     }
 
+    /** A web part's {@code web.id}, when the element is a component of the web container. */
+    public Optional<String> webId() {
+        return Optional.ofNullable(properties.get("web.id"));
+    }
+
+    /** A web part's {@code web.status}. */
+    public Optional<String> webStatus() {
+        return Optional.ofNullable(properties.get("web.status"));
+    }
+
     public Optional<String> contractStatus() {
         return Optional.ofNullable(properties.get("contract.status"));
     }

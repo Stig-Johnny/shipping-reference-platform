@@ -65,6 +65,8 @@ void theWebAppConformsToTheModel() {
 }
 ```
 
+`WebArchitectureConformanceTest` does this for the repository in every build.
+
 The model's web container names its source root with `web.root`, its test and public roots, and the Node.js built-ins
 and npm packages tests may import; each of its components names its directories (`web.paths`), status, optional entry
 file and the npm packages it may import; relationships between them carry `web.mode`. The vocabulary is in the header of

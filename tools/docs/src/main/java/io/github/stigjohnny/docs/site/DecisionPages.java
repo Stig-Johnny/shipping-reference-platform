@@ -157,10 +157,18 @@ final class DecisionPages {
             // The control's own two sentences, linked to the details in the record's implementation status.
             String anchor = MarkdownRenderer.headings(adr.body(), adr.path()).stream()
                     .filter(h -> h.text().startsWith("Implementation status")).map(Section::id).findFirst().orElse("");
-            implementation = Badge.PLANNED.html("Planned") + " " + linked(String.join(" ", summarised.stream()
+            String remainder = linked(String.join(" ", summarised.stream()
                     .map(Capability::plannedRemainder).filter(t -> !t.isEmpty()).toList()), anchor);
-            verified = Badge.PARTIAL.html("Partly enforced") + " " + linked(String.join(" ", summarised.stream()
+            String subset = Badge.PARTIAL.html("Partly enforced") + " " + linked(String.join(" ", summarised.stream()
                     .map(Capability::enforcedSubset).filter(t -> !t.isEmpty()).toList()), anchor);
+            if (passing.isEmpty() && labels.isEmpty()) {
+                implementation = Badge.PLANNED.html("Planned") + " " + remainder;
+                verified = subset;
+            } else {
+                // The record's own passing tests stay; the partial control it also documents adds its sentences.
+                implementation = implementation + " " + remainder;
+                verified = verified + " " + subset;
+            }
         }
         StringBuilder design = new StringBuilder(Statuses.design(adr.status(), "Decided " + adr.text("date")
                 + "; updated " + adr.updated() + "."));

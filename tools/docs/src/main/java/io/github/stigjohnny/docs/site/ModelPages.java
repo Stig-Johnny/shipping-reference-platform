@@ -269,7 +269,7 @@ final class ModelPages {
                     Html.escape(row.description()), Html.escape(row.technology()), Html.escape(row.line()));
         }
         body.append(relationships.html()).append("<h2 id=\"limits\">What this view cannot show</h2>\n<ul class=\"prose\">\n");
-        for (String limit : ViewText.limits(view)) {
+        for (String limit : ViewText.limits(view, model)) {
             body.append("<li>").append(Html.escape(limit)).append("</li>\n");
         }
         body.append("</ul>\n");
@@ -278,13 +278,17 @@ final class ModelPages {
         context.map().anchor(page, "limits");
         List<ModelElement> modules = view.elementIds().stream().map(model::element)
                 .filter(e -> e.contractId().isPresent()).toList();
-        List<SitePage.Related> related = new ArrayList<>(context.mentioned(view.description() + " ADR 0002", page));
+        List<ModelElement> webParts = view.elementIds().stream().map(model::element)
+                .filter(e -> e.webId().isPresent()).toList();
+        List<SitePage.Related> related = new ArrayList<>(context.mentioned(view.description() + " ADR 0002"
+                + (webParts.isEmpty() ? "" : " ADR 0012"), page));
         for (ModelElement module : modules) {
             context.map().site("docs/modules/" + module.contractId().orElseThrow() + ".md")
                     .ifPresent(p -> related.add(new SitePage.Related(p, context.titleOf(p))));
         }
-        return new SitePage(page, title, title, SiteSection.MODEL, view.description(),
-                status(context, modules.isEmpty() ? modules(sources) : modules), List.of(
+        StatusPanel status = !modules.isEmpty() ? status(context, modules)
+                : !webParts.isEmpty() ? webStatus(context, webParts) : status(context, modules(sources));
+        return new SitePage(page, title, title, SiteSection.MODEL, view.description(), status, List.of(
                         new SitePage.Contents("elements", "Elements"),
                         new SitePage.Contents("relationships", "Relationships"),
                         new SitePage.Contents("limits", "What this view cannot show")),
@@ -310,6 +314,40 @@ final class ModelPages {
         return new StatusPanel(Statuses.design("accepted", "The structural authority (ADR 0002), in "
                 + Sources.WORKSPACE + "."), implementation,
                 checkerEvidence(conformance, context.sources().evidence(), allPlanned));
+    }
+
+    /** The web import check's control: its tests are the evidence of a view of the web app's parts. */
+    static final String WEB_CONTROL = "control.web-import-boundaries";
+
+    /**
+     * A view of the web app's parts: their web status in the model, and the web import check's passing tests under a
+     * badge that says what they verify. While every part is planned, the check has evaluated no import of the web app,
+     * and the panel says so; the API's modules and their conformance tests are not this view's evidence.
+     */
+    private static StatusPanel webStatus(SiteContext context, List<ModelElement> parts) {
+        TreeMap<String, Long> byStatus = new TreeMap<>();
+        parts.forEach(p -> byStatus.merge(p.webStatus().orElse("unknown"), 1L, Long::sum));
+        boolean allPlanned = byStatus.keySet().equals(Set.of("planned"));
+        List<String> counts = new ArrayList<>();
+        byStatus.forEach((status, count) -> counts.add(count + " web " + (count == 1 ? "part" : "parts") + " "
+                + status));
+        String implementation = (allPlanned ? Badge.PLANNED.html("Planned") : Badge.PARTIAL.html("Partly built"))
+                + " " + Html.escape(String.join(", ", counts) + " in the model; a planned part has no code yet"
+                + (allPlanned ? ", so the web import check evaluates none of the web app's imports." : "."));
+        List<Capability> control = context.sources().capabilities().controls().stream()
+                .filter(c -> c.id().equals(WEB_CONTROL)).toList();
+        TestEvidence evidence = context.sources().evidence();
+        List<String> passing = control.stream().flatMap(c -> c.evidence().stream()).filter(evidence::passed)
+                .distinct().toList();
+        String verified = passing.isEmpty() ? Statuses.evidence(control, evidence)
+                : Badge.PARTIAL.html("Partly enforced") + " " + Statuses.passed(passing, allPlanned
+                        ? "These tests verify the web import check on synthetic web apps; no import of the web app has "
+                                + "been checked yet."
+                        : "These tests verify the web import check, and the built parts' imports against the model, "
+                                + "not their behaviour.");
+        return new StatusPanel(Statuses.design("accepted", "The structural authority (ADR 0002), in "
+                + Sources.WORKSPACE + "; the web app's parts and their import rules follow ADR 0012."),
+                implementation, verified);
     }
 
     /** The API's own check against the model (ADR 0002); the conformance controls' other tests are the checker's. */

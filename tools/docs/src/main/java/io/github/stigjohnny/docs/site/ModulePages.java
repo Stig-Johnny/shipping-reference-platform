@@ -52,7 +52,8 @@ final class ModulePages {
             if (doc.optional("module").filter(WEB::equals).isPresent()) {
                 List<Capability> capabilities = sources.capabilities().ofModule(WEB);
                 all.addAll(capabilities);
-                table.row("Web app", Html.escape("a container, not a checked module"), "",
+                table.row("Web app", Html.escape("a container, not an API module; the web import check holds its "
+                        + "parts to the model"), "",
                         Html.escape("the API, through its hand-written typed HTTP adapter"), counts(capabilities),
                         SiteContext.link(INDEX, context.map().site(doc.path()).orElseThrow(), doc.title()));
             }

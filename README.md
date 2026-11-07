@@ -7,7 +7,7 @@ synthetic and the carrier is simulated. The application's first code exists, wit
 and quotes of the API's quotes module, booking in its shipments module, and the tenant context both need; most of the
 application is still planned.
 The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions,
-a dependency allowlist check and a documentation tool.
+the same for the web app's TypeScript imports, a dependency allowlist check and a documentation tool.
 
 ## What exists today
 
@@ -205,7 +205,8 @@ it runs) and which part is **planned**.
 | Dependency allowlist, before use | A locked dependency, the Gradle wrapper or an Action has no approved, unexpired review; a checksum or a vendored file differs from its review; an Action is not pinned to an allowlisted commit; the reviewed set changed after the owner accepted it; the checked tree holds a symbolic link. | Build code that downloads executables itself, compromised approved artifacts, runner compromise, local agents bypassing CI, a reviewed component used outside the scope of its review. | `preflight` (from the base branch); `java` before Gradle starts, then the checker's tests (`tools/policy/PolicyCheckTest.java`) | **enforced**: `preflight` is a required check, made to fail on purpose by pull requests #16 and #17 (`security/README.md`). Planned, which is why `capabilities.yaml` still lists the control as planned: a schema for the allowlist, the checker's acceptance tests named there (its JDK-only tests run in `java` but write no JUnit report), and approval bound to a pull request's head |
 | Risk-levelled approval | A level 3 change lacks the owner's approval of its current head. | A sensitive change that matches no rule; a single approver is not two-person review. | `risk-approval` | planned |
 | AI review record | No AI review with findings and dispositions is recorded for the final commit. | AI reviewers being wrong. | `ai-review` | planned |
-| Web behaviour and accessibility | Quote, book and label fail in a real browser against the real API; axe-core finds violations; import cycles or boundary breaks; a REQUIRED relationship between built web parts without a direct import. | Accessibility problems that automated tools miss; an unused part that no REQUIRED relationship reaches. | `web`, `contract-e2e`; the import check in `java` (ADR 0012) | planned |
+| Web import conformance | A file of the web app imports another part without a relationship in the model, or a `REQUIRED` relationship between built parts has no direct import; a feature is imported other than through its `index.ts`; files import each other in a cycle; a production file imports a test; a file is in no part or in a planned one; an import names a package or Node.js built-in that the model does not list or `security/allowlist.json` does not approve (no part lists a package; tests may import `node:assert/strict`, `node:test` and `node:fs`); a setting of `package.json`, `tsconfig*.json` or `index.html` would resolve a specifier otherwise; the restricted import grammar refuses a construct or file. | A bundler or test-runner configuration that resolves modules (none is used); `url()` in style sheets; what a test does with a built-in at run time; the web app's network calls; an unused part that no `REQUIRED` relationship reaches. | `java`: `WebArchitectureConformanceTest` runs the web import check on `apps/shipping-web` | **partial**: each rule fails its negative fixture, and the check runs in every build; every part is still planned, so today it fails only on a file in `apps/shipping-web/src`, which the model does not allow yet, and it evaluates the web app's imports once the parts are built |
+| Web behaviour and accessibility | Quote, book and label fail in a real browser against the real API; axe-core finds violations. | Accessibility problems that automated tools miss. | `web`, `contract-e2e` | planned |
 | Documentation and brain | Generated docs or `BRAIN.md` drift; budgets exceeded; a capability claims `shipped` without passing evidence; a link, anchor or ADR reference is broken; the site's Mermaid bundle differs from its review; code changed without its module document. | Whether the prose is right. | `java`: `:tools:docs:check` (`BrainGeneratorTest`, `BrainCheckTest`, `SiteBuilderTest`) | **enforced** in the required `java` check, except the module-document check, which is planned |
 | Publication scan of the public site | The built site holds a secret's shape, a link to this repository on GitHub, a local path, a private address or host name, an HTML comment or a term of the confidential dictionary; the dictionary is missing; the Mermaid bundle differs from its review; the site directory holds a link or a hidden file. | A paraphrase, a confidential term that is not in the dictionary, what a sentence means. | `pages`, build job: `:tools:docs:scanSite` before the upload (`PublicationScannerTest`, `PagesWorkflowTest`) | **enforced** on every deployment from `main`; the dictionary is a secret of the `github-pages` environment, and without it the scan fails closed |
 
@@ -221,8 +222,8 @@ limits is in `docs/gaps.md`.
 ```text
 architecture/workspace.dsl       C4 model of the product: the structural authority (ADR 0002)
 contracts/shipping.openapi.yaml  HTTP contract (ADR 0012)
-libs/c4-contract-kit/            Gradle project :libs:c4-contract-kit, the model-versus-code checker, with its
-                                 self-model architecture/self.dsl
+libs/c4-contract-kit/            Gradle project :libs:c4-contract-kit, the model-versus-code checker (compiled Java
+                                 classes and web imports), with its self-model architecture/self.dsl
 apps/shipping-api/               Gradle project :apps:shipping-api: the first code of the quotes, shipments and tenants
                                  modules, with their tests and the architecture tests
 apps/shipping-web/               the workbench's agent rules (AGENTS.md); the workbench itself is planned
@@ -242,8 +243,8 @@ BRAIN.md                         generated agent entry point
 ```
 
 Planned and not in the tree yet: `policy/rulesets.json` (the branch ruleset). Deferred: `packages/shipping-client/`
-(the client generated from the contract, ADR 0012). The web import check is to be part of `libs/c4-contract-kit`, not
-a `tools/web-imports/` script (ADR 0012).
+(the client generated from the contract, ADR 0012). The web import check is part of `libs/c4-contract-kit`, not a
+`tools/web-imports/` script (ADR 0012).
 
 ## Running it
 
@@ -255,13 +256,15 @@ off.
 |---|---|
 | Check every dependency against the allowlist (the JDK alone; runs the repository's policy checker without invoking the build) | `java tools/policy/PolicyCheck.java .` |
 | Test the allowlist checker (the JDK alone) | `java tools/policy/PolicyCheckTest.java` |
-| Run all Java checks (compile with Error Prone and NullAway, tests) | `./gradlew check` |
+| Run all Java checks (compile with Error Prone and NullAway, tests), the web import check included | `./gradlew check` |
+| Run the web import check alone (the JDK alone; reports in `libs/c4-contract-kit/build/reports/c4-contract-web/`) | `./gradlew :libs:c4-contract-kit:test --tests '*WebArchitectureConformanceTest'` |
 | Run mutation tests (CI only, the `mutation` job: PIT's control socket accepts unauthenticated connections) | `./gradlew :libs:c4-contract-kit:pitest` |
 | Check docs and the brain; regenerate them | `./gradlew :tools:docs:check`; `./gradlew :tools:docs:generate` |
 | Build the documentation site into `tools/docs/build/site/` (open its `index.html`) | `./gradlew :tools:docs:site` |
 
 Not built yet; their commands arrive with their code: a developer toolchain bootstrap script, PostgreSQL 18.6 with
-the two roles, the API with the `demo` profile, the workbench, web checks, and contract and end-to-end tests.
+the two roles, the API with the `demo` profile, the workbench with its type check and tests, and contract and
+end-to-end tests.
 
 ## Honest limits
 

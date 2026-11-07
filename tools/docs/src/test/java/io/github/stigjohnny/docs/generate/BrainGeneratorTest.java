@@ -49,6 +49,7 @@ class BrainGeneratorTest {
                 "docs/architecture/containers.md", "docs/architecture/containers.mmd",
                 "docs/architecture/quote-book-label.md", "docs/architecture/quote-book-label.mmd",
                 "docs/architecture/system-context.md", "docs/architecture/system-context.mmd",
+                "docs/architecture/web-components.md", "docs/architecture/web-components.mmd",
                 "docs/brain/audit.md", "docs/brain/orders.md", "docs/brain/quotes.md", "docs/brain/returns.md",
                 "docs/brain/shipments.md", "docs/brain/tenants.md", "docs/brain/tracking.md");
     }
@@ -92,9 +93,9 @@ class BrainGeneratorTest {
         assertThat(definition).startsWith("flowchart LR\n");
         assertThat(page).contains("```mermaid\n" + definition + "```")
                 .contains("## Elements", "## Relationships", "## What this view cannot show")
-                .contains("| 8 | Quotes | Component | Spring Modulith module | built |",
-                        "| 9 | Shipments | Component | Spring Modulith module | built |",
-                        "| 11 | Audit | Component | Spring Modulith module | planned |")
+                .contains("| 14 | Quotes | Component | Spring Modulith module | built |",
+                        "| 15 | Shipments | Component | Spring Modulith module | built |",
+                        "| 17 | Audit | Component | Spring Modulith module | planned |")
                 .contains("| Quotes | Tenants | Resolves the caller's tenant (tenants.api: CurrentTenant, TenantId) "
                         + "| Java | thick: REQUIRED dependency |");
     }
@@ -103,7 +104,8 @@ class BrainGeneratorTest {
     void eachGeneratedDiagramLinksItsFigureOnTheSiteRightBeforeItsFence() {
         Map<String, String> files = GeneratedFiles.generate(sources());
 
-        for (String slug : List.of("system-context", "containers", "api-components", "quote-book-label")) {
+        for (String slug : List.of("system-context", "containers", "api-components", "web-components",
+                "quote-book-label")) {
             String page = file(files, "docs/architecture/" + slug + ".md");
             String link = "[Open this diagram on the documentation site for enlargement and its text equivalent]("
                     + "https://stig-johnny.github.io/" + "shipping-reference-platform/model/" + slug + ".html#figure-"
@@ -111,6 +113,24 @@ class BrainGeneratorTest {
             assertThat(page).as(slug).contains(link + "\n\n```mermaid\n");
             assertThat(page.split("```mermaid", -1)).as(slug).hasSize(2);
         }
+    }
+
+    @Test
+    void theWebViewSaysWhatTheWebImportCheckCoversInsteadOfTheClassChecker() {
+        Map<String, String> files = GeneratedFiles.generate(sources());
+        String web = file(files, "docs/architecture/web-components.md");
+
+        assertThat(web).contains("- A thick line is a REQUIRED import between parts of the web app. Where both parts "
+                + "are built, the web import check in libs/c4-contract-kit fails when no file of the one imports a file "
+                + "of the other.\n", "- A dotted line labelled PERMITTED is an import between parts of the web app "
+                + "that the sources may have; the check requires none for it and reports one without any as \"no "
+                + "static evidence\".\n", "- The check does not evaluate a line that touches a planned part until both "
+                + "parts are built; a file in a planned part fails it.\n", "- Arrows between the web app's parts are "
+                + "static imports of TypeScript files, read from apps/shipping-web/src with a restricted import "
+                + "grammar, not runtime calls.\n")
+                .doesNotContain("compiled classes have no static reference");
+        assertThat(file(files, "docs/architecture/api-components.md"))
+                .doesNotContain("REQUIRED import between parts of the web app");
     }
 
     @Test

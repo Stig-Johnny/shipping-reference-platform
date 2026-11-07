@@ -13,14 +13,14 @@ class WorkspacesTest {
             Workspaces.read(Repository.file("architecture/workspace.dsl"), "architecture/workspace.dsl");
 
     @Test
-    void theFourViewsAreReadInZoomOrder() {
+    void theFiveViewsAreReadInZoomOrder() {
         assertThat(WORKSPACE.model().views()).extracting(C4View::key)
-                .containsExactly("SystemContext", "Containers", "ApiComponents", "QuoteBookLabel");
+                .containsExactly("SystemContext", "Containers", "ApiComponents", "WebComponents", "QuoteBookLabel");
         assertThat(WORKSPACE.model().views()).extracting(C4View::kind).containsExactly(
-                C4View.Kind.SYSTEM_CONTEXT, C4View.Kind.CONTAINER, C4View.Kind.COMPONENT,
+                C4View.Kind.SYSTEM_CONTEXT, C4View.Kind.CONTAINER, C4View.Kind.COMPONENT, C4View.Kind.COMPONENT,
                 C4View.Kind.DYNAMIC);
         assertThat(WORKSPACE.exports()).extracting(RawMermaid::viewKey)
-                .containsExactly("SystemContext", "Containers", "ApiComponents", "QuoteBookLabel");
+                .containsExactly("SystemContext", "Containers", "ApiComponents", "WebComponents", "QuoteBookLabel");
     }
 
     @Test
@@ -66,7 +66,7 @@ class WorkspacesTest {
 
     @Test
     void theRawExportIsTheExportersFlowchart() {
-        assertThat(WORKSPACE.exports()).hasSize(4).allSatisfy(export ->
+        assertThat(WORKSPACE.exports()).hasSize(5).allSatisfy(export ->
                 assertThat(export.definition()).startsWith("graph LR"));
     }
 }

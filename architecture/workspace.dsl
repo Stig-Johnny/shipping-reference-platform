@@ -120,7 +120,63 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
 
         platform = softwareSystem "Shipping reference platform" "Quotes, books and labels parcels for webshop tenants." {
 
-            web = container "Web app" "Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer." "Plain TypeScript SPA (no framework), TypeScript 5.9.3" "WebApp,Planned"
+            web = container "Web app" "Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer." "Plain TypeScript SPA (no framework), TypeScript 5.9.3" "WebApp,Planned" {
+                properties {
+                    "web.root" "apps/shipping-web/src"
+                    "web.publicRoots" "apps/shipping-web/public"
+                    "web.testBuiltins" "node:assert/strict, node:test, node:fs"
+                }
+
+                webShell = component "App shell" "Left navigation, the router on the History API, the theme and the route outlet; mounts the app." "TypeScript" "Planned" {
+                    properties {
+                        "web.id" "app"
+                        "web.paths" "app"
+                        "web.status" "planned"
+                    }
+                }
+
+                webAuth = component "Auth" "Synthetic user picker and sign-in; holds the demo token and the membership in memory only." "TypeScript" "Planned" {
+                    properties {
+                        "web.id" "auth"
+                        "web.paths" "auth"
+                        "web.status" "planned"
+                    }
+                }
+
+                webApi = component "API adapter" "The typed HTTP adapter, the only caller of fetch: hand-written request and response types, the bearer token and Correlation-Id on every call." "TypeScript" "Planned" {
+                    properties {
+                        "web.id" "api"
+                        "web.paths" "api"
+                        "web.status" "planned"
+                    }
+                }
+
+                webQuoteFeature = component "Quote feature" "ParcelForm, QuoteCardList and QuoteCard: price a parcel and compare its offers." "TypeScript" "Planned" {
+                    properties {
+                        "web.id" "quote-feature"
+                        "web.paths" "features/quotes"
+                        "web.status" "planned"
+                        "web.entry" "features/quotes/index.ts"
+                    }
+                }
+
+                webShipmentFeature = component "Shipment feature" "BookingForm, ShipmentTable and ShipmentDrawer: book, list and open shipments and download their labels (LabelPreview is deferred)." "TypeScript" "Planned" {
+                    properties {
+                        "web.id" "shipment-feature"
+                        "web.paths" "features/shipments"
+                        "web.status" "planned"
+                        "web.entry" "features/shipments/index.ts"
+                    }
+                }
+
+                webUi = component "UI" "Presentational components: Button, ProblemAlert, EmptyState, StatusBadge, Skeleton and ThemeToggle." "TypeScript, CSS" "Planned" {
+                    properties {
+                        "web.id" "ui"
+                        "web.paths" "ui"
+                        "web.status" "planned"
+                    }
+                }
+            }
 
             api = container "API" "Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals." "Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient)" {
                 properties {
@@ -217,6 +273,74 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
         shipments -> carrier "Assigns simulated tracking numbers and renders simulated labels (in-process)" "In-process simulation" "Simulated"
         tracking -> carrier "Will receive tracking events" "HTTPS webhook" "Planned"
 
+        // Web component relationships: the web import check holds apps/shipping-web/src to them (WEB PROPERTIES above).
+        webShell -> webAuth "Shows the signed-in user, the sign-in route and Switch user from" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webShell -> webQuoteFeature "Routes /quotes/new and /quotes/:quoteId to (through features/quotes/index.ts)" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webShell -> webShipmentFeature "Routes /shipments and /shipments/:shipmentId to (through features/shipments/index.ts)" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webShell -> webUi "Renders the navigation and ThemeToggle with" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webShell -> webApi "May give the API adapter the token from auth through" "TypeScript import" "Permitted" {
+            properties {
+                "web.mode" "PERMITTED"
+            }
+        }
+        webAuth -> webApi "Signs in with getCurrentMembership through" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webAuth -> webUi "Renders the user picker and its problems with" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webQuoteFeature -> webApi "Creates and reads quotes through" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webQuoteFeature -> webUi "Renders the form, the offer cards and their states with" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webQuoteFeature -> webShipmentFeature "May show BookingForm under the chosen offer (through features/shipments/index.ts)" "TypeScript import" "Permitted" {
+            properties {
+                "web.mode" "PERMITTED"
+            }
+        }
+        webShipmentFeature -> webApi "Books, lists, reads and cancels shipments and downloads labels through" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webShipmentFeature -> webUi "Renders the table, the drawer and their states with" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webShipmentFeature -> webAuth "May read the prototype flags of the current membership from" "TypeScript import" "Permitted" {
+            properties {
+                "web.mode" "PERMITTED"
+            }
+        }
+        webApi -> api "Calls the shipping API using handwritten request and response types" "JSON over HTTPS"
+
         // Component-to-component relationships: the checked contract.
         quotes -> tenants "Resolves the caller's tenant (tenants.api: CurrentTenant, TenantId)" "Java" "Required" {
             properties {
@@ -282,6 +406,11 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
         }
 
         component api "ApiComponents" "The seven modules of the API and the dependencies between them: REQUIRED, PERMITTED or planned. Planned modules and dependencies are labelled as planned." {
+            include *
+            autoLayout lr
+        }
+
+        component web "WebComponents" "The six parts of the web app and the imports allowed between them: REQUIRED, PERMITTED or planned. The web import check holds apps/shipping-web/src to these lines; every part is planned until its code exists." {
             include *
             autoLayout lr
         }
@@ -354,6 +483,11 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
                 thickness 2
             }
             relationship "Required" {
+                style solid
+                thickness 4
+                color #0f766e
+            }
+            relationship "Required import" {
                 style solid
                 thickness 4
                 color #0f766e
