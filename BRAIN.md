@@ -12,7 +12,7 @@ updated: 2026-11-07
 
 A reference monorepo that shows how a Java and React product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated.
 
-**State at this commit.** 27 capabilities: 27 planned; 17 controls: 2 shipped, 15 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
+**State at this commit.** 27 capabilities: 27 planned; 17 controls: 6 shipped, 2 partial, 9 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
 
 ## Read first
 
@@ -43,12 +43,12 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 
 | Control | Status | Check | Evidence |
 |---|---|---|---|
-| `control.c4-divergence` | planned | `java` | none yet |
-| `control.c4-absence` | planned | `java` | none yet |
-| `control.no-static-evidence-report` | planned | `java` | none yet |
-| `control.model-validation` | planned | `java` | none yet |
-| `control.bytecode-evidence` | planned | `java` | none yet |
-| `control.deterministic-reports` | planned | `java` | none yet |
+| `control.c4-divergence` | partial | `java` | ConformanceDivergenceTest |
+| `control.c4-absence` | partial | `java` | ConformanceAbsenceTest |
+| `control.no-static-evidence-report` | shipped | `java` | ReportNoStaticEvidenceTest |
+| `control.model-validation` | shipped | `java` | RestrictedDslParserTest, MappingValidationTest |
+| `control.bytecode-evidence` | shipped | `java` | BytecodeEvidenceTest |
+| `control.deterministic-reports` | shipped | `java` | ReportDeterminismTest, ConformanceAssertionsTest, SelfConformanceTest |
 | `control.modulith-verification` | planned | `java` | none yet |
 | `control.hexagonal-layering` | planned | `java` | none yet |
 | `control.table-ownership` | planned | `java` | none yet |
