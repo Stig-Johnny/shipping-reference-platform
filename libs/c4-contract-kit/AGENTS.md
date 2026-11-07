@@ -123,11 +123,23 @@ The restricted import grammar reads, with the line of the specifier: `import ...
 literal anywhere, types included. It refuses: `import()` with anything else, `require`, `import.meta` other than
 `import.meta.env`, import-equals declarations, import attributes, `declare module 'x'`, triple-slash directives, JSX
 pragmas and a backslash escape in a specifier. Strings, comments, templates, regular expressions and JSX text never
-yield code; template substitutions and JSX expressions do. A slash, and in `.tsx` a `<`, starts a regular expression
-or a JSX element only where an expression can start, as decided from the token before it; a keyword right after `.`
-or `#` is a property name (`options.default / 2` divides). Whatever the lexer cannot read with certainty stops the
-scan of that file with a refusal: unterminated literals or comments, a backslash in code, U+2028 and U+2029, and JSX
-it does not cover, including a `.tsx` generic arrow function that starts with `<`.
+yield code; template substitutions and JSX expressions do.
+
+The lexer fails closed: where it cannot decide with certainty, it refuses the file with the line, and never guesses.
+
+- A slash, and in `.tsx` a `<`, starts a regular expression or a JSX element where an expression starts: after a
+  punctuator other than `)`, `]`, `}`, `++` and `--`, after a keyword such as `return`, `typeof` or `else`, after the
+  `)` that ends the head of `if`, `while`, `for` (or `for await`) or `with`, and after a negating `!`.
+- It is an operator after a name, a literal, `]`, a property named like a keyword (`options.default / 2` divides), the
+  `)` of a call or a group, and a non-null assertion: a `!` right after a value on the same line (`n! / 2`).
+- Where it could be either, after `}`, `++`, `--`, an unmatched `)`, a module specifier, `of`, `await` or `yield`, the
+  file is refused.
+- White space is ECMAScript's: every Zs character, TAB, VT, FF and ZWNBSP. Line ends are LF and CRLF.
+- Refused: a carriage return without a line feed and U+2028 and U+2029 anywhere, since TypeScript ends a comment
+  there; any other character outside strings, comments, templates and JSX text (U+0085 and U+200B among them, which
+  TypeScript skips as white space); unterminated literals or comments; a backslash in code; JSX the lexer does not
+  cover, including a `.tsx` generic arrow function that starts with `<`; every comment that names `@jsx`, in any
+  letter case; and every comment or line that starts with `///`.
 
 Resolution: a relative specifier that ends in `.ts` names exactly that file (the form TypeScript's
 `rewriteRelativeImportExtensions` rewrites to `.js` on emit); it must exist with exactly that name, and no other

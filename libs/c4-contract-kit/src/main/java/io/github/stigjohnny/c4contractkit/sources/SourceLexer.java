@@ -1,8 +1,11 @@
 package io.github.stigjohnny.c4contractkit.sources;
 
 import java.io.Serial;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
@@ -13,13 +16,26 @@ import org.jspecify.annotations.Nullable;
  * template text, regular expressions and JSX text and attributes never yield identifiers, so a word inside them can
  * never be read as code; the expressions inside templates and JSX braces are code and are tokenized.
  *
- * <p>The lexer is restricted on purpose. Whatever it cannot read with certainty stops it with a {@link Stop}, so that a
- * file is refused rather than misread: an unterminated string, template, comment, regular expression or JSX element,
- * a backslash in code, the line separators U+2028 and U+2029, and JSX it does not cover. A slash or, in {@code .tsx},
- * a {@code <} starts a regular expression or a JSX element where an expression can start, as decided from the token
- * before it; a generic arrow function or generic function type that starts with {@code <} in a {@code .tsx} file is
- * therefore read as JSX and refused. A keyword right after {@code .} or {@code #} is a property name
- * ({@code options.default}, {@code this.#in}), after which a value has ended.
+ * <p>The lexer fails closed. Whatever it cannot read with certainty stops it with a {@link Stop}, so that a file is
+ * refused rather than misread: an unterminated string, template, comment, regular expression or JSX element, a
+ * backslash in code, a character that is neither ECMAScript white space, a line feed, an identifier nor a
+ * punctuator, a carriage return that does not start a CRLF line end, U+2028 and U+2029, and JSX it does not cover.
+ *
+ * <p>A slash, and in {@code .tsx} a {@code <}, starts a regular expression or a JSX element where an expression
+ * starts, and is an operator after a value. Which of the two it is follows from the token before it and, for a
+ * closing parenthesis, from what the parenthesis opened:
+ *
+ * <ul>
+ *   <li>after a name, a literal, {@code ]}, a property named like a keyword ({@code a.default}) or the {@code )} of a
+ *       call or a group, it is an operator;
+ *   <li>after another punctuator, after a keyword such as {@code return}, {@code typeof} or {@code else}, and after
+ *       the {@code )} that ends the head of {@code if}, {@code while}, {@code for} or {@code with}, an expression
+ *       starts;
+ *   <li>after {@code !} it is an operator where the {@code !} is TypeScript's non-null assertion, that is right after
+ *       a value on the same line ({@code n! / 2}), and an expression starts where it is the negation;
+ *   <li>after {@code }}, {@code ++}, {@code --}, an unmatched {@code )}, a module specifier and the words {@code of},
+ *       {@code await} and {@code yield}, either is possible: the lexer refuses the file there instead of guessing.
+ * </ul>
  */
 final class SourceLexer {
 
@@ -58,15 +74,42 @@ final class SourceLexer {
         }
     }
 
-    /** Keywords after which an expression, and so a regular expression or JSX, can start. */
-    private static final Set<String> EXPRESSION_KEYWORDS = Set.of("return", "typeof", "instanceof", "in", "of", "new",
-            "delete", "void", "throw", "case", "do", "else", "yield", "await", "default", "extends");
+    static final String LINE_SEPARATOR = "the characters U+2028 and U+2029 are not supported";
+    static final String LONE_CARRIAGE_RETURN = "a carriage return that is not followed by a line feed is not "
+            + "supported: TypeScript ends a line, and a // comment, there";
+    static final String TRIPLE_SLASH = "triple-slash directives (/// <reference ...>) are not supported: they add "
+            + "dependencies in comments";
+    static final String JSX_PRAGMA = "JSX pragmas (@jsx, @jsxImportSource, @jsxFrag, @jsxRuntime) are not supported: "
+            + "they change which module JSX imports";
 
-    /** Punctuators after which an expression cannot start: a value has just ended. */
-    private static final Set<String> VALUE_ENDS = Set.of(")", "]", "}", "++", "--");
+    /** What a slash, or in .tsx a {@code <}, right after a token is. */
+    private enum Next {
+        /** A division, or a comparison: a value has just ended. */
+        OPERATOR,
+        /** The start of a regular expression, or of a JSX element: an expression starts. */
+        EXPRESSION,
+        /** Either: the lexer refuses the file rather than guess. */
+        AMBIGUOUS
+    }
 
-    private static final Pattern JSX_PRAGMA = Pattern.compile("@jsx(?:ImportSource|Frag|Runtime)?(?![\\w$])");
-    private static final Pattern TRIPLE_SLASH = Pattern.compile("^/\\s*<");
+    /** Keywords after which an expression, and so a regular expression or JSX, starts. */
+    private static final Set<String> EXPRESSION_KEYWORDS = Set.of("return", "typeof", "instanceof", "in", "new",
+            "delete", "void", "throw", "case", "do", "else", "default", "extends", "break", "continue", "debugger");
+
+    /** Words that are a keyword before an expression in one place and a name before an operator in another. */
+    private static final Set<String> AMBIGUOUS_WORDS = Set.of("of", "await", "yield");
+
+    /** Keywords whose parenthesis holds a statement's head: after its {@code )} a statement starts. */
+    private static final Set<String> CONTROL_KEYWORDS = Set.of("if", "while", "for", "with");
+
+    /** The punctuators of TypeScript, one character each; {@code ++} and {@code --} are read as two-character ones. */
+    private static final String PUNCTUATORS = "{}()[];,<>+-*/%&|^!~?:=.@#";
+
+    private static final Pattern JSX_PRAGMA_NAME = Pattern.compile("@jsx",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+
+    private static final Token OPEN_BRACE = new Token(TokenType.PUNCTUATOR, "{", 0, false);
+    private static final Token CLOSE_BRACE = new Token(TokenType.PUNCTUATOR, "}", 0, false);
 
     private final String text;
     private final boolean jsx;
@@ -74,7 +117,18 @@ final class SourceLexer {
     private final List<Refusal> refusals = new ArrayList<>();
     private int position;
     private int line = 1;
+    /** The token before the current position, a brace at the edge of nested code, or null at the start. */
     private @Nullable Token last;
+    /** The index of {@link #last} in {@link #tokens}, or -1 when it is a brace at the edge of nested code. */
+    private int lastIndex = -1;
+    /** The line on which {@link #last} ended. */
+    private int lastEndLine = 1;
+    /** What a slash after {@link #last} is. */
+    private Next next = Next.EXPRESSION;
+    /** For {@link Next#AMBIGUOUS}: what the slash would follow, in words. */
+    private String ambiguousAfter = "";
+    /** One entry per open parenthesis: whether it holds the head of if, while, for, for await or with. */
+    private Deque<Boolean> parentheses = new ArrayDeque<>();
 
     private SourceLexer(String text, boolean jsx) {
         this.text = text;
@@ -91,10 +145,8 @@ final class SourceLexer {
     static void tokenize(String text, boolean jsx, List<Token> tokens, List<Refusal> refusals) throws Stop {
         SourceLexer lexer = new SourceLexer(text, jsx);
         try {
-            int separator = indexOfLineSeparator(text);
-            if (separator >= 0) {
-                throw new Stop(lineAt(text, separator), "the characters U+2028 and U+2029 are not supported");
-            }
+            lexer.checkLineTerminators();
+            lexer.checkTripleSlashLines();
             lexer.code(false);
         } finally {
             tokens.addAll(lexer.tokens);
@@ -102,10 +154,47 @@ final class SourceLexer {
         }
     }
 
-    private static int indexOfLineSeparator(String text) {
-        int a = text.indexOf(' ');
-        int b = text.indexOf(' ');
-        return a < 0 ? b : b < 0 ? a : Math.min(a, b);
+    /**
+     * Line terminators other than LF and CRLF are refused wherever they are, comments and strings included:
+     * TypeScript ends a line, and a {@code //} comment, at a lone CR, at U+2028 and at U+2029, so a comment that this
+     * lexer read up to the next LF could hide code.
+     */
+    private void checkLineTerminators() throws Stop {
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == ' ' || c == ' ') {
+                throw new Stop(lineAt(text, i), LINE_SEPARATOR);
+            }
+            if (c == '\r' && (i + 1 >= text.length() || text.charAt(i + 1) != '\n')) {
+                throw new Stop(lineAt(text, i), LONE_CARRIAGE_RETURN);
+            }
+        }
+    }
+
+    /**
+     * A line whose first character other than white space (TypeScript's, which counts U+0085 and U+200B too) is the
+     * start of {@code ///} is refused, wherever the lexer would place it: TypeScript reads triple-slash directives
+     * from such comments.
+     */
+    private void checkTripleSlashLines() {
+        int number = 1;
+        int start = 0;
+        while (start <= text.length()) {
+            int end = text.indexOf('\n', start);
+            int stop = end < 0 ? text.length() : end;
+            int i = start;
+            while (i < stop && (isWhitespace(text.charAt(i)) || isTypeScriptOnlyWhitespace(text.charAt(i)))) {
+                i++;
+            }
+            if (text.startsWith("///", i) && i < stop) {
+                refusals.add(new Refusal(number, TRIPLE_SLASH));
+            }
+            if (end < 0) {
+                return;
+            }
+            number++;
+            start = end + 1;
+        }
     }
 
     private static int lineAt(String text, int index) {
@@ -131,7 +220,8 @@ final class SourceLexer {
             if (c == '\n') {
                 line++;
                 position++;
-            } else if (isSpace(c)) {
+            } else if (c == '\r' || isWhitespace(c)) {
+                // A carriage return here precedes a line feed: checkLineTerminators refused every other one.
                 position++;
             } else if (c == '/' && peek(1) == '/') {
                 lineComment();
@@ -142,12 +232,12 @@ final class SourceLexer {
             } else if (c == '`') {
                 template();
             } else if (c == '/') {
-                if (expressionCanStart()) {
+                if (decide("/") == Next.EXPRESSION) {
                     regex();
                 } else {
                     punctuator(1);
                 }
-            } else if (c == '<' && jsx && expressionCanStart()) {
+            } else if (c == '<' && jsx && decide("<") == Next.EXPRESSION) {
                 int start = line;
                 element();
                 add(TokenType.JSX, "<>", start, false);
@@ -167,45 +257,33 @@ final class SourceLexer {
                 number();
             } else if (c == '\\') {
                 throw new Stop(line, "a backslash outside a string, template or regular expression is not supported");
-            } else {
+            } else if (PUNCTUATORS.indexOf(c) >= 0) {
                 punctuator(punctuatorLength(c));
+            } else {
+                throw new Stop(line, "the character U+" + String.format(Locale.ROOT, "%04X",
+                        text.codePointAt(position)) + " is not supported outside strings, comments, templates and "
+                        + "JSX text");
             }
         }
         return !nested;
     }
 
-    private boolean expressionCanStart() {
-        Token previous = last;
-        if (previous == null) {
-            return true;
+    /** What a slash or a {@code <} at the current position is; a stop where it could be either. */
+    private Next decide(String symbol) throws Stop {
+        if (next == Next.AMBIGUOUS) {
+            String starts = symbol.equals("/") ? "a regular expression" : "a JSX element";
+            throw new Stop(line, "a " + symbol + " after " + ambiguousAfter + " is not supported: it could start "
+                    + starts + " or be an operator, and the reader does not guess; put the expression in parentheses");
         }
-        return switch (previous.type()) {
-            case IDENTIFIER -> EXPRESSION_KEYWORDS.contains(previous.text()) && !afterMemberAccess();
-            case PUNCTUATOR -> !VALUE_ENDS.contains(previous.text());
-            case STRING, TEMPLATE, NUMBER, REGEX, JSX -> false;
-        };
-    }
-
-    /**
-     * Whether the identifier just read follows {@code .} or {@code #}, so that it names a property, not a keyword. An
-     * identifier is always the last token added: only punctuators and templates replace {@code last} otherwise.
-     */
-    private boolean afterMemberAccess() {
-        int index = tokens.size() - 2;
-        if (index < 0) {
-            return false;
-        }
-        Token before = tokens.get(index);
-        return before.type() == TokenType.PUNCTUATOR && (before.text().equals(".") || before.text().equals("#"));
+        return next;
     }
 
     private void lineComment() {
         int start = position + 2;
         int end = text.indexOf('\n', start);
         String comment = text.substring(start, end < 0 ? text.length() : end);
-        if (TRIPLE_SLASH.matcher(comment).find()) {
-            refusals.add(new Refusal(line, "triple-slash directives (/// <reference ...>) are not supported: they add "
-                    + "dependencies in comments"));
+        if (comment.startsWith("/")) {
+            refusals.add(new Refusal(line, TRIPLE_SLASH));
         }
         checkPragma(comment, line);
         position = end < 0 ? text.length() : end;
@@ -223,10 +301,10 @@ final class SourceLexer {
         position = end + 2;
     }
 
+    /** Any comment that names {@code @jsx}, in any letter case, is refused: TypeScript reads pragmas from comments. */
     private void checkPragma(String comment, int at) {
-        if (JSX_PRAGMA.matcher(comment).find()) {
-            refusals.add(new Refusal(at, "JSX pragmas (@jsx, @jsxImportSource, @jsxFrag, @jsxRuntime) are not "
-                    + "supported: they change which module JSX imports"));
+        if (JSX_PRAGMA_NAME.matcher(comment).find()) {
+            refusals.add(new Refusal(at, JSX_PRAGMA));
         }
     }
 
@@ -255,7 +333,7 @@ final class SourceLexer {
     }
 
     /**
-     * Skips a backslash and what it escapes; an escaped line end (LF, CR or CRLF) continues the literal. Lines are
+     * Skips a backslash and what it escapes; an escaped line end (LF or CRLF) continues the literal. Lines are
      * counted by LF everywhere, as editors number them in files with LF or CRLF line ends.
      */
     private void skipEscaped() {
@@ -275,8 +353,8 @@ final class SourceLexer {
 
     private void template() throws Stop {
         int start = line;
-        int index = tokens.size();
         add(TokenType.TEMPLATE, "`", start, false);
+        int index = lastIndex;
         boolean substitution = false;
         position++;
         while (position < text.length()) {
@@ -285,6 +363,9 @@ final class SourceLexer {
                 position++;
                 tokens.set(index, new Token(TokenType.TEMPLATE, "`", start, substitution));
                 last = tokens.get(index);
+                lastIndex = index;
+                lastEndLine = line;
+                next = Next.OPERATOR;
                 return;
             }
             if (c == '\\') {
@@ -305,11 +386,21 @@ final class SourceLexer {
         throw new Stop(start, "unterminated template literal");
     }
 
-    /** Code inside braces of a template or JSX, which starts like any expression; false at the end of the file. */
+    /**
+     * Code inside braces of a template or JSX, which starts like any expression, with parentheses of its own; false
+     * at the end of the file.
+     */
     private boolean nestedCode() throws Stop {
-        last = new Token(TokenType.PUNCTUATOR, "{", line, false);
+        Deque<Boolean> outer = parentheses;
+        parentheses = new ArrayDeque<>();
+        last = OPEN_BRACE;
+        lastIndex = -1;
+        next = Next.EXPRESSION;
         boolean closed = code(true);
-        last = new Token(TokenType.PUNCTUATOR, "}", line, false);
+        parentheses = outer;
+        last = CLOSE_BRACE;
+        lastIndex = -1;
+        next = ambiguous("'}'");
         return closed;
     }
 
@@ -452,14 +543,14 @@ final class SourceLexer {
         throw new Stop(start, "JSX: unterminated element <" + name + ">");
     }
 
-    /** Whitespace and comments inside a tag. */
+    /** White space and comments inside a tag. */
     private void skipTagSpace() throws Stop {
         while (position < text.length()) {
             char c = text.charAt(position);
             if (c == '\n') {
                 line++;
                 position++;
-            } else if (isSpace(c)) {
+            } else if (c == '\r' || isWhitespace(c)) {
                 position++;
             } else if (c == '/' && peek(1) == '/') {
                 lineComment();
@@ -509,10 +600,7 @@ final class SourceLexer {
         add(TokenType.NUMBER, "0", line, false);
     }
 
-    /**
-     * Punctuators are single characters, except {@code ++} and {@code --}: after them a value has ended, so a slash
-     * divides. After any other punctuator, {@code =>} included, an expression can start.
-     */
+    /** Punctuators are single characters, except {@code ++} and {@code --}. */
     private int punctuatorLength(char c) {
         return (c == '+' || c == '-') && peek(1) == c ? 2 : 1;
     }
@@ -524,8 +612,80 @@ final class SourceLexer {
 
     private void add(TokenType type, String value, int at, boolean special) {
         Token token = new Token(type, value, at, special);
+        Next after = classify(token);
         tokens.add(token);
         last = token;
+        lastIndex = tokens.size() - 1;
+        lastEndLine = line;
+        next = after;
+    }
+
+    /** What a slash after this token is, from the token, the one before it and the open parentheses. */
+    private Next classify(Token token) {
+        return switch (token.type()) {
+            case STRING -> isKeyword(last, lastIndex, "import") || isKeyword(last, lastIndex, "from")
+                    ? ambiguous("a module specifier") : Next.OPERATOR;
+            case TEMPLATE, NUMBER, REGEX, JSX -> Next.OPERATOR;
+            case IDENTIFIER -> {
+                if (isMemberAccess(last)) {
+                    yield Next.OPERATOR;
+                }
+                if (EXPRESSION_KEYWORDS.contains(token.text())) {
+                    yield Next.EXPRESSION;
+                }
+                yield AMBIGUOUS_WORDS.contains(token.text()) ? ambiguous("'" + token.text() + "'") : Next.OPERATOR;
+            }
+            case PUNCTUATOR -> switch (token.text()) {
+                case "(" -> {
+                    parentheses.push(opensControlHead());
+                    yield Next.EXPRESSION;
+                }
+                case ")" -> parentheses.isEmpty() ? ambiguous("an unmatched ')'")
+                        : parentheses.pop() ? Next.EXPRESSION : Next.OPERATOR;
+                case "]" -> Next.OPERATOR;
+                case "}" -> ambiguous("'}'");
+                case "++", "--" -> ambiguous("'" + token.text() + "'");
+                case "!" -> bang(token);
+                default -> Next.EXPRESSION;
+            };
+        };
+    }
+
+    /**
+     * After {@code !}: TypeScript reads {@code !} right after a value on the same line as a non-null assertion, after
+     * which the value goes on; on a later line, or after an operator or keyword, it is the negation, after which an
+     * expression starts.
+     */
+    private Next bang(Token token) {
+        if (last == null || token.line() != lastEndLine) {
+            return Next.EXPRESSION;
+        }
+        return next;
+    }
+
+    /** Whether the {@code (} being added opens the head of if, while, for, for await or with. */
+    private boolean opensControlHead() {
+        if (last != null && CONTROL_KEYWORDS.contains(last.text()) && isKeyword(last, lastIndex, last.text())) {
+            return true;
+        }
+        return isKeyword(last, lastIndex, "await") && lastIndex > 0
+                && isKeyword(tokens.get(lastIndex - 1), lastIndex - 1, "for");
+    }
+
+    /** Whether the token at this index is this keyword: an identifier with its name that no {@code .} or # precedes. */
+    private boolean isKeyword(@Nullable Token token, int index, String keyword) {
+        return token != null && index >= 0 && token.type() == TokenType.IDENTIFIER && token.text().equals(keyword)
+                && !(index > 0 && isMemberAccess(tokens.get(index - 1)));
+    }
+
+    private static boolean isMemberAccess(@Nullable Token token) {
+        return token != null && token.type() == TokenType.PUNCTUATOR
+                && (token.text().equals(".") || token.text().equals("#"));
+    }
+
+    private Next ambiguous(String after) {
+        ambiguousAfter = after;
+        return Next.AMBIGUOUS;
     }
 
     private char peek(int offset) {
@@ -533,8 +693,15 @@ final class SourceLexer {
         return index < text.length() ? text.charAt(index) : '\0';
     }
 
-    private static boolean isSpace(char c) {
-        return c == ' ' || c == '\t' || c == '\r' || c == '\f' || c == '\u000B' || c == ' ' || c == '﻿';
+    /** ECMAScript's WhiteSpace: TAB, VT, FF, ZWNBSP and every Zs character, SP and NBSP among them. */
+    static boolean isWhitespace(char c) {
+        return c == '\t' || c == '\u000B' || c == '\f' || c == '﻿'
+                || Character.getType(c) == Character.SPACE_SEPARATOR;
+    }
+
+    /** NEL and ZWSP, which TypeScript's scanner skips as white space although ECMAScript does not. */
+    private static boolean isTypeScriptOnlyWhitespace(char c) {
+        return c == '\u0085' || c == '​';
     }
 
     private static boolean isDigit(char c) {

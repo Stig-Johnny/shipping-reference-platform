@@ -407,8 +407,6 @@ class ImportScannerTest {
                 arguments("division after a number", "const r = 10 / 5; const q = \"it's\";", 1, false),
                 arguments("division after )", "const r = (a + b) / 2; const s = \"it's\";", 1, false),
                 arguments("division after ]", "const r = list[0] / 2; const s = \"it's\";", 1, false),
-                arguments("division after ++", "let i = 0; i++ / 2; const s = \"it's\";", 1, false),
-                arguments("division after --", "let i = 0; i-- / 2; const s = \"it's\";", 1, false),
                 arguments("division after a string", "const r = 'a' / 2; const s = \"it's\";", 1, false),
                 arguments("division after a template", "const r = `a` / 2; const s = \"it's\";", 1, false),
                 arguments("division after a regular expression", "const r = /a/ / 2; const s = \"it's\";", 1, false),
@@ -418,7 +416,15 @@ class ImportScannerTest {
                 arguments("division after a form feed", "const r = a\f/ 2; const s = \"it's\";", 1, false),
                 arguments("division after a vertical tab", "const r = a\u000B/ 2; const s = \"it's\";", 1, false),
                 arguments("division after a byte order mark", "const r = a\uFEFF/ 2; const s = \"it's\";", 1, false),
-                arguments("division after a carriage return", "const r = a\r/ 2; const s = \"it's\";", 1, false),
+                arguments("division after an EM SPACE", "const r = a\u2003/ 2; const s = \"it's\";", 1, false),
+                arguments("division after an IDEOGRAPHIC SPACE", "const r = a\u3000/ 2; const s = \"it's\";", 1, false),
+                arguments("division after a non-null assertion", "const r = a! / 2; const s = \"it's\";", 1, false),
+                arguments("division after the ) of a call", "const r = f(a) / 2; const s = \"it's\";", 1, false),
+                arguments("a regular expression after the ) of if", "if (a) /'/.test(s);", 1, false),
+                arguments("a regular expression after the ) of for await",
+                        "async function f() { for await (const x of y) /'/.test(x); }", 1, false),
+                arguments("a regular expression after a negation on the next line", "x\n!/'/.test(s);", 2, false),
+                arguments("CRLF line ends", "const a = 1;\r\nconst b = 'it\\'s';\r\n", 3, false),
                 arguments("a regular expression after return", "function f() { return /'/.test(s); }", 1, false),
                 arguments("a regular expression after typeof", "const t = typeof /'/;", 1, false),
                 arguments("a regular expression after a comma", "f(a, /'/);", 1, false),
@@ -433,7 +439,6 @@ class ImportScannerTest {
                 arguments("an escaped quote", "const s = 'it\\'s';", 1, false),
                 arguments("a string continued after a backslash and CRLF", "const s = 'a\\\r\nb';", 2, false),
                 arguments("a string continued after a backslash and LF", "const s = 'a\\\nb';", 2, false),
-                arguments("a string continued after a backslash and CR", "const s = 'a\\\rb';", 1, false),
                 arguments("a template continued after a backslash and LF", "const t = `a\\\nb`;", 2, false),
                 arguments("a block comment over three lines", "/* one\ntwo\nthree */", 3, false),
                 arguments("identifiers that only contain require", "const x = $require('a') + _require('b') "
@@ -467,6 +472,155 @@ class ImportScannerTest {
 
         assertThat(scan.refusals()).as(name).isEmpty();
         assertThat(scan.imports()).as(name).containsExactly(new SourceImport(lines + 1, "./z", ImportKind.IMPORT));
+    }
+
+    /**
+     * A slash read the wrong way round hides what follows it on its line: a division read as the start of a regular
+     * expression swallows the code up to the next slash, and a regular expression read as a division lets a quote in
+     * it open a string. Each case has a real import after the slash on the same line, which the reader must read
+     * (Codex's two probes are the first two).
+     */
+    static Stream<Arguments> slashesBeforeAnImportOnTheSameLine() {
+        return Stream.of(
+                arguments("a non-null assertion is no negation: the slash divides",
+                        "const n = 4; const half = n! / [import('./hidden.ts')].length; const third = n / 3;",
+                        "./hidden.ts"),
+                arguments("the ) of an if head: the slash starts a regular expression",
+                        "if (true) /'/.test(\"x\"); import(\"./hidden.ts\"); /'/.test(\"y\");", "./hidden.ts"),
+                arguments("the ) of a while head",
+                        "while (ready()) /'/.test(s); import('./hidden.ts'); /'/.test(t);", "./hidden.ts"),
+                arguments("the ) of a for head",
+                        "for (const x of list) /'/.test(x); import('./hidden.ts'); /'/.test(y);", "./hidden.ts"),
+                arguments("the ) of a call divides",
+                        "const v = f(x) / 2; import('./hidden.ts'); const w = y / 3;", "./hidden.ts"),
+                arguments("the ) of a method named if divides",
+                        "const v = a.if(x) / 2; import('./hidden.ts'); const w = y / 3;", "./hidden.ts"),
+                arguments("a negation after =", "const a = !/'/.test(s); import('./hidden.ts'); const b = /'/.test(t);",
+                        "./hidden.ts"),
+                arguments("Codex's probe of the rules: a non-null assertion before an awaited import",
+                        "const n = value! / (await import('undeclared')).n / 2;", "undeclared"),
+                arguments("a non-null assertion after a template over two lines",
+                        "const t = `a\n${b}`! / [import('./hidden.ts')].length; const u = c / 3;", "./hidden.ts"),
+                arguments("a negation on the line after a value",
+                        "x\n!/'/.test(s); import('./hidden.ts'); /'/.test(t);", "./hidden.ts"),
+                arguments("an EM SPACE is white space",
+                        "const n = 4; const half = n\u2003/ 2; const lazy = import('hidden'); const third = n / 3;",
+                        "hidden"),
+                arguments("an OGHAM SPACE MARK is white space",
+                        "const n = 4; const half = n\u1680/ 2; const lazy = import('hidden'); const third = n / 3;",
+                        "hidden"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("slashesBeforeAnImportOnTheSameLine")
+    void aSlashNeverHidesAnImportOnItsLine(String name, String text, String specifier) {
+        ImportScanner.Scan scan = ts(text + "\n");
+
+        assertThat(scan.refusals()).as(name).isEmpty();
+        assertThat(scan.imports()).as(name).extracting(SourceImport::specifier).contains(specifier);
+    }
+
+    /** Where the token before a slash allows both readings, the reader refuses the file instead of choosing one. */
+    static Stream<Arguments> slashesTheReaderCannotClassify() {
+        return Stream.of(
+                arguments("after a block",
+                        "if (true) {} /'/.test(\"x\"); import(\"./hidden.ts\"); /'/.test(\"y\");", "'}'"),
+                arguments("after of as a name",
+                        "const of = 4; const half = of / 2; const lazy = import('hidden'); const third = of / 3;",
+                        "'of'"),
+                arguments("after await as a name",
+                        "const await = 4; const h = await / 2; const lazy = import('hidden'); const t = await / 3;",
+                        "'await'"),
+                arguments("after yield", "function* g() { const y = yield / 2; import('./hidden.ts'); }", "'yield'"),
+                arguments("after ++", "let i = 0; const r = i++ / 2; const lazy = import('hidden'); const t = i / 3;",
+                        "'++'"),
+                arguments("after --", "let i = 0; const r = i-- / 2; const lazy = import('hidden'); const t = i / 3;",
+                        "'--'"),
+                arguments("after a module specifier", "import './a.ts'\n/'/.test(s); import('./hidden.ts'); /'/;",
+                        "a module specifier"),
+                arguments("after an unmatched )", "x) / 2; import('./hidden.ts'); y / 3;", "an unmatched ')'"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("slashesTheReaderCannotClassify")
+    void aSlashThatCouldBeEitherIsRefused(String name, String text, String after) {
+        ImportScanner.Scan scan = ts(text + "\n");
+
+        assertThat(scan.refusals()).as(name).extracting(Refusal::reason).anySatisfy(reason -> assertThat(reason)
+                .isEqualTo("a / after " + after + " is not supported: it could start a regular expression or be an "
+                        + "operator, and the reader does not guess; put the expression in parentheses"));
+    }
+
+    @Test
+    void aLessThanAfterABlockInATsxFileIsRefused() {
+        ImportScanner.Scan scan = tsx("if (a) {} <b>it's</b>; import('./hidden.ts');\n");
+
+        assertThat(scan.refusals()).extracting(Refusal::reason).containsExactly("a < after '}' is not supported: it "
+                + "could start a JSX element or be an operator, and the reader does not guess; put the expression in "
+                + "parentheses");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\u200B", "\u0085", "\u0007", "\u2060", "\u180E"})
+    void aCharacterThatIsNeitherWhiteSpaceNorCodeIsRefused(String character) {
+        ImportScanner.Scan scan = ts("const n = 4; const h = n" + character
+                + "/ 2; const lazy = import('hidden'); const t = n / 3;\n");
+
+        assertThat(scan.refusals()).extracting(Refusal::reason).containsExactly("the character U+"
+                + String.format(java.util.Locale.ROOT, "%04X", (int) character.charAt(0)) + " is not supported outside "
+                + "strings, comments, templates and JSX text");
+    }
+
+    @Test
+    void aLoneCarriageReturnIsRefusedWhereverItIsBecauseTypeScriptEndsACommentThere() {
+        String refused = "a carriage return that is not followed by a line feed is not supported: TypeScript ends a "
+                + "line, and a // comment, there";
+
+        ImportScanner.Scan comment = ts("// comment\rimport './hidden.ts';");
+        assertThat(comment.imports()).isEmpty();
+        assertThat(comment.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(tuple(1, refused));
+        assertThat(ts("/* a\r*/ import './b.ts';\n").refusals()).extracting(Refusal::reason).containsExactly(refused);
+        assertThat(ts("const s = 'a\\\rb';\n").refusals()).extracting(Refusal::reason).containsExactly(refused);
+        assertThat(ts("const r = a\r/ 2;\n").refusals()).extracting(Refusal::reason).containsExactly(refused);
+        assertThat(ts("import './a.ts';\nconst b = 1;\r").refusals()).extracting(Refusal::line, Refusal::reason)
+                .containsExactly(tuple(2, refused));
+
+        ImportScanner.Scan crlf = ts("// one\r\nimport './a.ts';\r\nimport './b.ts';\r\n");
+        assertThat(crlf.refusals()).isEmpty();
+        assertThat(crlf.imports()).extracting(SourceImport::line, SourceImport::specifier)
+                .containsExactly(tuple(2, "./a.ts"), tuple(3, "./b.ts"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/** @jsximportsource hidden */", "/** @JSXIMPORTSOURCE hidden */", "/* @JsxFrag Fragment */",
+        "// @JSX h", "/**\n * @jsxImportSource hidden\n */"})
+    void aJsxPragmaInAnyLetterCaseIsRefused(String comment) {
+        ImportScanner.Scan scan = tsx(comment + "\nexport const e = <div/>;\n");
+
+        assertThat(scan.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(tuple(1,
+                "JSX pragmas (@jsx, @jsxImportSource, @jsxFrag, @jsxRuntime) are not supported: they change which "
+                        + "module JSX imports"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"///\u00a0<reference path=\"./hidden.ts\" />", "///\u2003<reference path=\"./hidden.ts\" />",
+        "\u3000/// <reference path=\"./hidden.ts\" />", "/* c */ /// <reference path=\"./hidden.ts\" />",
+        "////////// a banner", "///<amd-dependency path=\"./hidden.ts\" />"})
+    void everyCommentThatStartsWithThreeSlashesIsRefusedOnce(String comment) {
+        ImportScanner.Scan scan = ts(comment + "\nexport const n = 1;\n");
+
+        assertThat(scan.imports()).isEmpty();
+        assertThat(scan.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(tuple(1,
+                "triple-slash directives (/// <reference ...>) are not supported: they add dependencies in comments"));
+    }
+
+    @Test
+    void aLineThatStartsWithThreeSlashesInsideATemplateIsRefusedToo() {
+        // The check runs on lines, before the lexer: a refusal of a template's text costs a rewording, not a guess.
+        ImportScanner.Scan scan = ts("const banner = `\n/// not a directive\n`;\n");
+
+        assertThat(scan.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(tuple(2,
+                "triple-slash directives (/// <reference ...>) are not supported: they add dependencies in comments"));
     }
 
     @Test

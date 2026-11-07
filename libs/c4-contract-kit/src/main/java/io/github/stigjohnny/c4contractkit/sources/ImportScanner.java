@@ -44,12 +44,12 @@ final class ImportScanner {
     private static final Pattern CSS_COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
     private static final Pattern CSS_IMPORT_RULE = Pattern.compile("(?i)@import\\b");
 
-    /** What one file imports and what it refuses, each in source order. */
+    /** What one file imports and what it refuses, each in source order; a refusal found twice is listed once. */
     record Scan(List<SourceImport> imports, List<Refusal> refusals) {
 
         Scan {
             imports = List.copyOf(imports);
-            refusals = refusals.stream().sorted(Comparator.comparingInt(Refusal::line)).toList();
+            refusals = refusals.stream().distinct().sorted(Comparator.comparingInt(Refusal::line)).toList();
         }
     }
 
