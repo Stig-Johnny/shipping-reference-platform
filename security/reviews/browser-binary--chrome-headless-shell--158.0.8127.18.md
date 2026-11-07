@@ -4,7 +4,7 @@ kind: browser-binary
 version: "158.0.8127.18"
 verdict: APPROVE-WITH-CONDITIONS
 scope: "CI only: GitHub-hosted ubuntu-24.04 x64, headless E2E/accessibility tests of the locally started application, launched by @playwright/test 1.65.0 via executablePath"
-conditions: ["The workflow downloads https://cdn.playwright.dev/builds/cft/158.0.8127.18/linux64/chrome-headless-shell-linux64.zip with curl --proto '=https' (no redirects to other schemes) and checks sha256sum --check against a SHA-256 pinned in the workflow", "That SHA-256 is recorded once in the lock-maintenance environment and, where Google's Chrome for Testing download for 158.0.8127.18 is available, confirmed byte-identical to it; until it is recorded this approval is not usable", "Extract into a fresh directory; pass chrome-headless-shell-linux64/chrome-headless-shell as launchOptions.executablePath; PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1", "Navigate only to the local application (the browser runs without Chromium's sandbox by Playwright default)", "Not approved: the full chromium (Chrome for Testing) build, ffmpeg, other browsers, any local or headed use"]
+conditions: ["The workflow downloads https://cdn.playwright.dev/builds/cft/158.0.8127.18/linux64/chrome-headless-shell-linux64.zip, or the Google URL it redirects to (https://storage.googleapis.com/chrome-for-testing-public/158.0.8127.18/linux64/chrome-headless-shell-linux64.zip), with curl --proto '=https' --proto-redir '=https', and checks it with sha256sum --check against 18352d22cb0cdf520cbff2ad8c41391f0e02a72886cb53b0fde4bdfc4bd075d6 pinned in the workflow", "That SHA-256 was recorded on 2026-11-07 (security/verifications/2026-11-07-frontend-toolchain.md): 131,998,580 bytes, byte-identical through Playwright's URL and Google's Chrome for Testing URL; any other hash is a new review", "Extract into a fresh directory; pass chrome-headless-shell-linux64/chrome-headless-shell as launchOptions.executablePath; PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1", "Navigate only to the local application (the browser runs without Chromium's sandbox by Playwright default)", "Not approved: the full chromium (Chrome for Testing) build, ffmpeg, other browsers, any local or headed use", "Before the job becomes a required check, its first run shows that the runner image's libraries suffice without install-deps (the shell starts; the run records the launch result or ldd output), recorded as an amendment", "Licence: a Google Chrome for Testing build (its ABOUT file names Google's Terms of Service) with Chromium's BSD-3-Clause licence and about 700 bundled licences (LICENSE.headless_shell); used in CI only, never uploaded or redistributed, which needs the owner's explicit decision (security/AGENTS.md)"]
 reviewer: "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06"
 reviewedAt: "2026-11-06"
 expiresAt: "2027-05-06"
@@ -18,7 +18,9 @@ hash yet.
 
 ## 1. Verdict
 
-**APPROVE-WITH-CONDITIONS, but not usable until its SHA-256 is pinned.**
+**APPROVE-WITH-CONDITIONS.** Its SHA-256 was recorded on 2026-11-07, byte-identical to Google's Chrome for Testing
+download (amendment below). Until then it was not usable. One condition stays open: the first CI run must show that
+the runner's libraries suffice.
 
 - **What Playwright 1.65.0 uses.** It pins this build in `browsers.json`. It downloads it from a single Playwright CDN
   host and checks **no hash or signature**: only HTTP status and length.
@@ -109,8 +111,52 @@ echo "${CHS_SHA256}  $RUNNER_TEMP/$z" | sha256sum --check --strict -
 
 ## 11. Not verified
 
-- **The zip.** Its existence at the derived URL, its size, hash and contents.
-- **Identity with Google's CfT artifact.**
-- **Chrome 158 advisories.**
-- **The licence.**
-- **Whether all runtime libraries are present** on ubuntu-24.04.
+- **The zip.** Its existence at the derived URL, its size, hash and contents. *Closed by the 2026-11-07 amendment.*
+- **Identity with Google's CfT artifact.** *Closed by the 2026-11-07 amendment.*
+- **Chrome 158 advisories.** Still open.
+- **The licence.** *Read on 2026-11-07 (amendment); it needs the owner's decision (condition 7).*
+- **Whether all runtime libraries are present** on ubuntu-24.04. Still open: only the first CI run can show it
+  (condition 6).
+
+## Amendment, 2026-11-07: the hash, recorded
+
+**What was done.** The security-review agent worked on the owner's MacBook with `/usr/bin/curl`, in three new empty
+directories, sending no credentials:
+
+- the URL Playwright uses, without following redirects;
+- Google's Chrome for Testing URL;
+- Playwright's URL again, with `-L --proto '=https' --proto-redir '=https'`, the workflow's form.
+
+The zip was hashed and its central directory listed. It was neither extracted nor run; three text members were read
+into memory. Evidence: `security/verifications/2026-11-07-frontend-toolchain.md`.
+
+**What was found.**
+
+- **Playwright's CDN holds no copy.** `cdn.playwright.dev` answers `HTTP/2 307` to
+  `https://storage.googleapis.com/chrome-for-testing-public/158.0.8127.18/linux64/chrome-headless-shell-linux64.zip`.
+  So the bytes come from Google's Chrome for Testing bucket either way. The "Playwright re-hosting" in section 3 is a
+  redirect, which answers the documentation inconsistency noted there.
+- **Hash.** Both downloads are 131,998,580 bytes, with SHA-256
+  `18352d22cb0cdf520cbff2ad8c41391f0e02a72886cb53b0fde4bdfc4bd075d6`, and `cmp` finds them identical. Google's
+  `x-goog-hash` MD5 header matches the download, which checks only the transfer.
+- **Google's index.** `known-good-versions-with-downloads.json` lists 158.0.8127.18 (revision 1727472) with exactly
+  this URL. `last-known-good-versions.json` (2026-11-07T10:10:51Z) shows it is Chrome's **Beta** channel build; Stable
+  is 157.0.8103.38. Playwright 1.65.0 pins a beta browser. That matters little while the browser loads only our own
+  application (condition 4).
+- **Contents.**
+  - 287 entries under `chrome-headless-shell-linux64/`, with no absolute path, no `..` segment and no symbolic link,
+    so extracting it cannot create a link that points outside its directory.
+  - Five executables: `chrome-headless-shell` (216,599,888 bytes), `libEGL.so`, `libGLESv2.so`,
+    `libvk_swiftshader.so` and `libvulkan.so.1`.
+  - The rest is data: `icudtl.dat`, `v8_context_snapshot.bin`, `.pak` resources, `hyphen-data/`, and the
+    `deb.deps`/`rpm.deps` package lists.
+- **Licence.** `ABOUT` reads "Google Chrome … Copyright 2026 Google LLC … See the Terms of Service at chrome://terms".
+  `LICENSE.headless_shell` (2,342,403 bytes) opens with The Chromium Project's BSD-style licence and holds about 700
+  further sections for bundled components. The build is not under one SPDX licence, so condition 7 asks the owner to
+  decide on CI-only, non-redistributed use.
+- **Runtime libraries: still open.** `deb.deps` lists the 30 Debian dependencies of the full Chrome package (GTK,
+  CUPS, `wget`, `xdg-utils` among them). That is not a statement of what the headless shell needs. Condition 6 leaves
+  it to the first CI run.
+
+**Conditions changed:** 1 pins the hash and names Google's URL; 2 records it; 6 (runner libraries) and 7 (licence)
+are new; 3 to 5 are unchanged.
