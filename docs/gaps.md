@@ -24,15 +24,17 @@ closes it.
   capabilities of the quotes module have passing tests: two are shipped and two partial. Every other capability in
   `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for them is still to
   be written (red first).
-- **The quotes module runs in its tests only.** No class of it is a Spring bean, and no endpoint, database or running
-  application exists. `CreateQuote`'s `@Transactional` has no effect yet, and that `QuoteIssued` is published inside
-  the quote's transaction is unproven until `QuotesModuleIntegrationTest` exists. The store its tests use is in
-  memory, so nothing yet shows that another tenant's quote is not found in the database.
+- **The quotes module runs in its tests only.** No class of it is a Spring bean of the application, and no endpoint,
+  database or running application exists. `CreateQuote`'s `@Transactional` has no effect yet, and that `QuoteIssued`
+  is published inside the quote's transaction is unproven until `QuotesModuleIntegrationTest` exists. The store its
+  tests use is in memory, so nothing yet shows that another tenant's quote is not found in the database. The scenario
+  checks wire the quotes and tenants classes as beans of a plain Spring context of their own, which is not the
+  application's wiring (section 6).
 - The versions in the ADRs were checked against their sources on 2026-11-06. Their combination (JDK 25, Gradle
   9.8.2, Spring Boot 4.1.2, Spring Modulith 2.1.2, Error Prone 2.51.0, NullAway 0.14.3, JUnit 6.0.3 (property
   tests as `@ParameterizedTest` in the normal test task), PIT 1.30.2 with its JUnit 5 plugin 1.2.3) now compiles the
-  API and runs its tests, and Spring Modulith 2.1.2's verification passes on ArchUnit 1.5.1; no Spring application
-  context has been started yet. In particular,
+  API and runs its tests, and Spring Modulith 2.1.2's verification passes on ArchUnit 1.5.1; the scenario checks start
+  a plain Spring context, and the Spring Boot application has not been started yet. In particular,
   PIT's JUnit 5 plugin with JUnit 6 is unverified; the fallback is running PIT against a JUnit 5.14.4 test task.
   The library runs PIT with JUnit 5.14.4, and that combination works.
 
@@ -53,7 +55,8 @@ closes it.
   to it.
 - **Ordering and timing.** The model says who may depend on whom, not in which order things happen or whether they
   happen in the same transaction. The dynamic view and `docs/flows/quote-book-label.md` describe order; tests
-  assert it.
+  assert it. The scenario checks compare the order of one run's module API calls and publications with a scenario
+  view, in process only (section 6).
 - **Only direct references.** A transitive path neither satisfies nor violates an edge. Two modules can be coupled
   through a third without any report.
 - **Only what the class file records, as ArchUnit 1.5.1 reads it.** javac copies compile-time constants
@@ -191,6 +194,19 @@ closes it.
   jsdom. They stay acceptance targets, so the capabilities that name them stay unshipped; until they exist, only
   logic tests under `node --test` and the Playwright specs test the web app.
 - The CI time target of 8 to 12 minutes is a target, not a measurement.
+- **The scenario checks prove one run, within what the recorder sees** (`control.scenario-conformance`, partial). A
+  passing scenario shows that one exercised run conforms to its declared steps, not that every path, schedule or
+  input does. They run in process on the built modules: HTTP exchanges, database steps and listener executions are
+  not observed yet, and steps that touch a person, a simulated system or a planned module are never evaluated; the
+  report counts each one with its reason, and `ScenarioTenantDenial` evaluates none of its steps yet. The recorder sees
+  calls through `api` interfaces of Spring beans and events published through the application context. Its coverage
+  verification reads only the beans' own fields, so a reference kept elsewhere (deeper, or in a static field) is not
+  checked; calls are told apart by interface and method name, not by overload; a static call across modules is caught
+  only as a call site that no proxy can intercept. The modules are wired by the tests, as the application's wiring is
+  planned. The model's scenario views are read by a restricted text reader, since Structurizr's review covers only the
+  kit's and the docs tool's parsers; the reader refuses what it does not read exactly and is cross-checked with the
+  kit's components, not with Structurizr's step numbering. A report's revision is the checked-out commit; uncommitted
+  changes show only in its digests.
 
 ## 7. Documentation
 

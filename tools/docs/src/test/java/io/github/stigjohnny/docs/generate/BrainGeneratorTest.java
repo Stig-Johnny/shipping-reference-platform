@@ -48,6 +48,8 @@ class BrainGeneratorTest {
                 "docs/architecture/api-components.md", "docs/architecture/api-components.mmd",
                 "docs/architecture/containers.md", "docs/architecture/containers.mmd",
                 "docs/architecture/quote-book-label.md", "docs/architecture/quote-book-label.mmd",
+                "docs/architecture/scenario-quote.md", "docs/architecture/scenario-quote.mmd",
+                "docs/architecture/scenario-tenant-denial.md", "docs/architecture/scenario-tenant-denial.mmd",
                 "docs/architecture/system-context.md", "docs/architecture/system-context.mmd",
                 "docs/brain/audit.md", "docs/brain/orders.md", "docs/brain/quotes.md", "docs/brain/returns.md",
                 "docs/brain/shipments.md", "docs/brain/tenants.md", "docs/brain/tracking.md");

@@ -12,7 +12,8 @@ The structural version of this flow is the dynamic view `QuoteBookLabel` in `arc
 document adds order, alternatives and failures, and names the acceptance tests for each step and their status. A named
 test becomes evidence only once it exists, passes and asserts the step; each row says what it must assert. Rating and
 expiry logic have passing Java tests; quote storage and publication are tested in memory. The complete HTTP/database
-flow remains planned.
+flow remains planned. Parts of the flow are also executable scenarios, checked against what the code does when they
+run ([Executable scenarios](#executable-scenarios)).
 
 Actors: a shipping clerk of Tenant Alpha signed in as the synthetic user `clerk-alpha`. All data is synthetic.
 
@@ -97,6 +98,43 @@ sequenceDiagram
 | Audit write fails | Booking stays committed; the publication stays incomplete and is replayed. | Planned: `AuditReplayIntegrationTest` |
 | Audit listener deleted | `ArchitectureConformanceTest` fails: absence of REQUIRED `audit -> shipments`. | `ArchitectureConformanceTest` runs in every build; it evaluates this arrow once audit and shipments are built. |
 | Audit listener present but writes nothing | Architecture check passes (its documented limit); the integration test fails. | Planned: `ShipmentAuditIntegrationTest` |
+
+## Executable scenarios
+
+The dynamic view `QuoteBookLabel` is this flow's documentation overview and is not executable: some of its steps
+combine several actions. Focused views whose keys start with `Scenario` are run instead. Each has a sidecar,
+`architecture/scenarios/<key in kebab case>.json`, that gives every step of the view a stable id, a kind, its
+endpoints, an operation (interface and method, event type, HTTP operation or schema), a phase, a cardinality and the
+steps it must follow; the sidecar is validated against the view, step by step and in both directions. A test runs the
+scenario on the code. A test-only recorder, which knows nothing of the steps, records every interaction that crosses a
+module boundary: calls through an interface of a module's `api` package (Spring's `ProxyFactory` around every bean that
+implements one, the caller found on the stack and mapped by `contract.packages`) and events published through the
+application context. A comparator then reports MISSING_STEP, UNEXPECTED_INTERACTION, ORDER_VIOLATION and COVERAGE_GAP;
+outcomes are asserted separately.
+
+| Scenario | Test | Evaluated today | Not evaluated today, with the reason in the report |
+|---|---|---|---|
+| `ScenarioQuote` | `QuoteScenarioTest` | `CurrentTenant.require()` once, then `QuoteIssued` published once | the clerk, the HTTP exchange, the simulated carrier, the database write |
+| `ScenarioTenantDenial` | `TenantDenialScenarioTest` | that the lookup makes no call across a module boundary | every step: each touches the clerk, the planned shipments module or the database |
+| First booking, booking replay, label | Planned: `FirstBookingScenarioTest`, `BookingReplayScenarioTest`, `LabelScenarioTest` | | |
+
+A passing run claims what its report says: one exercised run of the scenario conforms to its declared steps, within
+the recorder's coverage, not all paths, schedules or inputs. A step that touches a person, a simulated system or a
+planned module, or whose kind the run cannot observe (HTTP and SQL until the API and the database run, listener
+executions until a module has one), is NOT_EVALUATED and counted; a run that evaluates no step is NO_STEP_EVALUATED,
+never CONFORMS. Coverage is verified before each run: an `api` bean without a proxy, a module bean's field that holds
+another module's `api` implementation unwrapped or a publisher other than the context, a probe event that does not reach
+the publication observer, a listener method, or a cross-module call that no proxy can intercept is a COVERAGE_GAP. The
+negative fixtures of `ScenarioFixturesTest` run altered code: a removed call that keeps the outcome, an added call along
+a permitted relationship, two swapped interactions, a disabled call observer and a disabled publication observer each
+fail for their reason, and two runs interleaved on two threads pass.
+
+Each run writes `apps/shipping-api/build/reports/scenarios/<key in kebab case>.json` and `.md`, negative fixtures under
+`fixtures/`, before the test asserts anything. The JSON (schema `shipping-scenarios/report/v1`) is for the
+documentation site: `verdict`, `outcomesHeld`, `claim`, `scenario`, `test`, `provenance` (the revision, and SHA-256
+digests of the model, the sidecar and the main classes), `summary`, `observers`, `coverage`, `stimuli`, `steps` (each
+with its status, its reason and its interactions as `run:seq`), `interactions`, `findings` and `outcomes`. Operations
+are types and methods; no argument, return value or payload is recorded.
 
 ## What this flow does not show
 

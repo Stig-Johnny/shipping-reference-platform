@@ -29,7 +29,9 @@
 # same commit; `:tools:docs:checkGenerated` rejects a shipped or partial status whose evidence does not exist or did
 # not pass, and never shows a planned capability as available because its package exists. The docs tool's own
 # controls are shipped, and so are the controls of libs/c4-contract-kit, divergence and absence included now that
-# ArchitectureConformanceTest checks :apps:shipping-api, and the two module checks of the API. Of the product, the
+# ArchitectureConformanceTest checks :apps:shipping-api, and the two module checks of the API. The API's scenario checks
+# are partial: their in-process scenarios and negative fixtures pass, while the booking, replay and label scenarios and
+# the observation of HTTP and SQL are planned. Of the product, the
 # quotes module's domain and application tests pass: the synthetic tariff and quote expiry are shipped, creating a
 # quote and the offer lookup are partial, since their HTTP and database tests are planned. Every other status is
 # planned and its evidence is "none yet".
@@ -347,6 +349,18 @@ controls:
     acceptanceTests: [HexagonalLayeringTest]
     negativeFixture: A domain class annotated with a Spring stereotype; one fixture for each other rule (fixtures of HexagonalLayeringTest).
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
+  - id: control.scenario-conformance
+    title: A scenario view's steps are checked against what one run of the code does; a missing step, an interaction the view does not draw, a wrong order or a coverage gap fails the build.
+    where: apps/shipping-api, architecture/scenarios
+    check: java
+    status: partial
+    target: v0.1
+    evidence: [QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, SidecarValidationTest, ScenarioModelTest]
+    acceptanceTests: [QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, SidecarValidationTest, ScenarioModelTest, FirstBookingScenarioTest, BookingReplayScenarioTest, LabelScenarioTest]
+    negativeFixture: Altered implementations in ScenarioFixturesTest, a removed call that keeps the outcome (missing step), an added call along a permitted relationship (unexpected interaction), two swapped interactions (order violation), a disabled call observer and a disabled publication observer (coverage gaps), and two interleaved runs that must pass.
+    enforcedSubset: In process on the built modules, the module API calls and event publications of the quote and tenant-denial scenarios are compared with their views.
+    plannedRemainder: The first booking, booking replay and label scenarios, HTTP exchanges, database steps observed through JDBC and listener executions.
+    docs: docs/flows/quote-book-label.md
   - id: control.table-ownership
     title: Each module's adapters run SQL only against tables in its own schema.
     where: apps/shipping-api

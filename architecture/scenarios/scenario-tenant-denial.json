@@ -1,0 +1,60 @@
+{
+  "schema": "shipping-scenarios/sidecar/v1",
+  "view": "ScenarioTenantDenial",
+  "steps": [
+    {
+      "order": 1,
+      "id": "beta-books-alphas-offer",
+      "kind": "USER_ACTION",
+      "from": "clerk",
+      "to": "web",
+      "phase": "SYNCHRONOUS",
+      "cardinality": "1",
+      "after": []
+    },
+    {
+      "order": 2,
+      "id": "book-shipment-request",
+      "kind": "HTTP_EXCHANGE",
+      "from": "web",
+      "to": "shipments",
+      "operation": {"method": "POST", "path": "/api/v1/shipments", "operationId": "bookShipment", "status": 404},
+      "phase": "SYNCHRONOUS",
+      "cardinality": "1",
+      "after": ["beta-books-alphas-offer"]
+    },
+    {
+      "order": 3,
+      "id": "resolve-tenant",
+      "kind": "MODULE_API_CALL",
+      "from": "shipments",
+      "to": "tenants",
+      "operation": {"interface": "io.github.stigjohnny.shipping.tenants.api.CurrentTenant", "method": "require"},
+      "phase": "SYNCHRONOUS",
+      "cardinality": "1",
+      "after": ["book-shipment-request"]
+    },
+    {
+      "order": 4,
+      "id": "find-offer",
+      "kind": "MODULE_API_CALL",
+      "from": "shipments",
+      "to": "quotes",
+      "operation": {"interface": "io.github.stigjohnny.shipping.quotes.api.QuoteOffers", "method": "findOffer"},
+      "phase": "SYNCHRONOUS",
+      "cardinality": "1",
+      "after": ["resolve-tenant"]
+    },
+    {
+      "order": 5,
+      "id": "select-quote",
+      "kind": "DATABASE_READ",
+      "from": "quotes",
+      "to": "db",
+      "operation": {"statement": "SELECT", "schema": "quotes"},
+      "phase": "SYNCHRONOUS",
+      "cardinality": "1..*",
+      "after": ["find-offer"]
+    }
+  ]
+}

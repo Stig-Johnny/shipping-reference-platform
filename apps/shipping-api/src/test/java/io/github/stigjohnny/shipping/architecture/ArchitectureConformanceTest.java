@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -72,7 +73,8 @@ class ArchitectureConformanceTest {
 
     @Test
     void withoutTheQuotesToTenantsRelationshipTheApiDivergesFromTheModel(@TempDir Path dir) throws IOException {
-        // The check is a real one: drop quotes -> tenants (and its step in the dynamic view) and the code diverges.
+        // The check is a real one: drop quotes -> tenants (and every step of the dynamic views that uses it) and the
+        // code diverges.
         String model = Files.readString(MODEL, StandardCharsets.UTF_8);
         String relationship = """
                         quotes -> tenants "Resolves the caller's tenant (tenants.api: CurrentTenant, TenantId)" "Java" \
@@ -83,9 +85,11 @@ class ArchitectureConformanceTest {
                         }
                 """;
         String step = "            quotes -> tenants \"Resolves the caller's tenant\"\n";
+        Pattern steps = Pattern.compile("(?m)^ {12}quotes -> tenants \"[^\"\\n]*\"\\n");
         assertThat(model).contains(relationship, step);
-        Path weakened = Files.writeString(dir.resolve("workspace.dsl"), model.replace(relationship, "")
-                .replace(step, ""), StandardCharsets.UTF_8);
+        Path weakened = Files.writeString(dir.resolve("workspace.dsl"), steps.matcher(model.replace(relationship, ""))
+                .replaceAll(""), StandardCharsets.UTF_8);
+        assertThat(Files.readString(weakened, StandardCharsets.UTF_8)).doesNotContain("quotes -> tenants");
 
         Report report = Conformance.check(weakened, ClassDirectories.main());
 

@@ -13,10 +13,11 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
- * Where the architecture tests read compiled classes from: explicit class-file directories, as the ArchUnit review
- * requires (security/reviews/maven--archunit--1.5.1.md), never the class path or a package scan.
+ * Where the architecture tests, and the scenario checks' coverage census, read compiled classes from: explicit
+ * class-file directories, as the ArchUnit review requires (security/reviews/maven--archunit--1.5.1.md), never the class
+ * path or a package scan.
  */
-final class ClassDirectories {
+public final class ClassDirectories {
 
     /** Set for the test task by apps/shipping-api/build.gradle.kts: the main source set's class-output directories. */
     static final String MAIN = "shipping.mainClassDirectories";
@@ -25,7 +26,7 @@ final class ClassDirectories {
     }
 
     /** Every class-output directory of the API's main source set, as Gradle passes them to the test task. */
-    static List<Path> main() {
+    public static List<Path> main() {
         String directories = System.getProperty(MAIN, "");
         if (directories.isBlank()) {
             throw new IllegalStateException("The system property " + MAIN + " is not set: run the tests with Gradle.");
@@ -37,7 +38,7 @@ final class ClassDirectories {
      * The classes under the directories, read with ArchUnit from their class files: nothing is loaded, and nothing
      * missing is resolved from the class path, so the result depends only on the directories, as in c4-contract-kit.
      */
-    static JavaClasses read(List<Path> directories) {
+    public static JavaClasses read(List<Path> directories) {
         return ArchConfiguration.withThreadLocalScope(configuration -> {
             configuration.unsetClassResolver();
             configuration.setResolveMissingDependenciesFromClassPath(false);

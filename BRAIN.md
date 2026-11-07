@@ -12,7 +12,7 @@ updated: 2026-11-07
 
 A reference monorepo that shows how a Java and TypeScript product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. The application's first code exists: the pricing and quotes of the API's quotes module and the tenant context they need, without HTTP or a database; most of the application is still planned. The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions, a dependency allowlist check and a documentation tool.
 
-**State at this commit.** 27 capabilities: 2 shipped, 2 partial, 23 planned; 17 controls: 10 shipped, 7 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
+**State at this commit.** 27 capabilities: 2 shipped, 2 partial, 23 planned; 18 controls: 10 shipped, 1 partial, 7 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
 
 ## Read first
 
@@ -51,6 +51,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | `control.deterministic-reports` | shipped | `java` | ReportDeterminismTest, ConformanceAssertionsTest, SelfConformanceTest |
 | `control.modulith-verification` | shipped | `java` | ModularityTest |
 | `control.hexagonal-layering` | shipped | `java` | HexagonalLayeringTest |
+| `control.scenario-conformance` | partial | `java` | QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, SidecarValidationTest, ScenarioModelTest |
 | `control.table-ownership` | planned | `java` | none yet |
 | `control.migrations` | planned | `java` | none yet |
 | `control.http-contract` | planned | `java` | none yet |

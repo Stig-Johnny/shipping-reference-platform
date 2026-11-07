@@ -74,12 +74,25 @@ tasks.withType<Test>().configureEach {
 // The architecture tests read the model and the compiled classes as files. ArchitectureConformanceTest checks every
 // main class-output directory against architecture/workspace.dsl, and HexagonalLayeringTest imports the same
 // directories, which reach them as the system property shipping.mainClassDirectories. Declared as an input, a change
-// to the model reruns the tests instead of reusing their earlier result, as in libs/c4-contract-kit.
+// to the model reruns the tests instead of reusing their earlier result, as in libs/c4-contract-kit. The scenario
+// checks (package scenarios) also read the sidecars in architecture/scenarios/, and their reports in
+// build/reports/scenarios/ name the revision they ran on: GITHUB_SHA in CI, the checked-out commit locally.
+val revision: Provider<String> = providers.environmentVariable("GITHUB_SHA").orElse(
+    providers.exec {
+        commandLine("git", "-C", rootDir.absolutePath, "rev-parse", "HEAD")
+        isIgnoreExitValue = true
+    }.standardOutput.asText.map { it.trim() },
+)
+
 tasks.test {
     inputs.files(rootDir.resolve("architecture/workspace.dsl")).withPathSensitivity(PathSensitivity.RELATIVE)
         .withPropertyName("model")
+    inputs.dir(rootDir.resolve("architecture/scenarios")).withPathSensitivity(PathSensitivity.RELATIVE)
+        .withPropertyName("scenarios")
     val mainClassDirectories: FileCollection = sourceSets.main.get().output.classesDirs
+    val scenarioRevision = revision
     jvmArgumentProviders.add(CommandLineArgumentProvider {
-        listOf("-Dshipping.mainClassDirectories=" + mainClassDirectories.files.joinToString(File.pathSeparator))
+        listOf("-Dshipping.mainClassDirectories=" + mainClassDirectories.files.joinToString(File.pathSeparator),
+            "-Dshipping.revision=" + scenarioRevision.get())
     })
 }
