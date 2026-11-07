@@ -349,6 +349,18 @@ controls:
     acceptanceTests: [HexagonalLayeringTest]
     negativeFixture: A domain class annotated with a Spring stereotype; one fixture for each other rule (fixtures of HexagonalLayeringTest).
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
+  - id: control.external-imports
+    title: Every class outside the API that its main or test code uses comes from a provider reviewed for that project and configuration, and is on the whitelist of the caller's layer.
+    where: apps/shipping-api, build-logic
+    check: java
+    status: partial
+    target: v0.1
+    evidence: [ExternalImportPolicyTest]
+    acceptanceTests: [ExternalImportPolicyTest, ExternalImportSourceTest, ProviderIndexScopeTest]
+    negativeFixture: A domain class that uses Spring; production code that uses AssertJ; sun.misc.Unsafe, jdk.internal.misc.Unsafe and java.awt.peer, which java.desktop does not export; a class from an artifact reviewed for another project only; a class that no artifact provides, and one that two provide; @Transactional on an api type (fixtures of ExternalImportPolicyTest).
+    enforcedSubset: Every use that the API's main and test class files record is classified through the provider index or the JDK's module descriptors, approved for its configuration, and checked against its layer's whitelist.
+    plannedRemainder: Source references that class files lose (ExternalImportSourceTest) and the scope of every artifact on the classpaths, used or not (ProviderIndexScopeTest), remain planned.
+    docs: README.md
   - id: control.table-ownership
     title: Each module's adapters run SQL only against tables in its own schema.
     where: apps/shipping-api
