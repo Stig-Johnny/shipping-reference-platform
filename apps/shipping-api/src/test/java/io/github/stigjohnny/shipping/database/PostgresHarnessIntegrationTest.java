@@ -9,7 +9,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * The database harness works: the reviewed PostgreSQL 18.6 image starts on the reviewed engine, under every condition
@@ -22,9 +21,9 @@ class PostgresHarnessIntegrationTest {
 
     @Test
     void theReviewedImageStartsOnTheReviewedEngineAndAnswersSelectVersion() throws SQLException {
-        try (PostgreSQLContainer postgres = ReviewedPostgres.start()) {
-            try (Connection connection = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(),
-                    postgres.getPassword())) {
+        try (ReviewedPostgres.Database postgres = ReviewedPostgres.start()) {
+            try (Connection connection = DriverManager.getConnection(postgres.jdbcUrl(), postgres.username(),
+                    postgres.password())) {
                 try (Statement statement = connection.createStatement()) {
                     try (ResultSet version = statement.executeQuery("select version()")) {
                         assertThat(version.next()).isTrue();

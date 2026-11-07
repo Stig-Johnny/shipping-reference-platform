@@ -49,7 +49,7 @@ import org.testcontainers.utility.DockerImageName;
 public final class ReviewedPostgres {
 
     /** The reviewed image index, by its digest alone, never a tag (container-image--postgres--18.6-trixie.md). */
-    static final DockerImageName IMAGE =
+    private static final DockerImageName IMAGE =
             DockerImageName.parse("postgres@sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583");
 
     /** Where the runner names the reviewed engine it prepared. */
@@ -149,11 +149,50 @@ public final class ReviewedPostgres {
         }
     }
 
+    /** The reviewed image as the tests name it: postgres, by its index digest. */
+    static String reference() {
+        return IMAGE.asCanonicalNameString();
+    }
+
     /**
-     * Starts the reviewed PostgreSQL with a random password of its own; the caller stops it, with try-with-resources.
-     * It throws, without having started anything, if any condition does not hold.
+     * A running test database, as far as a test may reach it: where to connect, as whom, and how to stop it. The
+     * container itself stays inside this class, so that no test can change or restart it after the checks.
      */
-    public static PostgreSQLContainer start() {
+    public static final class Database implements AutoCloseable {
+
+        private final PostgreSQLContainer container;
+
+        private Database(PostgreSQLContainer container) {
+            this.container = container;
+        }
+
+        public String jdbcUrl() {
+            return container.getJdbcUrl();
+        }
+
+        public String username() {
+            return container.getUsername();
+        }
+
+        public String password() {
+            return container.getPassword();
+        }
+
+        /** Stops the container, which Testcontainers removes with its anonymous volume. */
+        @Override
+        public void close() {
+            container.stop();
+        }
+    }
+
+    /**
+     * Starts the reviewed PostgreSQL with a random password of its own and returns its {@link Database}; the caller
+     * closes it, with try-with-resources. It throws if any condition does not hold: before any container exists when
+     * the environment, the engine or the staged image fails its check, and after stopping the container again when the
+     * started container fails its own. Its published ports are therefore checked after the start; the runner's
+     * loopback-only daemon binds them to 127.0.0.1 from the moment the container is created.
+     */
+    public static Database start() {
         Set<String> jna = REFUSED_JNA_PROPERTIES.stream().filter(name -> System.getProperty(name) != null)
                 .collect(Collectors.toUnmodifiableSet());
         refuseUnless(environmentProblems(System.getenv(), jna,
@@ -169,9 +208,9 @@ public final class ReviewedPostgres {
 
         InspectImageResponse image;
         try {
-            image = client.inspectImageCmd(IMAGE.asCanonicalNameString()).exec();
+            image = client.inspectImageCmd(reference()).exec();
         } catch (NotFoundException e) {
-            IllegalStateException refusal = refusal(List.of("the reviewed image " + IMAGE.asCanonicalNameString()
+            IllegalStateException refusal = refusal(List.of("the reviewed image " + reference()
                     + " is not staged: the runner pulls it by digest before the tests, and the tests pull nothing"));
             refusal.initCause(e);
             throw refusal;
@@ -188,7 +227,7 @@ public final class ReviewedPostgres {
             postgres.stop();
             throw refusal(problems);
         }
-        return postgres;
+        return new Database(postgres);
     }
 
     /** What is wrong with the environment the runner prepared, before any engine is contacted. */
@@ -291,8 +330,8 @@ public final class ReviewedPostgres {
     /** What is wrong with the staged image: it must be the reviewed index digest, for the engine's platform. */
     static List<String> imageProblems(Engine engine, List<String> repoDigests, String os, String architecture) {
         List<String> problems = new ArrayList<>();
-        if (!repoDigests.contains(IMAGE.asCanonicalNameString())) {
-            problems.add("the staged image's RepoDigests " + repoDigests + " do not contain " + IMAGE.asCanonicalNameString());
+        if (!repoDigests.contains(reference())) {
+            problems.add("the staged image's RepoDigests " + repoDigests + " do not contain " + reference());
         }
         if (!"linux".equals(os) || !engine.architecture.equals(architecture)) {
             problems.add("the staged image is " + shown(os) + "/" + shown(architecture) + ", not linux/"
@@ -304,9 +343,9 @@ public final class ReviewedPostgres {
     /** What is wrong with how the container was made, after its start. */
     static List<String> containerProblems(ContainerFacts container, String imageId) {
         List<String> problems = new ArrayList<>();
-        if (!IMAGE.asCanonicalNameString().equals(container.image()) || !imageId.equals(container.imageId())) {
+        if (!reference().equals(container.image()) || !imageId.equals(container.imageId())) {
             problems.add("the container was made from " + shown(container.image()) + ", not the staged "
-                    + IMAGE.asCanonicalNameString());
+                    + reference());
         }
         if (container.privileged()) {
             problems.add("the container is privileged");

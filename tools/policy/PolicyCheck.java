@@ -425,32 +425,39 @@ public final class PolicyCheck {
      * Fail closed: an image may be named only by an approved digest, and only in forms this check can read. It reads
      * the files that can name an image for Testcontainers or for the engine, as text: every file under a project's
      * src/ directory (sources and resources), the Gradle build scripts and gradle.properties, the workflows and every
-     * shell script. Documents, the review records and this checker with its tests are not read: naming an image there
-     * uses nothing. What it refuses:
+     * shell script. A Java source is read as javac reads it, after its Unicode escapes. Documents, the review records
+     * and this checker with its tests are not read: naming an image there uses nothing. What it refuses:
      *   - a digest reference ([registry/]name@sha256:<digest>) that no approved container-image entry has, a tag next
      *     to the digest, and a digest that is not 64 lowercase hexadecimal digits;
-     *   - DockerImageName.parse of anything but one string literal that holds a digest, as a method reference or by a
-     *     static import; a Testcontainers JDBC URL (jdbc:tc:), which names an image by tag;
-     *   - in Testcontainers code (a source that names org.testcontainers or com.github.dockerjava): any container other
-     *     than org.testcontainers.postgresql.PostgreSQLContainer (the deprecated one in .containers included), one made
-     *     from anything but DockerImageName.parse or a DockerImageName that this file parses, an anonymous or declared
-     *     subclass, a constructor reference; and every API that derives, builds or resolves an image name, pulls or
-     *     builds an image, runs another container, copies into one, binds the host, reaches the host, or changes how a
-     *     container is created (FORBIDDEN_API: the conditions of the Testcontainers and runner reviews);
+     *   - in sources and build scripts: Testcontainers or docker-java named anywhere but in the database harness
+     *     (HARNESS), so that every container is made there, from the reviewed image, and checked there;
+     *     DockerImageName.parse of anything but one string literal that holds a digest, as a method reference or by a
+     *     static import; a Testcontainers JDBC URL (jdbc:tc:), which names an image by tag; every API that derives,
+     *     builds or resolves an image name, pulls or builds an image, runs another container, copies into one, binds
+     *     the host, reaches the host, or changes how a container is created (FORBIDDEN_API: the conditions of the
+     *     Testcontainers and runner reviews), wherever it is called; a container runtime named in a string, which is
+     *     how a build script or a test would run one as a command;
+     *   - in the harness: any container but org.testcontainers.postgresql.PostgreSQLContainer (the deprecated one in
+     *     .containers included), one made from anything but DockerImageName.parse or a DockerImageName that the
+     *     harness parses, a subclass and a constructor reference;
      *   - a testcontainers.properties file anywhere and a Testcontainers service file, and any setting that gives
      *     Testcontainers an image (*.container.image, hub.image.name.prefix, image.substitutor, TESTCONTAINERS_*IMAGE*);
-     *   - in workflows and scripts: a docker command other than the reads, removals and the one pull that the staging,
-     *     the checks and the cleanup need (DOCKER_READS), a pull of anything but one image by digest, docker's global
-     *     options, other container runtimes, and job or service containers; in build scripts and sources, a container
-     *     runtime started as a command.
+     *   - in workflows and scripts: docker, by any path and quoted or not, with anything but the reads, removals and
+     *     the one pull that the staging, the checks and the cleanup need (DOCKER_READS), a pull of anything but one
+     *     image by digest, docker's global options, docker named as a value, other container runtimes, and job or
+     *     service containers in any YAML spelling: quoted keys, flow mappings, escaped or explicit keys.
      * It matches text, not syntax: a comment that spells a forbidden call fails too, and a workflow or script comment
      * that starts a line or follows whitespace is not read as a command.
      */
 
+    /** The database harness: the only source that may use Testcontainers or docker-java. */
+    static final String HARNESS = "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/ReviewedPostgres.java";
     static final String DIGEST = "@sha256:";
     static final Pattern DIGEST_REFERENCE = Pattern.compile("[^\\s\"'`()\\[\\]{}<>,;=|&]*" + DIGEST
             + "[^\\s\"'`()\\[\\]{}<>,;=|&]*");
     static final Pattern SHA256_HEX = Pattern.compile("[0-9a-f]{64}");
+    static final Pattern CONTAINER_LIBRARY = Pattern.compile(
+            "\\b(?:org\\s*\\.\\s*testcontainers|com\\s*\\.\\s*github\\s*\\.\\s*dockerjava)\\s*\\.");
     static final Pattern PARSE_CALL = Pattern.compile("\\bDockerImageName\\s*\\.\\s*parse\\s*\\(");
     static final Pattern ONE_LITERAL = Pattern.compile("\\s*\"([^\"\\\\\\n]*)\"\\s*\\)");
     static final Pattern PARSE_REFERENCE = Pattern.compile("\\bDockerImageName\\s*::\\s*parse\\b");
@@ -477,10 +484,18 @@ public final class PolicyCheck {
     static final Pattern TC_JDBC_URL = Pattern.compile("jdbc:tc:");
     static final Pattern IMAGE_SETTING = Pattern.compile("TESTCONTAINERS_[A-Z0-9_]*IMAGE[A-Z0-9_]*"
             + "|\\b[a-z0-9]+\\.container\\.image\\b|\\bhub\\.image\\.name\\.prefix\\b|\\bimage\\.substitutor\\b");
-    static final Pattern RUNTIME_COMMAND = Pattern.compile("\"(docker|docker-compose|podman|nerdctl|buildah)\"");
-    static final Pattern DOCKER_COMMAND = Pattern.compile("(?<![\\w./-])docker[ \\t]+(\\S+)");
-    static final Pattern OTHER_RUNTIME = Pattern.compile("(?<![\\w./-])(docker-compose|podman|nerdctl|buildah)(?![\\w.-])");
-    static final Pattern JOB_CONTAINER = Pattern.compile("^\\s*(?:-\\s+)?(services|container)\\s*:");
+    /** A container runtime as a word of a string: alone, by its path, or at the start of a command. */
+    static final Pattern RUNTIME_WORD = Pattern.compile(
+            "(?<![\\w.-])(?:[\\w./-]*/)?(docker|docker-compose|podman|nerdctl|buildah)(?![\\w./-])");
+    /** docker as a shell word: by any path, quoted or not; group 1 is its opening quote. */
+    static final Pattern DOCKER_TOKEN = Pattern.compile("(?<![\\w.-])([\"']?)(?:[\\w./-]*/)?docker(?![\\w./:-])\\1");
+    static final Pattern SERVICE_MANAGER = Pattern.compile("\\bsystemctl\\s+[a-z-]+\\s+$");
+    static final Pattern OTHER_RUNTIME = Pattern.compile(
+            "(?<![\\w.-])(?:[\\w./-]*/)?(docker-compose|podman|nerdctl|buildah)(?![\\w.-])");
+    static final Pattern JOB_CONTAINER = Pattern.compile(
+            "(?:^|[\\s{,\\[])(?:\"(?:services|container)\"|'(?:services|container)'|services|container)\\s*:");
+    static final Pattern ESCAPED_KEY = Pattern.compile("\"[^\"\\n]*\\\\[^\"\\n]*\"\\s*:");
+    static final Pattern EXPLICIT_KEY = Pattern.compile("^\\s*(?:-\\s+)?\\?(?:\\s|$)");
     static final Pattern COMMAND_WORD = Pattern.compile("[a-z][a-z-]*");
     /** docker's management commands, whose second word is the command. */
     static final Set<String> DOCKER_GROUPS = Set.of("builder", "buildx", "checkpoint", "compose", "config", "container",
@@ -504,7 +519,7 @@ public final class PolicyCheck {
                 continue;
             }
             if (!readable(rel, name)) continue;
-            String text = readText(file);
+            String text = name.endsWith(".java") ? unicodeEscapesDecoded(readText(file)) : readText(file);
             for (Matcher m = DIGEST_REFERENCE.matcher(text); m.find(); ) {
                 imageProblem(m.group()).ifPresent(problem ->
                         add("images", "%s: %s %s".formatted(at(file, text, m.start()), safe(m.group()), problem)));
@@ -516,11 +531,9 @@ public final class PolicyCheck {
             }
             boolean workflow = rel.startsWith(".github/workflows/");
             boolean source = ("/" + rel).contains("/src/") && Stream.of(".java", ".kt", ".groovy").anyMatch(name::endsWith);
+            boolean buildScript = name.endsWith(".gradle.kts") || name.endsWith(".gradle");
             if (workflow || name.endsWith(".sh")) checkDockerCommands(file, text, workflow);
-            if (source || name.endsWith(".gradle.kts") || name.endsWith(".gradle")) {
-                find(file, text, RUNTIME_COMMAND, "runs a container runtime as a command");
-            }
-            if (source) checkImageCode(file, text);
+            if (source || buildScript) checkImageCode(file, text, rel.equals(HARNESS));
         }
     }
 
@@ -573,8 +586,11 @@ public final class PolicyCheck {
         return host + "/" + path;
     }
 
-    /** DockerImageName and the containers in a source file, and in Testcontainers code the APIs the reviews forbid. */
-    void checkImageCode(Path file, String text) {
+    /**
+     * A source or build script: image names, the forbidden APIs and container runtimes anywhere, Testcontainers and
+     * docker-java nowhere but in the harness, and in the harness the container it makes.
+     */
+    void checkImageCode(Path file, String text, boolean harness) {
         for (Matcher m = PARSE_CALL.matcher(text); m.find(); ) {
             Matcher literal = ONE_LITERAL.matcher(text).region(m.end(), text.length());
             if (!literal.lookingAt()) {
@@ -589,7 +605,28 @@ public final class PolicyCheck {
         find(file, text, NEW_IMAGE_NAME, "new DockerImageName builds an image name that this check cannot read");
         find(file, text, DEPRECATED_CONTAINER, "org.testcontainers.containers.PostgreSQLContainer is the deprecated "
                 + "container; the review approves org.testcontainers.postgresql.PostgreSQLContainer");
-        if (!text.contains("org.testcontainers") && !text.contains("com.github.dockerjava")) return;
+        for (Matcher m = FORBIDDEN_API.matcher(text); m.find(); ) {
+            add("images", "%s: %s is forbidden by the Testcontainers and runner reviews".formatted(
+                    at(file, text, m.start()), m.group(1)));
+        }
+        for (int[] literal : stringLiterals(text)) {
+            Matcher runtime = RUNTIME_WORD.matcher(text).region(literal[0], literal[1]);
+            if (runtime.find()) {
+                add("images", "%s: runs a container runtime as a command (%s, named in a string)"
+                        .formatted(at(file, text, runtime.start()), runtime.group(1)));
+            }
+        }
+        if (!harness) {
+            find(file, text, CONTAINER_LIBRARY, "uses Testcontainers or docker-java; only ReviewedPostgres may ("
+                    + HARNESS + "), so that every container is made and checked there");
+            for (Matcher m = NEW_CONTAINER.matcher(text); m.find(); ) {
+                if (REVIEWED_CONTAINER.equals(m.group(1))) {
+                    add("images", "%s: only ReviewedPostgres makes the PostgreSQLContainer".formatted(
+                            at(file, text, m.start())));
+                }
+            }
+            return;
+        }
         Set<String> parsedHere = new TreeSet<>();
         for (Matcher m = IMAGE_DECLARATION.matcher(text); m.find(); ) parsedHere.add(m.group(1));
         for (Matcher m = NEW_CONTAINER.matcher(text); m.find(); ) {
@@ -619,10 +656,6 @@ public final class PolicyCheck {
             add("images", "%s: extends %s; a test may not subclass a container".formatted(at(file, text, m.start()),
                     safe(m.group(1))));
         }
-        for (Matcher m = FORBIDDEN_API.matcher(text); m.find(); ) {
-            add("images", "%s: %s is forbidden by the Testcontainers and runner reviews".formatted(
-                    at(file, text, m.start()), m.group(1)));
-        }
     }
 
     /** The docker commands of a workflow or a shell script, line by line, without comments. */
@@ -634,23 +667,35 @@ public final class PolicyCheck {
             if (workflow && JOB_CONTAINER.matcher(line).find()) {
                 add("images", where + ": a job or service container; the runner review allows Testcontainers only");
             }
+            if (workflow && (ESCAPED_KEY.matcher(line).find() || EXPLICIT_KEY.matcher(line).find())) {
+                add("images", where + ": a workflow key that is escaped or explicit (?); write keys plainly");
+            }
             for (Matcher m = OTHER_RUNTIME.matcher(line); m.find(); ) {
                 add("images", "%s: %s is not the reviewed engine".formatted(where, m.group(1)));
             }
-            for (Matcher m = DOCKER_COMMAND.matcher(line); m.find(); ) {
-                List<String> words = List.of(line.substring(m.start(1)).trim().split("[ \\t]+"));
-                String command = commandOf(words);
+            for (Matcher m = DOCKER_TOKEN.matcher(line); m.find(); ) {
+                if (SERVICE_MANAGER.matcher(line.substring(0, m.start())).find()) continue; // the service, not the CLI
+                List<String> words = List.of(line.substring(m.end()).trim().split("[ \\t]+"));
+                List<String> unquoted = words.stream().map(PolicyCheck::unquoted).toList();
+                String command = commandOf(unquoted);
                 if (command.equals("pull") || command.equals("image pull")) {
-                    if (!pullsOneDigest(words.subList(command.split(" ").length, words.size()))) {
+                    if (!pullsOneDigest(unquoted.subList(command.split(" ").length, unquoted.size()))) {
                         add("images", where + ": docker pull of something other than one image by digest");
                     }
                 } else if (!DOCKER_READS.contains(command)) {
                     add("images", "%s: docker %s is not an allowed use of the reviewed engine (allowed: pull by "
-                            .formatted(where, safe(command.isEmpty() ? words.getFirst() : command))
-                            + "digest, and reads and removals)");
+                            .formatted(where, command.isEmpty() ? "without a command this check can read"
+                                    : safe(command)) + "digest, and reads and removals)");
                 }
             }
         }
+    }
+
+    /** A shell word without the quotes around it. */
+    static String unquoted(String word) {
+        boolean quoted = word.length() >= 2 && (word.startsWith("\"") && word.endsWith("\"")
+                || word.startsWith("'") && word.endsWith("'"));
+        return quoted ? word.substring(1, word.length() - 1) : word;
     }
 
     /** The command a docker invocation names: its first word, or two for a management command; "" when unreadable. */
@@ -693,6 +738,62 @@ public final class PolicyCheck {
             }
         }
         return line;
+    }
+
+    /**
+     * A Java source as javac reads it (JLS 3.3): a backslash that an even number of backslashes precede, then one or
+     * more u and four hexadecimal digits, is the character they encode, so that no escape can hide a name.
+     */
+    static String unicodeEscapesDecoded(String text) {
+        StringBuilder out = new StringBuilder(text.length());
+        int backslashes = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '\\' && backslashes % 2 == 0) {
+                int j = i + 1;
+                while (j < text.length() && text.charAt(j) == 'u') j++;
+                if (j > i + 1 && j + 4 <= text.length() && text.substring(j, j + 4).matches("[0-9a-fA-F]{4}")) {
+                    out.append((char) Integer.parseInt(text.substring(j, j + 4), 16));
+                    i = j + 3;
+                    backslashes = 0;
+                    continue;
+                }
+            }
+            backslashes = c == '\\' ? backslashes + 1 : 0;
+            out.append(c);
+        }
+        return out.toString();
+    }
+
+    /**
+     * The contents of the string literals of a Java, Kotlin, Groovy or Gradle source, as [start, end) offsets: text
+     * blocks and raw strings ("""), then plain strings with their escapes, outside comments and character literals.
+     */
+    static List<int[]> stringLiterals(String text) {
+        List<int[]> literals = new ArrayList<>();
+        int i = 0;
+        while (i < text.length()) {
+            if (text.startsWith("//", i)) {
+                i = text.indexOf('\n', i) < 0 ? text.length() : text.indexOf('\n', i);
+            } else if (text.startsWith("/*", i)) {
+                i = text.indexOf("*/", i + 2) < 0 ? text.length() : text.indexOf("*/", i + 2) + 2;
+            } else if (text.startsWith("\"\"\"", i)) {
+                int end = text.indexOf("\"\"\"", i + 3);
+                literals.add(new int[] {i + 3, end < 0 ? text.length() : end});
+                i = end < 0 ? text.length() : end + 3;
+            } else if (text.charAt(i) == '"' || text.charAt(i) == '\'') {
+                char quote = text.charAt(i);
+                int j = i + 1;
+                while (j < text.length() && text.charAt(j) != quote && text.charAt(j) != '\n') {
+                    j += text.charAt(j) == '\\' ? 2 : 1;
+                }
+                if (quote == '"') literals.add(new int[] {i + 1, Math.min(j, text.length())});
+                i = j + 1;
+            } else {
+                i++;
+            }
+        }
+        return literals;
     }
 
     /** The index of the parenthesis that closes the one at open, skipping string and character literals; -1 if none. */

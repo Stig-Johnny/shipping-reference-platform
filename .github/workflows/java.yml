@@ -62,19 +62,20 @@ jobs:
         # 1 = findings and 2 = the check could not complete both fail the job (pipefail).
         run: java base/tools/policy/PolicyCheck.java candidate | tee -a "$GITHUB_STEP_SUMMARY"
 
+      - name: Check the candidate with its own allowlist checker as well
+        # The base branch's run above is the gate. The candidate's copy runs too, before any other code of the
+        # candidate, its tests included, so that a rule a pull request adds, such as the container rules (check 8),
+        # applies to that pull request itself. It reads files only; 1 = findings and 2 = could not complete fail the
+        # job.
+        working-directory: candidate
+        run: java tools/policy/PolicyCheck.java . | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Test the candidate's allowlist checker (the JDK alone)
         # The candidate's tests of its own tools/policy/PolicyCheck.java, which may run now that the base branch's
         # checker has passed the candidate. They build their repositories in temporary directories; a failed case
         # fails the job.
         working-directory: candidate
         run: java tools/policy/PolicyCheckTest.java
-
-      - name: Check the candidate with its own allowlist checker as well
-        # The base branch's run above is the gate. The candidate's copy runs too, so that a rule a pull request adds,
-        # such as the container image references (check 8), applies to that pull request itself, before anything is
-        # pulled. It reads files only; 1 = findings and 2 = could not complete fail the job.
-        working-directory: candidate
-        run: java tools/policy/PolicyCheck.java . | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Verify the Gradle wrapper before running it
         working-directory: candidate
