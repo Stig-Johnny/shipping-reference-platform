@@ -62,7 +62,10 @@ class DemoPagesTest {
 
         String index = build().text("demos/index.html");
 
-        assertThat(index).contains("<caption>Demonstrations (5), newest recording first</caption>",
+        // On a narrow screen the register keeps readable columns and scrolls inside its labelled region, with the hint.
+        assertThat(index).contains("<div class=\"table-scroll table-wide-demos\" role=\"region\" tabindex=\"0\" "
+                + "aria-label=\"Demonstrations, scrolls sideways\">\n<p class=\"table-hint\">Scroll horizontally for "
+                + "all columns.</p>\n<table>\n<caption>Demonstrations (5), newest recording first</caption>",
                 "<thead><tr><th scope=\"col\">Outcome</th><th scope=\"col\">Pull request</th><th scope=\"col\">Kind"
                         + "</th><th scope=\"col\">Recorded</th></tr></thead>",
                 "<tr><th scope=\"row\"><a href=\"42-gate.html\">An unreviewed dependency now fails the check</a>"
@@ -168,8 +171,8 @@ class DemoPagesTest {
         String sheet = site.text("demos/42-gate.html");
 
         assertThat(evidenceOf(site)).isEqualTo("<span class=\"badge badge-none\">None in this build</span> This record "
-                + "names no test class, so the build that generated this site checked nothing on it. Its evidence is "
-                + "recorded output, which this build did not rerun.");
+                + "names no test class, so no named-test evidence is available in this build. The documentation checks "
+                + "still validate its form and links. Its recorded evidence was not rerun.");
         assertThat(sheet).doesNotContain("badge-shipped", "badge-approved", "badge-matches");
     }
 
@@ -201,6 +204,15 @@ class DemoPagesTest {
         assertThatThrownBy(this::build).isInstanceOf(DocsException.class)
                 .hasMessageContaining("docs/demos/43-visual.md: See it: '" + destination + "' ")
                 .hasMessageContaining("; See it links pages of this site");
+    }
+
+    @Test
+    void aLinkInTheSeeItHeadingIsHeldToTheSameRule() {
+        fixture.write(Demos.path("visual"), Demos.VISUAL.replace("## See it", "## [See it](https://example.com/)"));
+
+        assertThatThrownBy(this::build).isInstanceOf(DocsException.class).hasMessageContaining(
+                "docs/demos/43-visual.md: See it: 'https://example.com/' is another site; See it links pages of this "
+                        + "site");
     }
 
     @Test

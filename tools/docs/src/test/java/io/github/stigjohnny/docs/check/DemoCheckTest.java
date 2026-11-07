@@ -208,6 +208,31 @@ class DemoCheckTest {
     }
 
     @Test
+    void everyBlockIsCheckedTheSectionHeadingsAndTheTextBeforeThemIncluded() {
+        assertThat(problems("docs/demos/42-gate.md", replace(GATE, "## Limits", "## <b>Limits</b>")))
+                .containsExactly("docs/demos/42-gate.md: the heading 'Limits' holds '<b>': raw HTML or an unfilled "
+                        + "template placeholder; a demonstration is text only");
+        assertThat(problems("docs/demos/42-gate.md", replace(GATE, "## Limits",
+                "## [Limits](https://example.com/shot.png)")))
+                .containsExactly("docs/demos/42-gate.md: the heading 'Limits' links the media file "
+                        + "'https://example.com/shot.png'; a demonstration is text only until the reviewed media gate "
+                        + "exists");
+        assertThat(problems("docs/demos/42-gate.md", replace(GATE, "## What changed",
+                "<img src=\"shot.png\" alt=\"\">\n\n## What changed")))
+                .containsExactly("docs/demos/42-gate.md: text stands before the first section; everything is under "
+                        + "What changed, See it, Try it, Evidence or Limits",
+                        "docs/demos/42-gate.md: the text before the first section holds '<img src=\"shot.png\" "
+                                + "alt=\"\">': raw HTML or an unfilled template placeholder; a demonstration is text "
+                                + "only");
+        assertThat(problems("docs/demos/42-gate.md", replace(GATE, "## What changed", "![](shot.png)\n\n## What "
+                + "changed")))
+                .containsExactly("docs/demos/42-gate.md: text stands before the first section; everything is under "
+                        + "What changed, See it, Try it, Evidence or Limits",
+                        "docs/demos/42-gate.md: the text before the first section shows the image 'shot.png'; a "
+                                + "demonstration is text only until the reviewed media gate exists");
+    }
+
+    @Test
     void aSectionNamedInsideAFenceIsNotASection() {
         String gate = GATE.replace("## Dependency allowlist: clean", "## Limits");
 
@@ -323,6 +348,30 @@ class DemoCheckTest {
     }
 
     @Test
+    void aLineContinuationJoinsTheLinesAsTheShellDoesWithoutAddingASpace() {
+        // A backslash and the newline after it are removed, and nothing is put in their place: the shell reads
+        // "./gradlew\" and "check" on the next line as ./gradlewcheck.
+        assertThat(problems("docs/demos/42-gate.md", withCommand("./gradlew\\\ncheck")))
+                .containsExactly("docs/demos/42-gate.md: Try it: './gradlewcheck' is not an approved command; a "
+                        + "demonstration shows only the commands docs/demos/how-to.md lists, whole and with exactly "
+                        + "their arguments");
+        assertThat(problems("docs/demos/42-gate.md", withCommand("java tools/policy/PolicyCheck.java\\\n.")))
+                .containsExactly("docs/demos/42-gate.md: Try it: 'java tools/policy/PolicyCheck.java.' is not an "
+                        + "approved command; a demonstration shows only the commands docs/demos/how-to.md lists, whole "
+                        + "and with exactly their arguments");
+        // The whitespace that is there stays: the documented form, and a task name split without a space, which the
+        // shell reads whole.
+        assertThat(problems("docs/demos/42-gate.md", withCommand("./gradlew :libs:c4-contract-kit:test --rerun \\\n"
+                + "    --tests '*SelfConformanceTest' --tests '*ConformanceDivergenceTest'"))).isEmpty();
+        assertThat(problems("docs/demos/42-gate.md", withCommand("./gradlew :tools:docs:\\\nsite"))).isEmpty();
+        // Inside single quotes the shell keeps the backslash and the newline, so the line does not continue: the test
+        // filter would be "*SelfConfor\<newline>manceTest", not the approved one.
+        assertThat(problems("docs/demos/42-gate.md", withCommand("./gradlew :libs:c4-contract-kit:test --rerun "
+                + "--tests '*SelfConfor\\\nmanceTest'")))
+                .anyMatch(problem -> problem.contains("continues a line inside single quotes"));
+    }
+
+    @Test
     void aCheckerTestThatDoesNotExistFails() {
         assertThat(problems("docs/demos/42-gate.md", withCommand("./gradlew :libs:c4-contract-kit:test --rerun "
                 + "--tests '*NoSuchTest'")))
@@ -363,13 +412,26 @@ class DemoCheckTest {
     @ValueSource(strings = {"![the sheet](shot.png)", "<img src=\"shot.png\" alt=\"the sheet\">",
         "<iframe src=\"https://example.com/demo\"></iframe>", "<video src=\"clip.mp4\" controls></video>",
         "A <b>bold</b> claim.", "[the recording](clip.mp4)", "[a capture](https://example.com/demo.gif)",
-        "[a session](session.cast)", "[a screenshot](https://example.com/shot.PNG#top)"})
+        "[a session](session.cast)", "[a screenshot](https://example.com/shot.PNG#top)",
+        "[a capture](https://example.com/shot%2epng)", "[a capture](https://example.com/shot.%70ng)",
+        "[a capture](https://example.com/shot%2EpN%67)", "[a capture](https://example.com/shot%2epng?size=large)",
+        "[a capture](https://example.com/shot%2epng#top)", "[a clip](clip%2Emp4)"})
     void aDemonstrationIsTextOnly(String markdown) {
         List<String> problems = problems("docs/demos/42-gate.md", GATE.replace("Now the check\nfails first.\n",
                 "Now the check\nfails first. " + markdown + "\n"));
 
         assertThat(problems).singleElement().asString().startsWith("docs/demos/42-gate.md: What changed ")
                 .contains("a demonstration is text only");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"https://example.com/shot%zz.png", "https://example.com/shot%2",
+        "https://example.com/a%C3%28b", "https://example.com/shot%\uFF12e.png", "page%.md"})
+    void aLinkWhosePercentEncodingIsMalformedFails(String destination) {
+        assertThat(problems("docs/demos/42-gate.md", GATE.replace("fails first.\n", "fails first. See [the page]("
+                + destination + ").\n")))
+                .containsExactly("docs/demos/42-gate.md: What changed links '" + destination + "', whose "
+                        + "percent-encoding is malformed");
     }
 
     @Test

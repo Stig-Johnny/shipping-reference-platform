@@ -7,6 +7,11 @@ import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.repo.TestEvidence;
 import io.github.stigjohnny.docs.yaml.YamlValue;
+import java.io.ByteArrayOutputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -36,9 +41,12 @@ import java.util.regex.Pattern;
  *   <li>shows commands in {@code ```sh} fences, in Try it or Evidence, each one of the approved commands, whole and
  *       with exactly its arguments; and recorded output in {@code ```text} fences, in Evidence, after the line that
  *       says it was not rerun. Its evidence names its capture date, and a gate's shows a rejected and an accepted case;
- *   <li>is text only until a reviewed media gate exists: no image, no raw HTML and no link to a media file; and
- *       {@code docs/demos/} holds nothing but Markdown, because the repository is public as well.
+ *   <li>is text only until a reviewed media gate exists: no image, no raw HTML and no link to a media file, read from
+ *       its percent-decoded path; and {@code docs/demos/} holds nothing but Markdown, because the repository is
+ *       public as well.
  * </ul>
+ *
+ * <p>Every block is held to these checks, the section headings and anything before the first section included.
  *
  * <p>No command is ever run. Whether See it reaches pages of the site is checked where the pages are known, when the
  * site is built (DemoPages).
@@ -66,6 +74,7 @@ final class DemoCheck {
     private static final String TRY_IT = "Try it";
     private static final String SEE_IT = "See it";
     private static final String EVIDENCE = "Evidence";
+    private static final String BEFORE_THE_SECTIONS = "the text before the first section";
     private static final String SH = "sh";
     private static final String TEXT = "text";
     private static final String SHELL = "; a command is approved whole, without shell syntax";
@@ -159,13 +168,25 @@ final class DemoCheck {
 
     private static void body(DocFile doc, Optional<DemoRecord.Kind> kind, Optional<String> recorded,
             Set<String> checkerTests, List<String> found) {
-        List<DemoRecord.Part> parts = DemoRecord.parts(doc);
-        for (DemoRecord.Part part : parts) {
-            if (part.blocks().stream().anyMatch(b -> b.kind() == MarkdownBlock.Kind.HEADING && b.level() == 1)) {
+        List<MarkdownBlock> outline = DemoRecord.outline(doc);
+        // Every block first, before the sections are told apart: the section headings and what stands before the first
+        // section are held to the same checks as the text under a heading.
+        String under = BEFORE_THE_SECTIONS;
+        for (MarkdownBlock block : outline) {
+            if (block.kind() == MarkdownBlock.Kind.HEADING && block.level() == 2) {
+                under = block.text();
+                block("the heading '" + under + "'", block, checkerTests, found);
+                continue;
+            }
+            if (block.kind() == MarkdownBlock.Kind.HEADING && block.level() == 1) {
                 found.add("a level-1 heading; a demonstration's title is its frontmatter title");
             }
+            block(under, block, checkerTests, found);
         }
-        if (parts.getFirst().blocks().stream().anyMatch(MarkdownBlock::hasContent)) {
+        List<DemoRecord.Part> parts = DemoRecord.parts(outline);
+        boolean before = parts.getFirst().blocks().stream()
+                .anyMatch(b -> b.kind() != MarkdownBlock.Kind.HEADING || b.level() != 1);
+        if (before) {
             found.add("text stands before the first section; everything is under What changed, See it, Try it, "
                     + "Evidence or Limits");
         }
@@ -187,9 +208,6 @@ final class DemoCheck {
             if (part.blocks().stream().noneMatch(MarkdownBlock::hasContent)) {
                 found.add("the section '" + section + "' is empty");
             }
-            for (MarkdownBlock block : part.blocks()) {
-                block(section, block, checkerTests, found);
-            }
         }
         kind.ifPresent(k -> required(k, seen, found));
         parts.stream().filter(p -> p.heading().equals(TRY_IT)).findFirst().ifPresent(tryIt -> {
@@ -203,7 +221,7 @@ final class DemoCheck {
                 .ifPresent(evidence -> evidence(evidence.blocks(), kind, recorded, found));
     }
 
-    /** One block of a section: its fences, commands, placeholders and media. */
+    /** One block, wherever it stands, a section's heading included: its fences, commands, placeholders and media. */
     private static void block(String section, MarkdownBlock block, Set<String> checkerTests, List<String> found) {
         switch (block.kind()) {
             case FENCED_CODE -> {
@@ -241,7 +259,10 @@ final class DemoCheck {
                     found.add(section + " shows the image '" + image + "'" + TEXT_ONLY);
                 }
                 for (String link : block.links()) {
-                    if (MEDIA.matcher(withoutFragment(link)).find()) {
+                    Optional<String> path = decodedPath(link);
+                    if (path.isEmpty()) {
+                        found.add(section + " links '" + link + "', whose percent-encoding is malformed");
+                    } else if (MEDIA.matcher(path.get()).find()) {
                         found.add(section + " links the media file '" + link + "'" + TEXT_ONLY);
                     }
                 }
@@ -304,13 +325,24 @@ final class DemoCheck {
         }
     }
 
-    /** The problem of each command of a ```sh fence; a line that ends with a backslash continues on the next. */
+    /**
+     * The problem of each command of a ```sh fence. A line that ends with a backslash continues on the next, as in the
+     * shell: the backslash and the newline are removed and nothing takes their place, so {@code ./gradlew\} and
+     * {@code check} on the next line are {@code ./gradlewcheck}; whitespace that is written stays. Inside single
+     * quotes the shell keeps the backslash and the newline, so such a line is a problem, not a continuation.
+     */
     private static List<String> commands(String fence, Set<String> checkerTests) {
         List<String> problems = new ArrayList<>();
         StringBuilder command = new StringBuilder();
         for (String line : fence.lines().toList()) {
+            if (line.endsWith("\\") && insideSingleQuotes(command + line.substring(0, line.length() - 1))) {
+                problems.add("'" + (command + line).strip() + "' continues a line inside single quotes, where the shell "
+                        + "keeps the backslash and the newline");
+                command.setLength(0);
+                continue;
+            }
             if (line.endsWith("\\")) {
-                command.append(line, 0, line.length() - 1).append(' ');
+                command.append(line, 0, line.length() - 1);
                 continue;
             }
             command.append(line);
@@ -321,9 +353,33 @@ final class DemoCheck {
             }
         }
         if (!command.isEmpty()) {
-            problems.add("'" + command.toString().strip() + " \\' ends with a line continuation (\\) and no next line");
+            problems.add("'" + command.toString().stripLeading() + "\\' ends with a line continuation (\\) and no next "
+                    + "line");
         }
         return problems;
+    }
+
+    /**
+     * Whether the shell is inside single quotes at the end of {@code text}. Inside them every character is literal;
+     * outside them a backslash takes the next character literally, and a single quote within double quotes opens
+     * nothing.
+     */
+    private static boolean insideSingleQuotes(String text) {
+        boolean single = false;
+        boolean doubled = false;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (single) {
+                single = c != '\'';
+            } else if (c == '\\') {
+                i++;
+            } else if (c == '"') {
+                doubled = !doubled;
+            } else if (c == '\'' && !doubled) {
+                single = true;
+            }
+        }
+        return single;
     }
 
     /** Why a command is not approved, or nothing: shell syntax first, then the command whole, with its arguments. */
@@ -373,8 +429,48 @@ final class DemoCheck {
         return left.find() ? Optional.of(left.group()) : Optional.empty();
     }
 
-    private static String withoutFragment(String link) {
-        return link.replaceFirst("[?#].*$", "");
+    /**
+     * A link's path as a server reads it: without its query and fragment, then percent-decoded, so that
+     * {@code shot%2epng} is {@code shot.png}. Empty when the encoding is malformed: a {@code %} without two ASCII hex
+     * digits, or bytes that are not UTF-8.
+     */
+    private static Optional<String> decodedPath(String link) {
+        String path = link.replaceFirst("[?#].*$", "");
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        int i = 0;
+        while (i < path.length()) {
+            if (path.charAt(i) == '%') {
+                int high = i + 1 < path.length() ? hex(path.charAt(i + 1)) : -1;
+                int low = i + 2 < path.length() ? hex(path.charAt(i + 2)) : -1;
+                if (high < 0 || low < 0) {
+                    return Optional.empty();
+                }
+                bytes.write(high * 16 + low);
+                i += 3;
+            } else {
+                int codePoint = path.codePointAt(i);
+                bytes.writeBytes(Character.toString(codePoint).getBytes(StandardCharsets.UTF_8));
+                i += Character.charCount(codePoint);
+            }
+        }
+        try {
+            return Optional.of(StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes.toByteArray()))
+                    .toString());
+        } catch (CharacterCodingException e) {
+            return Optional.empty();
+        }
+    }
+
+    /** An ASCII hex digit's value, or -1: other digits, such as fullwidth ones, are not hex in a URL. */
+    private static int hex(char c) {
+        if (c >= '0' && c <= '9') {
+            return c - '0';
+        }
+        if (c >= 'a' && c <= 'f') {
+            return c - 'a' + 10;
+        }
+        return c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
     }
 
     /** A field of the frontmatter, or nothing when it cannot be read; the problem is added to {@code found}. */

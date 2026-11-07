@@ -115,9 +115,10 @@ class SiteAccessibilityTest {
         String index = site.text("demos/index.html");
         String sheet = site.text("demos/42-gate.html");
 
-        assertThat(index).contains("<div class=\"table-scroll\" role=\"region\" tabindex=\"0\" aria-label=\""
-                + "Demonstrations, scrolls sideways\">\n<table>\n<caption>Demonstrations (2), newest recording first"
-                + "</caption>", "<th scope=\"row\"><a href=\"43-visual.html\">");
+        assertThat(index).contains("<div class=\"table-scroll table-wide-demos\" role=\"region\" tabindex=\"0\" "
+                + "aria-label=\"Demonstrations, scrolls sideways\">\n<p class=\"table-hint\">Scroll horizontally for "
+                + "all columns.</p>\n<table>\n<caption>Demonstrations (2), newest recording first</caption>",
+                "<th scope=\"row\"><a href=\"43-visual.html\">");
         // The pull request, the kind and the date are words beside the description; commands and recorded output are
         // labelled in words, not by their styling.
         assertThat(sheet).contains("Pull request #42 · Kind: gate · Recorded <time datetime=\"2026-11-07\">",

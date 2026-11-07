@@ -452,9 +452,9 @@ class SitePagesTest {
         assertThat(count(flow, flowRegion + steps + "\">\n" + hint)).isEqualTo(1);
         assertThat(count(flow, flowRegion + "Table 2 in Alternatives and failures, scrolls sideways\">\n" + hint))
                 .isEqualTo(1);
-        // Scoped to the model pages: every other table keeps its plain region.
+        // Scoped to the model pages and the register of demonstrations: every other table keeps its plain region.
         for (String page : site.pages()) {
-            if (!page.startsWith("model/")) {
+            if (!page.startsWith("model/") && !page.equals("demos/index.html")) {
                 assertThat(site.text(page)).as(page).doesNotContain("table-wide", "table-hint");
             }
         }
