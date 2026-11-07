@@ -348,6 +348,25 @@ class DemoCheckTest {
     }
 
     @Test
+    void aLineContinuationJoinsTheLinesAsTheShellDoesWithoutAddingASpace() {
+        // A backslash and the newline after it are removed, and nothing is put in their place: the shell reads
+        // "./gradlew\" and "check" on the next line as ./gradlewcheck.
+        assertThat(problems("docs/demos/42-gate.md", withCommand("./gradlew\\\ncheck")))
+                .containsExactly("docs/demos/42-gate.md: Try it: './gradlewcheck' is not an approved command; a "
+                        + "demonstration shows only the commands docs/demos/how-to.md lists, whole and with exactly "
+                        + "their arguments");
+        assertThat(problems("docs/demos/42-gate.md", withCommand("java tools/policy/PolicyCheck.java\\\n.")))
+                .containsExactly("docs/demos/42-gate.md: Try it: 'java tools/policy/PolicyCheck.java.' is not an "
+                        + "approved command; a demonstration shows only the commands docs/demos/how-to.md lists, whole "
+                        + "and with exactly their arguments");
+        // The whitespace that is there stays: the documented form, and a task name split without a space, which the
+        // shell reads whole.
+        assertThat(problems("docs/demos/42-gate.md", withCommand("./gradlew :libs:c4-contract-kit:test --rerun \\\n"
+                + "    --tests '*SelfConformanceTest' --tests '*ConformanceDivergenceTest'"))).isEmpty();
+        assertThat(problems("docs/demos/42-gate.md", withCommand("./gradlew :tools:docs:\\\nsite"))).isEmpty();
+    }
+
+    @Test
     void aCheckerTestThatDoesNotExistFails() {
         assertThat(problems("docs/demos/42-gate.md", withCommand("./gradlew :libs:c4-contract-kit:test --rerun "
                 + "--tests '*NoSuchTest'")))

@@ -325,13 +325,17 @@ final class DemoCheck {
         }
     }
 
-    /** The problem of each command of a ```sh fence; a line that ends with a backslash continues on the next. */
+    /**
+     * The problem of each command of a ```sh fence. A line that ends with a backslash continues on the next, as in the
+     * shell: the backslash and the newline are removed and nothing takes their place, so {@code ./gradlew\} and
+     * {@code check} on the next line are {@code ./gradlewcheck}; whitespace that is written stays.
+     */
     private static List<String> commands(String fence, Set<String> checkerTests) {
         List<String> problems = new ArrayList<>();
         StringBuilder command = new StringBuilder();
         for (String line : fence.lines().toList()) {
             if (line.endsWith("\\")) {
-                command.append(line, 0, line.length() - 1).append(' ');
+                command.append(line, 0, line.length() - 1);
                 continue;
             }
             command.append(line);
@@ -342,7 +346,8 @@ final class DemoCheck {
             }
         }
         if (!command.isEmpty()) {
-            problems.add("'" + command.toString().strip() + " \\' ends with a line continuation (\\) and no next line");
+            problems.add("'" + command.toString().stripLeading() + "\\' ends with a line continuation (\\) and no next "
+                    + "line");
         }
         return problems;
     }

@@ -111,8 +111,9 @@ the publication scan refuses the shapes it knows, and a person reads every page 
 
 ## Commands
 
-A `sh` fence holds commands only, one per line; a line that ends with a backslash continues on the next. Each command
-is one of these, whole, with exactly these arguments. They are the commands that
+A `sh` fence holds commands only, one per line. A line that ends with a backslash continues on the next, as in the
+shell: the backslash and the line break are removed and nothing takes their place, so write the space before the
+backslash. Each command is one of these, whole, with exactly these arguments. They are the commands that
 [the README documents](../../README.md#try-it):
 
 - `java tools/policy/PolicyCheck.java .`
