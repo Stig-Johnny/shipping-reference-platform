@@ -864,6 +864,11 @@ public final class PolicyCheckTest {
                     withImages().write("apps/demo/build.gradle.kts", script).findings(), "images",
                     "apps/demo/build.gradle.kts:"));
         }
+        test("bypasses: a script without the .sh extension is read by its #! line", () -> {
+            expectOnly(withImages().write("tools/ci/run-it", "#!/usr/bin/env bash\nset -e\ndocker run alpine:3.17\n")
+                    .findings(), "images", "tools/ci/run-it:3: docker run is not an allowed use");
+            expectClean(withImages().write("docs/notes", "Not a script: docker run alpine:3.17 is refused.\n").findings());
+        });
         test("bypasses: a build script may still declare the reviewed Testcontainers artifacts", () -> expectClean(
                 withImages().write("apps/demo/build.gradle.kts",
                         "dependencies { testImplementation(\"org.testcontainers:testcontainers-postgresql\") }\n")

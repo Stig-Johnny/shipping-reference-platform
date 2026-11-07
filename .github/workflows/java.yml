@@ -70,6 +70,12 @@ jobs:
         working-directory: candidate
         run: java tools/policy/PolicyCheck.java . | tee -a "$GITHUB_STEP_SUMMARY"
 
+      - name: Test the CI scripts (bash alone)
+        # tools/ci/container-engine.sh against a fake engine that fails one query at a time: a failed query stops the
+        # script, it never passes on an empty answer. No real engine is touched.
+        working-directory: candidate
+        run: bash tools/ci/container-engine-test.sh
+
       - name: Test the candidate's allowlist checker (the JDK alone)
         # The candidate's tests of its own tools/policy/PolicyCheck.java, which may run now that the base branch's
         # checker has passed the candidate. They build their repositories in temporary directories; a failed case
