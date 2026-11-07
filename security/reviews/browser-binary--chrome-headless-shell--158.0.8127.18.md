@@ -4,7 +4,7 @@ kind: browser-binary
 version: "158.0.8127.18"
 verdict: APPROVE-WITH-CONDITIONS
 scope: "CI only: GitHub-hosted ubuntu-24.04 x64, headless E2E/accessibility tests of the locally started application, launched by @playwright/test 1.65.0 via executablePath"
-conditions: ["The workflow downloads https://cdn.playwright.dev/builds/cft/158.0.8127.18/linux64/chrome-headless-shell-linux64.zip, or the Google URL it redirects to (https://storage.googleapis.com/chrome-for-testing-public/158.0.8127.18/linux64/chrome-headless-shell-linux64.zip), with curl --proto '=https' --proto-redir '=https', and checks it with sha256sum --check against 18352d22cb0cdf520cbff2ad8c41391f0e02a72886cb53b0fde4bdfc4bd075d6 pinned in the workflow", "That SHA-256 was recorded on 2026-11-07 (security/verifications/2026-11-07-frontend-toolchain.md): 131,998,580 bytes, byte-identical through Playwright's URL and Google's Chrome for Testing URL; any other hash is a new review", "Extract into a fresh directory; pass chrome-headless-shell-linux64/chrome-headless-shell as launchOptions.executablePath; PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1", "Navigate only to the local application (the browser runs without Chromium's sandbox by Playwright default)", "Not approved: the full chromium (Chrome for Testing) build, ffmpeg, other browsers, any local or headed use", "Before the job becomes a required check, its first run shows that the runner image's libraries suffice without install-deps (the shell starts; the run records the launch result or ldd output), recorded as an amendment", "Licence: a Google Chrome for Testing build (its ABOUT file names Google's Terms of Service) with Chromium's BSD-3-Clause licence and about 700 bundled licences (LICENSE.headless_shell); used in CI only, never uploaded or redistributed, which needs the owner's explicit decision (security/AGENTS.md)"]
+conditions: ["The workflow downloads https://cdn.playwright.dev/builds/cft/158.0.8127.18/linux64/chrome-headless-shell-linux64.zip, or the Google URL it redirects to (https://storage.googleapis.com/chrome-for-testing-public/158.0.8127.18/linux64/chrome-headless-shell-linux64.zip), with curl --proto '=https' --proto-redir '=https', and checks it with sha256sum --check against 18352d22cb0cdf520cbff2ad8c41391f0e02a72886cb53b0fde4bdfc4bd075d6 pinned in the workflow", "That SHA-256 was recorded on 2026-11-07 (security/verifications/2026-11-07-frontend-toolchain.md): 131,998,580 bytes, byte-identical through Playwright's URL and Google's Chrome for Testing URL. Playwright's URL redirects to Google's, so this establishes identity, not independent corroboration by a second publisher; the first fetch is trusted on Google's TLS. Any other hash is a new review", "Extract into a fresh directory; pass chrome-headless-shell-linux64/chrome-headless-shell as launchOptions.executablePath; PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1", "Navigate only to the local application (the browser runs without Chromium's sandbox by Playwright default)", "Not approved: the full chromium (Chrome for Testing) build, ffmpeg, other browsers, any local or headed use", "Before the job becomes a required check, its first run launches the shell through Playwright on the runner, without install-deps, and passes a smoke test against the local application (one page loads and renders); ldd output alone does not satisfy this. The run is recorded as an amendment", "Licence: a Google Chrome for Testing build (its ABOUT file names Google's Terms of Service) with Chromium's BSD-3-Clause licence and about 700 bundled licences (LICENSE.headless_shell); used in CI only, never uploaded or redistributed, which needs the owner's explicit decision (security/AGENTS.md)"]
 reviewer: "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06"
 reviewedAt: "2026-11-06"
 expiresAt: "2027-05-06"
@@ -18,9 +18,10 @@ hash yet.
 
 ## 1. Verdict
 
-**APPROVE-WITH-CONDITIONS.** Its SHA-256 was recorded on 2026-11-07, byte-identical to Google's Chrome for Testing
-download (amendment below). Until then it was not usable. One condition stays open: the first CI run must show that
-the runner's libraries suffice.
+**APPROVE-WITH-CONDITIONS.** Its SHA-256 was recorded on 2026-11-07, byte-identical through Playwright's URL and
+Google's Chrome for Testing URL (amendment below). Both routes lead to Google, so that shows identity, not independent
+corroboration. Until then it was not usable. One condition stays open: the first CI run must launch it and pass a
+smoke test on the runner.
 
 - **What Playwright 1.65.0 uses.** It pins this build in `browsers.json`. It downloads it from a single Playwright CDN
   host and checks **no hash or signature**: only HTTP status and length.
@@ -139,6 +140,9 @@ into memory. Evidence: `security/verifications/2026-11-07-frontend-toolchain.md`
 - **Hash.** Both downloads are 131,998,580 bytes, with SHA-256
   `18352d22cb0cdf520cbff2ad8c41391f0e02a72886cb53b0fde4bdfc4bd075d6`, and `cmp` finds them identical. Google's
   `x-goog-hash` MD5 header matches the download, which checks only the transfer.
+- **Identity, not corroboration.** Playwright's URL redirects to Google's, so the two downloads are one object from one
+  publisher. That establishes identity; it is not a second, independent source. No publisher hash or signature exists,
+  so the first fetch is trusted on Google's TLS (residual risk, section 10).
 - **Google's index.** `known-good-versions-with-downloads.json` lists 158.0.8127.18 (revision 1727472) with exactly
   this URL. `last-known-good-versions.json` (2026-11-07T10:10:51Z) shows it is Chrome's **Beta** channel build; Stable
   is 157.0.8103.38. Playwright 1.65.0 pins a beta browser. That matters little while the browser loads only our own
@@ -156,7 +160,11 @@ into memory. Evidence: `security/verifications/2026-11-07-frontend-toolchain.md`
   decide on CI-only, non-redistributed use.
 - **Runtime libraries: still open.** `deb.deps` lists the 30 Debian dependencies of the full Chrome package (GTK,
   CUPS, `wget`, `xdg-utils` among them). That is not a statement of what the headless shell needs. Condition 6 leaves
-  it to the first CI run.
+  it to the first CI run, which must launch the shell and pass a smoke test. `ldd` output alone does not settle it.
 
-**Conditions changed:** 1 pins the hash and names Google's URL; 2 records it; 6 (runner libraries) and 7 (licence)
-are new; 3 to 5 are unchanged.
+**Conditions changed:**
+
+- 1 pins the hash and names Google's URL.
+- 2 records the hash, and says what the comparison shows: identity, not corroboration.
+- 6 (a launch smoke test on the runner) and 7 (licence) are new.
+- 3 to 5 are unchanged.

@@ -23,8 +23,9 @@ Nothing was downloaded or run.
 
 ## 1. Verdict
 
-**APPROVE-WITH-CONDITIONS** (amended 2026-11-07; it was APPROVE). It has no dependencies and no install-time
-scripts, its provenance is verified, and it has no advisories. It runs only inside the browser page under test. The
+**APPROVE-WITH-CONDITIONS** (amended 2026-11-07; it was APPROVE). It has no dependencies, no install-time scripts and
+no advisories. On 2026-11-07 its registry signatures, the DSSE signatures of its attestations and the provenance
+certificate's chain to Sigstore's Fulcio root were checked; Rekor inclusion was not. It runs only inside the browser page under test. The
 tarball audit found 21 inlined third-party components, nine of them under ISC. The conditions confine them to their
 inlined use and put the licence question to the owner.
 
@@ -150,5 +151,8 @@ from `pnpm-lock.yaml` (lockfileVersion 9.0) at the provenance commit:
   kind).
 - **Advisories: none.** OSV `querybatch` returns nothing for any of the 21 versions, and the package itself has none in
   OSV, deps.dev or GitHub's advisory database on 2026-11-07.
+
+**The limit of this inventory.** It is evidence, not a proven complete closure. It is the vendor's list, with versions
+from the release lockfile, and minified fingerprints confirm only part of it.
 
 **Still not verified:** whether `esniff` is inlined; Rekor inclusion; a rebuild of `axe.js` from source.

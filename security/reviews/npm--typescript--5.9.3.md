@@ -4,7 +4,7 @@ kind: npm
 version: "5.9.3"
 verdict: APPROVE-WITH-CONDITIONS
 scope: "devDependency of apps/shipping-web: only the tsc CLI, compiling this repository's own sources (tsc -p apps/shipping-web), on GitHub-hosted ubuntu-24.04 CI, in the controlled maintenance environment and on macOS arm64 local build hosts; installed by npm ci --ignore-scripts from the reviewed lockfile"
-conditions: ["Lockfile pins typescript 5.9.3, resolved from https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz with integrity sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==, declared as an exact devDependency of apps/shipping-web", "Only the tsc CLI, as tsc -p apps/shipping-web (or a package script that runs exactly that), on this repository's sources: no tsserver, tsserverlibrary or typingsInstaller (Automatic Type Acquisition runs npm install), no language-service or compiler plugins, and no repository code that imports the typescript API", "Installed only by npm ci --ignore-scripts and run only on the reviewed Node.js 26.13.0 (linux-x64 in CI, darwin-arm64 locally)", "Scope is apps/shipping-web only: this review is the separately reviewed 5.x that the typescript 7.0.2 review asks for, but it does not approve openapi-typescript 7.13.0, its transitives or packages/shipping-client; that use needs its own scope extension and transitive reviews", "TypeScript 5.x gets no further releases: an advisory against 5.9.3 ends this approval, because no fixed 5.x version will exist"]
+conditions: ["Lockfile pins typescript 5.9.3, resolved from https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz with integrity sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==, declared as an exact devDependency of apps/shipping-web", "Only the tsc CLI, as tsc -p apps/shipping-web (or a package script that runs exactly that), on this repository's sources: no tsserver, tsserverlibrary or typingsInstaller (Automatic Type Acquisition runs npm install), no language-service or compiler plugins, and no repository code that imports the typescript API", "Installed only by npm ci --ignore-scripts and run only on the reviewed Node.js 26.13.0 (linux-x64 in CI, darwin-arm64 locally)", "Scope is apps/shipping-web only: this review is the separately reviewed 5.x that the typescript 7.0.2 review asks for, but it does not approve openapi-typescript 7.13.0, its transitives or packages/shipping-client; that use needs its own scope extension and transitive reviews", "TypeScript 5.x gets no further releases: an advisory against 5.9.3 ends this approval, because no fixed 5.x version will exist", "Licences: TypeScript is Apache-2.0, but its declaration files incorporate material under licences outside the list accepted without conditions: the W3C Software and Document License and CC-BY-4.0 (the DOM, from W3C and WHATWG), the W3C Community Final Specification Agreement (Web Background Synchronization), the Unicode data-files licence and a Khronos MIT-style licence (WebGL), besides DefinitelyTyped (MIT). They are used only to compile: tsc's emitted JavaScript contains none of that material, and the package is never redistributed. This is the owner's explicit decision (security/AGENTS.md)"]
 reviewer: "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06"
 reviewedAt: "2026-11-07"
 expiresAt: "2027-05-07"
@@ -99,9 +99,23 @@ of TypeScript 7.0.2.
 
 ## 6. License
 
-**Apache-2.0** (`LICENSE.txt`, registry, deps.dev). `ThirdPartyNoticeText.txt` names the sources of its declaration
-files and Unicode data: DefinitelyTyped (MIT), Unicode, the W3C Document Object Model, Web Background Synchronization
-and WebGL. They are type declarations and data, not executable code.
+**Apache-2.0** (`LICENSE.txt`, registry, deps.dev).
+
+`ThirdPartyNoticeText.txt` names the material incorporated in the declaration files (`lib/lib.*.d.ts`), which are
+type declarations and data, not executable code:
+
+| Material | Licence in the notice | On the list accepted without conditions? |
+|---|---|---|
+| DefinitelyTyped | MIT | yes |
+| Unicode data | "UNICODE, INC. LICENSE AGREEMENT - DATA FILES AND SOFTWARE" | no |
+| Document Object Model (W3C) | W3C License (W3C Software and Document License) | no |
+| DOM (WHATWG) | Creative Commons Attribution 4.0 International | no |
+| Web Background Synchronization | W3C Community Final Specification Agreement | no |
+| WebGL (The Khronos Group) | an MIT-style licence for "Materials" | no, not the plain MIT text |
+
+Being declarations does not exempt them from the repository's rule. The last condition puts them to the owner: they
+are used only to compile, `tsc`'s emitted JavaScript contains none of that material, and the package is never
+redistributed.
 
 ## 7. Execution privileges
 

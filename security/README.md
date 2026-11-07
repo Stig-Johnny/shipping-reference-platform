@@ -169,10 +169,14 @@ the site renders only its own validated diagrams, in `strict` mode, under a rest
 
 The workbench's test tools, audited on 2026-11-07:
 
-- **Playwright 1.65.0 inlines 171 third-party packages**, two of them with medium advisories: ip-address 10.7.2 and
-  minimatch 10.2.5. Both need input that the conditions keep in the repository's hands, so they are not reachable.
+- **Playwright 1.65.0 inlines 171 third-party packages**, two of them with medium advisories.
+  - **minimatch 10.2.5** needs a glob pattern from outside the repository, which the conditions rule out.
+  - **ip-address 10.7.2** needs a SOCKS proxy, which the conditions forbid at every level. It counts as open until the
+    end-to-end workflow demonstrates those checks.
 - **It also ships instructions for AI coding agents.** There are skill files that grant shell access, agent
-  definitions, and a workflow with tag-pinned Actions. Commands such as `init-agents` write them into a repository. The
-  conditions allow `playwright test` alone.
+  definitions, and a workflow with tag-pinned Actions. Commands such as `init-agents` write them into a repository.
+  The conditions allow `playwright test` alone. The shipped skills and agent definitions are never activated or copied
+  into any agent's configuration.
 - **Playwright's browser CDN redirects to Google.** The pinned Chrome Headless Shell is Google's Chrome for Testing
-  Beta build, and the review now pins its SHA-256.
+  Beta build, and the review now pins its SHA-256. Both download routes lead to Google, so the match shows identity,
+  not a second source.

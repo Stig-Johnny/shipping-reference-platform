@@ -58,7 +58,7 @@ Review: `security/reviews/browser-binary--chrome-headless-shell--158.0.8127.18.m
 | Playwright's URL | `https://cdn.playwright.dev/builds/cft/158.0.8127.18/linux64/chrome-headless-shell-linux64.zip` answers `HTTP/2 307` with `location: https://storage.googleapis.com/chrome-for-testing-public/158.0.8127.18/linux64/chrome-headless-shell-linux64.zip`. The CDN hosts no copy of its own; it sends the client to Google's Chrome for Testing bucket |
 | Google's download | The same `storage.googleapis.com` URL, fetched directly into a new empty directory: `HTTP/2 200`, 131,998,580 bytes, `last-modified: Wed, 04 Nov 2026 03:30:49 GMT` |
 | Through Playwright's URL | `curl -fsSL --proto '=https' --proto-redir '=https'` into another new empty directory: one redirect, to the same URL, 131,998,580 bytes |
-| SHA-256 | `18352d22cb0cdf520cbff2ad8c41391f0e02a72886cb53b0fde4bdfc4bd075d6` for both copies; `cmp` finds them byte-identical |
+| SHA-256 | `18352d22cb0cdf520cbff2ad8c41391f0e02a72886cb53b0fde4bdfc4bd075d6` for both copies; `cmp` finds them byte-identical. Both routes lead to Google's bucket, so this is identity, not independent corroboration |
 | Google's stored hash | The response header `x-goog-hash: md5=gfw3cKBYhEVZUf2X14DAug==` equals the MD5 of the download. That is only a transfer check |
 | Google's index | `known-good-versions-with-downloads.json` (timestamp 2026-11-07T10:10:51Z) lists 158.0.8127.18, revision 1727472, with exactly this headless-shell linux64 URL. `last-known-good-versions.json` names it the **Beta** channel build; Stable is 157.0.8103.38 |
 | Archive listing | 287 entries under one top-level directory `chrome-headless-shell-linux64/`, with no absolute path, no `..` segment and no symbolic link. Five executables: `chrome-headless-shell` (216,599,888 bytes), `libEGL.so`, `libGLESv2.so`, `libvk_swiftshader.so` and `libvulkan.so.1` |
@@ -67,4 +67,5 @@ The zip was neither extracted nor run. Three text members were read into memory 
 and the start of `LICENSE.headless_shell`. Nothing was written to disk from the archive.
 
 **Still open:** whether the runner image's libraries suffice to start the shell without `install-deps`. Only the first
-CI run can show that (the review's condition on runner libraries).
+CI run can show that, by launching the shell and passing a smoke test (the review's condition 6); `ldd` alone does
+not.

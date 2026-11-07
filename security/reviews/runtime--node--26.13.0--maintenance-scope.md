@@ -4,7 +4,7 @@ kind: runtime
 version: "Node.js 26.13.0 (node-v26.13.0-darwin-arm64.tar.xz), npm 11.20.0 as bundled"
 verdict: APPROVE-WITH-CONDITIONS
 scope: "The controlled maintenance environment that AGENTS.md and ADR 0007 name, for npm: the owner's MacBook, the verified Node.js 26.13.0 darwin-arm64 build with its bundled npm 11.20.0, a fresh clone of main at a stated commit, an environment with no GitHub or registry token, and npm network access to registry.npmjs.org only. It authorizes lock-only generation of package-lock.json and nothing else; installs everywhere remain npm ci --ignore-scripts"
-conditions: ["Host: the owner's MacBook, using only the Node.js 26.13.0 darwin-arm64 tree verified on 2026-11-07 (security/verifications/2026-11-07-frontend-toolchain.md); before each run node --version prints v26.13.0, npm --version 11.20.0 and codesign --verify --strict bin/node succeeds", "Source: a fresh clone of main over HTTPS without credentials into a new empty directory; the commit (git rev-parse HEAD) is stated in the lock pull request", "Environment: npm runs under env -i with only HOME set to a new empty directory, PATH set to the verified Node bin directory followed by /usr/bin:/bin, and TMPDIR; no other variable, so no token, proxy, npm_config_* or NODE_OPTIONS can reach it", "The only npm command: npm install --package-lock-only --ignore-scripts --no-audit --no-fund, run at the root of the clone with --registry=https://registry.npmjs.org/, --userconfig and --globalconfig set to empty files, --cache and --logs-dir in new empty directories, --no-update-notifier and --loglevel=http", "Network: every request line in the kept http log names https://registry.npmjs.org/; any other host voids the run", "After the run: no node_modules directory exists, and git status shows only package-lock.json changed besides the manifests the lock pull request adds", "Before the lock pull request: every packages entry of package-lock.json is compared with the allowlist, field by field: the version has an approved npm entry, resolved equals that entry's artifact URL exactly, and integrity equals the sha512 that its conditions or review record give; an entry without a reviewed counterpart, or any mismatch, stops the pull request; java tools/policy/PolicyCheck.java runs clean on the clone", "The lock pull request is its own pull request: the manifests and package-lock.json only, with the commit, the versions, the command, the environment check and the host summary of the http log in its body", "Installs anywhere, CI and local hosts included, remain npm ci --ignore-scripts from the committed lockfile; nothing generated here is installed or run in this environment", "npm's licence is Artistic-2.0: accepted only as an unmodified build tool that is never distributed (the owner's explicit decision, security/AGENTS.md)", "Expires with the Node.js 26.13.0 approvals (2026-11-25)"]
+conditions: ["Host: the owner's MacBook, using only the Node.js 26.13.0 darwin-arm64 tree verified on 2026-11-07 (security/verifications/2026-11-07-frontend-toolchain.md); before each run node --version prints v26.13.0, npm --version 11.20.0 and codesign --verify --strict bin/node succeeds", "Source: a fresh clone of main over HTTPS without credentials into a new empty directory; the commit (git rev-parse HEAD) is stated in the lock pull request", "Before npm runs, the clone's manifests and npm configuration are inspected and recorded. The root package.json and each workspace package.json declare only the reviewed packages, at exact versions, with no range, git, URL, file or link specifier; there are no overrides beyond pinning axe-core 4.14.0 and no workspaces beyond the reviewed ones. No .npmrc or other npm configuration file is present unless the lock pull request adds it and has it reviewed. Anything else stops the run", "Environment: npm runs under env -i with only HOME set to a new empty directory, PATH set to the verified Node bin directory followed by /usr/bin:/bin, and TMPDIR; no other variable, so no token, proxy, npm_config_* or NODE_OPTIONS can reach it", "The only npm command: npm install --package-lock-only --ignore-scripts --no-audit --no-fund, run at the root of the clone with --registry=https://registry.npmjs.org/, --userconfig and --globalconfig set to empty files, --cache and --logs-dir in new empty directories, --no-update-notifier and --loglevel=http", "Network: npm is configured for https://registry.npmjs.org/ only, and every request line in the kept http log names it; any other host voids the run. The log is an audit after the run, not enforced egress isolation", "After the run: no node_modules directory exists, and git status shows only package-lock.json changed besides the manifests the lock pull request adds", "Before the lock pull request, package-lock.json holds exactly six external registry packages, those of section 10. Besides them it holds only repository-owned entries: the root, each workspace's own metadata entry and each workspace link. Every external entry matches the allowlist field by field: the version has an approved npm entry, resolved equals that entry's artifact URL exactly, and integrity equals the sha512 that its conditions or review record give. Every repository-owned entry is checked too: each link has link true and resolves to a workspace directory that the root declares, each workspace entry's dependencies are exactly its manifest's, and none has a resolved URL or an integrity. Any other entry or any mismatch stops the pull request; java tools/policy/PolicyCheck.java runs clean on the clone", "The lock pull request is its own pull request: the manifests and package-lock.json only, with the commit, the versions, the command, the environment check and the host summary of the http log in its body", "Installs anywhere, CI and local hosts included, remain npm ci --ignore-scripts from the committed lockfile; nothing generated here is installed or run in this environment", "npm's licence is Artistic-2.0: accepted only as an unmodified build tool that is never distributed (the owner's explicit decision, security/AGENTS.md)", "Expires with the Node.js 26.13.0 approvals (2026-11-25)"]
 reviewer: "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06"
 reviewedAt: "2026-11-07"
 expiresAt: "2026-11-25"
@@ -34,11 +34,13 @@ Nothing was installed and npm was not run.
 ## 1. Verdict
 
 **APPROVE-WITH-CONDITIONS** for lock-only generation. `--package-lock-only` writes a lockfile from the registry's
-metadata without creating `node_modules`. With `--ignore-scripts`, no package code runs. The conditions take away
-everything else that could leak in or out:
+metadata without creating `node_modules`. With `--ignore-scripts`, no package code runs. The conditions remove
+inherited configuration, and the network destinations are audited afterwards. npm's http log is an audit, not enforced
+egress isolation.
 
 - **Tokens:** an empty environment and an empty home directory, so npm reads no `~/.npmrc` and sees no token.
-- **Hosts:** one registry, checked afterwards in the http log.
+- **Inputs:** the manifests and any npm configuration in the clone are inspected before npm runs.
+- **Hosts:** one registry, configured, and every request audited afterwards in the http log.
 - **The result:** a field-by-field comparison of the lock with the allowlist before anyone proposes it.
 
 ## 2. What it is and why it is needed
@@ -139,6 +141,8 @@ env -i HOME="$W/home" PATH=/usr/bin:/bin GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROM
   git clone https://github.com/Stig-Johnny/shipping-reference-platform.git "$W/repo"
 git -C "$W/repo" rev-parse HEAD                     # stated in the lock pull request
 cd "$W/repo"   # the manifests of the lock pull request are added here first
+cat package.json apps/shipping-web/package.json   # inspected and recorded before npm runs (condition 3)
+find . -name '.npmrc' -not -path './.git/*'       # prints nothing, unless the lock pull request reviews one
 env -i HOME="$W/home" PATH="$NODE/bin:/usr/bin:/bin" TMPDIR="$W" \
   npm install --package-lock-only --ignore-scripts --no-audit --no-fund \
   --registry=https://registry.npmjs.org/ --userconfig="$W/empty-npmrc" --globalconfig="$W/empty-npmrc" \
@@ -157,10 +161,27 @@ test ! -e node_modules && git status --porcelain
 | `node_modules/@axe-core/playwright` | 4.14.0 | `https://registry.npmjs.org/@axe-core/playwright/-/playwright-4.14.0.tgz` | `sha512-SGUhG5PIHd2eMdpgBF2PyQLOhX+qyDR2PT4cmoS4Qk2ak+jX/rrSvst9l0PGv5WTHolKpUMvVmoHpr4cZgf1RQ==` |
 | `node_modules/axe-core` | 4.14.0 | `https://registry.npmjs.org/axe-core/-/axe-core-4.14.0.tgz` | `sha512-9WTZxEjsZ7b13TH8JPmbV2z8CHbl80/2hm3XPEG4JgNdQLK81IBRXmSxHfMAOkSqQeRxT/0dwNDz2GOm3zzpcQ==` |
 
-Apart from the root and its workspace links, any other `packages` entry stops the lock pull request.
+The lock must hold exactly these six external registry packages. Besides them it may hold only repository-owned
+entries:
+
+- the root (`""`);
+- each workspace's own metadata entry, such as `apps/shipping-web`, with its name, version and declared dependencies;
+- each workspace link, `node_modules/<name>` with `"link": true` and `resolved` naming the workspace's directory.
+
+Those entries are checked too:
+
+- every link resolves to a workspace directory that the root's `workspaces` declares;
+- every workspace entry's dependencies are exactly its manifest's;
+- no repository-owned entry has a `resolved` URL or an `integrity`.
+
+Any other entry stops the lock pull request. PolicyCheck skips the root, the workspace entries and the links
+(`tools/policy/PolicyCheck.java`, `checkNpmLockfile`). It does not compare `integrity` with the reviewed value either: it
+checks only the registry prefix and that an `sha512-` value is present. So this comparison is the control.
 
 **Residual risk.**
 
+- **No egress isolation.** The http log shows where npm went, after the fact. A compromised npm could reach other hosts
+  during the run.
 - **A personal laptop, not a disposable host.** `env -i` keeps tokens out of npm's environment, not out of reach of
   the user's files.
 - **One maintainer account.** npm 11.20.0 rests on the Node release signature, and the metadata it resolves rests on

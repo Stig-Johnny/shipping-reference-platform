@@ -4,7 +4,7 @@
   "acceptance": {
     "status": "pending",
     "note": "PENDING: the owner has not accepted this reviewed set. reviewedSetSha256 below is its digest, printed by java tools/policy/PolicyCheck.java --print-digest . for the Tuesday-slice security reviews (issue #59); it becomes an acceptance only when the orchestrator records the owner's literal yes here (status, by, at, how), after recomputing the digest if anything changed since.",
-    "reviewedSetSha256": "9b4f3623df170391a9587b13694295c86d61872055825fd44d686b3a47953114",
+    "reviewedSetSha256": "566c19ec11e7da9e5a4ec28c0994e72588e53a96ab824d7d37bbaade226b78b9",
     "previous": [
       {
         "by": "Stig-Johnny (repository owner and code owner)",
@@ -28,8 +28,8 @@
     ]
   },
   "counts": {
-    "entries": 516,
-    "approved": 501,
+    "entries": 519,
+    "approved": 504,
     "rejected": 15,
     "reviewFiles": 81
   },
@@ -48,11 +48,11 @@
       "verdict": "APPROVE-WITH-CONDITIONS",
       "conditions": [
         "The workflow downloads https://cdn.playwright.dev/builds/cft/158.0.8127.18/linux64/chrome-headless-shell-linux64.zip, or the Google URL it redirects to (https://storage.googleapis.com/chrome-for-testing-public/158.0.8127.18/linux64/chrome-headless-shell-linux64.zip), with curl --proto '=https' --proto-redir '=https', and checks it with sha256sum --check against 18352d22cb0cdf520cbff2ad8c41391f0e02a72886cb53b0fde4bdfc4bd075d6 pinned in the workflow",
-        "That SHA-256 was recorded on 2026-11-07 (security/verifications/2026-11-07-frontend-toolchain.md): 131,998,580 bytes, byte-identical through Playwright's URL and Google's Chrome for Testing URL; any other hash is a new review",
+        "That SHA-256 was recorded on 2026-11-07 (security/verifications/2026-11-07-frontend-toolchain.md): 131,998,580 bytes, byte-identical through Playwright's URL and Google's Chrome for Testing URL. Playwright's URL redirects to Google's, so this establishes identity, not independent corroboration by a second publisher; the first fetch is trusted on Google's TLS. Any other hash is a new review",
         "Extract into a fresh directory; pass chrome-headless-shell-linux64/chrome-headless-shell as launchOptions.executablePath; PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1",
         "Navigate only to the local application (the browser runs without Chromium's sandbox by Playwright default)",
         "Not approved: the full chromium (Chrome for Testing) build, ffmpeg, other browsers, any local or headed use",
-        "Before the job becomes a required check, its first run shows that the runner image's libraries suffice without install-deps (the shell starts; the run records the launch result or ldd output), recorded as an amendment",
+        "Before the job becomes a required check, its first run launches the shell through Playwright on the runner, without install-deps, and passes a smoke test against the local application (one page loads and renders); ldd output alone does not satisfy this. The run is recorded as an amendment",
         "Licence: a Google Chrome for Testing build (its ABOUT file names Google's Terms of Service) with Chromium's BSD-3-Clause licence and about 700 bundled licences (LICENSE.headless_shell); used in CI only, never uploaded or redistributed, which needs the owner's explicit decision (security/AGENTS.md)"
       ],
       "reviewRecord": "security/reviews/browser-binary--chrome-headless-shell--158.0.8127.18.md",
@@ -1236,7 +1236,7 @@
       "conditions": [
         "Only as inlined in the reviewed playwright-core 1.65.0 tarball (lib/vite (web apps)); never installed, resolved or required on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries a notices file for it (@playwright/test condition 7)"
+        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries this component's full licence text and copyright notice (@playwright/test condition 7)"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -1257,7 +1257,7 @@
       "conditions": [
         "Only as inlined in the reviewed playwright-core 1.65.0 tarball (lib/vite (web apps)); never installed, resolved or required on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries a notices file for it (@playwright/test condition 7)"
+        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries this component's full licence text and copyright notice (@playwright/test condition 7)"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -1278,7 +1278,7 @@
       "conditions": [
         "Only as inlined in the reviewed playwright-core 1.65.0 tarball (lib/vite (web apps)); never installed, resolved or required on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries a notices file for it (@playwright/test condition 7)"
+        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries this component's full licence text and copyright notice (@playwright/test condition 7)"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -1743,7 +1743,7 @@
       "conditions": [
         "Only as inlined in the reviewed playwright-core 1.65.0 tarball (lib/vite (web apps)); never installed, resolved or required on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries a notices file for it (@playwright/test condition 7)"
+        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries this component's full licence text and copyright notice (@playwright/test condition 7)"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -2595,7 +2595,7 @@
       "conditions": [
         "Only as inlined in the reviewed playwright-core 1.65.0 tarball (lib/utilsBundle.js); never installed, resolved or required on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "GHSA-rxp7-6hxx-x8q5 (medium, fixed in 10.7.4) is reachable only through a SOCKS proxy; no proxy in the job (@playwright/test condition 8)"
+        "GHSA-rxp7-6hxx-x8q5 (medium, fixed in 10.7.4) is reached only through a SOCKS proxy; @playwright/test condition 8 forbids proxies at every level, and until the contract-e2e workflow demonstrates those checks the advisory counts as open, not unreachable"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -2937,7 +2937,7 @@
       "conditions": [
         "Only the WebAssembly module shipped in the reviewed playwright-core 1.65.0 tarball, with this SHA-256; never built or used on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "Runs inside V8 only for WebP screenshots and WebP screenshot comparisons; licences BSD-3-Clause (libwebp) and MIT or NCSA (Emscripten)"
+        "Runs inside V8 only for WebP screenshots and WebP screenshot comparisons; licences: libwebp BSD-3-Clause with Google's additional patent grant for WebM, and Emscripten under MIT, elected from its MIT-or-NCSA dual licence"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -3040,7 +3040,7 @@
       "conditions": [
         "Only as inlined in the reviewed playwright and playwright-core 1.65.0 tarballs (lib/utilsBundle.js, lib/transform/esmLoader.js); never installed, resolved or required on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "GHSA-g3hv-75wg-m249 (medium, fixed in 11.0.1) needs an outside glob pattern; patterns come only from the repository (@playwright/test condition 9)",
+        "GHSA-g3hv-75wg-m249 (medium, fixed in 11.0.1) needs an outside glob pattern; every pattern (testMatch, testIgnore, build.external, .gitignore lines) comes from committed, reviewed files, with no workflow-input interpolation (@playwright/test condition 9)",
         "Licence BlueOak-1.0.0: the owner's explicit decision (@playwright/test condition 11)"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
@@ -3470,7 +3470,7 @@
       "conditions": [
         "Only as inlined in the reviewed playwright-core 1.65.0 tarball (lib/vite (web apps)); never installed, resolved or required on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries a notices file for it (@playwright/test condition 7)"
+        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries this component's full licence text and copyright notice (@playwright/test condition 7)"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -3491,7 +3491,7 @@
       "conditions": [
         "Only as inlined in the reviewed playwright-core 1.65.0 tarball (lib/vite (web apps)); never installed, resolved or required on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries a notices file for it (@playwright/test condition 7)"
+        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries this component's full licence text and copyright notice (@playwright/test condition 7)"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -3612,7 +3612,7 @@
       "conditions": [
         "Only as inlined in the reviewed playwright-core 1.65.0 tarball (lib/vite (web apps)); never installed, resolved or required on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries a notices file for it (@playwright/test condition 7)"
+        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries this component's full licence text and copyright notice (@playwright/test condition 7)"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -4202,20 +4202,20 @@
       "version": "18.6-trixie",
       "artifact": "docker.io/library/postgres@sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583 (linux/amd64 sha256:e923a22ac074261dd73970c57edf659475bf0497cb9456f17d98ed7cdd3ca913, linux/arm64/v8 sha256:a8a18afebc8b2b529112c931f193151b712e566b7a49563dc0f328d51f652087)",
       "sha256": "bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583",
-      "project": "Owner's MacBook, colima profile demotest (linux/arm64): attended demo database",
+      "project": "the host the owner picks (PENDING): MacBook colima demotest or Mac Mini colima rigbuild (linux/arm64): attended demo database",
       "configuration": [
-        "the API's demo profile, one session, started by tools/demo/run-attended-demo.sh"
+        "the API's demo profile, one session, the database created by ReviewedPostgres"
       ],
       "verdict": "APPROVE-WITH-CONDITIONS",
       "conditions": [
-        "Reference only docker.io/library/postgres@sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583, pulled by that digest; never by tag and never in the name:tag@sha256 form",
-        "Before the container starts, docker image inspect shows RepoDigests containing that index digest and the platform image linux/arm64/v8 sha256:a8a18afebc8b2b529112c931f193151b712e566b7a49563dc0f328d51f652087; no other image is in the VM",
-        "No /docker-entrypoint-initdb.d content, no copy into the container, no bind mount and no named volume; the schema comes only from the API's Flyway migrations over JDBC, and the data only from the repository's synthetic seed migrations",
-        "A random password generated by the script for each session, passed to the container and to the API through that session's environment only; never written to a file, printed, logged or committed; never the default test/test and never POSTGRES_HOST_AUTH_METHOD=trust",
-        "The one published port is bound to 127.0.0.1 only and asserted before the API connects; nothing forwards or tunnels it off the host",
-        "The database lives for one demo session: on exit, error or interrupt the container is removed with docker rm -f -v, so the anonymous volume under /var/lib/postgresql goes with it; nothing is kept between sessions",
-        "A new digest, PostgreSQL 18.7 or a CVE published against 18.6 is a new review before use; the script's operator checks this on the demo day",
-        "The engine is the demotest profile under homebrew--colima-lima-docker--attended-demo-scope.md, with all its conditions; until that record's host precondition is met, this approval cannot be used"
+        "Created only by the reviewed harness ReviewedPostgres, which references docker.io/library/postgres@sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583 alone, never by tag and never in the name:tag@sha256 form",
+        "The image is staged by that digest before the session; the harness pulls nothing and checks it: RepoDigests contains the index digest and the platform image is linux/arm64/v8 sha256:a8a18afebc8b2b529112c931f193151b712e566b7a49563dc0f328d51f652087. No other image is in the VM",
+        "No /docker-entrypoint-initdb.d content, no copy into the container, no bind mount and no named volume. The schema comes only from the API's Flyway migrations over JDBC, and the data only from the repository's synthetic seed migrations",
+        "The harness generates a random password for each session and the launcher hands it to the application in-process. It is never exported to the environment, written to a file, printed, logged or committed, and it is never the default test/test or POSTGRES_HOST_AUTH_METHOD=trust",
+        "The one published port is bound to 127.0.0.1 only, as the harness asserts, and it is never forwarded or tunnelled; on the Mac Mini only the application's HTTP port is tunnelled",
+        "The database lives for one demo session. Closing the harness's Database removes the container with its volume, and the script's sweep afterwards checks that nothing remains; nothing is kept between sessions",
+        "A new digest, PostgreSQL 18.7 or a CVE published against 18.6 is a new review before use; the operator checks this on the demo day",
+        "The engine is the picked host's profile under homebrew--colima-lima-docker--attended-demo-scope.md, with all its conditions; until that record's conditions 1 and 2 and the picked variant's precondition hold, this approval cannot be used"
       ],
       "reviewRecord": "security/reviews/container-image--postgres--18.6-trixie--attended-demo-scope.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -4548,15 +4548,15 @@
       "version": "v0.10.4 (Docker Engine 29.5.2)",
       "artifact": "ubuntu-24.04-minimal-cloudimg-arm64-docker.raw.gz, sha512 32242674b046b5057e60c4aba334b51e3665f05412cda89ed081cc2de153ae5c41f6b105b5c442cbe48d78e2cc21e9ba1950e406b6fb4fc2fd1dd2259240abbd (compiled into colima 0.10.3 embedded/images/images.txt)",
       "sha256": null,
-      "project": "Owner's MacBook, colima profile demotest: attended demo",
+      "project": "colima profile demotest (variant A) or rigbuild (variant B): attended demo; host choice PENDING",
       "configuration": [
-        "the API's demo-profile database, started by tools/demo/run-attended-demo.sh and attended by the owner"
+        "the VM disk of the picked profile's Docker Engine"
       ],
       "verdict": "APPROVE-WITH-CONDITIONS",
       "conditions": [
-        "Blocked until the host matches (condition 1 of the attended-demo record): colima 0.10.3 installed and pinned, and a delta review of the lima and docker CLI versions actually installed",
-        "Attended by the owner; started only by tools/demo/run-attended-demo.sh, which fails closed",
-        "All conditions of homebrew--colima-lima-docker--attended-demo-scope.md and of the MacBook demotest entries apply",
+        "Host choice PENDING: valid only for the variant the owner picks (condition 1 of homebrew--colima-lima-docker--attended-demo-scope.md)",
+        "Blocked until ReviewedPostgres with an engine case for this profile, its launcher and tools/demo/run-attended-demo.sh are reviewed (condition 2)",
+        "The database comes only from ReviewedPostgres, attended by the owner; all conditions of homebrew--colima-lima-docker--attended-demo-scope.md apply",
         "docker version reports server 29.5.2; never colima update"
       ],
       "reviewRecord": "security/reviews/homebrew--colima-lima-docker--attended-demo-scope.md",
@@ -4644,15 +4644,38 @@
       "version": "0.10.3",
       "artifact": "colima 0.10.3 arm64_tahoe bottle (ghcr.io/v2/homebrew/core/colima/blobs/sha256:a9dfd1fa0a4aee62fef75974f39f174e4da774f7ba495c43dd0bcc23633381b8); on macOS 15 the arm64_sequoia bottle 56ea218ab2b408e940c4d690a547c082b5be3cd3cf581ddbfe0f3a0166434ae1 needs a one-line amendment first",
       "sha256": "a9dfd1fa0a4aee62fef75974f39f174e4da774f7ba495c43dd0bcc23633381b8",
-      "project": "Owner's MacBook, colima profile demotest: attended demo",
+      "project": "Owner's MacBook, colima profile demotest: attended demo (variant A; host choice PENDING)",
       "configuration": [
-        "the API's demo-profile database, started by tools/demo/run-attended-demo.sh and attended by the owner"
+        "the API's demo-profile database, created by ReviewedPostgres, started by tools/demo/run-attended-demo.sh from the owner's terminal"
       ],
       "verdict": "APPROVE-WITH-CONDITIONS",
       "conditions": [
-        "Blocked until the host matches (condition 1 of the attended-demo record): colima 0.10.3 installed and pinned, and a delta review of the lima and docker CLI versions actually installed",
-        "Attended by the owner; started only by tools/demo/run-attended-demo.sh, which fails closed",
-        "All conditions of homebrew--colima-lima-docker--attended-demo-scope.md and of the MacBook demotest entries apply"
+        "Host choice PENDING: valid only for the variant the owner picks (condition 1 of homebrew--colima-lima-docker--attended-demo-scope.md)",
+        "Blocked until ReviewedPostgres with an engine case for this profile, its launcher and tools/demo/run-attended-demo.sh are reviewed (condition 2)",
+        "The database comes only from ReviewedPostgres, attended by the owner; all conditions of homebrew--colima-lima-docker--attended-demo-scope.md apply",
+        "Variant A is blocked until the MacBook matches (condition 10): colima 0.10.3 installed and pinned, and a delta review of the lima and docker CLI versions actually installed"
+      ],
+      "reviewRecord": "security/reviews/homebrew--colima-lima-docker--attended-demo-scope.md",
+      "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
+      "reviewedAt": "2026-11-07",
+      "expiresAt": "2027-05-06"
+    },
+    {
+      "kind": "homebrew",
+      "coordinate": "homebrew/core/colima",
+      "version": "0.10.3",
+      "artifact": "colima 0.10.3 arm64_tahoe bottle (ghcr.io/v2/homebrew/core/colima/blobs/sha256:a9dfd1fa0a4aee62fef75974f39f174e4da774f7ba495c43dd0bcc23633381b8), git rev 00f6c297e92a82c04a4ab507db0a61435650d7e8",
+      "sha256": "a9dfd1fa0a4aee62fef75974f39f174e4da774f7ba495c43dd0bcc23633381b8",
+      "project": "Mac Mini, `claude` user, colima profile rigbuild: attended demo over SSH (variant B; host choice PENDING)",
+      "configuration": [
+        "the API's demo-profile database, created by ReviewedPostgres, started by tools/demo/run-attended-demo.sh inside ~/bin/with-rigbuild.sh from an SSH session"
+      ],
+      "verdict": "APPROVE-WITH-CONDITIONS",
+      "conditions": [
+        "Host choice PENDING: valid only for the variant the owner picks (condition 1 of homebrew--colima-lima-docker--attended-demo-scope.md)",
+        "Blocked until ReviewedPostgres with an engine case for this profile, its launcher and tools/demo/run-attended-demo.sh are reviewed (condition 2)",
+        "The database comes only from ReviewedPostgres, attended by the owner; all conditions of homebrew--colima-lima-docker--attended-demo-scope.md apply",
+        "Variant B: the Mini is checked before each session (condition 11) and runs go through ~/bin/with-rigbuild.sh after its recorded amendment; the rigbuild profile is reserved for the demo"
       ],
       "reviewRecord": "security/reviews/homebrew--colima-lima-docker--attended-demo-scope.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -4711,16 +4734,40 @@
       "version": "29.8.1",
       "artifact": "docker CLI 29.8.1 arm64_tahoe bottle (ghcr.io/v2/homebrew/core/docker/blobs/sha256:40d9396a0e2a2edfea5c69137b0d5722f2049da0a218a3e1b1c94080c5f1b3f0); arm64_sequoia 0c0a2c666769a8f29ebe8036f5b39d9a7868f6a76ea3cce1db1ce28bab8cd43b needs a one-line amendment first",
       "sha256": "40d9396a0e2a2edfea5c69137b0d5722f2049da0a218a3e1b1c94080c5f1b3f0",
-      "project": "Owner's MacBook, colima profile demotest: attended demo",
+      "project": "Owner's MacBook, colima profile demotest: attended demo (variant A; host choice PENDING)",
       "configuration": [
-        "the API's demo-profile database, started by tools/demo/run-attended-demo.sh and attended by the owner"
+        "the API's demo-profile database, created by ReviewedPostgres, started by tools/demo/run-attended-demo.sh from the owner's terminal"
       ],
       "verdict": "APPROVE-WITH-CONDITIONS",
       "conditions": [
-        "Blocked until the host matches (condition 1 of the attended-demo record): colima 0.10.3 installed and pinned, and a delta review of the lima and docker CLI versions actually installed",
-        "Attended by the owner; started only by tools/demo/run-attended-demo.sh, which fails closed",
-        "All conditions of homebrew--colima-lima-docker--attended-demo-scope.md and of the MacBook demotest entries apply",
+        "Host choice PENDING: valid only for the variant the owner picks (condition 1 of homebrew--colima-lima-docker--attended-demo-scope.md)",
+        "Blocked until ReviewedPostgres with an engine case for this profile, its launcher and tools/demo/run-attended-demo.sh are reviewed (condition 2)",
+        "The database comes only from ReviewedPostgres, attended by the owner; all conditions of homebrew--colima-lima-docker--attended-demo-scope.md apply",
+        "Variant A is blocked until the MacBook matches (condition 10): colima 0.10.3 installed and pinned, and a delta review of the lima and docker CLI versions actually installed",
         "Explicit DOCKER_HOST=unix://$HOME/.colima/demotest/docker.sock; isolated DOCKER_CONFIG containing {}; no build, buildx, compose, login, plugin or Swarm"
+      ],
+      "reviewRecord": "security/reviews/homebrew--colima-lima-docker--attended-demo-scope.md",
+      "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
+      "reviewedAt": "2026-11-07",
+      "expiresAt": "2027-05-06"
+    },
+    {
+      "kind": "homebrew",
+      "coordinate": "homebrew/core/docker",
+      "version": "29.8.1",
+      "artifact": "docker CLI 29.8.1 arm64_tahoe bottle (ghcr.io/v2/homebrew/core/docker/blobs/sha256:40d9396a0e2a2edfea5c69137b0d5722f2049da0a218a3e1b1c94080c5f1b3f0), git rev 4a63305d74332de5ceba7fcbccbc3cbb7412f5ba",
+      "sha256": "40d9396a0e2a2edfea5c69137b0d5722f2049da0a218a3e1b1c94080c5f1b3f0",
+      "project": "Mac Mini, `claude` user, colima profile rigbuild: attended demo over SSH (variant B; host choice PENDING)",
+      "configuration": [
+        "the API's demo-profile database, created by ReviewedPostgres, started by tools/demo/run-attended-demo.sh inside ~/bin/with-rigbuild.sh from an SSH session"
+      ],
+      "verdict": "APPROVE-WITH-CONDITIONS",
+      "conditions": [
+        "Host choice PENDING: valid only for the variant the owner picks (condition 1 of homebrew--colima-lima-docker--attended-demo-scope.md)",
+        "Blocked until ReviewedPostgres with an engine case for this profile, its launcher and tools/demo/run-attended-demo.sh are reviewed (condition 2)",
+        "The database comes only from ReviewedPostgres, attended by the owner; all conditions of homebrew--colima-lima-docker--attended-demo-scope.md apply",
+        "Variant B: the Mini is checked before each session (condition 11) and runs go through ~/bin/with-rigbuild.sh after its recorded amendment; the rigbuild profile is reserved for the demo",
+        "Explicit DOCKER_HOST to the rigbuild socket; isolated DOCKER_CONFIG containing {}; no build, buildx, compose, login, plugin or Swarm"
       ],
       "reviewRecord": "security/reviews/homebrew--colima-lima-docker--attended-demo-scope.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -4779,15 +4826,39 @@
       "version": "2.2.0",
       "artifact": "lima 2.2.0 arm64_tahoe bottle (ghcr.io/v2/homebrew/core/lima/blobs/sha256:9dfb60d4c7d0c6721eee679ab188d8b502ad61d1063c9914b830b66ce795b4a4); arm64_sequoia bf9f97484c9dc02cfd4a0a9dacf6c890652f2b2fb324410db0ca0acaacd326dc needs a one-line amendment first",
       "sha256": "9dfb60d4c7d0c6721eee679ab188d8b502ad61d1063c9914b830b66ce795b4a4",
-      "project": "Owner's MacBook, colima profile demotest: attended demo",
+      "project": "Owner's MacBook, colima profile demotest: attended demo (variant A; host choice PENDING)",
       "configuration": [
-        "the API's demo-profile database, started by tools/demo/run-attended-demo.sh and attended by the owner"
+        "the API's demo-profile database, created by ReviewedPostgres, started by tools/demo/run-attended-demo.sh from the owner's terminal"
       ],
       "verdict": "APPROVE-WITH-CONDITIONS",
       "conditions": [
-        "Blocked until the host matches (condition 1 of the attended-demo record): colima 0.10.3 installed and pinned, and a delta review of the lima and docker CLI versions actually installed",
-        "Attended by the owner; started only by tools/demo/run-attended-demo.sh, which fails closed",
-        "All conditions of homebrew--colima-lima-docker--attended-demo-scope.md and of the MacBook demotest entries apply",
+        "Host choice PENDING: valid only for the variant the owner picks (condition 1 of homebrew--colima-lima-docker--attended-demo-scope.md)",
+        "Blocked until ReviewedPostgres with an engine case for this profile, its launcher and tools/demo/run-attended-demo.sh are reviewed (condition 2)",
+        "The database comes only from ReviewedPostgres, attended by the owner; all conditions of homebrew--colima-lima-docker--attended-demo-scope.md apply",
+        "Variant A is blocked until the MacBook matches (condition 10): colima 0.10.3 installed and pinned, and a delta review of the lima and docker CLI versions actually installed",
+        "vz driver only; no qemu, no lima-additional-guestagents"
+      ],
+      "reviewRecord": "security/reviews/homebrew--colima-lima-docker--attended-demo-scope.md",
+      "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
+      "reviewedAt": "2026-11-07",
+      "expiresAt": "2027-05-06"
+    },
+    {
+      "kind": "homebrew",
+      "coordinate": "homebrew/core/lima",
+      "version": "2.2.0",
+      "artifact": "lima 2.2.0 arm64_tahoe bottle (ghcr.io/v2/homebrew/core/lima/blobs/sha256:9dfb60d4c7d0c6721eee679ab188d8b502ad61d1063c9914b830b66ce795b4a4), source v2.2.0.tar.gz sha256 cdba3804df7d8c00a2af674a3fe0b24c19673a0e846e5f75ac9badf227ce52f5",
+      "sha256": "9dfb60d4c7d0c6721eee679ab188d8b502ad61d1063c9914b830b66ce795b4a4",
+      "project": "Mac Mini, `claude` user, colima profile rigbuild: attended demo over SSH (variant B; host choice PENDING)",
+      "configuration": [
+        "the API's demo-profile database, created by ReviewedPostgres, started by tools/demo/run-attended-demo.sh inside ~/bin/with-rigbuild.sh from an SSH session"
+      ],
+      "verdict": "APPROVE-WITH-CONDITIONS",
+      "conditions": [
+        "Host choice PENDING: valid only for the variant the owner picks (condition 1 of homebrew--colima-lima-docker--attended-demo-scope.md)",
+        "Blocked until ReviewedPostgres with an engine case for this profile, its launcher and tools/demo/run-attended-demo.sh are reviewed (condition 2)",
+        "The database comes only from ReviewedPostgres, attended by the owner; all conditions of homebrew--colima-lima-docker--attended-demo-scope.md apply",
+        "Variant B: the Mini is checked before each session (condition 11) and runs go through ~/bin/with-rigbuild.sh after its recorded amendment; the rigbuild profile is reserved for the demo",
         "vz driver only; no qemu, no lima-additional-guestagents"
       ],
       "reviewRecord": "security/reviews/homebrew--colima-lima-docker--attended-demo-scope.md",
@@ -11110,12 +11181,12 @@
         "Lockfile pins @playwright/test, playwright and playwright-core 1.65.0 with the integrity values in section 3",
         "No `playwright install`, `install-deps`, `--with-deps` or branded channels (chrome, msedge) in CI; PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1; the browser comes only via browser-binary--chrome-headless-shell--158.0.8127.18 and launchOptions.executablePath",
         "No PLAYWRIGHT_DOWNLOAD_HOST or PLAYWRIGHT_*_DOWNLOAD_HOST overrides",
-        "Tests navigate only to the application started by webServer on 127.0.0.1; webServer.command is a CODEOWNERS-protected repository command",
+        "Tests navigate only to the application started by webServer on 127.0.0.1; webServer.command is a command committed in the repository and reviewed in its pull request (CODEOWNERS review is not enforced, so it is not counted as approval)",
         "No --ui, show-report or trace-viewer servers in CI (reports are uploaded as artifacts); no video recording (it needs the unreviewed ffmpeg download)",
-        "Only the playwright test command runs: never init-agents, init-skills, install-skill, mcp, run-test-mcp-server, test-server, cli, run-server, launch-server, run-driver, show-trace, open, show-report, install, install-deps, uninstall or mark-docker-image; nothing those commands write (.claude/, .github/agents/, .github/workflows/copilot-setup-steps.yml, .vscode/mcp.json, SKILL.md files) is committed",
-        "The HTML reporter, if configured, sets open: 'never'; if its report is uploaded, a notices file listing the report app's inlined code (React 19.2.7, React DOM 19.2.7, scheduler 0.27.0, zip.js 2.7.73: MIT and BSD-3-Clause) goes with it",
-        "No proxy in the job: no HTTP_PROXY, HTTPS_PROXY, ALL_PROXY or launchOptions.proxy, so the inlined proxy agents and ip-address 10.7.2 (GHSA-rxp7-6hxx-x8q5) are not reached",
-        "Glob patterns (testMatch, testIgnore, command-line filters) come only from the CODEOWNERS-protected config and workflow, so minimatch 10.2.5 (GHSA-g3hv-75wg-m249) gets no outside pattern",
+        "Only the playwright test command runs: never init-agents, init-skills, install-skill, mcp, run-test-mcp-server, test-server, cli, run-server, launch-server, run-driver, show-trace, open, show-report, install, install-deps, uninstall or mark-docker-image. The skills and agent definitions shipped in the packages (playwright-core/lib/tools/skills/, playwright/lib/agents/) are never activated, loaded, installed or copied into any agent's configuration, in this repository or on any machine that works on it; nothing those commands write (.claude/, .github/agents/, .github/workflows/copilot-setup-steps.yml, .vscode/mcp.json, SKILL.md files) is committed",
+        "The HTML reporter, if configured, sets open: 'never'. Recommended: upload no HTML report. If one is uploaded or published, it carries a notices file with the full licence texts and copyright notices its code requires, taken from each component's own package at that version: Playwright's LICENSE and NOTICE (Apache-2.0); React 19.2.7, React DOM 19.2.7 and scheduler 0.27.0 (MIT); zip.js 2.7.73 (BSD-3-Clause); and, when the run kept traces (the reporter then copies the trace viewer into trace/), also CodeMirror 5.65.18, @xterm/xterm 5.5.0 and @xterm/addon-fit 0.10.0 (MIT), yaml 2.9.0 (ISC), the VS Code codicons (MIT) and the Chromium DevTools snippet (BSD-3-Clause)",
+        "No proxy at any level. The job's environment has no variable whose name ends in _proxy, in any case: http_proxy, https_proxy, all_proxy, no_proxy and their upper-case forms, which the inlined proxy-from-env reads lower case first (utilsBundle.js:48518). No proxy option is set in use.proxy, use.launchOptions.proxy or use.contextOptions.proxy, nor passed to browserType.launch, launchPersistentContext, launchServer, browser.newContext, browser.newPage or request.newContext. The contract-e2e workflow demonstrates both checks (a step that fails on any such variable, and a check of the resolved config and the test sources), recorded as an amendment; until then ip-address 10.7.2 (GHSA-rxp7-6hxx-x8q5) counts as open, not unreachable",
+        "Every pattern that reaches minimatch 10.2.5 (GHSA-g3hv-75wg-m249) comes from files committed in the repository and reviewed in their pull request: testMatch, testIgnore and build.external (the transform's externals) in the Playwright config, and the .gitignore files Playwright reads under the test directory. None is built from environment variables, workflow inputs or event data: no ${{ inputs.* }}, ${{ github.event.* }} or similar interpolation into the test command or the config. CODEOWNERS review is not enforced and is not counted as approval",
         "The third-party code inlined in the three packages (section B of the 2026-11-07 amendment, one allowlist entry of kind bundled each) is approved only as inlined there; none of it is installed, resolved or required on its own",
         "Licences outside the list accepted without conditions, inlined and never distributed: ISC (12 components), BlueOak-1.0.0 (minimatch) and CC-BY-4.0 (caniuse-lite data); the owner's explicit decision (security/AGENTS.md)"
       ],
@@ -11483,7 +11554,8 @@
         "Only the tsc CLI, as tsc -p apps/shipping-web (or a package script that runs exactly that), on this repository's sources: no tsserver, tsserverlibrary or typingsInstaller (Automatic Type Acquisition runs npm install), no language-service or compiler plugins, and no repository code that imports the typescript API",
         "Installed only by npm ci --ignore-scripts and run only on the reviewed Node.js 26.13.0 (linux-x64 in CI, darwin-arm64 locally)",
         "Scope is apps/shipping-web only: this review is the separately reviewed 5.x that the typescript 7.0.2 review asks for, but it does not approve openapi-typescript 7.13.0, its transitives or packages/shipping-client; that use needs its own scope extension and transitive reviews",
-        "TypeScript 5.x gets no further releases: an advisory against 5.9.3 ends this approval, because no fixed 5.x version will exist"
+        "TypeScript 5.x gets no further releases: an advisory against 5.9.3 ends this approval, because no fixed 5.x version will exist",
+        "Licences: TypeScript is Apache-2.0, but its declaration files incorporate material under licences outside the list accepted without conditions: the W3C Software and Document License and CC-BY-4.0 (the DOM, from W3C and WHATWG), the W3C Community Final Specification Agreement (Web Background Synchronization), the Unicode data-files licence and a Khronos MIT-style licence (WebGL), besides DefinitelyTyped (MIT). They are used only to compile: tsc's emitted JavaScript contains none of that material, and the package is never redistributed. This is the owner's explicit decision (security/AGENTS.md)"
       ],
       "reviewRecord": "security/reviews/npm--typescript--5.9.3.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -11670,11 +11742,12 @@
       "conditions": [
         "Host: the owner's MacBook, using only the Node.js 26.13.0 darwin-arm64 tree verified on 2026-11-07 (security/verifications/2026-11-07-frontend-toolchain.md); before each run node --version prints v26.13.0, npm --version 11.20.0 and codesign --verify --strict bin/node succeeds",
         "Source: a fresh clone of main over HTTPS without credentials into a new empty directory; the commit (git rev-parse HEAD) is stated in the lock pull request",
+        "Before npm runs, the clone's manifests and npm configuration are inspected and recorded. The root package.json and each workspace package.json declare only the reviewed packages, at exact versions, with no range, git, URL, file or link specifier; there are no overrides beyond pinning axe-core 4.14.0 and no workspaces beyond the reviewed ones. No .npmrc or other npm configuration file is present unless the lock pull request adds it and has it reviewed. Anything else stops the run",
         "Environment: npm runs under env -i with only HOME set to a new empty directory, PATH set to the verified Node bin directory followed by /usr/bin:/bin, and TMPDIR; no other variable, so no token, proxy, npm_config_* or NODE_OPTIONS can reach it",
         "The only npm command: npm install --package-lock-only --ignore-scripts --no-audit --no-fund, run at the root of the clone with --registry=https://registry.npmjs.org/, --userconfig and --globalconfig set to empty files, --cache and --logs-dir in new empty directories, --no-update-notifier and --loglevel=http",
-        "Network: every request line in the kept http log names https://registry.npmjs.org/; any other host voids the run",
+        "Network: npm is configured for https://registry.npmjs.org/ only, and every request line in the kept http log names it; any other host voids the run. The log is an audit after the run, not enforced egress isolation",
         "After the run: no node_modules directory exists, and git status shows only package-lock.json changed besides the manifests the lock pull request adds",
-        "Before the lock pull request: every packages entry of package-lock.json is compared with the allowlist, field by field: the version has an approved npm entry, resolved equals that entry's artifact URL exactly, and integrity equals the sha512 that its conditions or review record give; an entry without a reviewed counterpart, or any mismatch, stops the pull request; java tools/policy/PolicyCheck.java runs clean on the clone",
+        "Before the lock pull request, package-lock.json holds exactly six external registry packages, those of section 10. Besides them it holds only repository-owned entries: the root, each workspace's own metadata entry and each workspace link. Every external entry matches the allowlist field by field: the version has an approved npm entry, resolved equals that entry's artifact URL exactly, and integrity equals the sha512 that its conditions or review record give. Every repository-owned entry is checked too: each link has link true and resolves to a workspace directory that the root declares, each workspace entry's dependencies are exactly its manifest's, and none has a resolved URL or an integrity. Any other entry or any mismatch stops the pull request; java tools/policy/PolicyCheck.java runs clean on the clone",
         "The lock pull request is its own pull request: the manifests and package-lock.json only, with the commit, the versions, the command, the environment check and the host summary of the http log in its body",
         "Installs anywhere, CI and local hosts included, remain npm ci --ignore-scripts from the committed lockfile; nothing generated here is installed or run in this environment",
         "npm's licence is Artistic-2.0: accepted only as an unmodified build tool that is never distributed (the owner's explicit decision, security/AGENTS.md)",

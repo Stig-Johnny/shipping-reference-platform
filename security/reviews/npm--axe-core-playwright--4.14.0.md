@@ -24,7 +24,8 @@ expiresAt: "2027-05-06"
 **APPROVE-WITH-CONDITIONS.**
 
 - **Fit:** 4.14.0 is the newest release, and its `axe-core` range `~4.14.0` accepts 4.14.0.
-- **Size and provenance:** it is a 48 KB adapter with verified provenance.
+- **Size and provenance:** it is a 48 KB adapter. Its registry signatures, the DSSE signatures of its attestations and
+  the provenance certificate chain were checked on 2026-11-07; Rekor inclusion was not (amendment).
 - **One script to keep inert:** `prepare` runs `pnpm exec playwright install`. It is inert for a registry install
   with `--ignore-scripts`, and the conditions keep it that way.
 
