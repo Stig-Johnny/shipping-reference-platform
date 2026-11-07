@@ -44,6 +44,12 @@ as the code. An agent that makes a check pass by weakening it has failed the tas
   "Size reason:" paragraph; prefer splitting.
 - State the risk level you expect and why. The `risk-approval` check computes the real level from base-branch
   policy; you may argue for a higher level, never a lower one.
+- Every PR that needs the owner's approval (risk level 3), and every PR that changes what a reader sees on the site
+  or in the app, supplies a proportionate public demo in `docs/demos/<pr>-<slug>.md`, authored with the change and
+  numbered after opening the PR. Other PRs may add one; the pull request says why none is needed. Follow
+  `docs/demos/how-to.md`. State the observable result, evidence and limits; distinguish recorded output from checks
+  run in the publishing build. Never invent output or hand-enter revisions. Until the reviewed media gate exists,
+  publish text only. Run the documented checks and record review of the rendered page before merge.
 - Planned: pull requests are opened by a dedicated GitHub App identity. Today agents open them on the owner's account,
   which is why GitHub cannot require code owner review (`docs/gaps.md`, section 5). Never approve your own pull
   request, never merge one whose checks are not green, and never push to `main`, force-push a shared branch, skip

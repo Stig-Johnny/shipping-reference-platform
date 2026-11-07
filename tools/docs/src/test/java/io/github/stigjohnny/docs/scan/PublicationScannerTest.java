@@ -5,6 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.repo.Allowlist;
+import io.github.stigjohnny.docs.repo.Sources;
+import io.github.stigjohnny.docs.site.SiteBuilder;
+import io.github.stigjohnny.docs.testing.Demos;
+import io.github.stigjohnny.docs.testing.Fixture;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -281,6 +285,33 @@ class PublicationScannerTest {
     void aMalformedExceptionsFileFails(String json) {
         assertThatThrownBy(() -> ScanExceptions.parse(json.formatted("0".repeat(64)), "exceptions.json"))
                 .isInstanceOf(DocsException.class).hasMessageContaining("exceptions.json");
+    }
+
+    @Test
+    void theScanCoversTheDemonstrationsPagesAsBuilt() {
+        Fixture fixture = Fixture.copy(dir.resolve("copy")).passingEvidence();
+        for (String kind : List.of("gate", "visual", "docs", "build", "feature")) {
+            fixture.write(Demos.path(kind), Demos.text(kind));
+        }
+        ScanExceptions exceptions = ScanExceptions.parse(Sources.text(fixture.root(), PublicationScanner.EXCEPTIONS),
+                PublicationScanner.EXCEPTIONS);
+
+        assertThat(scanBuiltSite(fixture, exceptions).findings()).isEmpty();
+
+        // Recorded output is published as it was pasted, so the scan is what keeps a leaked value off the site.
+        fixture.edit(Demos.path("gate"), text -> text.replace("## Dependency allowlist: clean", "## Dependency "
+                + "allowlist: clean on " + sample("PRIVATE_IP") + " for " + sample("DICTIONARY") + " in "
+                + sample("LOCAL_PATH")));
+
+        assertThat(scanBuiltSite(fixture, exceptions).findings()).containsExactly(
+                new Finding("DICTIONARY", "demos/42-gate.html"), new Finding("LOCAL_PATH", "demos/42-gate.html"),
+                new Finding("PRIVATE_IP", "demos/42-gate.html"));
+    }
+
+    private ScanResult scanBuiltSite(Fixture fixture, ScanExceptions exceptions) {
+        SiteBuilder.build(Sources.read(fixture.root(), List.of(fixture.reports())), dir.resolve("site"),
+                "0123456789abcdef0123456789abcdef01234567");
+        return PublicationScanner.scan(dir.resolve("site"), DICTIONARY, exceptions, "");
     }
 
     @Test

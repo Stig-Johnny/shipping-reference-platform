@@ -36,7 +36,9 @@ import java.util.regex.Pattern;
  *   <li>a capability or control claims {@code shipped} or {@code partial} only with evidence, every evidence test
  *       exists and passed in this build, {@code planned} names no evidence, and a non-planned control's check is a
  *       workflow job;
- *   <li>every link resolves: relative links to existing files and their anchors, no private or unsafe destination.
+ *   <li>every link resolves: relative links to existing files and their anchors, no private or unsafe destination;
+ *   <li>every demonstration under {@code docs/demos/} has its metadata, its sections, approved commands only and text
+ *       only ({@link DemoCheck}).
  * </ul>
  */
 public final class Consistency {
@@ -65,6 +67,7 @@ public final class Consistency {
         mentions(sources, problems);
         capabilities(sources, problems);
         links(sources, problems);
+        DemoCheck.check(sources, problems);
         problems.throwIfAny("the documentation sources are inconsistent");
     }
 

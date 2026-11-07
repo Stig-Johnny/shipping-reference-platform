@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.testing.BuiltSite;
+import io.github.stigjohnny.docs.testing.Demos;
 import io.github.stigjohnny.docs.testing.Fixture;
 import java.nio.file.Path;
 import java.util.List;
@@ -16,7 +17,8 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * The structure WCAG 2.1 AA needs from the HTML, as the binding GUI design states it: a skip link, landmarks, one
  * heading per page, labelled controls and regions, active navigation in words and aria-current, and the page template
- * in its order. Contrast, focus, reduced motion and reflow are in the stylesheet (SiteAssetsTest).
+ * in its order. Contrast, focus, reduced motion and reflow are in the stylesheet (SiteAssetsTest). The copy has two
+ * demonstrations, so that every rule covers their sheets and the register of the Demos section too.
  */
 class SiteAccessibilityTest {
 
@@ -29,7 +31,8 @@ class SiteAccessibilityTest {
 
     @BeforeAll
     static void buildTheSite() {
-        Fixture fixture = Fixture.copy(dir).passingEvidence();
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write(Demos.path("gate"), Demos.GATE)
+                .write(Demos.path("visual"), Demos.VISUAL);
         SiteBuilder.build(Sources.read(fixture.root(), List.of(fixture.reports())), dir.resolve("site"), "0123456789abcdef0123456789abcdef01234567");
         site = BuiltSite.read(dir.resolve("site"));
     }
@@ -105,6 +108,22 @@ class SiteAccessibilityTest {
         assertThat(brain).contains("<span class=\"badge badge-planned\">Planned</span>",
                 "<span class=\"badge badge-shipped\">Shipped</span>");
         assertThat(site.text("trust/allowlist.html")).contains("<span class=\"badge badge-rejected\">Rejected</span>");
+    }
+
+    @Test
+    void theDemonstrationsRegisterIsACaptionedTableAndASheetStatesItsFactsInWords() {
+        String index = site.text("demos/index.html");
+        String sheet = site.text("demos/42-gate.html");
+
+        assertThat(index).contains("<div class=\"table-scroll\" role=\"region\" tabindex=\"0\" aria-label=\""
+                + "Demonstrations, scrolls sideways\">\n<table>\n<caption>Demonstrations (2), newest recording first"
+                + "</caption>", "<th scope=\"row\"><a href=\"43-visual.html\">");
+        // The pull request, the kind and the date are words beside the description; commands and recorded output are
+        // labelled in words, not by their styling.
+        assertThat(sheet).contains("Pull request #42 · Kind: gate · Recorded <time datetime=\"2026-11-07\">",
+                "<p class=\"fence-label\">Command</p>", "<p class=\"fence-label\">Recorded output</p>");
+        assertThat(sheet.indexOf("class=\"page-facts\"")).isBetween(sheet.indexOf("class=\"page-summary\""),
+                sheet.indexOf("class=\"sheet-meta\""));
     }
 
     @Test
