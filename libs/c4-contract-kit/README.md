@@ -65,10 +65,11 @@ void theWebAppConformsToTheModel() {
 }
 ```
 
-The model's web container names its source root with `web.root`, and each of its components its directories
-(`web.paths`), status, optional entry file and the npm packages it may import; relationships between them carry
-`web.mode`. The vocabulary is in the header of [`architecture/workspace.dsl`](../../architecture/workspace.dsl), and
-the rules in [`AGENTS.md`](AGENTS.md) ("Web imports").
+The model's web container names its source root with `web.root`, its test and public roots, and the Node.js built-ins
+and npm packages tests may import; each of its components names its directories (`web.paths`), status, optional entry
+file and the npm packages it may import; relationships between them carry `web.mode`. The vocabulary is in the header of
+[`architecture/workspace.dsl`](../../architecture/workspace.dsl), and the rules in [`AGENTS.md`](AGENTS.md) ("Web
+imports").
 
 The check reads the sources as text with a deliberately restricted import grammar, so it needs the JDK alone: no
 Node, no TypeScript compiler and no parser library. It never runs, compiles or installs them. What the grammar reads
@@ -79,10 +80,19 @@ triple-slash directives, and JSX it cannot read with certainty. Strings, comment
 JSX text never count as code. A relative import names a `.ts` file with its extension, as `./QuoteCard.ts`, which
 must exist with exactly that name, or a file or directory without one, which must match exactly one file.
 
+Every import is whitelisted twice: in the model, and in `security/allowlist.json`. A package must be declared by the
+importing component (`web.packages`, or `web.testPackages` for a test), pinned in `package.json`, and approved for the
+app in the allowlist; code that runs in the browser needs an approval for `dependencies`. Browser code may import no
+Node.js built-in; a test may import those `web.testBuiltins` lists, written with `node:`, when the allowlist approves
+the Node.js that `engines.node` names. Tests are read and held to their component's relationships and entries, but
+never count as evidence, and no production file may import one. Settings of `package.json`, `tsconfig*.json` and the
+app's pages that would resolve a specifier otherwise (path aliases, `baseUrl`, an import map, and more) fail the check.
+
 It fails on an import between two components without a relationship, on a REQUIRED relationship between built
 components without an import, on a file in no component or in a planned one, on a built component without code, on an
-import of a component other than through its `web.entry`, on an unresolved import, on a package the importing
-component does not declare, on an import cycle, and on unsupported syntax or files. Its reports, `report.json`
+import of a component other than through its `web.entry`, on an import of a test, on an unresolved import, on a package
+or built-in that is not declared or not approved, on an import cycle, on unsupported syntax or files, and on a refused
+setting of the app's configuration. Its reports, `report.json`
 (`"schema": "c4-contract-kit/web-report/v1"`) and `report.md`, are deterministic like the class check's.
 
 ## The model

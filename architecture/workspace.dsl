@@ -60,6 +60,14 @@
 // On the one container whose TypeScript sources are checked (exactly one container may carry web.root):
 //   web.root      Directory of the container's source files, relative to the repository root. Every file under it
 //                 must belong to exactly one component by directory. Names that start with a dot are not part of it.
+//                 The directory above it is the app's: its package.json, tsconfig*.json and *.html are read too.
+//   web.testRoots     Optional. Comma-separated directories of tests only, inside the app's directory. Every .ts and
+//                     .tsx file in them is a test. No root may equal or lie inside another, web.root included.
+//   web.publicRoots   Optional. Comma-separated directories of files served as they are (style sheets, images and
+//                     fonts only), inside the app's directory.
+//   web.testBuiltins  Optional. Comma-separated built-in modules of Node.js that tests may import, each written with
+//                     node: (node:test). Browser code may import none, and a test none without node:.
+//   web.testPackages  Optional. Comma-separated npm package names that tests may import with a bare specifier.
 //
 // On every component of that container:
 //   web.id        Stable identifier matching [a-z][a-z0-9-]*, unique among the web components. Used in reports.
@@ -68,10 +76,15 @@
 //   web.status    built | planned, with the tag "Planned" exactly when planned.
 //                 built    the directories must hold at least one .ts or .tsx file (test files do not count).
 //                 planned  the directories must hold no file at all; the component's edges are not evaluated.
-//   web.entry     Optional. A .ts or .tsx file inside the component's directories, relative to web.root. Other
-//                 components may import the component through that file only.
+//   web.entry     Optional. A .ts or .tsx file inside the component's directories, relative to web.root, and not a
+//                 test. Other components, and their tests, may import the component through that file only.
 //   web.packages  Optional. Comma-separated npm package names that the component's files may import with a bare
 //                 specifier (react also covers react/jsx-runtime). Any other bare specifier fails the check.
+//
+// Every package and built-in an import names is whitelisted twice: here, and in security/allowlist.json. A package
+// of browser code must be pinned in package.json "dependencies" and approved there for the app (project
+// apps/shipping-web, configuration dependencies); a test's package in "devDependencies" or "dependencies". A test's
+// built-ins need the approval of the Node.js that package.json "engines" names, for the web job.
 //
 // On relationships between two components of that container, and nowhere else:
 //   web.mode      REQUIRED | PERMITTED, as contract.mode above with an import in place of a reference: "a -> b"
@@ -82,10 +95,13 @@
 // An import from one web component to another without a relationship fails the check (a divergence), and so does a
 // REQUIRED relationship between built components without any import (an absence). Type-only imports, re-exports and
 // import() of a string literal count; imports inside one component do not, but no files may import each other in a
-// cycle. Test files (*.test.ts, *.test.tsx) are owned by their component and not evaluated. The sources are read as
-// data with a deliberately restricted import grammar, never executed: whatever it does not cover (require, import()
-// of anything but a string literal, import.meta other than import.meta.env, absolute, aliased or URL specifiers,
-// .js and .json files) fails the check. The rules are in libs/c4-contract-kit/AGENTS.md ("Web imports").
+// cycle. Test files (*.test.ts, *.test.tsx) are held to the relationships and entries of their component, and the files
+// of a test root, which belong to no component, may import only files of that root; but tests are never evidence: a
+// test never satisfies a REQUIRED relationship, and no production file may import a test. The sources are read as data
+// with a deliberately restricted import grammar, never executed: whatever it does not cover (require, import() of
+// anything but a string literal, import.meta other than import.meta.env, absolute, aliased or URL specifiers, .js and
+// .json files, CSS @import, and settings such as tsconfig paths, baseUrl or an import map that would resolve a
+// specifier otherwise) fails the check. The rules are in libs/c4-contract-kit/AGENTS.md ("Web imports").
 //
 // What this model cannot prove is listed in docs/gaps.md. In short: a REQUIRED edge proves that a static reference
 // or import exists, not that the behaviour behind it runs.

@@ -8,6 +8,10 @@ import io.github.stigjohnny.c4contractkit.report.WebMarkdownReport;
 import io.github.stigjohnny.c4contractkit.rules.WebComparison;
 import io.github.stigjohnny.c4contractkit.rules.WebFinding;
 import io.github.stigjohnny.c4contractkit.rules.WebRules;
+import io.github.stigjohnny.c4contractkit.rules.WebInputs;
+import io.github.stigjohnny.c4contractkit.sources.Allowlist;
+import io.github.stigjohnny.c4contractkit.sources.AppConfiguration;
+import io.github.stigjohnny.c4contractkit.sources.RootKind;
 import io.github.stigjohnny.c4contractkit.sources.SourceReader;
 import io.github.stigjohnny.c4contractkit.sources.SourceSet;
 import java.io.IOException;
@@ -15,12 +19,16 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Checks the TypeScript sources of a web app against the web container of a C4 model written in Structurizr DSL, in
  * both directions: an import between two components that the model does not declare fails, and so does a REQUIRED
- * relationship without any import. The sources are read as data with a restricted import grammar; nothing in them is
- * executed, compiled or installed, and whatever the grammar does not cover fails the check instead of being skipped.
+ * relationship without any import. Every package and Node.js built-in an import names must be declared in the model
+ * and approved in the dependency allowlist. The sources, tests, public files and configuration are read as data with a
+ * restricted grammar; nothing in them is executed, compiled or installed, and whatever the grammar does not cover fails
+ * the check instead of being skipped.
  */
 public final class WebConformance {
 
@@ -34,8 +42,8 @@ public final class WebConformance {
      * @param repositoryRoot the directory that the model's {@code web.root} is relative to
      * @return what the comparison found; {@link WebReport#passed()} tells whether the sources conform
      * @throws ModelException listing every model problem, when the model is invalid or uses a rejected construct
-     * @throws IllegalArgumentException if the web root is not a directory, or is or holds a symbolic link
-     * @throws UncheckedIOException if a file under the web root cannot be read
+     * @throws IllegalArgumentException if a root is not a directory, or a symbolic link is on its path or under it
+     * @throws UncheckedIOException if a file cannot be read
      */
     public static WebReport check(Path model, Path repositoryRoot) {
         String modelPath = Conformance.displayPath(model);
@@ -45,8 +53,36 @@ public final class WebConformance {
         } catch (InvalidModelException e) {
             throw new ModelException(modelPath, e.problems());
         }
+        List<String> roots = new ArrayList<>(List.of(web.root()));
+        roots.addAll(web.testRoots());
+        roots.addAll(web.publicRoots());
+        roots.forEach(root -> noLinkOnThePath(repositoryRoot, root));
         SourceSet sources = SourceReader.read(repositoryRoot.resolve(web.root()), web.root());
-        return WebResultMapping.toReport(modelPath, WebRules.compare(web, sources));
+        List<SourceSet> testRoots = web.testRoots().stream()
+                .map(root -> SourceReader.read(repositoryRoot.resolve(root), root, RootKind.TEST)).toList();
+        List<SourceSet> publicRoots = web.publicRoots().stream()
+                .map(root -> SourceReader.read(repositoryRoot.resolve(root), root, RootKind.PUBLIC)).toList();
+        AppConfiguration configuration = AppConfiguration.read(
+                web.app().isEmpty() ? repositoryRoot : repositoryRoot.resolve(web.app()), web.app());
+        Allowlist allowlist = Allowlist.read(repositoryRoot.resolve(Allowlist.PATH));
+        return WebResultMapping.toReport(modelPath, WebRules.compare(web,
+                new WebInputs(sources, testRoots, publicRoots, configuration, allowlist)));
+    }
+
+    /**
+     * No directory on the way from the repository root to a root may be a symbolic link: the reader would follow it out
+     * of the repository, and the link checks below the root would not see it.
+     */
+    private static void noLinkOnThePath(Path repositoryRoot, String root) {
+        Path path = repositoryRoot;
+        for (String name : root.split("/", -1)) {
+            path = path.resolve(name);
+            if (Files.isSymbolicLink(path)) {
+                throw new IllegalArgumentException("The web root " + root + " lies under a symbolic link, "
+                        + repositoryRoot.relativize(path).toString().replace('\\', '/')
+                        + ": the check reads only regular files and directories");
+            }
+        }
     }
 
     /**

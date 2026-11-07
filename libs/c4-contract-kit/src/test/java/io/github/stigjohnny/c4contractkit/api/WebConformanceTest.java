@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.junit.jupiter.api.Test;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
@@ -320,6 +321,31 @@ class WebConformanceTest {
     }
 
     @Test
+    void urlDataAndComputedImportsAreRefusedInBrowserCodeAndInTests() {
+        Map<String, String> files = with("api/remote.ts", """
+                import a from 'https://cdn.example/a.js';
+                import b from 'data:text/javascript,export default 1';
+                export const load = (name: string) => import(name);
+                """);
+        files.put("features/cart/remote.test.ts", """
+                import c from 'https://cdn.example/c.js';
+                export const later = () => import(`./${'x'}.ts`);
+                """);
+
+        WebReport report = check(files);
+
+        String scheme = ": a module specifier with a scheme (such as node:, https: or virtual:) is not supported.";
+        String computed = ": import() is supported only with one plain string literal: the module it loads must be "
+                + "known without running the code.";
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::message).containsExactly(
+                tuple(WebViolationType.UNSUPPORTED_SYNTAX, "web/src/api/remote.ts:1" + scheme),
+                tuple(WebViolationType.UNSUPPORTED_SYNTAX, "web/src/api/remote.ts:2" + scheme),
+                tuple(WebViolationType.UNSUPPORTED_SYNTAX, "web/src/api/remote.ts:3" + computed),
+                tuple(WebViolationType.UNSUPPORTED_SYNTAX, "web/src/features/cart/remote.test.ts:1" + scheme),
+                tuple(WebViolationType.UNSUPPORTED_SYNTAX, "web/src/features/cart/remote.test.ts:2" + computed));
+    }
+
+    @Test
     void aFileTypeOutsideTheGrammarIsUnsupported() {
         WebReport report = check(with("ui/legacy.js", "module.exports = require('./x');\n"));
 
@@ -368,16 +394,294 @@ class WebConformanceTest {
                         + "not supported: link style sheets from index.html."));
     }
 
+    private WebReport check(String model, Map<String, String> files, @Nullable String packageJson,
+                            @Nullable String allowlist) {
+        return WebConformance.check(WebFixture.write(repository, model, files, packageJson, allowlist), repository);
+    }
+
     @Test
-    void testFilesAreOwnedButTheirImportsAreNotEvaluated() {
-        WebReport report = check(with("features/catalog/CatalogPage.test.tsx", """
-                import { CartPage } from '../cart/CartPage';
-                const lazy = require('anything');
+    void aProductionImportOfATestFileIsAViolationEvenInsideItsComponent() {
+        // Codex's review of the rules: a test file was dependency evidence while nothing in it was ever read.
+        Map<String, String> files = with("features/cart/bridge.test.ts", "export const helper = 1;\n");
+        files.put("features/cart/CartPage.tsx", Objects.requireNonNull(files.get("features/cart/CartPage.tsx"))
+                .replace("import { useState } from 'react';", "import { useState } from 'react';\n"
+                        + "import { helper } from './bridge.test';"));
+
+        WebReport report = check(files);
+
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::identifiers,
+                WebViolation::message).containsExactly(tuple(WebViolationType.TEST_FILE_IMPORTED,
+                List.of("web/src/features/cart/CartPage.tsx", "web/src/features/cart/bridge.test.ts"),
+                "web/src/features/cart/CartPage.tsx imports the test web/src/features/cart/bridge.test.ts: production "
+                        + "code may not import tests, whose imports are held to the rules for tests and are never "
+                        + "evidence."));
+    }
+
+    @Test
+    void aTestFileCannotBridgeARequiredRelationship() {
+        // catalog -> client is REQUIRED; catalog's only import of client goes through a test file of client.
+        Map<String, String> files = with("api/bridge.test.ts", "export { loadItems } from './items';\n");
+        files.put("features/catalog/CatalogPage.tsx", Objects.requireNonNull(files.get(
+                "features/catalog/CatalogPage.tsx")).replace("'../../api/items'", "'../../api/bridge.test'"));
+
+        WebReport report = check(files);
+
+        assertThat(report.passed()).isFalse();
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::identifiers).containsExactly(
+                tuple(WebViolationType.ABSENCE, List.of("catalog", "client")),
+                tuple(WebViolationType.TEST_FILE_IMPORTED, List.of("web/src/features/catalog/CatalogPage.tsx",
+                        "web/src/api/bridge.test.ts")));
+    }
+
+    @Test
+    void aTestIsHeldToTheRelationshipsOfItsComponent() {
+        WebReport report = check(with("features/cart/CartPage.test.tsx", """
+                import { CatalogPage } from '../catalog';
+                export const page = CatalogPage;
                 """));
 
-        assertThat(report.violations()).isEmpty();
-        assertThat(report.components()).filteredOn(component -> component.id().equals("catalog"))
-                .extracting(WebComponentResult::fileCount).containsExactly(2);
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::identifiers,
+                WebViolation::message, WebViolation::evidence).containsExactly(tuple(WebViolationType.DIVERGENCE,
+                List.of("cart", "catalog"), "A test of cart imports catalog, but the model declares no relationship "
+                        + "cart -> catalog.", evidence("web/src/features/cart/CartPage.test.tsx", 1,
+                        "../catalog", "import", "web/src/features/catalog/index.ts")));
+        assertThat(report.edges()).noneMatch(edge -> edge.status() == EdgeStatus.DIVERGENCE);
+    }
+
+    @Test
+    void aTestNeverSatisfiesARequiredRelationship() {
+        Map<String, String> files = with("features/cart/CartPage.tsx", """
+                import { useState } from 'react';
+                import { Button } from '../../ui/Button';
+
+                export function CartPage() {
+                    const [lines] = useState<string[]>([]);
+                    return <section><p>{lines.length} items.</p><Button>Check out</Button></section>;
+                }
+                """);
+        files.put("features/cart/CartPage.test.tsx", """
+                import { loadCart } from '../../api/cart';
+                export const lines = loadCart();
+                """);
+
+        WebReport report = check(files);
+
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::identifiers)
+                .containsExactly(tuple(WebViolationType.ABSENCE, List.of("cart", "client")));
+    }
+
+    @Test
+    void aTestThatImportsPastAnEntryBypassesItAndWhatATestRefusesFails() {
+        WebReport report = check(with("app/Shell.test.tsx", """
+                import { CartPage } from '../features/cart/CartPage';
+                const lazy = require('./anything');
+                """));
+
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::identifiers).containsExactly(
+                tuple(WebViolationType.ENTRY_POINT_BYPASSED, List.of("shell", "cart")),
+                tuple(WebViolationType.UNSUPPORTED_SYNTAX, List.of("web/src/app/Shell.test.tsx")));
+    }
+
+    @Test
+    void aLoneCarriageReturnOrANonNullAssertionCannotHideAnImport() {
+        // Codex's probes, end to end: either hid the import of the line they are on, and the check passed.
+        WebReport carriageReturn = check(with("ui/Button.tsx", """
+                // comment\rimport { loadCart } from '../api/cart';
+                export const Button = () => null;
+                """));
+        assertThat(carriageReturn.violations()).extracting(WebViolation::type, WebViolation::message).containsExactly(
+                tuple(WebViolationType.UNSUPPORTED_SYNTAX, "web/src/ui/Button.tsx:1: a carriage return that is not "
+                        + "followed by a line feed is not supported: TypeScript ends a line, and a // comment, there."));
+
+        WebReport nonNull = check(with("ui/Button.tsx", """
+                export const Button = async (value: number) => {
+                    const n = value! / (await import('undeclared')).n / 2;
+                    return n;
+                };
+                """));
+        assertThat(nonNull.violations()).extracting(WebViolation::type, WebViolation::identifiers).containsExactly(
+                tuple(WebViolationType.UNDECLARED_PACKAGE, List.of("widgets", "undeclared")));
+    }
+
+    @Test
+    void aDeclaredPackageNeedsAnApprovalForTheAppInDependencies() {
+        String reason = "security/allowlist.json approves no npm @shop/client 1.0.0 for web in dependencies, and only "
+                + "that approval covers code that runs in the browser.";
+        String withoutClient = WebFixture.ALLOWLIST.replace(WebFixture.npm("@shop/client", "1.0.0", "dependencies"),
+                WebFixture.npm("other", "1.0.0", "dependencies"));
+        String devOnly = WebFixture.ALLOWLIST.replace(WebFixture.npm("@shop/client", "1.0.0", "dependencies"),
+                WebFixture.npm("@shop/client", "1.0.0", "devDependencies"));
+        String rejected = WebFixture.ALLOWLIST.replace(WebFixture.npm("@shop/client", "1.0.0", "dependencies"),
+                WebFixture.npm("@shop/client", "1.0.0", "dependencies", "REJECT"));
+        String otherProject = WebFixture.ALLOWLIST.replace(WebFixture.npm("@shop/client", "1.0.0", "dependencies"),
+                WebFixture.npm("@shop/client", "1.0.0", "dependencies").replace("\"web\"", "\"apps/other\""));
+
+        for (String allowlist : List.of(withoutClient, devOnly, rejected, otherProject)) {
+            WebReport report = check(WebFixture.MODEL, WebFixture.files(), WebFixture.PACKAGE_JSON, allowlist);
+            assertThat(report.violations()).extracting(WebViolation::type, WebViolation::identifiers,
+                    WebViolation::message, WebViolation::evidence).containsExactly(tuple(
+                    WebViolationType.UNAPPROVED_IMPORT, List.of("client", "@shop/client"), reason, List.of(
+                            new ImportEvidence("web/src/api/cart.ts", 1, "@shop/client", "import", "@shop/client"),
+                            new ImportEvidence("web/src/api/items.ts", 1, "@shop/client/items", "import",
+                                    "@shop/client"))));
+        }
+    }
+
+    @Test
+    void aPackageWithoutAnExactVersionInPackageJsonOrAnotherVersionIsNotApproved() {
+        WebReport missing = check(WebFixture.MODEL, WebFixture.files(),
+                WebFixture.PACKAGE_JSON.replace(", \"@shop/client\": \"1.0.0\"", ""), WebFixture.ALLOWLIST);
+        assertThat(missing.violations()).extracting(WebViolation::type, WebViolation::message).containsExactly(tuple(
+                WebViolationType.UNAPPROVED_IMPORT, "package.json declares no exact version of @shop/client in "
+                        + "dependencies, so no reviewed release is known."));
+
+        WebReport other = check(WebFixture.MODEL, WebFixture.files(),
+                WebFixture.PACKAGE_JSON.replace("\"@shop/client\": \"1.0.0\"", "\"@shop/client\": \"1.0.1\""),
+                WebFixture.ALLOWLIST);
+        assertThat(other.violations()).extracting(WebViolation::type, WebViolation::message).containsExactly(tuple(
+                WebViolationType.UNAPPROVED_IMPORT, "security/allowlist.json approves no npm @shop/client 1.0.1 for web "
+                        + "in dependencies, and only that approval covers code that runs in the browser."));
+    }
+
+    @Test
+    void aMissingOrUnreadableAllowlistApprovesNothing() {
+        WebReport missing = check(WebFixture.MODEL, WebFixture.files(), WebFixture.PACKAGE_JSON, null);
+        assertThat(missing.violations()).isNotEmpty().allSatisfy(violation -> {
+            assertThat(violation.type()).isEqualTo(WebViolationType.UNAPPROVED_IMPORT);
+            assertThat(violation.message()).isEqualTo("the allowlist is unavailable (security/allowlist.json does not "
+                    + "exist or is not a regular file), so nothing is approved.");
+        });
+        assertThat(missing.violations()).extracting(WebViolation::identifiers).contains(List.of("client",
+                "@shop/client"), List.of("cart", "@testing-library/react"),
+                List.of("web/src/features/cart/CartPage.test.tsx", "node:test"));
+
+        WebReport unreadable = check(WebFixture.MODEL, WebFixture.files(), WebFixture.PACKAGE_JSON, "{ entries: [] }");
+        assertThat(unreadable.violations()).isNotEmpty().allSatisfy(violation -> assertThat(violation.message())
+                .startsWith("the allowlist is unavailable (security/allowlist.json is not plain JSON"));
+    }
+
+    @Test
+    void aTestsPackageMustBeListedInTheModel() {
+        WebReport report = check(WebFixture.MODEL.replace("                \"web.testPackages\" \"@testing-library/react\"\n",
+                ""), WebFixture.files());
+
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::identifiers,
+                WebViolation::message).containsExactly(tuple(WebViolationType.UNDECLARED_PACKAGE,
+                List.of("cart", "@testing-library/react"), "A test of cart imports the package "
+                        + "@testing-library/react, which web.testPackages does not list."));
+    }
+
+    @Test
+    void browserCodeMayImportNoNodeBuiltInInAnyForm() {
+        WebReport report = check(with("api/cart.ts", """
+                import { client } from '@shop/client';
+                import { readFileSync } from 'node:fs';
+                import path from 'path';
+
+                export const loadCart = (): string[] => client.get('/cart' + String(readFileSync) + path.sep);
+                """));
+
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::identifiers,
+                WebViolation::message).containsExactly(
+                tuple(WebViolationType.NODE_BUILTIN, List.of("web/src/api/cart.ts", "node:fs"), "web/src/api/cart.ts "
+                        + "imports the Node.js built-in node:fs: code that runs in the browser may not import Node.js "
+                        + "built-ins."),
+                tuple(WebViolationType.NODE_BUILTIN, List.of("web/src/api/cart.ts", "path"), "web/src/api/cart.ts "
+                        + "imports the Node.js built-in path: code that runs in the browser may not import Node.js "
+                        + "built-ins."));
+    }
+
+    @Test
+    void aTestImportsOnlyListedBuiltInsWithTheirPrefix() {
+        WebReport report = check(with("features/cart/CartPage.test.tsx", """
+                import fs from 'fs';
+                import { spawn } from 'node:child_process';
+                import { test } from 'node:test';
+                """));
+
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::message).containsExactly(
+                tuple(WebViolationType.NODE_BUILTIN, "web/src/features/cart/CartPage.test.tsx imports fs without the "
+                        + "node: prefix: a test names a Node.js built-in as node:fs, which web.testBuiltins must list."),
+                tuple(WebViolationType.NODE_BUILTIN, "web/src/features/cart/CartPage.test.tsx imports the Node.js "
+                        + "built-in node:child_process, which web.testBuiltins does not list."));
+    }
+
+    @Test
+    void aTestsBuiltInsNeedTheApprovedNodeJsThatPackageJsonNames() {
+        String withoutRuntime = WebFixture.ALLOWLIST.replace("\"coordinate\": \"nodejs.org/dist node\"",
+                "\"coordinate\": \"Node.js\"");
+        WebReport notApproved = check(WebFixture.MODEL, WebFixture.files(), WebFixture.PACKAGE_JSON, withoutRuntime);
+        assertThat(notApproved.violations()).extracting(WebViolation::type, WebViolation::message).containsOnly(tuple(
+                WebViolationType.UNAPPROVED_IMPORT, "security/allowlist.json approves no nodejs.org/dist node 26.13.0 "
+                        + "for the web job, the Node.js whose built-in node:assert/strict tests import."), tuple(
+                WebViolationType.UNAPPROVED_IMPORT, "security/allowlist.json approves no nodejs.org/dist node 26.13.0 "
+                        + "for the web job, the Node.js whose built-in node:test tests import."));
+
+        WebReport noEngine = check(WebFixture.MODEL, WebFixture.files(), WebFixture.PACKAGE_JSON.replace(
+                "\"engines\": { \"node\": \"26.13.0\" },", ""), WebFixture.ALLOWLIST);
+        assertThat(noEngine.violations()).extracting(WebViolation::message).containsOnly(
+                "package.json names no exact engines.node, so the Node.js whose review covers node:assert/strict is "
+                        + "not known.", "package.json names no exact engines.node, so the Node.js whose review covers "
+                        + "node:test is not known.");
+    }
+
+    @Test
+    void aResolutionOverrideInTheAppsConfigurationFailsTheCheck() {
+        Map<String, String> files = with("/web/tsconfig.json", "{\n  \"compilerOptions\": {\n    \"baseUrl\": \".\"\n  }\n}\n");
+        files.put("/web/index.html", "<!doctype html>\n<script type=\"importmap\">{}</script>\n");
+
+        WebReport report = check(files);
+
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::message).containsExactly(
+                tuple(WebViolationType.UNSUPPORTED_CONFIGURATION, "web/index.html:2: an import map is not supported: "
+                        + "it changes what a specifier names."),
+                tuple(WebViolationType.UNSUPPORTED_CONFIGURATION, "web/tsconfig.json:3: compilerOptions.baseUrl is "
+                        + "not supported: it changes what a specifier names or adds an import that no source file "
+                        + "shows."));
+    }
+
+    @Test
+    void testRootsAndPublicRootsAreReadAndHeldToTheirRules() {
+        String model = WebFixture.MODEL.replace("                \"web.root\" \"web/src\"\n", """
+                                "web.root" "web/src"
+                                "web.testRoots" "web/e2e"
+                                "web.publicRoots" "web/public"
+                """);
+        Map<String, String> files = WebFixture.files();
+        files.put("/web/e2e/flow.ts", """
+                import { test } from 'node:test';
+                import { expect } from '@playwright/test';
+                import { open } from './helpers/open.ts';
+                import { cart } from '../src/features/cart/index.ts';
+                """);
+        files.put("/web/e2e/helpers/open.ts", "export const open = () => undefined;\n");
+        files.put("/web/public/site.css", ":root { --a: 1; }\n@import './more.css';\n");
+        files.put("/web/public/app.js", "export {};\n");
+
+        WebReport report = check(model, files);
+
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::message).containsExactly(
+                tuple(WebViolationType.UNDECLARED_PACKAGE, "A test of web/e2e imports the package @playwright/test, "
+                        + "which web.testPackages does not list."),
+                tuple(WebViolationType.UNRESOLVED_IMPORT, "web/e2e/flow.ts:4: '../src/features/cart/index.ts' leaves "
+                        + "the web root."),
+                tuple(WebViolationType.UNSUPPORTED_FILE, "web/public/app.js is not a style sheet, image or font: a "
+                        + "public root holds only those, served as they are."),
+                tuple(WebViolationType.UNSUPPORTED_SYNTAX, "web/public/site.css:2: CSS @import is not supported: link "
+                        + "each style sheet from index.html."));
+    }
+
+    @Test
+    void aSymbolicLinkOnTheWayToTheWebRootIsAnError() throws IOException {
+        Path elsewhere = Files.createDirectories(repository.resolve("elsewhere/src"));
+        Files.writeString(elsewhere.resolve("a.ts"), "export const a = 1;\n", StandardCharsets.UTF_8);
+        Path model = WebFixture.write(repository, WebFixture.MODEL, Map.of(), null, WebFixture.ALLOWLIST);
+        Files.createSymbolicLink(repository.resolve("web"), repository.resolve("elsewhere"));
+
+        assertThatThrownBy(() -> WebConformance.check(model, repository))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("The web root web/src lies under a symbolic link, web: the check reads only regular files "
+                        + "and directories");
     }
 
     @Test

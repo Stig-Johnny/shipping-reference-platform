@@ -25,5 +25,23 @@ public enum WebViolationType {
     /** A construct or specifier outside the restricted import grammar, such as {@code require} or a URL. */
     UNSUPPORTED_SYNTAX,
     /** A file type outside the restricted import grammar, such as {@code .js} or {@code .json}. */
-    UNSUPPORTED_FILE
+    UNSUPPORTED_FILE,
+    /** A production file imports a test file, whose imports are held to other rules and are never evidence. */
+    TEST_FILE_IMPORTED,
+    /**
+     * Browser code imports a built-in module of Node.js, or a test imports one without the {@code node:} prefix or one
+     * that {@code web.testBuiltins} does not list.
+     */
+    NODE_BUILTIN,
+    /**
+     * A declared package or a listed built-in has no approving review: {@code package.json} names no exact version,
+     * or {@code security/allowlist.json} approves no entry for the app at that version and in that scope, or the
+     * allowlist cannot be read.
+     */
+    UNAPPROVED_IMPORT,
+    /**
+     * A setting of the app's configuration would change what a specifier names or add an import, or a file of it
+     * cannot be read with certainty.
+     */
+    UNSUPPORTED_CONFIGURATION
 }

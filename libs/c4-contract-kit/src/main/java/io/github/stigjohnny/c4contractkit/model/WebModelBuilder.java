@@ -25,12 +25,16 @@ import org.jspecify.annotations.Nullable;
  * the parser found and fails once, listing them all.
  *
  * <ul>
- *   <li>Exactly one container has {@code web.root}, a relative path of plain directory names.</li>
+ *   <li>Exactly one container has {@code web.root}, a relative path of plain directory names. It may name test roots
+ *       ({@code web.testRoots}) and public roots ({@code web.publicRoots}): relative paths of plain directory names
+ *       inside the app's directory, the directory above {@code web.root}, none equal to or inside another or the web
+ *       root; the Node.js built-ins tests may import ({@code web.testBuiltins}, each written with {@code node:}); and
+ *       the npm packages tests may import ({@code web.testPackages}).</li>
  *   <li>Each of its components has {@code web.id} ({@code [a-z][a-z0-9-]*}, unique), {@code web.paths} (directories
  *       relative to {@code web.root}, none equal to or inside another, in any component) and {@code web.status}
  *       ({@code built} or {@code planned}, with the tag {@code Planned} exactly when planned); optionally
- *       {@code web.entry}, a {@code .ts} or {@code .tsx} file inside its paths, and {@code web.packages}, distinct npm
- *       package names.</li>
+ *       {@code web.entry}, a {@code .ts} or {@code .tsx} file inside its paths that is not a test, and
+ *       {@code web.packages}, distinct npm package names.</li>
  *   <li>Relationships between two of its components may have {@code web.mode} ({@code REQUIRED} or
  *       {@code PERMITTED}, absent meaning {@code PERMITTED}), with the tag {@code Required import} exactly when
  *       {@code REQUIRED}; at most one per ordered pair, and no cycle.</li>
@@ -48,14 +52,20 @@ final class WebModelBuilder {
     static final String ENTRY = "web.entry";
     static final String PACKAGES = "web.packages";
     static final String MODE = "web.mode";
+    static final String TEST_ROOTS = "web.testRoots";
+    static final String PUBLIC_ROOTS = "web.publicRoots";
+    static final String TEST_BUILTINS = "web.testBuiltins";
+    static final String TEST_PACKAGES = "web.testPackages";
     static final String REQUIRED_IMPORT_TAG = "Required import";
 
-    private static final Set<String> ON_CONTAINER = Set.of(ROOT);
+    private static final Set<String> ON_CONTAINER = Set.of(ROOT, TEST_ROOTS, PUBLIC_ROOTS, TEST_BUILTINS,
+            TEST_PACKAGES);
     private static final Set<String> ON_COMPONENT = Set.of(ID, PATHS, STATUS, ENTRY, PACKAGES);
     private static final Set<String> ON_RELATIONSHIP = Set.of(MODE);
     private static final Pattern ID_PATTERN = Pattern.compile("[a-z][a-z0-9-]*");
     private static final Pattern PLAIN_NAME = Pattern.compile("[A-Za-z0-9_][A-Za-z0-9._-]*");
     private static final Pattern PACKAGE_PART = Pattern.compile("[a-z0-9-][a-z0-9._-]*");
+    private static final Pattern BUILTIN = Pattern.compile("node:[a-z][a-z0-9_]*(?:/[a-z][a-z0-9_]*)*");
 
     private final Model model;
     private final ElementNames names;
@@ -77,12 +87,88 @@ final class WebModelBuilder {
         if (!isRelativePath(root)) {
             problems.add(web.name(), "web.root '" + root + "' is not a relative path of plain directory names");
         }
+        Map<String, String> container = web.container().getProperties();
+        List<String> testRoots = roots(web.name(), TEST_ROOTS, container.get(TEST_ROOTS));
+        List<String> publicRoots = roots(web.name(), PUBLIC_ROOTS, container.get(PUBLIC_ROOTS));
+        checkRoots(web.name(), root, testRoots, publicRoots);
+        List<String> testBuiltins = builtins(web.name(), container.get(TEST_BUILTINS));
+        List<String> testPackages = packages(web.name(), TEST_PACKAGES, container.get(TEST_PACKAGES));
         List<Draft> drafts = web.container().getComponents().stream().map(this::draft).toList();
         checkUniqueIds(drafts);
         checkNoOverlap(drafts);
         List<WebRelationship> edges = relationships(web, relationships, drafts);
         problems.throwIfAny();
-        return new WebModel(root, web.name(), drafts.stream().map(Draft::toComponent).toList(), edges);
+        return new WebModel(root, web.name(), drafts.stream().map(Draft::toComponent).toList(), edges, testRoots,
+                publicRoots, testBuiltins, testPackages);
+    }
+
+    /** Directories of a root list: relative paths of plain names. Every other entry is a problem. */
+    private List<String> roots(String name, String property, @Nullable String value) {
+        if (value == null) {
+            return List.of();
+        }
+        List<String> entries = ContractProperties.entries(value);
+        if (entries.contains("")) {
+            problems.add(name, property + " has an empty entry");
+        }
+        Set<String> valid = new TreeSet<>();
+        for (String entry : entries.stream().filter(entry -> !entry.isEmpty()).toList()) {
+            if (isRelativePath(entry)) {
+                valid.add(entry);
+            } else {
+                problems.add(name, property + " entry '" + entry + "' is not a relative path of plain directory names");
+            }
+        }
+        return List.copyOf(valid);
+    }
+
+    /**
+     * Test and public roots lie inside the app's directory, the one above {@code web.root}, and no root equals or lies
+     * inside another, the web root included.
+     */
+    private void checkRoots(String name, String root, List<String> testRoots, List<String> publicRoots) {
+        int slash = root.lastIndexOf('/');
+        String app = slash < 0 ? "" : root.substring(0, slash);
+        List<String> all = new ArrayList<>();
+        all.add(root);
+        all.addAll(testRoots);
+        all.addAll(publicRoots);
+        for (String other : all.subList(1, all.size())) {
+            if (!app.isEmpty() && !other.startsWith(app + "/")) {
+                problems.add(name, "'" + other + "' is not inside the app's directory '" + app + "', the directory "
+                        + "above web.root");
+            }
+        }
+        for (int i = 0; i < all.size(); i++) {
+            for (int j = i + 1; j < all.size(); j++) {
+                String first = all.get(i);
+                String second = all.get(j);
+                if (first.equals(second) || first.startsWith(second + "/") || second.startsWith(first + "/")) {
+                    problems.add(name, "the roots '" + first + "' and '" + second + "' overlap");
+                }
+            }
+        }
+    }
+
+    /** Built-ins of Node.js that tests may import: each written with node:, distinct. */
+    private List<String> builtins(String name, @Nullable String value) {
+        if (value == null) {
+            return List.of();
+        }
+        List<String> entries = ContractProperties.entries(value);
+        if (entries.contains("")) {
+            problems.add(name, TEST_BUILTINS + " has an empty entry");
+        }
+        Set<String> seen = new TreeSet<>();
+        for (String entry : entries.stream().filter(entry -> !entry.isEmpty()).toList()) {
+            if (!BUILTIN.matcher(entry).matches()) {
+                problems.add(name, TEST_BUILTINS + " entry '" + entry + "' is not a built-in module of Node.js "
+                        + "written with node:, such as node:test");
+            } else if (!seen.add(entry)) {
+                problems.add(name, TEST_BUILTINS + " lists '" + entry + "' more than once");
+            }
+        }
+        return List.copyOf(seen);
     }
 
     /** As in the contract check: the model must say {@code !impliedRelationships false} and never switch them on. */
@@ -162,7 +248,8 @@ final class WebModelBuilder {
 
     private static String misplaced(String key, String container) {
         return switch (key) {
-            case ROOT -> "web.root is only allowed on a container";
+            case ROOT, TEST_ROOTS, PUBLIC_ROOTS, TEST_BUILTINS, TEST_PACKAGES ->
+                    key + " is only allowed on a container";
             case ID, PATHS, STATUS, ENTRY, PACKAGES -> key + " is only allowed on components of " + container;
             case MODE -> "web.mode is only allowed on relationships between two components of " + container;
             default -> key + " is not a web property";
@@ -175,7 +262,7 @@ final class WebModelBuilder {
         List<String> paths = paths(name, properties.get(PATHS));
         return new Draft(name, component.getName(), id(name, properties.get(ID)),
                 status(name, component, properties.get(STATUS)), paths, entry(name, properties.get(ENTRY), paths),
-                packages(name, properties.get(PACKAGES)));
+                packages(name, PACKAGES, properties.get(PACKAGES)));
     }
 
     private Optional<String> id(String name, @Nullable String value) {
@@ -245,6 +332,8 @@ final class WebModelBuilder {
             problem = "is not a file in the component's web.paths";
         } else if (!value.endsWith(".ts") && !value.endsWith(".tsx")) {
             problem = "is not a .ts or .tsx file";
+        } else if (value.endsWith(".test.ts") || value.endsWith(".test.tsx")) {
+            problem = "is a test file, which no production file may import";
         } else {
             return Optional.of(value);
         }
@@ -252,20 +341,20 @@ final class WebModelBuilder {
         return Optional.empty();
     }
 
-    private List<String> packages(String name, @Nullable String value) {
+    private List<String> packages(String name, String property, @Nullable String value) {
         if (value == null) {
             return List.of();
         }
         List<String> entries = ContractProperties.entries(value);
         if (entries.contains("")) {
-            problems.add(name, "web.packages has an empty entry");
+            problems.add(name, property + " has an empty entry");
         }
         Set<String> seen = new TreeSet<>();
         for (String entry : entries.stream().filter(entry -> !entry.isEmpty()).toList()) {
             if (!isPackageName(entry)) {
-                problems.add(name, "web.packages entry '" + entry + "' is not an npm package name");
+                problems.add(name, property + " entry '" + entry + "' is not an npm package name");
             } else if (!seen.add(entry)) {
-                problems.add(name, "web.packages lists '" + entry + "' more than once");
+                problems.add(name, property + " lists '" + entry + "' more than once");
             }
         }
         return List.copyOf(seen);

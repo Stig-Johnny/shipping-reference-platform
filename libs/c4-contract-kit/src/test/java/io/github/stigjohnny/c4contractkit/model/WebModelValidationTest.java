@@ -198,7 +198,9 @@ class WebModelValidationTest {
         "features/other/index.ts| cart: web.entry 'features/other/index.ts' is not a file in the component's web.paths",
         "features/cart| cart: web.entry 'features/cart' is not a file in the component's web.paths",
         "features/cart/index.js| cart: web.entry 'features/cart/index.js' is not a .ts or .tsx file",
-        "features/cart/../x.ts| cart: web.entry 'features/cart/../x.ts' is not a relative path of plain names"})
+        "features/cart/../x.ts| cart: web.entry 'features/cart/../x.ts' is not a relative path of plain names",
+        "features/cart/index.test.ts| cart: web.entry 'features/cart/index.test.ts' is a test file, which no production file may import",
+        "features/cart/main.test.tsx| cart: web.entry 'features/cart/main.test.tsx' is a test file, which no production file may import"})
     void anEntryIsATypeScriptFileInsideTheComponent(String entry, String problem) throws Exception {
         assertThat(problems(VALID.replace("\"web.entry\" \"features/cart/index.ts\"", "\"web.entry\" \"" + entry
                 + "\""))).containsExactly(problem.strip());
@@ -350,6 +352,51 @@ class WebModelValidationTest {
         int shell = VALID.indexOf("shell = component");
         int at = VALID.indexOf(text, shell);
         return VALID.substring(0, at) + replacement + VALID.substring(at + text.length());
+    }
+
+    /** The container with these properties besides web.root. */
+    private static String container(String properties) {
+        String root = "\"web.root\" \"apps/web/src\"\n";
+        assertThat(VALID).contains(root);
+        return VALID.replace(root, root + properties);
+    }
+
+    @Test
+    void theContainerNamesTestRootsPublicRootsAndWhatTestsMayImport() throws Exception {
+        WebModel model = read(container("""
+                                "web.testRoots" "apps/web/e2e, apps/web/test"
+                                "web.publicRoots" "apps/web/public"
+                                "web.testBuiltins" "node:test, node:assert/strict, node:fs"
+                                "web.testPackages" "@playwright/test"
+                """));
+
+        assertThat(model.app()).isEqualTo("apps/web");
+        assertThat(model.testRoots()).containsExactly("apps/web/e2e", "apps/web/test");
+        assertThat(model.publicRoots()).containsExactly("apps/web/public");
+        assertThat(model.testBuiltins()).containsExactly("node:assert/strict", "node:fs", "node:test");
+        assertThat(model.testPackages()).containsExactly("@playwright/test");
+        assertThat(read(VALID).testBuiltins()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+        "\"web.testRoots\" \"../e2e\"| web: web.testRoots entry '../e2e' is not a relative path of plain directory names",
+        "\"web.testRoots\" \"other/e2e\"| web: 'other/e2e' is not inside the app's directory 'apps/web', the directory above web.root",
+        "\"web.testRoots\" \"apps/web/src/tests\"| web: the roots 'apps/web/src' and 'apps/web/src/tests' overlap",
+        "\"web.publicRoots\" \"apps/web/e2e\"\\n\"web.testRoots\" \"apps/web/e2e\"| web: the roots 'apps/web/e2e' and 'apps/web/e2e' overlap",
+        "\"web.testRoots\" \"apps/web/e2e, \"| web: web.testRoots has an empty entry",
+        "\"web.testBuiltins\" \"fs\"| web: web.testBuiltins entry 'fs' is not a built-in module of Node.js written with node:, such as node:test",
+        "\"web.testBuiltins\" \"node:fs, node:fs\"| web: web.testBuiltins lists 'node:fs' more than once",
+        "\"web.testBuiltins\" \"node:FS\"| web: web.testBuiltins entry 'node:FS' is not a built-in module of Node.js written with node:, such as node:test",
+        "\"web.testPackages\" \"Playwright\"| web: web.testPackages entry 'Playwright' is not an npm package name"})
+    void theContainersRootsAndTestImportsAreValid(String properties, String problem) throws Exception {
+        assertThat(problems(container(properties.replace("\\n", "\n") + "\n"))).containsExactly(problem.strip());
+    }
+
+    @Test
+    void theContainersPropertiesBelongOnTheContainerOnly() throws Exception {
+        assertThat(problems(VALID.replace("\"web.id\" \"shell\"", "\"web.id\" \"shell\"\n\"web.testBuiltins\" \"node:test\"")))
+                .containsExactly("shell: web.testBuiltins is only allowed on a container");
     }
 
     private WebModel read(String dsl) throws Exception {

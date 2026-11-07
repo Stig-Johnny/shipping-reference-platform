@@ -5,10 +5,12 @@ import io.github.stigjohnny.c4contractkit.model.RelationshipMode;
 import io.github.stigjohnny.c4contractkit.model.WebComponent;
 import io.github.stigjohnny.c4contractkit.model.WebModel;
 import io.github.stigjohnny.c4contractkit.model.WebRelationship;
+import io.github.stigjohnny.c4contractkit.sources.Allowlist;
 import io.github.stigjohnny.c4contractkit.sources.FileKind;
 import io.github.stigjohnny.c4contractkit.sources.FileRefusal;
-import io.github.stigjohnny.c4contractkit.sources.ResolvedImport;
 import io.github.stigjohnny.c4contractkit.sources.Resolution;
+import io.github.stigjohnny.c4contractkit.sources.ResolvedImport;
+import io.github.stigjohnny.c4contractkit.sources.RootKind;
 import io.github.stigjohnny.c4contractkit.sources.SourceFile;
 import io.github.stigjohnny.c4contractkit.sources.SourceSet;
 import java.util.ArrayList;
@@ -24,63 +26,115 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
- * Compares the web container of a validated model with the files and imports of its web root, in both directions
- * (libs/c4-contract-kit/AGENTS.md, "Web imports").
+ * Compares the web container of a validated model with the files and imports of its roots, in both directions, and
+ * holds every import that leaves the app's own files to the dependency allowlist (libs/c4-contract-kit/AGENTS.md, "Web
+ * imports").
  *
  * <ul>
- *   <li>A file belongs to the component one of whose {@code web.paths} is a directory above it; a file of no component
- *       is unowned.</li>
- *   <li>An import of a file of another component is a dependency between the two components, whatever its kind
- *       (type-only imports and re-exports included). Imports inside one component are not edges, but every import
- *       between code files counts for cycles.</li>
+ *   <li>A file of the web root belongs to the component one of whose {@code web.paths} is a directory above it; a file
+ *       of no component is unowned. Test and public roots belong to no component.</li>
+ *   <li>A production import of a file of another component is a dependency between the two components, whatever its
+ *       kind (type-only imports and re-exports included). Imports inside one component are not edges, but every
+ *       import between code files, tests included, counts for cycles.</li>
+ *   <li>A test is held to the rules of its component: it may import another component only along a relationship and
+ *       through its {@code web.entry}, but its imports are never evidence, so a test never satisfies a REQUIRED
+ *       relationship. No production file may import a test.</li>
  *   <li>A component with {@code web.entry} may be imported by other components through that file only.</li>
- *   <li>A bare specifier must name a package that the importing component's {@code web.packages} lists.</li>
- *   <li>Test files are owned but not evaluated; what the grammar refuses, and every file type it does not cover, fails
- *       the check.</li>
+ *   <li>A bare specifier in code that runs in the browser must name a package that the importing component's
+ *       {@code web.packages} lists, which {@code package.json} declares in {@code dependencies} at an exact version,
+ *       and which the allowlist approves for the app in {@code dependencies}. A test's package must be listed in
+ *       {@code web.testPackages} and approved in {@code devDependencies} or {@code dependencies}.</li>
+ *   <li>Browser code may import no built-in module of Node.js. A test may import one written with {@code node:} that
+ *       {@code web.testBuiltins} lists, when the allowlist approves the Node.js that {@code engines.node} names for
+ *       the {@code web} job.</li>
+ *   <li>What the grammar refuses, every file type it does not cover and every refused setting of the app's
+ *       configuration fails the check.</li>
  * </ul>
  */
 public final class WebRules {
 
+    private static final Set<String> RUNTIME = Set.of("dependencies");
+    private static final Set<String> TEST_SCOPES = Set.of("dependencies", "devDependencies");
+
     private final WebModel model;
-    private final SourceSet sources;
+    private final WebInputs inputs;
+    /** Every file of every root, by its path relative to the repository root. */
     private final Map<String, FileKind> kinds = new HashMap<>();
     private final Map<String, Integer> codeCounts = new HashMap<>();
     private final Map<List<String>, Set<ImportEvidenceItem>> dependencies = new HashMap<>();
+    private final Map<List<String>, Set<ImportEvidenceItem>> testDependencies = new HashMap<>();
     private final Map<List<String>, Set<ImportEvidenceItem>> bypasses = new HashMap<>();
     private final Map<List<String>, Set<ImportEvidenceItem>> undeclaredPackages = new HashMap<>();
+    private final Map<List<String>, Set<ImportEvidenceItem>> undeclaredTestPackages = new HashMap<>();
+    /** By owner, specifier and message: the import is declared, but no review approves it. */
+    private final Map<List<String>, Set<ImportEvidenceItem>> unapproved = new HashMap<>();
     private final Map<String, Set<String>> graph = new TreeMap<>();
     private final List<ImportEvidenceItem> fileImports = new ArrayList<>();
     private final List<Refused> refused = new ArrayList<>();
     private final List<WebFinding> findings = new ArrayList<>();
 
-    private WebRules(WebModel model, SourceSet sources) {
+    private WebRules(WebModel model, WebInputs inputs) {
         this.model = model;
-        this.sources = sources;
-        sources.files().forEach(file -> kinds.put(file.path(), file.kind()));
+        this.inputs = inputs;
     }
 
     /**
-     * Compares the model with the sources.
+     * Compares the model with the web root alone; see {@link #compare(WebModel, WebInputs)}.
      *
      * @param model a validated web model
      * @param sources the files and imports of the model's {@code web.root}
-     * @return the components, the edges with their verdicts and the violations, in report order
      */
     public static WebComparison compare(WebModel model, SourceSet sources) {
-        WebRules rules = new WebRules(model, sources);
-        sources.files().forEach(rules::readFile);
-        // Test files are owned but not evaluated, as the class check reads production classes only.
-        sources.refusals().stream().filter(refusal -> !rules.isTest(refusal.file())).forEach(rules::readRefusal);
-        sources.imports().stream().filter(found -> !rules.isTest(found.file())).forEach(rules::readImport);
+        return compare(model, WebInputs.of(sources));
+    }
+
+    /**
+     * Compares the model with its roots, the app's configuration and the allowlist.
+     *
+     * @param model a validated web model
+     * @param inputs the files and imports of the model's roots, the app's configuration and the allowlist
+     * @return the components, the edges with their verdicts and the violations, in report order
+     */
+    public static WebComparison compare(WebModel model, WebInputs inputs) {
+        WebRules rules = new WebRules(model, inputs);
+        rules.readFiles(inputs.sources(), RootKind.SOURCE);
+        inputs.testRoots().forEach(set -> rules.readFiles(set, RootKind.TEST));
+        inputs.publicRoots().forEach(set -> rules.readFiles(set, RootKind.PUBLIC));
+        for (SourceSet set : rules.allSets()) {
+            set.refusals().forEach(refusal -> rules.readRefusal(set, refusal));
+        }
+        inputs.configuration().refusals().forEach(rules::readConfiguration);
+        inputs.sources().imports().forEach(found -> rules.readImport(inputs.sources(), found, true));
+        inputs.testRoots().forEach(set -> set.imports().forEach(found -> rules.readImport(set, found, false)));
         return rules.result();
     }
 
-    private boolean isTest(String file) {
-        return kinds.get(file) == FileKind.TEST;
+    private List<SourceSet> allSets() {
+        List<SourceSet> sets = new ArrayList<>();
+        sets.add(inputs.sources());
+        sets.addAll(inputs.testRoots());
+        sets.addAll(inputs.publicRoots());
+        return sets;
     }
 
-    private void readFile(SourceFile file) {
-        String shown = shown(file.path());
+    private void readFiles(SourceSet set, RootKind root) {
+        for (SourceFile file : set.files()) {
+            String shown = shown(set, file.path());
+            kinds.put(shown, file.kind());
+            if (root == RootKind.SOURCE) {
+                own(file, shown);
+            }
+            if (file.kind() == FileKind.UNSUPPORTED) {
+                String covered = root == RootKind.PUBLIC ? "is not a style sheet, image or font: a public root holds "
+                        + "only those, served as they are." : "is not a .ts, .tsx, .css, image or font file: the "
+                        + "restricted import grammar does not cover it.";
+                findings.add(new WebFinding(WebFindingType.UNSUPPORTED_FILE, List.of(shown), shown + " " + covered,
+                        List.of()));
+            }
+        }
+    }
+
+    private void own(SourceFile file, String shown) {
         Optional<WebComponent> owner = model.componentOf(file.path());
         if (owner.isEmpty()) {
             findings.add(new WebFinding(WebFindingType.UNOWNED_FILE, List.of(shown),
@@ -95,73 +149,189 @@ public final class WebRules {
                         component.id() + " is planned, but its web.paths contain " + shown + ".", List.of()));
             }
         });
-        if (file.kind() == FileKind.UNSUPPORTED) {
-            findings.add(new WebFinding(WebFindingType.UNSUPPORTED_FILE, List.of(shown), shown + " is not a .ts, "
-                    + ".tsx, .css, image or font file: the restricted import grammar does not cover it.", List.of()));
-        }
     }
 
-    private void readRefusal(FileRefusal refusal) {
-        refused.add(new Refused(refusal.file(), refusal.line(), refusal.reason(),
-                new ImportEvidenceItem(shown(refusal.file()), refusal.line(), "", "refused", "")));
+    private void readRefusal(SourceSet set, FileRefusal refusal) {
+        String shown = shown(set, refusal.file());
+        refused.add(new Refused(shown, refusal.line(), refusal.reason(),
+                new ImportEvidenceItem(shown, refusal.line(), "", "refused", "")));
     }
 
-    private void readImport(ResolvedImport found) {
-        Optional<WebComponent> source = model.componentOf(found.file());
+    private void readConfiguration(FileRefusal refusal) {
+        String app = inputs.configuration().app();
+        String shown = app.isEmpty() ? refusal.file() : app + "/" + refusal.file();
+        findings.add(new WebFinding(WebFindingType.UNSUPPORTED_CONFIGURATION, List.of(shown),
+                shown + ":" + refusal.line() + ": " + refusal.reason() + ".",
+                List.of(new ImportEvidenceItem(shown, refusal.line(), "", "refused", ""))));
+    }
+
+    private void readImport(SourceSet set, ResolvedImport found, boolean webRoot) {
+        String file = shown(set, found.file());
+        boolean test = kinds.get(file) == FileKind.TEST;
+        Optional<WebComponent> source = webRoot ? model.componentOf(found.file()) : Optional.empty();
+        String owner = source.map(WebComponent::id).orElse(webRoot ? file : set.root());
         switch (found.resolution()) {
-            case Resolution.ToFile(String target) -> {
-                ImportEvidenceItem evidence = evidence(found, shown(target));
-                if (kinds.get(target) == FileKind.CODE) {
-                    graph.computeIfAbsent(found.file(), _ -> new TreeSet<>()).add(target);
-                    fileImports.add(evidence);
-                }
-                Optional<WebComponent> destination = model.componentOf(target);
-                if (source.isPresent() && destination.isPresent()
-                        && !source.get().id().equals(destination.get().id())) {
-                    List<String> pair = List.of(source.get().id(), destination.get().id());
-                    add(dependencies, pair, evidence);
-                    if (destination.get().entry().filter(entry -> !entry.equals(target)).isPresent()) {
-                        add(bypasses, pair, evidence);
-                    }
+            case Resolution.ToFile(String target) -> readFileImport(set, found, file, test, source, target);
+            case Resolution.ToPackage(String name) -> {
+                if (test) {
+                    testPackage(found, file, owner, name);
+                } else {
+                    source.ifPresent(component -> browserPackage(found, component, name));
                 }
             }
-            case Resolution.ToPackage(String name) -> source.filter(component -> !component.packages().contains(name))
-                    .ifPresent(component -> add(undeclaredPackages, List.of(component.id(), name),
-                            evidence(found, name)));
-            case Resolution.Unresolved(String reason) -> {
-                String file = shown(found.file());
-                findings.add(new WebFinding(WebFindingType.UNRESOLVED_IMPORT, List.of(file, found.specifier()),
-                        file + ":" + found.line() + ": '" + found.specifier() + "' " + reason + ".",
-                        List.of(evidence(found, ""))));
-            }
+            case Resolution.ToBuiltin(String name) -> builtin(found, file, test, name);
+            case Resolution.Unresolved(String reason) -> findings.add(new WebFinding(WebFindingType.UNRESOLVED_IMPORT,
+                    List.of(file, found.specifier()), file + ":" + found.line() + ": '" + found.specifier() + "' "
+                            + reason + ".", List.of(evidence(found, file, ""))));
             case Resolution.Unsupported(String reason) ->
-                    refused.add(new Refused(found.file(), found.line(), reason, evidence(found, "")));
-            case Resolution.ToBuiltin(String name) -> refused.add(new Refused(found.file(), found.line(),
-                    "a built-in module of Node.js (" + name + ") is not supported in the web app", evidence(found, "")));
+                    refused.add(new Refused(file, found.line(), reason, evidence(found, file, "")));
         }
+    }
+
+    private void readFileImport(SourceSet set, ResolvedImport found, String file, boolean test,
+                                Optional<WebComponent> source, String target) {
+        String shownTarget = shown(set, target);
+        ImportEvidenceItem evidence = evidence(found, file, shownTarget);
+        FileKind kind = kinds.get(shownTarget);
+        if (!test && kind == FileKind.TEST) {
+            findings.add(new WebFinding(WebFindingType.TEST_FILE_IMPORTED, List.of(file, shownTarget), file
+                    + " imports the test " + shownTarget + ": production code may not import tests, whose imports "
+                    + "are held to the rules for tests and are never evidence.", List.of(evidence)));
+            return;
+        }
+        if (kind == FileKind.CODE || kind == FileKind.TEST) {
+            graph.computeIfAbsent(file, _ -> new TreeSet<>()).add(shownTarget);
+            fileImports.add(evidence);
+        }
+        if (source.isEmpty()) {
+            return;
+        }
+        Optional<WebComponent> destination = model.componentOf(target);
+        if (destination.isEmpty() || source.get().id().equals(destination.get().id())) {
+            return;
+        }
+        List<String> pair = List.of(source.get().id(), destination.get().id());
+        add(test ? testDependencies : dependencies, pair, evidence);
+        if (destination.get().entry().filter(entry -> !entry.equals(target)).isPresent()) {
+            add(bypasses, pair, evidence);
+        }
+    }
+
+    private void browserPackage(ResolvedImport found, WebComponent component, String name) {
+        ImportEvidenceItem evidence = evidence(found, shown(inputs.sources(), found.file()), name);
+        if (!component.packages().contains(name)) {
+            add(undeclaredPackages, List.of(component.id(), name), evidence);
+            return;
+        }
+        String version = inputs.configuration().dependencies().get(name);
+        if (version == null) {
+            unapproved(component.id(), name, "package.json declares no exact version of " + name + " in dependencies, "
+                    + "so no reviewed release is known", evidence);
+            return;
+        }
+        if (approvalUnavailable(component.id(), name, evidence)) {
+            return;
+        }
+        if (inputs.allowlist().npm(name, version, inputs.configuration().app(), RUNTIME).isEmpty()) {
+            unapproved(component.id(), name, Allowlist.PATH + " approves no npm " + name + " " + version + " for "
+                    + inputs.configuration().app() + " in dependencies, and only that approval covers code that runs "
+                    + "in the browser", evidence);
+        }
+    }
+
+    private void testPackage(ResolvedImport found, String file, String owner, String name) {
+        ImportEvidenceItem evidence = evidence(found, file, name);
+        if (!model.testPackages().contains(name)) {
+            add(undeclaredTestPackages, List.of(owner, name), evidence);
+            return;
+        }
+        String version = inputs.configuration().devDependencies().getOrDefault(name,
+                inputs.configuration().dependencies().get(name));
+        if (version == null) {
+            unapproved(owner, name, "package.json declares no exact version of " + name + ", so no reviewed release is "
+                    + "known", evidence);
+            return;
+        }
+        if (approvalUnavailable(owner, name, evidence)) {
+            return;
+        }
+        if (inputs.allowlist().npm(name, version, inputs.configuration().app(), TEST_SCOPES).isEmpty()) {
+            unapproved(owner, name, Allowlist.PATH + " approves no npm " + name + " " + version + " for "
+                    + inputs.configuration().app() + " in devDependencies or dependencies", evidence);
+        }
+    }
+
+    private void builtin(ResolvedImport found, String file, boolean test, String name) {
+        ImportEvidenceItem evidence = evidence(found, file, name);
+        String problem;
+        if (!test) {
+            problem = file + " imports the Node.js built-in " + name + ": code that runs in the browser may not import "
+                    + "Node.js built-ins.";
+        } else if (!name.startsWith("node:")) {
+            problem = file + " imports " + name + " without the node: prefix: a test names a Node.js built-in as node:"
+                    + name + ", which web.testBuiltins must list.";
+        } else if (!model.testBuiltins().contains(name)) {
+            problem = file + " imports the Node.js built-in " + name + ", which web.testBuiltins does not list.";
+        } else {
+            Optional<String> node = inputs.configuration().node();
+            if (node.isEmpty()) {
+                unapproved(file, name, "package.json names no exact engines.node, so the Node.js whose review covers "
+                        + name + " is not known", evidence);
+            } else if (!approvalUnavailable(file, name, evidence)
+                    && inputs.allowlist().nodeRuntime(node.get()).isEmpty()) {
+                unapproved(file, name, Allowlist.PATH + " approves no " + Allowlist.NODE_RUNTIME + " " + node.get()
+                        + " for the web job, the Node.js whose built-in " + name + " tests import", evidence);
+            }
+            return;
+        }
+        findings.add(new WebFinding(WebFindingType.NODE_BUILTIN, List.of(file, name), problem, List.of(evidence)));
+    }
+
+    /** True, after the finding, when the allowlist could not be read: then nothing is approved. */
+    private boolean approvalUnavailable(String owner, String name, ImportEvidenceItem evidence) {
+        Optional<String> reason = inputs.allowlist().unavailable();
+        reason.ifPresent(why -> unapproved(owner, name, "the allowlist is unavailable (" + why + "), so nothing is "
+                + "approved", evidence));
+        return reason.isPresent();
+    }
+
+    private void unapproved(String owner, String name, String why, ImportEvidenceItem evidence) {
+        add(unapproved, List.of(owner, name, why), evidence);
     }
 
     private WebComparison result() {
         refused.stream().sorted(Comparator.comparing(Refused::file).thenComparingInt(Refused::line))
                 .forEach(item -> findings.add(new WebFinding(WebFindingType.UNSUPPORTED_SYNTAX,
-                        List.of(shown(item.file())), shown(item.file()) + ":" + item.line() + ": " + item.reason() + ".",
+                        List.of(item.file()), item.file() + ":" + item.line() + ": " + item.reason() + ".",
                         List.of(item.evidence()))));
         List<WebEdgeOutcome> edges = edges();
+        testDependencies.forEach((pair, evidence) -> {
+            if (model.relationship(pair.get(0), pair.get(1)).isEmpty()) {
+                findings.add(new WebFinding(WebFindingType.DIVERGENCE, pair, "A test of " + pair.get(0) + " imports "
+                        + pair.get(1) + ", but the model declares no relationship " + pair.get(0) + " -> "
+                        + pair.get(1) + ".", List.copyOf(evidence)));
+            }
+        });
         bypasses.forEach((pair, evidence) -> findings.add(new WebFinding(WebFindingType.ENTRY_POINT_BYPASSED, pair,
                 pair.get(0) + " imports " + pair.get(1) + " other than through its web.entry "
-                        + shown(model.component(pair.get(1)).entry().orElseThrow()) + ".", List.copyOf(evidence))));
+                        + shown(inputs.sources(), model.component(pair.get(1)).entry().orElseThrow()) + ".",
+                List.copyOf(evidence))));
         undeclaredPackages.forEach((pair, evidence) -> findings.add(new WebFinding(WebFindingType.UNDECLARED_PACKAGE,
                 pair, pair.get(0) + " imports the package " + pair.get(1) + ", which its web.packages does not list.",
                 List.copyOf(evidence))));
+        undeclaredTestPackages.forEach((pair, evidence) -> findings.add(new WebFinding(
+                WebFindingType.UNDECLARED_PACKAGE, pair, "A test of " + pair.get(0) + " imports the package "
+                        + pair.get(1) + ", which web.testPackages does not list.", List.copyOf(evidence))));
+        unapproved.forEach((key, evidence) -> findings.add(new WebFinding(WebFindingType.UNAPPROVED_IMPORT,
+                List.of(key.get(0), key.get(1)), key.get(2) + ".", List.copyOf(evidence))));
         for (List<String> cycle : ImportCycles.in(graph)) {
-            List<String> files = cycle.stream().map(this::shown).toList();
-            Set<String> members = new HashSet<>(files);
-            findings.add(new WebFinding(WebFindingType.IMPORT_CYCLE, files, "These files import each other in a cycle: "
-                    + String.join(", ", files) + ".", fileImports.stream()
+            Set<String> members = new HashSet<>(cycle);
+            findings.add(new WebFinding(WebFindingType.IMPORT_CYCLE, cycle, "These files import each other in a cycle: "
+                    + String.join(", ", cycle) + ".", fileImports.stream()
                     .filter(item -> members.contains(item.file()) && members.contains(item.target())).toList()));
         }
         List<WebComponentSummary> components = model.components().stream().map(this::summary).toList();
-        return new WebComparison(sources.root(), components, edges, findings);
+        return new WebComparison(inputs.sources().root(), components, edges, findings);
     }
 
     private List<WebEdgeOutcome> edges() {
@@ -214,30 +384,30 @@ public final class WebRules {
                 findings.add(new WebFinding(WebFindingType.BUILT_COMPONENT_EMPTY, List.of(component.id()),
                         component.id() + " is built, but its web.paths contain no .ts or .tsx file.", List.of()));
             }
-            component.entry().filter(entry -> !kinds.containsKey(entry)).ifPresent(entry -> findings.add(
-                    new WebFinding(WebFindingType.ENTRY_POINT_MISSING, List.of(component.id(), shown(entry)),
-                            component.id() + " is built, but its web.entry " + shown(entry) + " does not exist.",
-                            List.of())));
+            String entry = component.entry().map(path -> shown(inputs.sources(), path)).orElse("");
+            if (!entry.isEmpty() && !kinds.containsKey(entry)) {
+                findings.add(new WebFinding(WebFindingType.ENTRY_POINT_MISSING, List.of(component.id(), entry),
+                        component.id() + " is built, but its web.entry " + entry + " does not exist.", List.of()));
+            }
         }
         return new WebComponentSummary(component.id(), component.name(), component.status(), component.paths(),
                 component.entry(), component.packages(), fileCount);
     }
 
-    private ImportEvidenceItem evidence(ResolvedImport found, String target) {
-        return new ImportEvidenceItem(shown(found.file()), found.line(), found.specifier(), found.kind().label(),
-                target);
+    private ImportEvidenceItem evidence(ResolvedImport found, String file, String target) {
+        return new ImportEvidenceItem(file, found.line(), found.specifier(), found.kind().label(), target);
     }
 
-    /** A path under the web root as reports show it: relative to the repository root ({@code web.root} is never empty). */
-    private String shown(String path) {
-        return sources.root() + "/" + path;
+    /** A path under a root as reports show it: relative to the repository root (a root is never empty). */
+    private static String shown(SourceSet set, String path) {
+        return set.root() + "/" + path;
     }
 
     private static <K> void add(Map<K, Set<ImportEvidenceItem>> evidenceByKey, K key, ImportEvidenceItem evidence) {
         evidenceByKey.computeIfAbsent(key, _ -> new HashSet<>()).add(evidence);
     }
 
-    /** A construct or specifier the grammar refused, by its file and line under the web root. */
+    /** A construct or specifier the grammar refused, by its file (relative to the repository root) and line. */
     private record Refused(String file, int line, String reason, ImportEvidenceItem evidence) {
     }
 }
