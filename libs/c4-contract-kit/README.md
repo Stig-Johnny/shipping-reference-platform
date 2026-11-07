@@ -29,12 +29,13 @@ void theCodeConformsToTheModel() {
 - `Conformance.check(model, productionClassRoots)` parses the model in restricted mode, reads the class files without
   loading them, and compares. It throws `ModelException` listing every model problem, each starting with the DSL
   identifiers of the elements it concerns or with its place in the model file (the parser itself stops at the first
-  line it rejects), `IllegalArgumentException` for a class root that is not a directory, a class root that is or
-  holds a symbolic link to a directory (ArchUnit does not follow one), or a class file that could not be imported (a
-  corrupt file, a file that is not a class file, or a second definition of a class in another root: ArchUnit would
-  skip it without a word), and `IllegalStateException` when an `archunit.*` system property would make the import
-  load or resolve classes (see below). Class roots are directories of class files, such as `build/classes/java/main`,
-  in any order; `module-info.class` is not a class and is ignored.
+  line it rejects, and a file with a line that the restricted DSL leaves out is not parsed at all; see below),
+  `IllegalArgumentException` for a class root that is not a directory, a class root that is or holds a symbolic link
+  to a directory (ArchUnit does not follow one), or a class file that could not be imported (a corrupt file, a file
+  that is not a class file, or a second definition of a class in another root: ArchUnit would skip it without a word),
+  and `IllegalStateException` when an `archunit.*` system property would make the import load or resolve classes (see
+  below). Class roots are directories of class files, such as `build/classes/java/main`, in any order;
+  `module-info.class` is not a class and is ignored.
 - `ConformanceAssertions.assertConforms(report, directory)` always writes `report.json` and `report.md`, then throws an
   `AssertionError` listing the violations if there are any.
 - `Report` holds the components (`ComponentResult`), every edge (`EdgeResult`: mode `REQUIRED`, `PERMITTED` or
@@ -49,24 +50,19 @@ The contract properties (`contract.root`, `contract.isolated`, `contract.id`, `c
 The parser runs with all ten Structurizr features off, as
 [its review](../../security/reviews/maven--structurizr-dsl--6.2.4.md) requires: `!include`, `!script`, `!plugin`,
 `!docs`, `!adrs`, `!decisions`, `!components`, `workspace extends`, plugin classes for `!impliedRelationships`, files
-and URLs are rejected, and so are image views and themes. Environment variables are never read: a `${NAME}` that no
-`!const` or `!var` defines before it, anywhere in the file outside comments (the workspace, an element, a group, a
-view, a style or the configuration), is a model problem located by its line. The file is read as the parser reads
-it: a line that ends in a backslash continues on the next one, and a text block is text, so a `!const` inside one
-defines nothing; nor does a `!const` line in a `properties` or `perspectives` block, which the parser reads as a
-property or a perspective. The check opens such a block at every line that starts with `properties` or
-`perspectives`, so an element with one of those identifiers cannot start a relationship line in a checked model
-(rename it; [`docs/gaps.md`](../../docs/gaps.md), section 5). After parsing, a `${NAME}` left in any text that the
-parsed workspace holds (every element, relationship and view, deployment environments and groups, styles,
-terminology, users; `ParsedStrings` lists the places) is a problem too, named by its element or view, and so is one
-left in the value the parser gave any constant or variable the file could declare (every token after `!const` or
-`!var`, and every other token that could name one), named by its declaration. Those checks back up the reading of
-the file: they see what the parser did, also where substitution made a line a block keyword, a comment or an
-identifier assignment. The model file must be UTF-8. Implied relationships are disabled: the DSL creates
-them unless the file says `!impliedRelationships false`, and a model in which the parser created one is a model
-problem (a deployment instance's copy of its container's relationship is not implied). Any other `contract.*`
-property, or one on the wrong kind of element or relationship, is a model problem, so a misspelt `contract.mode`
-cannot turn a `REQUIRED` relationship into a `PERMITTED` one.
+and URLs are rejected, and so are image views and themes. Environment variables are never read. Constants, variables,
+`${...}` and line continuations are not part of the restricted DSL either: before parsing, each line that holds `${`
+(with a name or without one), `!const` or `!var` (in any letter case, also inside a word), or that ends in a
+backslash, is a model problem located by its line, and a file with such a line is not parsed. The check reads the file
+as text, and that has a deliberate cost: a harmless comment, example or text block that holds `${`, `!const`, `!var`
+or a trailing backslash is rejected too. After parsing, a `${` in any text that the parsed workspace holds (every
+element, relationship and view, deployment environments and groups, styles, terminology, users; `ParsedStrings` lists
+the places) is a problem too, named by its element or view: the parser can put one together from parts that hold none,
+such as nested group names joined by a `$` group separator. The model file must be UTF-8. Implied relationships are
+disabled: the DSL creates them unless the file says `!impliedRelationships false`, and a model in which the parser
+created one is a model problem (a deployment instance's copy of its container's relationship is not implied). Any
+other `contract.*` property, or one on the wrong kind of element or relationship, is a model problem, so a misspelt
+`contract.mode` cannot turn a `REQUIRED` relationship into a `PERMITTED` one.
 
 Details the specification leaves open, decided here:
 

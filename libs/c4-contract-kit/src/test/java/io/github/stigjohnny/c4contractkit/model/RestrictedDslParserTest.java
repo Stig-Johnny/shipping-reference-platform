@@ -3,13 +3,13 @@ package io.github.stigjohnny.c4contractkit.model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
-import static org.assertj.core.api.Assertions.tuple;
 import static org.assertj.core.api.InstanceOfAssertFactories.STRING;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import com.structurizr.dsl.Features;
 import com.structurizr.dsl.StructurizrDslParser;
 import com.structurizr.model.Element;
+import com.structurizr.model.GroupableElement;
 import io.github.stigjohnny.c4contractkit.api.Conformance;
 import io.github.stigjohnny.c4contractkit.api.ModelException;
 import io.github.stigjohnny.c4contractkit.testing.Serialization;
@@ -18,12 +18,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.function.IntFunction;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The parser runs with every Structurizr feature switched off: nothing in a model can run code, read another file,
@@ -208,654 +210,404 @@ class RestrictedDslParserTest {
 
         assertThatThrownBy(() -> Conformance.check(model, List.of()))
                 .isInstanceOfSatisfying(ModelException.class, e -> {
-                    assertThat(e.problems()).satisfiesExactly(
-                            problem -> assertThat(problem).endsWith("workspace.dsl:" + lineOf(dsl, "${HOME}")
-                                    + ": ${HOME} is not substituted: environment variables are not read, and no "
-                                    + "!const or !var defines HOME before this line"),
-                            problem -> assertThat(problem).endsWith("workspace.dsl:" + lineOf(dsl, "${PATH}")
-                                    + ": ${PATH} is not substituted: environment variables are not read, and no "
-                                    + "!const or !var defines PATH before this line"));
+                    assertThat(e.problems()).singleElement(STRING).endsWith(substitutionAt(lineOf(dsl, "${PATH}")));
                     assertThat(e.getMessage()).doesNotContain(value);
                 });
     }
 
-    /** StructurizrDslParser.STRING_SUBSTITUTION_PATTERN. */
-    private static final java.util.regex.Pattern REFERENCE =
-            java.util.regex.Pattern.compile("\\$\\{([a-zA-Z0-9-_.]+?)}");
+    @Test
+    void theParserItselfReadsNoEnvironmentVariable(@TempDir Path dir) throws Exception {
+        // The check before parsing keeps ${PATH} from the parser. Were that check gone, the parser that the factory
+        // creates would still keep the text as it is (security/reviews/maven--structurizr-dsl--6.2.4.md).
+        assertThat(System.getenv("PATH")).as("the test needs PATH in its environment").isNotBlank();
+        StructurizrDslParser parser = RestrictedDslParser.newParser();
 
-    /** Where the check of the parsed strings finds each name of {@link #EVERY_PLACE}. */
-    private static final org.assertj.core.groups.Tuple[] EVERY_PLACE_FOUND = {
-        tuple("app", "KEY"), tuple("app", "TAG"), tuple("app", "TECH"), tuple("app", "VALUE"),
-        tuple("appInstance", "DEPLOYMENT_GROUP"), tuple("appInstance", "ENVIRONMENT"),
-        tuple("appInstance", "HEALTH_CHECK"),
-        tuple("clerk", "PERSON_NAME"),
-        tuple("clerk -> app", "NOTE"), tuple("clerk -> app", "PROTOCOL"), tuple("clerk -> app", "RELATIONSHIP"),
-        tuple("clerk -> app", "RELATIONSHIP_TAG"),
-        tuple("configuration", "USER"),
-        tuple("custom", "CUSTOM_DESCRIPTION"), tuple("custom", "METADATA"),
-        tuple("gateway", "ENVIRONMENT"), tuple("gateway", "PROXY"),
-        tuple("model", "MODEL_PROPERTY"),
-        tuple("orders", "COMPONENT_TECH"), tuple("orders", "GROUP"), tuple("orders", "PERSPECTIVE_BLOCK"),
-        tuple("orders", "PERSPECTIVE_NAME"), tuple("orders", "PERSPECTIVE_TEXT"), tuple("orders", "PERSPECTIVE_VALUE"),
-        tuple("server", "ENVIRONMENT"), tuple("server", "OS"),
-        tuple("shop", "SYSTEM_DESCRIPTION"),
-        tuple("view Components", "VIEW_DESCRIPTION"), tuple("view Components", "VIEW_PROPERTY"),
-        tuple("view Components", "VIEW_TITLE"),
-        tuple("view Filtered", "FILTER_TAG"),
-        tuple("view Flow", "DYNAMIC_DESCRIPTION"), tuple("view Flow", "STEP"), tuple("view Flow", "STEP_ORDER"),
-        tuple("view Flow", "STEP_PROPERTY"),
-        tuple("view LiveDeployment", "ENVIRONMENT"),
-        tuple("views", "COMPONENT_TERM"), tuple("views", "CONTAINER_TERM"), tuple("views", "INFRASTRUCTURE_TERM"),
-        tuple("views", "NODE_TERM"), tuple("views", "RELATIONSHIP_STYLE_PROPERTY"),
-        tuple("views", "RELATIONSHIP_STYLE_TAG"), tuple("views", "RELATIONSHIP_TERM"), tuple("views", "STYLE_PROPERTY"),
-        tuple("views", "STYLE_TAG"), tuple("views", "SYSTEM_TERM"), tuple("views", "TERM"),
-        tuple("views", "VIEWS_PROPERTY"),
-        tuple("workspace", "WORKSPACE_DESCRIPTION"), tuple("workspace", "WORKSPACE_NAME"),
-        tuple("workspace", "WORKSPACE_PROPERTY")};
+        parser.parse(write(dir, VALID.replace("orders = component \"Orders\"",
+                "orders = component \"Orders\" \"Reads ${PATH}\"")).toFile());
+
+        assertThat(parser.getWorkspace().getModel().getElements())
+                .filteredOn(element -> element.getName().equals("Orders"))
+                .singleElement()
+                .extracting(Element::getDescription)
+                .isEqualTo("Reads ${PATH}");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"!const", "!var"})
+    void aDefinitionAndItsUseAreBothProblems(String keyword, @TempDir Path dir) throws IOException {
+        // Structurizr would substitute ${ROOT}: the restricted DSL has neither constants nor variables.
+        String dsl = VALID
+                .replace("!identifiers flat", "!identifiers flat\n    " + keyword + " ROOT \"fx.shop\"")
+                .replace("\"contract.root\" \"fx.shop\"", "\"contract.root\" \"${ROOT}\"");
+
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactlyInAnyOrder(directiveAt(lineOf(dsl, keyword + " ROOT"), keyword),
+                                substitutionAt(lineOf(dsl, "${ROOT}"))));
+    }
 
     /**
-     * A ${NAME} in every place of the workspace that the restricted DSL lets a model write text into. The tests below
-     * take the names from this text, so a place added here must be found by both checks.
+     * Codex's seven files that the previous version accepted, since no check after parsing saw their reference. Each
+     * opens with the same four lines: the parser defines C as the start of a block comment, so the second line opens
+     * one and the third defines nothing, while the earlier source scan, which did not substitute, took HIDDEN as
+     * defined.
+     *
+     * @return the case, the file, its lines that hold !const and its lines that hold ${
      */
-    private static final String EVERY_PLACE = """
-            workspace "${WORKSPACE_NAME}" "${WORKSPACE_DESCRIPTION}" {
-                !identifiers flat
-                !impliedRelationships false
-                properties {
-                    "owner" "${WORKSPACE_PROPERTY}"
-                }
-                model {
-                    properties {
-                        "m" "${MODEL_PROPERTY}"
-                    }
-                    shop = softwareSystem "Shop" "Sells ${SYSTEM_DESCRIPTION}" {
-                        app = container "App" "" "${TECH}" "${TAG}" {
-                            properties {
-                                "contract.root" "fx.shop"
-                                "${KEY}" "${VALUE}"
-                            }
-                            group "${GROUP}" {
-                                orders = component "Orders" "" "${COMPONENT_TECH}" {
-                                    properties {
-                                        "contract.id" "orders"
-                                        "contract.packages" "fx.shop.orders"
-                                        "contract.status" "built"
+    static Stream<Arguments> referencesThatNoCheckAfterParsingSees() {
+        return Stream.of(
+                arguments("an unused archetype", """
+                        !const C /*
+                        ${C}
+                        !const HIDDEN x
+                        */
+                        workspace {
+                            model {
+                                softwareSystem S {
+                                    container C {
+                                        properties {
+                                            contract.root x
+                                        }
                                     }
-                                    perspectives {
-                                        "Security ${PERSPECTIVE_NAME}" "${PERSPECTIVE_TEXT}" "${PERSPECTIVE_VALUE}"
-                                        perspective "Cost" {
-                                            description "${PERSPECTIVE_BLOCK}"
+                                }
+                                archetypes {
+                                    unused = person {
+                                        description "${HIDDEN}"
+                                    }
+                                }
+                            }
+                        }
+                        """, List.of(1, 3), List.of(2, 16)),
+                arguments("an overwritten description", """
+                        !const C /*
+                        ${C}
+                        !const HIDDEN x
+                        */
+                        workspace {
+                            description "${HIDDEN}"
+                            description ok
+                            model {
+                                softwareSystem S {
+                                    container C {
+                                        properties {
+                                            contract.root x
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-                    clerk = person "Clerk ${PERSON_NAME}"
-                    custom = element "Custom" "${METADATA}" "Custom ${CUSTOM_DESCRIPTION}"
-                    clerk -> app "Uses ${RELATIONSHIP}" "${PROTOCOL}" "${RELATIONSHIP_TAG}" {
-                        properties {
-                            "note" "${NOTE}"
-                        }
-                    }
-                    live = deploymentEnvironment "Live ${ENVIRONMENT}" {
-                        cluster = deploymentGroup "Group ${DEPLOYMENT_GROUP}"
-                        server = deploymentNode "Server" "" "${OS}" {
-                            gateway = infrastructureNode "Gateway" "" "${PROXY}"
-                            appInstance = containerInstance app cluster {
-                                healthCheck "Check ${HEALTH_CHECK}" "https://example.com/health"
+                        """, List.of(1, 3), List.of(2, 6)),
+                arguments("an empty group", """
+                        !const C /*
+                        ${C}
+                        !const HIDDEN x
+                        */
+                        workspace {
+                            model {
+                                softwareSystem S {
+                                    container C {
+                                        properties {
+                                            contract.root x
+                                        }
+                                    }
+                                }
+                                group "${HIDDEN}" {
+                                }
                             }
                         }
-                    }
-                }
-                views {
-                    component app "Components" "${VIEW_DESCRIPTION}" {
-                        title "${VIEW_TITLE}"
-                        include *
-                        properties {
-                            "shown" "${VIEW_PROPERTY}"
-                        }
-                    }
-                    filtered "Components" include "Tag ${FILTER_TAG}" "Filtered"
-                    dynamic shop "Flow" "Flow ${DYNAMIC_DESCRIPTION}" {
-                        ${STEP_ORDER}: clerk -> app "Asks ${STEP}"
-                        clerk -> app {
-                            properties {
-                                "p" "${STEP_PROPERTY}"
+                        """, List.of(1, 3), List.of(2, 14)),
+                arguments("an empty deployment environment", """
+                        !const C /*
+                        ${C}
+                        !const HIDDEN x
+                        */
+                        workspace {
+                            model {
+                                softwareSystem S {
+                                    container C {
+                                        properties {
+                                            contract.root x
+                                        }
+                                    }
+                                }
+                                deploymentEnvironment "${HIDDEN}" {
+                                }
                             }
                         }
-                    }
-                    deployment * "Live ${ENVIRONMENT}" "LiveDeployment" {
-                        include *
-                    }
-                    styles {
-                        element "${STYLE_TAG}" {
-                            color #000000
-                            properties {
-                                "p" "${STYLE_PROPERTY}"
+                        """, List.of(1, 3), List.of(2, 14)),
+                arguments("an argument that a block opener ignores", """
+                        !const C /*
+                        ${C}
+                        !const HIDDEN x
+                        */
+                        workspace {
+                            properties ${HIDDEN} {
+                            }
+                            model {
+                                softwareSystem S {
+                                    container C {
+                                        properties {
+                                            contract.root x
+                                        }
+                                    }
+                                }
                             }
                         }
-                        relationship "${RELATIONSHIP_STYLE_TAG}" {
-                            color #000000
-                            properties {
-                                "p" "${RELATIONSHIP_STYLE_PROPERTY}"
+                        """, List.of(1, 3), List.of(2, 6)),
+                arguments("a view's selection expression", """
+                        !const C /*
+                        ${C}
+                        !const HIDDEN x
+                        */
+                        workspace {
+                            model {
+                                softwareSystem S {
+                                    container C {
+                                        properties {
+                                            contract.root x
+                                        }
+                                    }
+                                }
+                            }
+                            views {
+                                systemLandscape v {
+                                    include element.tag==${HIDDEN}
+                                }
                             }
                         }
-                    }
-                    properties {
-                        "set" "${VIEWS_PROPERTY}"
-                    }
-                    terminology {
-                        person "${TERM}"
-                        softwareSystem "${SYSTEM_TERM}"
-                        container "${CONTAINER_TERM}"
-                        component "${COMPONENT_TERM}"
-                        deploymentNode "${NODE_TERM}"
-                        infrastructureNode "${INFRASTRUCTURE_TERM}"
-                        relationship "${RELATIONSHIP_TERM}"
-                    }
-                }
-                configuration {
-                    users {
-                        "${USER}" read
-                    }
-                }
-            }
-            """;
+                        """, List.of(1, 3), List.of(2, 17)),
+                arguments("a declaration name that a text block truncates", """
+                        !const C /*
+                        ${C}
+                        !const HIDDEN x
+                        */
+                        !const N ""\"UNUSEDX""\"
+                        ""\"
+                        !const ${N} "${HIDDEN}"
+                        workspace {
+                            model {
+                                softwareSystem S {
+                                    container C {
+                                        properties {
+                                            contract.root x
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        """, List.of(1, 3, 5, 7), List.of(2, 7)));
+    }
 
-    @Test
-    void anUnresolvedReferenceAnywhereInTheFileIsAProblem(@TempDir Path dir) throws IOException {
-        List<String> lines = EVERY_PLACE.lines().toList();
-        List<String> expected = java.util.stream.IntStream.range(0, lines.size()).boxed()
-                .flatMap(index -> REFERENCE.matcher(lines.get(index)).results()
-                        .map(reference -> unresolvedAt(index + 1, reference.group(1))))
-                .toList();
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("referencesThatNoCheckAfterParsingSees")
+    void aReferenceThatNoCheckAfterParsingSeesIsRejectedBeforeParsing(String input, String dsl,
+            List<Integer> constants, List<Integer> references, @TempDir Path dir) throws IOException {
+        List<String> expected = Stream.concat(constants.stream().map(line -> directiveAt(line, "!const")),
+                references.stream().map(RestrictedDslParserTest::substitutionAt)).toList();
 
-        assertThat(expected).hasSizeGreaterThan(40);
-        assertThatThrownBy(() -> ContractModelReader.read(write(dir, EVERY_PLACE), "workspace.dsl"))
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
                 .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
                         .containsExactlyInAnyOrderElementsOf(expected));
     }
 
-    @Test
-    void afterParsingEveryStringTheWorkspaceHoldsIsCheckedToo(@TempDir Path dir) throws Exception {
-        ParsedModel parsed = RestrictedDslParser.parse(write(dir, EVERY_PLACE), "workspace.dsl", new Problems());
-
-        List<ParsedStrings.Reference> found =
-                ParsedStrings.unresolved(parsed.workspace(), new ElementNames(parsed.identifiers()));
-
-        // Every name the fixture writes is found somewhere: a place the walk skips fails here.
-        assertThat(found.stream().map(ParsedStrings.Reference::name).distinct().sorted().toList())
-                .isEqualTo(REFERENCE.matcher(EVERY_PLACE).results().map(reference -> reference.group(1)).distinct()
-                        .sorted().toList());
-        assertThat(found).extracting(ParsedStrings.Reference::place, ParsedStrings.Reference::name)
-                .containsExactly(EVERY_PLACE_FOUND);
-    }
-
-    @Test
-    void aReferenceBeforeTheConstantThatDefinesItIsAProblem(@TempDir Path dir) throws IOException {
-        String dsl = VALID
-                .replace("orders = component \"Orders\"", "orders = component \"${NAME}\"")
-                .replace("// MODEL", "!const NAME \"Orders\"");
-
-        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
-                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly(unresolved(dsl, "NAME")));
-    }
-
-    @Test
-    void referencesInCommentsDoNotCount(@TempDir Path dir) throws Exception {
-        String dsl = VALID.replace("// MODEL", """
-                // ${LINE_COMMENT}
-                # ${HASH_COMMENT}
-                /* ${ONE_LINE_BLOCK} */
-                /* ${BLOCK_START}
-                   ${BLOCK_INSIDE}
-                   ${BLOCK_END} */""");
-
-        ContractModel model = ContractModelReader.read(write(dir, dsl), "workspace.dsl");
-
-        assertThat(model.components()).extracting(ContractComponent::id).containsExactly("orders");
-    }
-
-    @Test
-    void aReferenceInATextBlockCountsEvenOnALineThatLooksLikeAComment(@TempDir Path dir) throws IOException {
-        String dsl = VALID.replace("orders = component \"Orders\" {", """
-                orders = component "Orders" {
-                    description ""\"
-                # Orders, from ${TEXT_BLOCK}
-                ""\"
-                """);
-
-        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
-                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly(unresolved(dsl, "TEXT_BLOCK")));
-    }
-
-    @Test
-    void aReferenceSplitByALineContinuationIsOneReference(@TempDir Path dir) throws Exception {
-        // StructurizrDslParser joins a line that ends in a backslash with the next one, without its leading spaces.
-        String dsl = VALID.replace("orders = component \"Orders\"",
-                "orders = component \"Orders\" \"Reads ${HO\\\n        ME}\"");
-
-        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads ${HOME}");
-        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
-                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly(unresolvedAt(lineOf(dsl, "${HO"), "HOME")));
-    }
-
-    @Test
-    void aCommentLineThatContinuesALineIsPartOfIt(@TempDir Path dir) throws Exception {
-        String dsl = VALID.replace("orders = component \"Orders\"",
-                "orders = component \"Orders\" \"Reads \\\n        // ${JOINED}\"");
-
-        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads // ${JOINED}");
-        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
-                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly(unresolved(dsl, "JOINED")));
-    }
-
-    @Test
-    void aDefinitionInATextBlockIsTextAndDefinesNothing(@TempDir Path dir) throws Exception {
-        String dsl = VALID.replace("orders = component \"Orders\" {", """
-                orders = component "Orders" {
-                    description ""\"
-                        !const HOME safe
-                        ""\"
-                    technology "Reads ${HOME}"
-                """);
-
-        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("!const HOME safe");
-        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
-                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly(unresolved(dsl, "HOME")));
-    }
-
-    @Test
-    void textBeforeTheClosingMarkerOfATextBlockIsDropped(@TempDir Path dir) throws Exception {
-        // The line after the block is a line of its own again: its !const defines AFTER.
-        String dsl = VALID.replace("orders = component \"Orders\" {", """
-                orders = component "Orders" {
-                    description ""\"
-                        Reads orders
-                        and ${DROPPED}""\"
-                    !const AFTER "fx"
-                    technology "${AFTER}"
-                """);
-
-        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads orders");
-        assertThat(ContractModelReader.read(write(dir, dsl), "workspace.dsl").components()).hasSize(1);
-    }
-
-    @Test
-    void aSecondMarkerOnTheOpeningLineEndsTheBlockThere(@TempDir Path dir) throws Exception {
-        // The parser keeps the text between the first two markers without its last character, and drops the rest:
-        // the tags of Clerk end in "Rest ${CUT", and ${LOST} is gone.
-        String dsl = VALID.replace("// MODEL", """
-                clerk = person "Clerk" "Reads ${OPENING}" ""\"Rest ${CUT}""\"
-                    ${LOST}
-                    ""\"
-                """);
-
-        assertThat(parsedElement(dir, dsl, "Clerk").getTags()).endsWith(",Rest ${CUT");
-        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
-                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly(unresolved(dsl, "OPENING")));
-    }
-
-    @Test
-    void aCommentLineThatEndsInABackslashDoesNotContinue(@TempDir Path dir) throws Exception {
-        String dsl = VALID.replace("!identifiers flat", "!identifiers flat\n    // a comment \\\n    !const NAME \"x\"")
-                .replace("orders = component \"Orders\" {", "orders = component \"Orders\" \"Reads ${NAME}\" {");
-
-        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads x");
-        assertThat(ContractModelReader.read(write(dir, dsl), "workspace.dsl").components()).hasSize(1);
-    }
-
-    @Test
-    void aCommentLineWithTextBlockMarkersOpensNoTextBlock(@TempDir Path dir) throws Exception {
-        String dsl = VALID.replace("!identifiers flat",
-                        "!identifiers flat\n    // a comment with \"\"\" markers \"\"\"\n    !const NAME \"x\"")
-                .replace("orders = component \"Orders\" {", "orders = component \"Orders\" \"Reads ${NAME}\" {");
-
-        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads x");
-        assertThat(ContractModelReader.read(write(dir, dsl), "workspace.dsl").components()).hasSize(1);
-    }
-
-    @Test
-    void aVariableDefinesItsNameToo(@TempDir Path dir) throws Exception {
-        String dsl = VALID.replace("!identifiers flat", "!identifiers flat\n    !var NAME \"x\"")
-                .replace("orders = component \"Orders\" {", "orders = component \"Orders\" \"Reads ${NAME}\" {");
-
-        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads x");
-        assertThat(ContractModelReader.read(write(dir, dsl), "workspace.dsl").components()).hasSize(1);
-    }
-
-    @Test
-    void aReferenceThatOnlySubstitutionPutsTogetherIsCaughtInTheParsedStrings(@TempDir Path dir) throws Exception {
-        // The file holds ${DOLLAR}{HOME}, which refers to DOLLAR only. The parser makes it ${HOME} and does not
-        // substitute that again, so only the check of the parsed strings can see it.
-        String dsl = VALID.replace("!identifiers flat", "!identifiers flat\n    !const DOLLAR \"$\"")
-                .replace("orders = component \"Orders\" {",
-                        "orders = component \"Orders\" \"Reads ${DOLLAR}{HOME}\" {");
-
-        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads ${HOME}");
-        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
-                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly("orders: ${HOME} is not substituted: environment variables are not read, "
-                                + "and nothing in the model defines HOME"));
-    }
-
-    /** A perspectives block on orders with a line that reads like a definition: the parser makes it a perspective. */
-    private static final String FAKE_DEFINITION = """
-            orders = component "Orders" {
-                perspectives {
-                    !const HIDDEN x
-                }
-            """;
-
-    @Test
-    void aDefinitionInAPerspectivesBlockHidesNoReferenceInADeploymentEnvironmentName(@TempDir Path dir)
-            throws Exception {
-        String dsl = VALID.replace("orders = component \"Orders\" {", FAKE_DEFINITION).replace("// MODEL", """
-                deploymentEnvironment "Live ${HIDDEN}" {
-                    deploymentNode "Server"
-                }
-                """);
-
-        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
-                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly(unresolved(dsl, "HIDDEN")));
-    }
-
-    @Test
-    void aDefinitionInAPerspectivesBlockHidesNoReferenceInTheTagsOfAFilteredView(@TempDir Path dir)
-            throws Exception {
-        String dsl = VALID.replace("orders = component \"Orders\" {", FAKE_DEFINITION).replace("// VIEWS", """
-                component app "Components" {
-                    include *
-                }
-                filtered "Components" include "Tag ${HIDDEN}" "Filtered"
-                """);
-
-        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
-                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly(unresolved(dsl, "HIDDEN")));
-    }
-
-    @Test
-    void onlyALineThatTheParserReadsAsADirectiveDefinesAName(@TempDir Path dir) throws Exception {
-        // In perspectives { } each line is a perspective, unless it opens a perspective block (perspective <name> {),
-        // whose lines are directives again. In properties { } each line is a property. After a block, they are
-        // directives too.
-        String dsl = VALID.replace("orders = component \"Orders\" {", """
-                orders = component "Orders" {
-                    perspectives {
-                        perspective "Security" {
-                            !const INSIDE "x"
-                            description "${INSIDE}"
-                        }
-                        perspective "Looks" "like an opener, but has no brace"
-                        !const HIDDEN x
-                    }
-                    properties {
-                        !const PROPERTY
-                    }
-                    !const AFTER "y"
-                    description "${HIDDEN} ${PROPERTY} ${AFTER}"
-                """);
-
-        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("${HIDDEN} ${PROPERTY} y");
-        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
-                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly(unresolved(dsl, "HIDDEN"), unresolved(dsl, "PROPERTY")));
-    }
-
-    /** Lines that start with properties and look like relationships, where StructurizrDslParser opens the block. */
-    static Stream<Arguments> relationshipShapedLinesThatOpenAPropertiesBlock() {
-        return Stream.of(
-                // The workspace has no relationships, so the line opens the workspace's properties.
-                arguments("-> at workspace scope", "// WORKSPACE", "properties -> ignored {"),
-                // No archetype is named missing, so this is no relationship but the model's properties.
-                arguments("an unknown archetype in the model", "// MODEL", "properties --missing-> app {"));
+    static Stream<Arguments> lineEnds() {
+        return Stream.of(arguments("LF", "\n"), arguments("CRLF", "\r\n"), arguments("CR", "\r"));
     }
 
     @ParameterizedTest(name = "{0}")
-    @MethodSource("relationshipShapedLinesThatOpenAPropertiesBlock")
-    void aDefinitionInAPropertiesBlockOpenedByARelationshipShapedLineDefinesNothing(String input, String slot,
-            String opener, @TempDir Path dir) throws IOException {
-        // !const HIDDEN is a property. The constant that holds ${HIDDEN} is never used, so the reference reaches no
-        // parsed string, and only the source scan can see it.
-        String dsl = VALID.replace(slot, opener + """
+    @MethodSource("lineEnds")
+    void aLineContinuationIsAProblemAlsoWhereNoLineHoldsAConstantOrAReference(String input, String lineEnd,
+            @TempDir Path dir) throws Exception {
+        // Codex: the parser joins a line that ends in a backslash to the next one without a separator, so !con\ and
+        // st define N, and $\ and {N} use it, although no line holds !const or ${.
+        String dsl = ("!con\\\nst N \"foo\"\n"
+                + VALID.replace("workspace {\n", "workspace {\n    description \"$\\\n{N}\"\n")).replace("\n", lineEnd);
+        StructurizrDslParser parser = RestrictedDslParser.newParser();
+        parser.parse(write(dir, dsl).toFile());
 
-                    !const HIDDEN
-                }
-                !const UNUSED "${HIDDEN}"
-                """);
-
+        assertThat(parser.getWorkspace().getDescription()).as("what the parser makes of the file").isEqualTo("foo");
         assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
                 .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly(unresolved(dsl, "HIDDEN")));
+                        .containsExactlyInAnyOrder(continuationAt(1), continuationAt(4)));
+    }
+
+    /** Codex: with $ as the group separator, the parser names the inner group: outer, then $, then its own name. */
+    private static final String NESTED_GROUPS = """
+            properties {
+                "structurizr.groupSeparator" "$"
+            }
+            group "outer" {
+                group "%s" {
+                    clerk = person "Clerk"
+                }
+            }
+            """;
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"{X}", "{", "{x y}"})
+    void aDollarBraceThatOnlyTheParserPutsTogetherIsAProblem(String inner, @TempDir Path dir) throws Exception {
+        // No line of the file holds ${, so only the check after parsing sees it. It rejects any ${, with a name or
+        // without one.
+        String dsl = VALID.replace("// MODEL", NESTED_GROUPS.formatted(inner));
+
+        assertThat(parsedElement(dir, dsl, "Clerk")).isInstanceOfSatisfying(GroupableElement.class,
+                clerk -> assertThat(clerk.getGroup()).isEqualTo("outer$" + inner));
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(assembled("clerk")));
     }
 
     @Test
-    void aLineOfDataThatEndsWithABraceKeepsTheScanInTheBlockAKnownFalseRejection(@TempDir Path dir)
-            throws Exception {
-        // A known limitation, safe by design (docs/gaps.md, section 5): the scan counts the perspective whose value
-        // is a brace as a nested block, so it reads the block's closing brace as closing that, and !const AFTER as
-        // data. Structurizr substitutes ${AFTER}; the check rejects it.
-        String dsl = VALID.replace("orders = component \"Orders\" {", """
-                orders = component "Orders" {
-                    perspectives {
-                        "Braced" "value" "{"
-                        !const HIDDEN x
-                    }
-                    !const AFTER "y"
-                    description "${HIDDEN} ${AFTER}"
-                """);
+    void aKeywordThatOnlyUnicodeCaseFoldingMatchesIsAProblem(@TempDir Path dir) throws Exception {
+        // Codex: the parser compares its keywords with String.equalsIgnoreCase, which folds the long s (U+017F) to
+        // s, so this line defines N. Matching only ASCII letters case-insensitively would miss it.
+        String dsl = "!con\u017Ft N \"foo\"\n" + VALID;
+        StructurizrDslParser parser = RestrictedDslParser.newParser();
+        parser.parse(write(dir, dsl).toFile());
 
-        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("${HIDDEN} y");
+        assertThat(parser.getConstant("N")).as("what the parser makes of the file").isEqualTo("foo");
         assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
                 .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly(unresolved(dsl, "AFTER"), unresolved(dsl, "HIDDEN")));
+                        .containsExactly(directiveAt(1, "!con\u017Ft")));
+    }
+
+    static Stream<Arguments> constantsAndVariablesInAnyLetterCase() {
+        return Stream.of(
+                arguments("in upper case", "!CONST N \"foo\"", "!CONST"),
+                arguments("in mixed case", "!vAr N \"foo\"", "!vAr"),
+                arguments("inside a word", "clerk = person \"Clerk\" \"Reads x!constants\"", "!const"),
+                arguments("as the start of a longer word", "clerk = person \"Clerk\" \"!variables\"", "!var"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("constantsAndVariablesInAnyLetterCase")
+    void aConstantOrAVariableIsAProblemInAnyLetterCaseAndInsideAWord(String input, String line, String keyword,
+            @TempDir Path dir) throws IOException {
+        String dsl = VALID.replace("// MODEL", line);
+
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(directiveAt(lineOf(dsl, line), keyword)));
     }
 
     /**
-     * Lines that StructurizrDslParser reads only after substituting them: a block keyword, a comment opener or an
-     * identifier assignment that a constant or a text block produces. The source scan reads the tokens as written, so
-     * for it HIDDEN is defined; for the parser it is a property, or in a comment.
+     * Text that would change nothing, and is rejected all the same: the cost of reading the file as text.
+     *
+     * @return the case, the lines that replace the MODEL comment, a fragment of the line with the problem, and the
+     *     problem at that line
      */
-    static Stream<Arguments> definitionsThatOnlyTheSubstitutedLineHides() {
+    static Stream<Arguments> harmlessTextThatIsRejectedToo() {
+        IntFunction<String> substitution = RestrictedDslParserTest::substitutionAt;
+        IntFunction<String> constant = line -> directiveAt(line, "!const");
+        IntFunction<String> variable = line -> directiveAt(line, "!var");
+        IntFunction<String> continuation = RestrictedDslParserTest::continuationAt;
         return Stream.of(
-                arguments("a block keyword from a constant",
-                        "!const P \"properties\"\n${P} {\n    !const HIDDEN\n}\n"),
-                arguments("a comment opener from a constant",
-                        "!const C \"/*\"\n${C} a comment, for the parser\n!const HIDDEN \"x\"\n*/\n"),
-                arguments("an identifier assignment from a constant",
-                        "!const EQ \"=\"\nx ${EQ} properties {\n    !const HIDDEN\n}\n"),
-                arguments("a block keyword from a text block",
-                        "\"\"\"\nproperties\n\"\"\"\n    !const HIDDEN\n}\n"),
-                arguments("a comment opener from a text block",
-                        "\"\"\"\n/*\n\"\"\"\n!const HIDDEN \"x\"\n*/\n"));
+                arguments("${ in a line comment", "// see ${HOME}", "${HOME}", substitution),
+                arguments("${ in a hash comment", "# ${HOME} is never read", "${HOME}", substitution),
+                arguments("${ in a block comment", "/* ${HOME} */", "${HOME}", substitution),
+                arguments("${ in a text block", """
+                        clerk = person "Clerk" {
+                            description ""\"
+                                costs ${
+                                ""\"
+                        }""", "costs ${", substitution),
+                arguments("${ without a name or a closing brace", "clerk = person \"Clerk\" \"pays ${ 5\"", "pays ${",
+                        substitution),
+                arguments("!const in a comment", "// !const is left out", "!const", constant),
+                arguments("!var in a block comment", "/* no !var here */", "!var", variable),
+                arguments("a comment that ends in a backslash", "// C:\\", "C:\\", continuation));
     }
 
     @ParameterizedTest(name = "{0}")
-    @MethodSource("definitionsThatOnlyTheSubstitutedLineHides")
-    void aConstantThatStillHoldsAReferenceAfterParsingIsAProblem(String input, String lines, @TempDir Path dir)
-            throws IOException {
-        // Nothing uses UNUSED, so its ${HIDDEN} reaches no parsed string; only the value the parser gave it shows it.
-        String dsl = VALID.replace("// MODEL", lines + "!const UNUSED \"${HIDDEN}\"\n");
+    @MethodSource("harmlessTextThatIsRejectedToo")
+    void harmlessTextThatHoldsOneOfTheseIsRejectedToo(String input, String lines, String fragment,
+            IntFunction<String> problem, @TempDir Path dir) throws IOException {
+        String dsl = VALID.replace("// MODEL", lines);
 
         assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
                 .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly("!const UNUSED: ${HIDDEN} is not substituted: environment variables are not "
-                                + "read, and nothing in the model defines HIDDEN"));
-    }
-
-    /** Makes HIDDEN look defined to the source scan only: the parser reads !const HIDDEN as a property. */
-    private static final String HIDDEN_FOR_THE_SCAN = "!const P \"properties\"\n${P} {\n    !const HIDDEN\n}\n";
-
-    static Stream<Arguments> declarationsThatHoldTheReference() {
-        return Stream.of(
-                arguments("a variable", "!var LEFT \"${HIDDEN}\"\n", "!var LEFT"),
-                arguments("a declaration that a line continuation splits", "!const \\\n    LEFT \"${HIDDEN}\"\n",
-                        "!const LEFT"),
-                arguments("a declaration whose keyword a constant produces",
-                        "!const K \"!const\"\n${K} LEFT \"${HIDDEN}\"\n", "!const or !var LEFT"),
-                arguments("a declaration whose name a constant produces",
-                        "!const N \"LEFT\"\n!const ${N} \"${HIDDEN}\"\n", "!const or !var LEFT"));
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("declarationsThatHoldTheReference")
-    void everyDeclaredConstantOrVariableIsAskedForItsValue(String input, String declaration, String place,
-            @TempDir Path dir) throws IOException {
-        String dsl = VALID.replace("// MODEL", HIDDEN_FOR_THE_SCAN + declaration);
-
-        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
-                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly(place + ": ${HIDDEN} is not substituted: environment variables are not "
-                                + "read, and nothing in the model defines HIDDEN"));
+                        .containsExactly(problem.apply(lineOf(dsl, fragment))));
     }
 
     @Test
-    void aBraceInsideABlockThatTheScanTakesForDataCannotCloseItEarly(@TempDir Path dir) throws IOException {
-        // The scan opens a properties block at the relationship below, which StructurizrDslParser does not. The
-        // braces of the blocks after it belong to the parser's blocks; were the first closing brace to end the
-        // scan's block, the scan would read the !const in the perspectives block as a directive, which the parser
-        // reads as a perspective.
-        String dsl = VALID.replace("// MODEL", """
-                properties = person "Named like the keyword"
-                properties -> app "Uses"
-                other = person "Other" {
-                    perspectives {
-                        perspective "Inner" {
-                            description "d"
-                        }
-                        !const HIDDEN x
-                    }
-                }
-                !const UNUSED "${HIDDEN}"
-                """);
+    void everyConstructOnALineIsAProblemOfItsOwn(@TempDir Path dir) throws IOException {
+        // A construct that the line holds twice is one problem.
+        String dsl = VALID.replace("// MODEL", "// !const ${A} !VAR ${B} !const \\");
+        int line = lineOf(dsl, "${A}");
 
         assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
                 .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly(unresolved(dsl, "HIDDEN")));
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"properties", "perspectives"})
-    void aRelationshipFromAnElementNamedLikeABlockKeywordIsAKnownFalseRejection(String identifier,
-            @TempDir Path dir) throws Exception {
-        // A known limitation (docs/gaps.md, section 5), safe by design: the scan does not follow scopes, so it reads
-        // this relationship as the start of a block and the !const after it as data. Structurizr substitutes ${OK};
-        // the check rejects it. Renaming the identifier avoids it.
-        String dsl = VALID.replace("// MODEL", """
-                %1$s = person "Named like the keyword"
-                %1$s -> app "Uses"
-                !const OK "yes"
-                reader = person "Reader" "Reads ${OK}"
-                """.formatted(identifier));
-
-        assertThat(parsedElement(dir, dsl, "Reader").getDescription()).isEqualTo("Reads yes");
-        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
-                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly(unresolved(dsl, "OK")));
+                        .containsExactlyInAnyOrder(directiveAt(line, "!const"), directiveAt(line, "!VAR"),
+                                substitutionAt(line), continuationAt(line)));
     }
 
     @Test
-    void anEscapedQuoteInAPerspectiveNameIsPartOfTheName(@TempDir Path dir) throws Exception {
-        // As StructurizrDslParser's Tokenizer reads it, the line has three tokens and opens a perspective block.
+    void aFileThatHoldsAnyOfTheseIsNotParsed(@TempDir Path dir) throws IOException {
+        // The parser does not run, so the syntax error on the line of orders is not reported.
+        String dsl = VALID.replace("orders = component", "orders = componnt").replace("// MODEL", "// ${HOME}");
+
+        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
+                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
+                        .containsExactly(substitutionAt(lineOf(dsl, "${HOME}"))));
+    }
+
+    @Test
+    void lookalikesOfTheSyntaxAreText(@TempDir Path dir) throws Exception {
+        // Neither the parser nor the check normalises Unicode or decodes an escape: fullwidth forms and the text of
+        // an escape are not syntax. A line ends in a backslash only when a backslash is its last character.
+        String description = "\uFF04\uFF5BHOME\uFF5D, \\u0024{HOME} and \uFF01const";
+        String dsl = VALID
+                .replace("orders = component \"Orders\"", "orders = component \"Orders\" \"" + description + "\"")
+                .replace("// MODEL", "// a backslash and a space: \\ \n// a fullwidth backslash: \uFF3C");
+
+        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo(description);
+        assertThat(ContractModelReader.read(write(dir, dsl), "workspace.dsl").components()).hasSize(1);
+    }
+
+    @Test
+    void textBlocksAreText(@TempDir Path dir) throws Exception {
+        // StructurizrDslParser keeps each text block in a constant of its own and puts it back through a ${...} that
+        // it writes itself: after parsing, no text of a valid model with text blocks holds ${.
         String dsl = VALID.replace("orders = component \"Orders\" {", """
                 orders = component "Orders" {
-                    perspectives {
-                        perspective "A \\"quoted\\" name" {
-                            !const QUOTED "x"
-                            description "${QUOTED}"
-                        }
-                    }
+                    description ""\"
+                        Takes orders
+                        and keeps them
+                        ""\"
+                """).replace("// VIEWS", """
+                component app "Components" {
+                    include *
+                    description ""\"
+                        Every component
+                        ""\"
+                }
                 """);
 
-        assertThat(parsedElement(dir, dsl, "Orders").getPerspectives())
-                .extracting(com.structurizr.model.Perspective::getDescription).containsExactly("x");
+        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Takes orders\nand keeps them");
         assertThat(ContractModelReader.read(write(dir, dsl), "workspace.dsl").components()).hasSize(1);
     }
 
-    /** The other blocks that read each line as data: there, a !const or !var line does not parse at all. */
-    static Stream<Arguments> blocksWhoseLinesCannotBeDefinitions() {
-        return Stream.of(
-                arguments("a dynamic view", "// VIEWS", "dynamic shop \"Flow\" {\n    !const A b\n}"),
-                arguments("a parallel sequence", "// VIEWS",
-                        "dynamic shop \"Flow\" {\n    {\n        !var A b\n    }\n}"),
-                arguments("an animation", "// VIEWS",
-                        "component app \"Components\" {\n    include *\n    animation {\n        !const A b\n    }\n}"),
-                arguments("the users", "// WORKSPACE", "configuration {\n    users {\n        !const A b\n    }\n}"));
+    /** What the check before parsing says about a construct the restricted DSL leaves out. */
+    private static final String ANYWHERE =
+            " anywhere in the file, comments and text blocks included: the restricted DSL has no ";
+
+    private static String substitutionAt(int line) {
+        return "workspace.dsl:" + line + ": ${ is not supported" + ANYWHERE + "${...} substitution";
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("blocksWhoseLinesCannotBeDefinitions")
-    void aDefinitionInAnyOtherBlockThatReadsLinesAsDataDoesNotParse(String block, String slot, String lines,
-            @TempDir Path dir) throws IOException {
-        Path model = write(dir, VALID.replace(slot, lines));
-
-        assertThatThrownBy(() -> ContractModelReader.read(model, "workspace.dsl"))
-                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .singleElement(STRING).contains(" at line ").contains(" of workspace.dsl: "));
+    private static String directiveAt(int line, String keyword) {
+        return "workspace.dsl:" + line + ": " + keyword + " is not supported" + ANYWHERE + "constants or variables";
     }
 
-    @Test
-    void aDefinitionAfterAnIdentifierAssignmentStillDefines(@TempDir Path dir) throws Exception {
-        // The parser drops "x =" from a line before it reads the keyword, so this line is a !const.
-        String dsl = VALID.replace("!identifiers flat", "!identifiers flat\n    x = !const NAME \"Orders\"")
-                .replace("orders = component \"Orders\" {", "orders = component \"Orders\" \"Reads ${NAME}\" {");
-
-        assertThat(descriptionOfOrders(dir, dsl)).isEqualTo("Reads Orders");
-        assertThat(ContractModelReader.read(write(dir, dsl), "workspace.dsl").components()).hasSize(1);
+    private static String continuationAt(int line) {
+        return "workspace.dsl:" + line + ": a backslash at the end of a line is not supported" + ANYWHERE
+                + "line continuations";
     }
 
-    @Test
-    void blockCommentsNestAsTheParserNestsThem(@TempDir Path dir) throws Exception {
-        String dsl = VALID.replace("// MODEL", """
-                /*
-                /* inner
-                */
-                ${STILL_IN_THE_OUTER_COMMENT}
-                */
-                clerk = person "Clerk" "${AFTER_THE_COMMENT}"
-                """);
-
-        assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
-                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly(unresolved(dsl, "AFTER_THE_COMMENT")));
-    }
-
-    @Test
-    void aByteOrderMarkDoesNotHideACommentOnTheFirstLine(@TempDir Path dir) throws Exception {
-        String dsl = "\uFEFF// ${COMMENTED}\n" + VALID;
-
-        ContractModel model = ContractModelReader.read(write(dir, dsl), "workspace.dsl");
-
-        assertThat(model.components()).extracting(ContractComponent::id).containsExactly("orders");
-    }
-
-    @Test
-    void aModelFileThatIsNotUtf8IsAProblem(@TempDir Path dir) throws IOException {
-        Path model = Files.write(dir.resolve("workspace.dsl"), new byte[] {'w', 'o', (byte) 0xFF, 'r', 'k'});
-
-        assertThatThrownBy(() -> ContractModelReader.read(model, "workspace.dsl"))
-                .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .singleElement(STRING)
-                        .startsWith("workspace.dsl: the model file is not readable UTF-8: "));
-    }
-
-    /** The problem for a ${name} that nothing defines, at the only line of the model that contains it. */
-    private static String unresolved(String dsl, String name) {
-        return unresolvedAt(lineOf(dsl, "${" + name + "}"), name);
-    }
-
-    private static String unresolvedAt(int line, String name) {
-        return "workspace.dsl:" + line + ": ${" + name + "} is not substituted: environment variables are not read, "
-                + "and no !const or !var defines " + name + " before this line";
+    /** What the check after parsing says about a place with a text that holds ${. */
+    private static String assembled(String place) {
+        return place + ": a text holds ${ after parsing, put together from parts such as nested group names: the "
+                + "restricted DSL has no ${...} substitution";
     }
 
     /** What the parser made of the description of the component Orders. */
@@ -879,19 +631,6 @@ class RestrictedDslParserTest {
                 .toList();
         assertThat(found).as("lines with %s", fragment).hasSize(1);
         return found.get(0);
-    }
-
-    @Test
-    void constantsDefinedInTheModelAreStillSubstituted(@TempDir Path dir) throws Exception {
-        Path model = write(dir, VALID
-                .replace("!identifiers flat", "!identifiers flat\n!const ROOT \"fx.shop\"\n!const NAME \"Orders\"")
-                .replace("\"contract.root\" \"fx.shop\"", "\"contract.root\" \"${ROOT}\"")
-                .replace("orders = component \"Orders\"", "orders = component \"${NAME}\""));
-
-        ContractModel contract = ContractModelReader.read(model, "workspace.dsl");
-
-        assertThat(contract.root()).isEqualTo("fx.shop");
-        assertThat(contract.components()).extracting(ContractComponent::name).containsExactly("Orders");
     }
 
     /** A component of another container, and a relationship to it from orders that implies three more. */
@@ -978,14 +717,14 @@ class RestrictedDslParserTest {
     }
 
     @Test
-    void anUnresolvedReferenceAndABrokenModelRuleAreReportedTogether(@TempDir Path dir) throws IOException {
+    void aDollarBraceAfterParsingAndABrokenModelRuleAreReportedTogether(@TempDir Path dir) throws IOException {
         String dsl = VALID
-                .replace("orders = component \"Orders\"", "orders = component \"Orders\" \"Reads ${HOME}\"")
-                .replace("\"contract.id\" \"orders\"", "");
+                .replace("\"contract.id\" \"orders\"", "")
+                .replace("// MODEL", NESTED_GROUPS.formatted("{X}"));
 
         assertThatThrownBy(() -> ContractModelReader.read(write(dir, dsl), "workspace.dsl"))
                 .isInstanceOfSatisfying(InvalidModelException.class, e -> assertThat(e.problems())
-                        .containsExactly("orders: contract.id is missing", unresolved(dsl, "HOME")));
+                        .containsExactly(assembled("clerk"), "orders: contract.id is missing"));
     }
 
     @Test

@@ -2,7 +2,7 @@
 title: "Known gaps and limits"
 description: "What v0.1 does not do, what each control cannot prove, and which decisions are still unverified. Read this before trusting a green build."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 ---
 
 # Known gaps and limits
@@ -134,16 +134,6 @@ closes it.
   owner and name, in a call or a method or constructor reference. A call through `java.lang.invoke`, a method handle
   looked up by name, is outside those rules; only `java.lang.reflect` is banned outright. No production class uses
   `java.lang.invoke` today, and `policy/risk.json` raises an added `MethodHandles.` in production code to level 3.
-- **The `${NAME}` check reads the model file without scopes, and errs towards rejecting.** For the check, a line that
-  starts with `properties` or `perspectives` opens that block, whatever follows. So an element whose identifier is
-  `properties` or `perspectives` cannot start a relationship line in a checked model: the check reads that line as the
-  start of the block, and a later `!const` or `!var` as data, so a reference to it is rejected although Structurizr
-  substitutes it. Rename the identifier. Likewise, a property or perspective whose value is `{` counts as a block
-  nested in its block, and a definition after that block is rejected the same way.
-- **The check of declared values sees the end of parsing.** After parsing, the `${NAME}` check also asks the parser
-  for the value of every name the file could declare, so a reference that only an unused constant or variable holds
-  is found too. It sees each value as parsing left it: a `!var` that is set again later is checked for its last value
-  only, and a name that substitution puts together from parts (`!const ${A}${B} value`) is not looked up.
 
 ## 6. Tests and quality gates
 
