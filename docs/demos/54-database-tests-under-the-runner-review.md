@@ -68,7 +68,10 @@ Checked against `security/allowlist.json` (308 entries) on 2026-11-07.
 In the pull request's CI, each rework of a control first failed on its new tests and then passed: the checker's
 tests failed on 30 spellings that got through it (run 42415471627) and passed once it read them (run 42415698147);
 the tests of the CI scripts failed where a failed engine query read as an empty answer and where a prerelease of runc
-1.3.3 passed (run 42416220034). The runs before the rework show the harness failing closed without the engine's
+1.3.3 passed (run 42416220034). After the second review, the checker's tests failed on 20 spellings that bash, the
+compilers or YAML read as docker or Testcontainers (run 42420154660), then on 6 of 8 more that this pull request wrote
+against its own first normalising version (run 42421241319), and the engine script's tests failed where a failing
+grep read as 0 events (run 42421521416); run 42421869779 passed all of them. The runs before the rework show the harness failing closed without the engine's
 preparation (run 42410083958) and passing with it (run 42410533646), whose job summary records the runner image
 20261101.360.1 on Ubuntu 24.04.5, Docker Engine 28.0.4, containerd v2.4.2 and runc 1.5.2, and one container, made
 from the reviewed image. The test classes named above check the harness and the publishing workflow in every build.
