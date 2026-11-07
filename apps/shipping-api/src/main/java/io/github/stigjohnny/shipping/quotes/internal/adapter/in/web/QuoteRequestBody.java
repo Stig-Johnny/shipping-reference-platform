@@ -10,18 +10,20 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import org.jspecify.annotations.Nullable;
+import tools.jackson.databind.annotation.JsonDeserialize;
 
 /**
- * The contract's QuoteRequest, read from untrusted JSON. Jackson rejects unknown members, wrong types and enum values
- * that are no level's name; a member can still be missing or out of bounds, which Bean Validation rejects, with the
- * contract's bounds, before {@link #toDomain()} builds the domain's values. The messages are fixed English text, so a
- * client's Accept-Language does not change them.
+ * The contract's QuoteRequest, read from untrusted JSON. Jackson rejects unknown members, wrong types, enum values
+ * that are no level's name and an explicit null in the optional {@code serviceLevel} ({@link OptionalMember}); a
+ * required member can still be missing, null or out of bounds, which Bean Validation rejects, with the contract's
+ * bounds, before {@link #toDomain()} builds the domain's values. The messages are fixed English text, so a client's
+ * Accept-Language does not change them.
  */
 record QuoteRequestBody(
         @NotNull(message = Messages.REQUIRED) @Valid ParcelBody parcel,
         @NotNull(message = Messages.REQUIRED) @Valid PlaceBody origin,
         @NotNull(message = Messages.REQUIRED) @Valid PlaceBody destination,
-        @Nullable ServiceLevel serviceLevel) {
+        @JsonDeserialize(using = OptionalMember.class) @Nullable ServiceLevel serviceLevel) {
 
     QuoteRequest toDomain() {
         return new QuoteRequest(parcel.toDomain(), origin.toDomain(), destination.toDomain(), serviceLevel);

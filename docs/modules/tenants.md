@@ -102,7 +102,16 @@ These tokens are public, guessable test fixtures, not secrets. Rules:
   validation-failed, consistent with OpenAPI. DemoTokenAuthenticationTest verifies both behaviors.
 - The demo token filter is part of the security chain only with the `demo` Spring profile. Without it nobody
   authenticates, and every `/api/**` request returns `401 unauthenticated`. Paths outside `/api` serve nothing: the
-  chain denies them, with `401` to anyone unauthenticated and the generic `404 not-found` to a member.
+  chain denies them, with `401` to anyone unauthenticated, `403` to a user without a tenant and the generic
+  `404 not-found` to a member.
+- A request that Spring Security's firewall refuses, such as a path with `;` or an encoded `/` or a method the
+  server does not accept, is `400 malformed-request` before it is authenticated: the module's
+  `RequestRejectedHandler` hands the rejection to the MVC exception resolvers, and the HTTP edge writes the problem,
+  with the correlation ID and `Cache-Control: no-store`.
+- Spring Boot's generated user never exists, because the module defines its own `AuthenticationManager`
+  (`security/reviews/maven--spring-security--7.1.2.md`, condition 3). `DemoTokenAuthenticationTest` checks the beans
+  and the startup log of the application with and without the `demo` profile, and the `java` workflow fails when
+  "Using generated security password" appears in the build's output or in any test result or test report.
 - Limits are stated in the contract's `demoBearer` description and in `docs/gaps.md`.
 
 ## Request and transaction flow

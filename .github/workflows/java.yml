@@ -77,7 +77,30 @@ jobs:
         env:
           GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
           TESTCONTAINERS_RYUK_DISABLED: 'true'
-        run: ./gradlew --no-daemon --console=plain check
+        # The output is also kept for the next step's scan. pipefail (the default shell above) keeps Gradle's exit
+        # status, so a failed build or test still fails this step.
+        run: ./gradlew --no-daemon --console=plain check 2>&1 | tee "$RUNNER_TEMP/gradle-check.log"
+
+      - name: Refuse Spring Boot's generated security password in any build or test output
+        # Spring Security's review, condition 3 (security/reviews/maven--spring-security--7.1.2.md): Spring Boot's
+        # generated user must never exist, and Boot logs its password at WARN. The scan reads the build's console output
+        # and every file of every test result and test report, which hold the tests' own output. It also runs after a
+        # failed build, and it can only fail the job, never make a failed build pass.
+        if: ${{ !cancelled() }}
+        run: |
+          phrase='Using generated security password'
+          found=0
+          if [[ -f "$RUNNER_TEMP/gradle-check.log" ]] && grep -qF -- "$phrase" "$RUNNER_TEMP/gradle-check.log"; then
+            echo "::error::The build's output contains Spring Boot's generated security password."
+            found=1
+          fi
+          while IFS= read -r -d '' output; do
+            if grep -qF -- "$phrase" "$output"; then
+              echo "::error::${output#candidate/} contains Spring Boot's generated security password."
+              found=1
+            fi
+          done < <(find candidate \( -path '*/build/test-results/*' -o -path '*/build/reports/tests/*' \) -type f -print0)
+          exit "$found"
 
       - name: Refuse symbolic links before uploading reports
         # Any link under libs/ or apps/, the report directories themselves included: the upload follows links.

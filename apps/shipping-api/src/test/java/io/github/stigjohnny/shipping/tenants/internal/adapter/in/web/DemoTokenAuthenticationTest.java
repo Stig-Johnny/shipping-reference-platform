@@ -43,6 +43,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.NestedTestConfiguration;
 import org.springframework.test.context.NestedTestConfiguration.EnclosingConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
@@ -238,7 +239,35 @@ class DemoTokenAuthenticationTest {
 
             assertUnauthenticated("get", "/me", result);
             // This context starts in this class, under the capture: Spring Boot's generated user would log this line.
-            assertThat(output.getAll()).contains("Started").doesNotContain("Using generated security password");
+            assertThat(output.getAll()).contains("No active profile set", "Started")
+                    .doesNotContain("Using generated security password");
+        }
+    }
+
+    /**
+     * The demo profile's application, started afresh in this class under the capture, so that its own start is what
+     * the capture sees: a demo token authenticates, and Spring Boot generates no user and logs no password.
+     */
+    @Nested
+    @NestedTestConfiguration(EnclosingConfiguration.OVERRIDE)
+    @ApiTest
+    @DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_CLASS)
+    @ExtendWith(OutputCaptureExtension.class)
+    class WithTheDemoProfile {
+
+        private final MockMvc withDemo;
+
+        WithTheDemoProfile(@Autowired WebApplicationContext context) {
+            withDemo = Http.mockMvc(context);
+        }
+
+        @Test
+        void aDemoTokenAuthenticatesAndNoPasswordIsGenerated(CapturedOutput output) throws Exception {
+            MvcResult result = withDemo.perform(bearer(get("/api/v1/me"), CLERK_ALPHA)).andReturn();
+
+            assertThat(result.getResponse().getStatus()).isEqualTo(200);
+            assertThat(output.getAll()).contains("The following 1 profile is active: \"demo\"", "Started")
+                    .doesNotContain("Using generated security password");
         }
     }
 }

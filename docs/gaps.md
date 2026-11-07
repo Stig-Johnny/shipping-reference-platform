@@ -171,9 +171,6 @@ closes it.
   documented operation and status code is exercised, and OpenAPI style linting.
 - The HTTP tests run on MockMvc, with the servlet filters that the application registers, in their order. No servlet
   container starts, so the container's own request parsing and error pages are not exercised.
-- The server treats an explicit `null` in a request body like an absent member: Jackson cannot tell the two apart for
-  records. The contract allows neither. A required member is rejected either way, but an explicit `null` for the
-  optional `serviceLevel` is accepted.
 - Mutation testing runs for `libs/c4-contract-kit` only, in CI (the `mutation` job), over all its production classes,
   at a 90 % threshold. The planned measure per change (80 % of mutants on changed lines, 90 % for pricing and checker
   code) is not built yet, and equivalent-mutant exclusions are reviewed by hand. So the pricing code of the `quotes`

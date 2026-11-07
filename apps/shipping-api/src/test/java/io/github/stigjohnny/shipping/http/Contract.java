@@ -6,12 +6,16 @@ import com.networknt.schema.Error;
 import com.networknt.schema.InputFormat;
 import com.networknt.schema.SchemaLocation;
 import com.networknt.schema.SchemaRegistry;
+import com.networknt.schema.SchemaRegistryConfig;
 import com.networknt.schema.dialect.Dialects;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
@@ -26,11 +30,18 @@ import tools.jackson.dataformat.yaml.YAMLMapper;
 
 /**
  * contracts/shipping.openapi.yaml, read from the test class path, and the check that an exercised response conforms to
- * it (ADR 0004): its status is documented for the operation, or is the generic 404 or 405 that any path can give; its
- * documented headers are present and valid; its media type is documented; its body validates against the documented
- * schema with networknt's json-schema-validator in the OpenAPI 3.1 dialect; and a problem's type, title and status are
- * exactly those of the problem registry in the contract's description, with the response's correlation ID and the
- * request path as its instance. Every response is also checked for {@code Cache-Control: no-store}.
+ * it (ADR 0004). A response conforms when:
+ *
+ * <ul>
+ *   <li>its status is documented for the operation, or is one of the problems that the contract's description allows
+ *       on any path (400 malformed-request, 401, 403, 404 and 405);
+ *   <li>its documented headers are present and valid, and it carries {@code Cache-Control: no-store};
+ *   <li>its media type is documented, and its body validates against the documented schema with networknt's
+ *       json-schema-validator in the OpenAPI 3.1 dialect, with formats asserted, not only annotated;
+ *   <li>a problem's type, title and status are exactly those of the problem registry in the contract's description,
+ *       its correlation ID is the response's, and its instance is the request path, or {@code about:blank} where the
+ *       contract says the path cannot be repeated.
+ * </ul>
  *
  * <p>As the validator's review requires (security/reviews/maven--json-schema-validator--3.0.9.md), the contract is a
  * {@code classpath:} resource, sub-schemas are JSON pointers into it, and the schema loader may load {@code classpath:}
@@ -44,6 +55,19 @@ public final class Contract {
     private static final String PROBLEM_TYPES = "https://shipping-reference-platform.example/problems/";
     private static final String PROBLEM_SCHEMA = "#/components/schemas/Problem";
     private static final String CORRELATION_ID = "Correlation-Id";
+    /** The longest request path that a problem's instance repeats; a longer one is {@code about:blank}. */
+    private static final int MAX_INSTANCE = 2048;
+    private static final String NO_INSTANCE = "about:blank";
+    /**
+     * The problems that can occur on any path (the contract's description, "Errors"), with the component that
+     * documents each one's headers, if there is one.
+     */
+    private static final Map<Integer, AnyPath> ANY_PATH = Map.of(
+            400, new AnyPath("malformed-request", "BadRequest"),
+            401, new AnyPath("unauthenticated", "Unauthenticated"),
+            403, new AnyPath("no-tenant-membership", "NoTenantMembership"),
+            404, new AnyPath("not-found", ""),
+            405, new AnyPath("method-not-allowed", ""));
     /** A row of the problem registry in the contract's description: the type's suffix, the status and the title. */
     private static final Pattern REGISTRY_ROW = Pattern.compile(
             "^\\| `([a-z-]+)`\\s*\\| (\\d{3})\\s*\\| ([^|]+?)\\s*\\|");
@@ -54,8 +78,16 @@ public final class Contract {
     private final JsonMapper json = JsonMapper.builder().build();
     /** The problem registry: type suffix to status and title. */
     private final Map<String, Registered> problems;
+    /** The server's base path, {@code /api/v1}, from the contract's servers. */
+    private final String basePath;
+    /** Each path of the contract as it writes it, with the regular expression its templates expand to. */
+    private final Map<String, Pattern> paths;
 
     private record Registered(int status, String title) {
+    }
+
+    /** A problem that can occur on any path: its type, and its response component or none. */
+    private record AnyPath(String type, String component) {
     }
 
     /** A node of the contract and the JSON pointer it was found at. */
@@ -70,11 +102,53 @@ public final class Contract {
         this.document = document;
         this.schemas = schemas;
         this.problems = problems;
+        this.basePath = document.path("servers").path(0).path("url").stringValue("");
+        assertThat(basePath).as("the contract's server").isEqualTo("/api/v1");
+        Map<String, Pattern> templates = new TreeMap<>();
+        for (String path : document.path("paths").propertyNames()) {
+            templates.put(path, Pattern.compile(Pattern.quote(path).replaceAll("\\{[A-Za-z]+}", "\\\\E[^/]+\\\\Q")));
+        }
+        this.paths = templates;
     }
 
     /** The contract on the test class path. */
     public static Contract contract() {
         return CONTRACT;
+    }
+
+    /**
+     * Asserts that the response to any request conforms to the contract: to the response it documents for the operation
+     * that the request's method and path name, or, when they name none, to a problem that can occur on any path.
+     * {@link Http#mockMvc} applies it to every response that a test exercises, so no response goes unchecked.
+     */
+    public void assertExercised(MvcResult result) {
+        assertExercised(result.getRequest().getMethod(), result.getRequest().getRequestURI(), result.getResponse());
+    }
+
+    /** As {@link #assertExercised(MvcResult)}, for the response to a request with this method and URI. */
+    void assertExercised(String requestMethod, String requestUri, MockHttpServletResponse response) {
+        String method = requestMethod.toLowerCase(Locale.ROOT);
+        String path = requestUri.startsWith(basePath + "/") ? requestUri.substring(basePath.length()) : "";
+        for (Map.Entry<String, Pattern> template : paths.entrySet()) {
+            if (template.getValue().matcher(path).matches()
+                    && document.path("paths").path(template.getKey()).has(method)) {
+                assertConforms(method, template.getKey(), response, requestUri);
+                return;
+            }
+        }
+        assertGenericProblem(response, requestUri);
+    }
+
+    /** The contract's description, which documents the problem registry and the problems of any path. */
+    String description() {
+        return document.path("info").path("description").stringValue("");
+    }
+
+    /** The problems that can occur on any path, by status: their type suffixes. */
+    static Map<Integer, String> anyPathTypes() {
+        Map<Integer, String> types = new TreeMap<>();
+        ANY_PATH.forEach((status, anyPath) -> types.put(status, anyPath.type()));
+        return types;
     }
 
     /**
@@ -110,25 +184,52 @@ public final class Contract {
         return assertBody(schemaLocation(content.at(mediaType).at("schema")), mediaType, response, requestPath, what);
     }
 
-    /** Asserts that the response is the generic 404 or 405 problem that the contract allows on any path. */
+    /**
+     * Asserts that the response is a problem that the contract allows on any path, such as the 404 of an unknown path,
+     * and returns its body.
+     */
     public JsonNode assertGenericProblem(MvcResult result) {
         return assertGenericProblem(result.getResponse(), result.getRequest().getRequestURI());
     }
 
     private JsonNode assertGenericProblem(MockHttpServletResponse response, String requestPath) {
         int status = response.getStatus();
-        String what = "generic " + status;
-        assertThat(status).as("%s: a status the contract allows on any path", what).isIn(404, 405);
+        String what = "any path " + status;
+        AnyPath anyPath = ANY_PATH.get(status);
+        assertThat(anyPath).as("%s: a status the contract allows on any path", what).isNotNull();
         assertThat(response.getHeader("Cache-Control")).as("%s: every response is not cached", what)
                 .isEqualTo("no-store");
-        Located correlationId = new Located(document, "#").at("components").at("headers").at("CorrelationId");
-        assertHeader(CORRELATION_ID, correlationId, response, what);
+        Located components = new Located(document, "#").at("components");
+        if (Objects.requireNonNull(anyPath).component().isEmpty()) {
+            assertHeader(CORRELATION_ID, components.at("headers").at("CorrelationId"), response, what);
+        } else {
+            Located spec = components.at("responses").at(anyPath.component());
+            for (String header : spec.node().path("headers").propertyNames()) {
+                assertHeader(header, resolve(spec.at("headers").at(header)), response, what);
+            }
+        }
         String mediaType = mediaType(response, what);
         assertThat(mediaType).as(what).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         JsonNode body = assertBody(DOCUMENT + PROBLEM_SCHEMA, mediaType, response, requestPath, what);
-        assertThat(body.path("type").stringValue()).as("%s: the generic problem's type", what)
-                .isEqualTo(PROBLEM_TYPES + (status == 404 ? "not-found" : "method-not-allowed"));
+        assertThat(body.path("type").stringValue()).as("%s: the type of the problem allowed on any path", what)
+                .isEqualTo(PROBLEM_TYPES + anyPath.type());
         return body;
+    }
+
+    /**
+     * The instance a problem gives for a request path: the path itself, unless it is longer than 2048 characters or is
+     * not a valid URI reference, in which case the contract's description says it is {@code about:blank}.
+     */
+    static String instanceFor(String requestPath) {
+        if (requestPath.length() > MAX_INSTANCE) {
+            return NO_INSTANCE;
+        }
+        try {
+            new URI(requestPath);
+            return requestPath;
+        } catch (URISyntaxException e) {
+            return NO_INSTANCE;
+        }
     }
 
     /** The title the contract's problem registry gives a type, for example {@code quote-not-found}. */
@@ -176,7 +277,7 @@ public final class Contract {
         assertThat(problem.path("correlationId").stringValue()).as("%s: the problem's correlation ID", what)
                 .isEqualTo(response.getHeader(CORRELATION_ID));
         assertThat(problem.path("instance").stringValue()).as("%s: the problem's instance, the request path", what)
-                .isEqualTo(requestPath);
+                .isEqualTo(instanceFor(requestPath));
     }
 
     /** Where the validator finds a schema: the component it references, or the inline schema's own pointer. */
@@ -223,7 +324,9 @@ public final class Contract {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+        // Formats are assertions here, not annotations: a date-time, a URI reference or a UUID must be one.
         SchemaRegistry schemas = SchemaRegistry.withDefaultDialect(Dialects.getOpenApi31(), registry -> registry
+                .schemaRegistryConfig(SchemaRegistryConfig.builder().formatAssertionsEnabled(true).build())
                 .schemaLoader(loader -> loader.allow(iri -> iri.toString().startsWith("classpath:"))));
         Map<String, Registered> problems = new TreeMap<>();
         for (String line : document.path("info").path("description").stringValue("").lines().toList()) {

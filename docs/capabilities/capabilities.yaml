@@ -378,8 +378,8 @@ controls:
     target: v0.1
     evidence: [QuotesHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest]
     acceptanceTests: [QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest]
-    negativeFixture: A response with an undocumented member fails validation.
-    enforcedSubset: The responses of GET /api/v1/me, both quote operations and the HTTP edge's framework problems are validated against the contract in java, on the application with test doubles for its database adapters.
+    negativeFixture: A response with an undocumented member, an impossible date-time, an invalid header or a problem title that is not its type's, and a status that the operation does not document and no path may give, fails validation (ContractTest).
+    enforcedSubset: Every response that the HTTP tests exercise, of GET /api/v1/me, both quote operations and the problems that any path can give, is validated against the contract in java, on the application with test doubles for its database adapters.
     plannedRemainder: The shipments operations (ShipmentsHttpContractTest) and the same responses from the PostgreSQL-backed application remain.
     docs: docs/adr/0004-contract-first-openapi-with-rfc-9457-problems.md
   - id: control.web-import-boundaries

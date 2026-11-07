@@ -1,6 +1,5 @@
 package io.github.stigjohnny.shipping;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -27,6 +26,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpRequest;
+import org.springframework.security.web.firewall.RequestRejectedException;
 import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -45,20 +45,25 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.exc.InputCoercionException;
+import tools.jackson.databind.exc.InvalidNullException;
 import tools.jackson.databind.exc.MismatchedInputException;
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 /**
  * The HTTP edge's problems (ADR 0004). Failures that Spring detects before or after a module's code runs become RFC
  * 9457 problems with exactly the contract's types, titles and statuses: a request that fails validation, with each
- * invalid value named ({@code validation-failed}), a body that is missing or not JSON ({@code malformed-request}), an
+ * invalid value named ({@code validation-failed}); a body that is missing or not JSON, and a request refused before
+ * routing, by Spring Security's firewall or for a path that a problem cannot repeat ({@code malformed-request}); an
  * unknown path, a method or media type that the path does not support, and any unexpected exception, whose problem
  * says nothing about its cause, which is logged with the correlation ID ({@code internal-error}). Modules map their
  * own business outcomes in their web adapters.
  *
- * <p>Every problem the application writes, a module's included, passes through {@link #beforeBodyWrite}, which adds
- * the request's correlation ID and, when the problem has none, the request path as its {@code instance}. An isolated
- * class of the model: it uses no module, and no module uses it.
+ * <p>A problem repeats what a request says only within the contract's bounds. Its {@code instance} is the request path,
+ * which Spring sets; CorrelationIdFilter has already refused a path longer than 2048 characters or one that is no valid
+ * URI reference, and that problem's instance is {@code about:blank}. An unknown member whose JSON Pointer is longer than
+ * the 200 characters of {@code name} is not named: the body is {@code malformed-request}. Every problem the application
+ * writes, a module's included, passes through {@link #beforeBodyWrite}, which adds the request's correlation ID. An
+ * isolated class of the model: it uses no module, and no module uses it.
  */
 @RestControllerAdvice
 @Order(Ordered.LOWEST_PRECEDENCE)
@@ -66,6 +71,9 @@ public final class FallbackProblemHandler extends ResponseEntityExceptionHandler
 
     private static final Logger LOG = LoggerFactory.getLogger(FallbackProblemHandler.class);
     private static final String TYPES = "https://shipping-reference-platform.example/problems/";
+    /** The longest JSON Pointer that {@code errors[].name} holds. */
+    private static final int MAX_NAME = 200;
+    private static final URI NO_INSTANCE = URI.create("about:blank");
     /** Errors in a fixed order, by where, name and detail: Bean Validation reports violations in no order. */
     private static final Comparator<Map<String, String>> ERROR_ORDER = Comparator.comparing(
             error -> error.getOrDefault("in", "") + '\u0000' + error.getOrDefault("name", "") + '\u0000'
@@ -75,8 +83,24 @@ public final class FallbackProblemHandler extends ResponseEntityExceptionHandler
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Object> unexpected(Exception exception, WebRequest request) {
         LOG.error("Unexpected failure while handling {}", request.getDescription(false), exception);
-        ProblemDetail problem = internalError();
-        return ResponseEntity.status(problem.getStatus()).headers(problemHeaders(new HttpHeaders())).body(problem);
+        return response(internalError());
+    }
+
+    /** Spring Security's firewall refused the request before routing; what it refused is not repeated. */
+    @ExceptionHandler(RequestRejectedException.class)
+    public ResponseEntity<Object> refusedByTheFirewall() {
+        return response(problem(HttpStatus.BAD_REQUEST, "malformed-request", "Malformed request",
+                "The server refused the request before routing: it does not accept its path, its method or its "
+                        + "headers."));
+    }
+
+    /** CorrelationIdFilter refused the request, whose path a problem cannot repeat, so the instance is a placeholder. */
+    @ExceptionHandler(CorrelationIdFilter.RefusedPath.class)
+    public ResponseEntity<Object> refusedPath(CorrelationIdFilter.RefusedPath refused) {
+        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "malformed-request", "Malformed request",
+                String.valueOf(refused.getMessage()));
+        problem.setInstance(NO_INSTANCE);
+        return response(problem);
     }
 
     @Override
@@ -111,18 +135,9 @@ public final class FallbackProblemHandler extends ResponseEntityExceptionHandler
     public @Nullable Object beforeBodyWrite(@Nullable Object body, MethodParameter returnType, MediaType contentType,
             Class<? extends HttpMessageConverter<?>> converterType, ServerHttpRequest request,
             ServerHttpResponse response) {
-        if (body instanceof ProblemDetail problem && request instanceof ServletServerHttpRequest servlet) {
-            HttpServletRequest http = servlet.getServletRequest();
-            if (problem.getInstance() == null) {
-                try {
-                    problem.setInstance(URI.create(http.getRequestURI()));
-                } catch (IllegalArgumentException e) {
-                    LOG.warn("The request path is not a URI, so the problem has no instance.");
-                }
-            }
-            if (http.getAttribute(CorrelationIdFilter.ATTRIBUTE) instanceof String correlationId) {
-                problem.setProperty("correlationId", correlationId);
-            }
+        if (body instanceof ProblemDetail problem && request instanceof ServletServerHttpRequest servlet
+                && servlet.getServletRequest().getAttribute(CorrelationIdFilter.ATTRIBUTE) instanceof String id) {
+            problem.setProperty("correlationId", id);
         }
         return body;
     }
@@ -139,12 +154,22 @@ public final class FallbackProblemHandler extends ResponseEntityExceptionHandler
         };
     }
 
-    /** A body that Jackson could not read: an invalid value is named; anything else is a malformed body. */
+    /**
+     * A body that Jackson could not read: an invalid value is named; anything else is a malformed body, and so is an
+     * unknown member whose pointer would not fit {@code name}.
+     */
     private static ProblemDetail unreadable(HttpMessageNotReadableException exception) {
         if (exception.getCause() instanceof JacksonException cause && !cause.getPath().isEmpty()) {
             String name = pointer(cause.getPath());
             if (cause instanceof UnrecognizedPropertyException) {
-                return validationFailed(Stream.of(error("body", name, "is not a member of this object")));
+                return name.length() <= MAX_NAME
+                        ? validationFailed(Stream.of(error("body", name, "is not a member of this object")))
+                        : problem(HttpStatus.BAD_REQUEST, "malformed-request", "Malformed request", "The request "
+                                + "body has an unknown member whose JSON Pointer is longer than " + MAX_NAME
+                                + " characters, too long to name.");
+            }
+            if (cause instanceof InvalidNullException) {
+                return validationFailed(Stream.of(error("body", name, "must not be null")));
             }
             if (cause instanceof InputCoercionException) {
                 return validationFailed(Stream.of(error("body", name, "is out of range")));
@@ -233,6 +258,10 @@ public final class FallbackProblemHandler extends ResponseEntityExceptionHandler
         problem.setType(URI.create(TYPES + type));
         problem.setTitle(title);
         return problem;
+    }
+
+    private static ResponseEntity<Object> response(ProblemDetail problem) {
+        return ResponseEntity.status(problem.getStatus()).headers(problemHeaders(new HttpHeaders())).body(problem);
     }
 
     private static HttpHeaders problemHeaders(HttpHeaders headers) {

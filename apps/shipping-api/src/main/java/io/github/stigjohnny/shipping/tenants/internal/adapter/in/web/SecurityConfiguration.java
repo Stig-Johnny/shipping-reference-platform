@@ -17,6 +17,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import org.springframework.security.web.firewall.RequestRejectedHandler;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
@@ -24,8 +25,9 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
  * flow"). One stateless chain requires a tenant member on every {@code /api/**} path and denies every other path. The
  * demo bearer token filter is part of it only in the {@code demo} profile: without it nobody authenticates, and every
  * API request is 401, as the contract's demoBearer scheme says. The 401 and 403 problems are written through the MVC
- * exception resolvers by {@link AuthenticationProblems}, like every other problem. The module's own authentication
- * manager means that Spring Boot never creates its generated user and password
+ * exception resolvers by {@link AuthenticationProblems}, like every other problem, and so are the firewall's
+ * rejections, before routing, which the HTTP edge maps to {@code 400 malformed-request}. The module's own
+ * authentication manager means that Spring Boot never creates its generated user and password
  * (security/reviews/maven--spring-security--7.1.2.md, condition 3).
  */
 @Configuration(proxyBeanMethods = false)
@@ -49,6 +51,16 @@ class SecurityConfiguration {
     @Bean
     AuthenticationManager authenticationManager(ResolveMembership resolveMembership) {
         return new ProviderManager(new DemoTokenAuthenticationProvider(resolveMembership));
+    }
+
+    /**
+     * What Spring Security's firewall refuses (a path with {@code ;} or an encoded {@code /}, a method it does not
+     * accept) becomes a problem, not the firewall's empty 400; WebSecurity takes this bean for its filter chain proxy.
+     */
+    @Bean
+    RequestRejectedHandler requestRejectedHandler(
+            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver problems) {
+        return (request, response, rejected) -> problem(problems, request, response, rejected);
     }
 
     @Bean

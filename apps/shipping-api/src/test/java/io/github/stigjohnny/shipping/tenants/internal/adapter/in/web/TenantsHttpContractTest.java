@@ -63,9 +63,11 @@ class TenantsHttpContractTest {
 
     @Test
     void withoutATokenTheAnswerIs401Unauthenticated() throws Exception {
-        MvcResult result = http.perform(get("/api/v1/me")).andReturn();
+        MvcResult result = Http.record("me-without-a-token", "nobody", http.perform(get("/api/v1/me")
+                .header("Correlation-Id", "demo-75-unauthenticated")).andReturn());
 
         assertUnauthenticated(result);
+        assertThat(result.getResponse().getHeader("Correlation-Id")).isEqualTo("demo-75-unauthenticated");
     }
 
     @Test

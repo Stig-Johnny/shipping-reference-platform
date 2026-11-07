@@ -13,6 +13,9 @@ import io.github.stigjohnny.shipping.http.Contract;
 import io.github.stigjohnny.shipping.http.Http;
 import io.github.stigjohnny.shipping.http.TestClock;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,7 +65,9 @@ class QuotesHttpContractTest {
 
     @Test
     void aQuoteHasOneOfferPerLevelInLevelOrderAndExpiresThirtyMinutesAfterIssue() throws Exception {
-        MvcResult result = create(CLERK_ALPHA, EXAMPLE);
+        MvcResult result = Http.record("create-quote", "clerk-alpha", http.perform(bearer(post("/api/v1/quotes"),
+                CLERK_ALPHA).contentType(MediaType.APPLICATION_JSON).header("Correlation-Id", "demo-75-create-quote")
+                .content(EXAMPLE)).andReturn());
 
         JsonNode quote = contract.assertConforms("post", "/quotes", result);
         assertThat(result.getResponse().getStatus()).isEqualTo(201);
@@ -181,6 +186,19 @@ class QuotesHttpContractTest {
     }
 
     @Test
+    void anOptionalMemberMayBeAbsentButNeverNull() throws Exception {
+        MvcResult absent = create(CLERK_ALPHA, EXAMPLE);
+        MvcResult explicitNull = create(CLERK_ALPHA, EXAMPLE.replace("\"destination\"",
+                "\"serviceLevel\": null, \"destination\""));
+
+        assertThat(absent.getResponse().getStatus()).isEqualTo(201);
+        JsonNode problem = contract.assertConforms("post", "/quotes", explicitNull);
+        assertThat(explicitNull.getResponse().getStatus()).isEqualTo(400);
+        assertThat(problem.path("type").stringValue()).endsWith("/validation-failed");
+        assertThat(problem.path("errors")).isEqualTo(json(errors(body("/serviceLevel", "must not be null"))));
+    }
+
+    @Test
     void aQuoteIsReadBackOpenUntilItsExpiryAndExpiredFromIt() throws Exception {
         MvcResult created = create(CLERK_ALPHA, EXAMPLE);
         String location = String.valueOf(created.getResponse().getHeader(HttpHeaders.LOCATION));
@@ -217,7 +235,8 @@ class QuotesHttpContractTest {
         JsonNode foreignProblem = contract.assertConforms("get", "/quotes/{quoteId}", foreign);
         JsonNode unknownProblem = contract.assertConforms("get", "/quotes/{quoteId}", unknown);
         assertThat(foreign.getResponse().getStatus()).isEqualTo(unknown.getResponse().getStatus()).isEqualTo(404);
-        assertThat(foreign.getResponse().getHeaderNames()).isEqualTo(unknown.getResponse().getHeaderNames());
+        // Every header and its values are the same, apart from the correlation ID, which each request has its own of.
+        assertThat(headersButTheCorrelationId(foreign)).isEqualTo(headersButTheCorrelationId(unknown));
         // The two differ only in what the request itself says: its path and its correlation ID.
         assertThat(withoutRequestEcho(foreignProblem)).isEqualTo(withoutRequestEcho(unknownProblem));
     }
@@ -275,6 +294,18 @@ class QuotesHttpContractTest {
 
     private static String errors(String... errors) {
         return "[" + String.join(", ", errors) + "]";
+    }
+
+    /** Every header with its values, in order, but the correlation ID. */
+    private static Map<String, List<String>> headersButTheCorrelationId(MvcResult result) {
+        Map<String, List<String>> headers = new TreeMap<>();
+        for (String name : result.getResponse().getHeaderNames()) {
+            if (!name.equals("Correlation-Id")) {
+                headers.put(name, result.getResponse().getHeaders(name));
+            }
+        }
+        assertThat(headers).containsKeys(HttpHeaders.CONTENT_TYPE, HttpHeaders.CACHE_CONTROL);
+        return headers;
     }
 
     private static JsonNode withoutRequestEcho(JsonNode problem) {
