@@ -292,14 +292,27 @@ class SiteAssetsTest {
     @Test
     void scrollSnappingIsAnEnhancementForWideTallScreensAndSmallScreensReadADocument() {
         String snap = "@media (min-width: 1024px) and (min-height: 600px) {\n  html.deck {\n    scroll-snap-type: y "
-                + "proximity;\n  }\n\n  .deck .slide {\n    scroll-snap-align: start;\n  }\n}";
+                + "proximity;\n  }\n\n  .deck .slide {\n    scroll-snap-align: start;\n  }\n";
         assertThat(css).contains(snap);
         assertThat(count(css, "scroll-snap-type")).isEqualTo(1);
-        assertThat(count(css, "scroll-snap-align")).isEqualTo(1);
         int flow = css.indexOf("@media (max-width: 1023.98px), (max-height: 599.98px) {");
         assertThat(flow).isNotNegative();
         assertThat(css.substring(flow, css.indexOf("\n}\n", flow))).contains("--slide-title: 1.75rem;",
                 "--slide-body: 1.125rem;", ".slide {\n    min-height: 0;\n  }");
+    }
+
+    @Test
+    void whileSlidesSnapAFocusedFooterLinkStaysInViewBecauseTheFootersEndIsASnapPositionToo() {
+        // Without it, proximity snapping pulled a focused "Repository licence" back to the last slide, out of view, at
+        // every size from 1280 x 720 to 1920 x 1080 (Tab and Shift+Tab, headless Chrome). The footer follows the last
+        // slide and holds the only focusable elements after it; the end of the page is now a snap position as well.
+        int snap = css.indexOf("@media (min-width: 1024px) and (min-height: 600px) {");
+        assertThat(snap).isNotNegative();
+        String snapping = css.substring(snap, css.indexOf("\n}\n", snap));
+        assertThat(snapping).contains("  .deck .slide {\n    scroll-snap-align: start;\n  }",
+                "  .deck .site-footer {\n    scroll-snap-align: end;\n  }");
+        assertThat(count(css, "scroll-snap-align")).isEqualTo(2);
+        assertThat(css.substring(0, snap)).doesNotContain("scroll-snap");
     }
 
     @Test

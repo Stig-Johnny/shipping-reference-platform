@@ -1378,7 +1378,9 @@ blockquote {
   margin: -8px 0 32px;
 }
 
-/* Scroll snapping helps only where a slide fills a wide, tall screen; the links stay the dependable controls. */
+/* Scroll snapping helps only where a slide fills a wide, tall screen; the links stay the dependable controls. The end of
+   the page, below the last slide, is a snap position as well, so that a focused footer link is never pulled back out of
+   view to the last slide. */
 @media (min-width: 1024px) and (min-height: 600px) {
   html.deck {
     scroll-snap-type: y proximity;
@@ -1386,6 +1388,10 @@ blockquote {
 
   .deck .slide {
     scroll-snap-align: start;
+  }
+
+  .deck .site-footer {
+    scroll-snap-align: end;
   }
 }
 

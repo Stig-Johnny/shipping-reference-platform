@@ -140,7 +140,8 @@ is never evidence.
   sizes scale with the viewport, bounded in rem, to about 40 px titles and 24 px body text on a laptop. A slide is at
   least one viewport tall and grows with its content; nothing is clipped, and nothing is shrunk to rescue a full
   slide. Scroll snapping helps from 1024 × 600 only; narrower, shorter or zoomed, the slides are ordinary document flow
-  in the site's own sizes.
+  in the site's own sizes. The end of the page is a snap position too, so that a focused footer link is never pulled
+  back out of view to the last slide.
 - **Language and theme.** A deck declares `lang: en`, the site's language, which its two pages state; the check
   refuses any other. Light is the meeting's palette, chosen with the theme switch; dark stays for readers.
 - **Print.** One 16:9 slide on each landscape page (320 × 180 mm), in the light palette, with each slide's code, number
