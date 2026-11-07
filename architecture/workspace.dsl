@@ -5,8 +5,10 @@
 // Changing this file is a risk level 3 change and needs the owner's approval (policy/risk.json, .github/CODEOWNERS).
 //
 // Restrictions, enforced by c4-contract-kit's restricted parser: no !include, !script, !plugin, !docs, !adrs or
-// !extend, no environment variable substitution and no remote themes. Implied relationships are disabled below, so
-// every relationship a view shows is written here explicitly.
+// !extend, no environment variable substitution and no remote themes. No constants or variables, no dollar-brace
+// substitution and no backslash at the end of a line, comments and text blocks included: the check reads every line
+// of this file as text before it is parsed. Implied relationships are disabled below, so every relationship a view
+// shows is written here explicitly.
 //
 // CONTRACT PROPERTIES
 //

@@ -6,12 +6,13 @@ check that fails. The domain is generic webshop parcel shipping: quote a parcel,
 synthetic and the carrier is simulated.
 
 **State:** the specification (model, contract, decisions, module specifications, risk policy, agent rules), the
-reviewed toolchain and the enforced dependency allowlist are here. Application code is not written yet: every product
-capability in `docs/capabilities/capabilities.yaml` is `planned`, and that file is the source of truth for status and
-evidence. The table below marks each control **enforced** (it runs and can fail today) or **planned**. `tools/docs`
-generates the C4 view pages, `BRAIN.md` and a static documentation site from the specification. Its own controls,
-`control.brain-check` and `control.publication-scan` (the scan of the site before each upload), are enforced. The
-site is published from `main` at <https://stig-johnny.github.io/shipping-reference-platform/>.
+reviewed toolchain, the enforced dependency allowlist and the model-versus-code checker `libs/c4-contract-kit` are here.
+Application code is not written yet: every product capability in `docs/capabilities/capabilities.yaml` is `planned`, and
+that file is the source of truth for status and evidence; the checker's controls carry their tests. The table below
+marks each control **enforced** (it runs and can fail today) or **planned**. `tools/docs` generates the C4 view pages,
+`BRAIN.md` and a static documentation site from the specification. Its own controls, `control.brain-check` and
+`control.publication-scan` (the scan of the site before each upload), are enforced. The site is published from `main` at
+<https://stig-johnny.github.io/shipping-reference-platform/>.
 
 ## The idea
 
@@ -75,15 +76,15 @@ see each other's data, enforced in queries and by forced PostgreSQL row-level se
 
 | Control | Fails the build when | What it cannot catch | Where it runs | Status |
 |---|---|---|---|---|
-| C4 conformance: divergence | A class in one module references another module without a relationship in the model. | Use through reflection, SQL, HTTP or configuration; a model widened to allow the dependency (that change needs the owner). | `java`: `ArchitectureConformanceTest` | planned (the library is in review; the application test needs application code) |
+| C4 conformance: divergence | A class in one module references another module without a relationship in the model. | Use through reflection, SQL, HTTP or configuration; references the class file does not record (compile-time constants, casts); a model widened to allow the dependency (that change needs the owner). | `java`: `ArchitectureConformanceTest` | planned (the library is built and tested; there is no application code to check yet) |
 | C4 conformance: absence | A `REQUIRED` relationship has no static reference in the bytecode. | A reference that exists while the behaviour behind it does nothing. | `java`: `ArchitectureConformanceTest` | planned (as above) |
-| Model validity | Package mappings overlap, are empty or leave classes uncovered; a planned module has code; forbidden DSL directives; tags disagree with contract properties; cycles. | Whether the model describes the right architecture. | `java` | planned (in the library, in review) |
+| Model validity | Package mappings overlap, are empty or leave classes uncovered; a planned module has code; forbidden DSL directives; tags disagree with contract properties; cycles. | Whether the model describes the right architecture. | `java`: `RepositoryWorkspaceTest` reads `architecture/workspace.dsl` with the library | **enforced** for the model file; the rules that need classes (uncovered classes, code in a planned module) wait for application code |
 | Module boundaries and layering | Access to another module's internal packages, module cycles, Spring in domain code, unexpected packages. | Coupling through shared data or timing. | `java`: `ModularityTest`, `HexagonalLayeringTest` | planned |
 | API contract | A response deviates from the OpenAPI schema; the regenerated TypeScript client differs from the committed one. | Operations and status codes no test exercises. | `java`: `*HttpContractTest`; `web` | planned |
 | Tenant isolation | A tenant table lacks forced row-level security; the runtime role could bypass it; another tenant's IDs are readable through SQL or HTTP. | SQL run as the owner role; the shared event publication table; strength of the demo authentication. | `java`: `RowLevelSecurityCatalogTest`, `RowLevelSecurityIntegrationTest`, `CrossTenantAccessTest` | planned |
 | Domain invariants | Golden tariff prices, monotonicity and rounding properties, idempotent booking, expiry rules. | Wrong requirements. | `java` (parameterized property tests included: `SyntheticTariffPropertiesTest`) | planned |
 | Event delivery | A failed audit write is lost, or a replay has a second effect. | Consumers nobody has written yet. | `java`: `AuditReplayIntegrationTest` | planned |
-| Mutation testing | Fewer than 80 % of mutants on changed lines are killed (90 % for pricing and checker code). | Tests that consistently assert the wrong thing; hand-reviewed equivalent mutants. | `mutation` | planned |
+| Mutation testing | Fewer than 80 % of mutants on changed lines are killed (90 % for pricing and checker code). | Tests that consistently assert the wrong thing; hand-reviewed equivalent mutants. | `mutation` | planned (today the `mutation` job runs PIT on the contract kit and fails under 90 % killed; it is not a required check) |
 | Dependency allowlist, before use | A component lacks an approved, unexpired review; a lockfile or checksum disagrees with it; an Action is not pinned by SHA. | Build code that downloads executables itself, compromised approved artifacts, runner compromise, local agents bypassing CI. | `preflight` (base-branch workflow) | **enforced**: a required check, proven to fail |
 | Risk-levelled approval | A level 3 change lacks the owner's approval of its current head. | A sensitive change that matches no rule; a single approver is not two-person review. | `risk-approval` | planned |
 | AI review record | No AI review with findings and dispositions is recorded for the final commit. | AI reviewers being wrong. | `ai-review` | planned |
@@ -91,8 +92,9 @@ see each other's data, enforced in queries and by forced PostgreSQL row-level se
 | Documentation and brain | Generated docs or `BRAIN.md` drift; budgets exceeded; a capability claims `shipped` without passing evidence; a link, anchor or ADR reference is broken; the site's Mermaid bundle differs from its review; code changed without its module document. | Whether the prose is right. | `java`: `:tools:docs:check` (`BrainGeneratorTest`, `BrainCheckTest`, `SiteBuilderTest`) | **enforced** in the required `java` check, except the module-document check, which is planned |
 | Publication scan of the public site | The built site holds a secret's shape, a link to this repository on GitHub, a local path, a private address or host name, an HTML comment or a term of the confidential dictionary; the dictionary is missing; the Mermaid bundle differs from its review; the site directory holds a link or a hidden file. | A paraphrase, a confidential term that is not in the dictionary, what a sentence means. | `pages`, build job: `:tools:docs:scanSite` before the upload (`PublicationScannerTest`, `PagesWorkflowTest`) | **enforced** on every deployment from `main`; the first run needs the `github-pages` environment and its secret |
 
-Every advertised failure requires a deliberate negative fixture; the documentation and brain control has them in
-`BrainCheckTest` and `SiteBuilderTest`. The full list of limits is in `docs/gaps.md`.
+Every advertised failure requires a deliberate negative fixture. The checker's own tests have theirs, and the
+documentation and brain control has them in `BrainCheckTest` and `SiteBuilderTest`; the application's do not exist yet.
+The full list of limits is in `docs/gaps.md`.
 
 ## Layout
 
@@ -123,7 +125,7 @@ whose SHA-256 is in `security/verifications/2026-11-06-toolchain.md`: Gradle's t
 |---|---|
 | Check every dependency against the allowlist (the JDK alone; nothing from the repository runs) | `java tools/policy/PolicyCheck.java .` |
 | Run all Java checks (compile with Error Prone and NullAway, tests) | `./gradlew check` |
-| Run mutation tests on changed code | `<mutation>` |
+| Run mutation tests (CI only, the `mutation` job: PIT's control socket accepts unauthenticated connections) | `./gradlew :libs:c4-contract-kit:pitest` |
 | Check docs and the brain; regenerate them | `./gradlew :tools:docs:check`; `./gradlew :tools:docs:generate` |
 | Build the documentation site into `tools/docs/build/site/` (open its `index.html`) | `./gradlew :tools:docs:site` |
 
