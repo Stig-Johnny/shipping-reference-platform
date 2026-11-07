@@ -83,11 +83,11 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
                     }
                 }
 
-                shipments = component "Shipments" "Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled." "Spring Modulith module" "Planned" {
+                shipments = component "Shipments" "Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled." "Spring Modulith module" {
                     properties {
                         "contract.id" "shipments"
                         "contract.packages" "io.github.stigjohnny.shipping.shipments"
-                        "contract.status" "planned"
+                        "contract.status" "built"
                     }
                 }
 
