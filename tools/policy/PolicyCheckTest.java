@@ -80,6 +80,7 @@ public final class PolicyCheckTest {
             actions();
             npm();
             vendored();
+            images();
             tree();
             commandLine();
         } finally {
@@ -552,6 +553,240 @@ public final class PolicyCheckTest {
         test("vendored: an unreviewed file next to a reviewed one fails", () -> {
             Repo repo = withVendored().write("site/vendor/widget/1.0.0/extra.js", utf8("/* not reviewed */\n"));
             expectOnly(repo.findings(), "vendored", "site/vendor/widget/1.0.0/extra.js", "matches no approved");
+        });
+    }
+
+    // ---- container images: only approved digests, only in the forms the reviews allow ----
+
+    /** The approved image's index digest, the rejected one's and one that no entry has (all synthetic). */
+    static final String POSTGRES = "a1".repeat(32);
+    static final String RYUK = "b2".repeat(32);
+    static final String UNLISTED = "c3".repeat(32);
+    static final String DATABASE_TEST = "apps/demo/src/test/java/demo/DatabaseTest.java";
+    static final String STAGING = "tools/ci/stage-image.sh";
+
+    /**
+     * The clean repository with an approved postgres image and a rejected ryuk image on the allowlist, a test that
+     * starts postgres in the reviewed form, and a script that stages it by digest.
+     */
+    static Repo withImages() throws IOException {
+        Repo repo = Repo.clean();
+        repo.entry("container-image", "docker.io/library/postgres", "18.6", "OCI image index", POSTGRES);
+        repo.entry("container-image", "docker.io/testcontainers/ryuk", "0.14.0", "manifest list", RYUK)
+                .put("verdict", "REJECT");
+        return repo.write(DATABASE_TEST, database("DockerImageName.parse(\"postgres@sha256:" + POSTGRES + "\")",
+                "new PostgreSQLContainer(IMAGE)")).write(STAGING, staging("docker pull --quiet postgres@sha256:" + POSTGRES));
+    }
+
+    /** A test class: its seventh line declares the image, its eighth constructs the container. */
+    static String database(String image, String container) {
+        return """
+                package demo;
+
+                import org.testcontainers.postgresql.PostgreSQLContainer;
+                import org.testcontainers.utility.DockerImageName;
+
+                class DatabaseTest {
+                    static final DockerImageName IMAGE = %s;
+                    final PostgreSQLContainer postgres = %s;
+                }
+                """.formatted(image, container);
+    }
+
+    /** A staging script whose fourth line is the given command. */
+    static String staging(String command) {
+        return """
+                #!/usr/bin/env bash
+                # Stages the reviewed image; the docker group and a docker run in this comment are only text.
+                set -euo pipefail
+                %s
+                docker image inspect --format '{{json .RepoDigests}}' postgres@sha256:%s
+                sudo systemctl restart docker
+                """.formatted(command, POSTGRES);
+    }
+
+    static void images() {
+        test("images: an approved image by digest, in the reviewed form, passes", () ->
+                expectClean(withImages().findings()));
+        for (String name : List.of("docker.io/library/postgres", "library/postgres", "index.docker.io/library/postgres")) {
+            test("images: the approved digest spelled " + name + " passes", () -> expectClean(withImages()
+                    .write(DATABASE_TEST, database("DockerImageName.parse(\"" + name + "@sha256:" + POSTGRES + "\")",
+                            "new PostgreSQLContainer(IMAGE)")).findings()));
+        }
+        test("images: a digest that is not on the allowlist fails, by file and line", () -> expectOnly(withImages()
+                .edit(DATABASE_TEST, POSTGRES, UNLISTED).findings(), "images",
+                DATABASE_TEST + ":7: postgres@sha256:" + UNLISTED + " has no review on the allowlist"));
+        for (String name : List.of("mysql", "registry.example.org/library/postgres", "ghcr.io/library/postgres",
+                "docker.io/example/postgres")) {
+            test("images: the approved digest under the name " + name + " fails", () -> expectOnly(withImages()
+                    .edit(DATABASE_TEST, "\"postgres@", "\"" + name + "@").findings(), "images",
+                    DATABASE_TEST + ":7: " + name + "@sha256:" + POSTGRES + " has no review on the allowlist"));
+        }
+        test("images: a rejected image fails and names its review", () -> expectOnly(withImages()
+                .edit(DATABASE_TEST, "\"postgres@sha256:" + POSTGRES, "\"testcontainers/ryuk@sha256:" + RYUK).findings(),
+                "images", "testcontainers/ryuk@sha256:" + RYUK
+                        + " was REJECTED in security/reviews/container-image--docker.io-testcontainers-ryuk--0.14.0.md"));
+        test("images: an image named by tag only fails", () -> expectOnly(withImages()
+                .edit(DATABASE_TEST, "postgres@sha256:" + POSTGRES, "postgres:18.6").findings(), "images",
+                DATABASE_TEST + ":7: postgres:18.6 is not pinned by digest"));
+        test("images: a tag next to the digest fails", () -> expectOnly(withImages()
+                .edit(DATABASE_TEST, "postgres@sha256:", "postgres:18.6@sha256:").findings(), "images",
+                DATABASE_TEST + ":7: postgres:18.6@sha256:" + POSTGRES + " names a tag next to its digest"));
+        for (String digest : List.of(POSTGRES.toUpperCase(), POSTGRES.substring(1), POSTGRES + "0", "")) {
+            test("images: a digest that is not 64 lowercase hexadecimal digits fails: " + show(digest), () ->
+                    expectOnly(withImages().edit(DATABASE_TEST, POSTGRES, digest).findings(), "images",
+                            DATABASE_TEST + ":7: ", "is not a sha256 digest of 64 lowercase hexadecimal digits"));
+        }
+        for (String image : List.of("DockerImageName.parse(NAME)", "DockerImageName.parse(\"postgres@sha256:\" + DIGEST)",
+                "DockerImageName.parse(\"postgres\", \"18.6\")")) {
+            test("images: DockerImageName.parse of anything but one string literal fails: " + image, () ->
+                    expectFinding(withImages().write(DATABASE_TEST, database(image, "new PostgreSQLContainer(IMAGE)"))
+                            .findings(), "images", DATABASE_TEST + ":7: DockerImageName.parse takes something other "
+                            + "than one string literal"));
+        }
+        for (String image : List.of("DockerImageName::parse", "org.testcontainers.utility.DockerImageName::parse")) {
+            test("images: DockerImageName::parse as a method reference fails: " + image, () -> expectFinding(withImages()
+                    .write(DATABASE_TEST, database(image, "new PostgreSQLContainer(IMAGE)")).findings(), "images",
+                    DATABASE_TEST + ":7: DockerImageName::parse"));
+        }
+        test("images: a static import of DockerImageName.parse fails", () -> expectFinding(withImages()
+                .edit(DATABASE_TEST, "import org.testcontainers.utility.DockerImageName;",
+                        "import static org.testcontainers.utility.DockerImageName.parse;").findings(), "images",
+                DATABASE_TEST + ":4: a static import of DockerImageName"));
+        for (String container : List.of("new PostgreSQLContainer(\"postgres:18.6\")", "new PostgreSQLContainer()",
+                "new PostgreSQLContainer(name)", "new PostgreSQLContainer(IMAGE.toString())",
+                "new PostgreSQLContainer(IMAGE) { }")) {
+            test("images: a PostgreSQLContainer made from anything but a parsed digest fails: " + container, () ->
+                    expectFinding(withImages().write(DATABASE_TEST, database("DockerImageName.parse(\"postgres@sha256:"
+                            + POSTGRES + "\")", container)).findings(), "images", DATABASE_TEST + ":8: "));
+        }
+        test("images: a PostgreSQLContainer made from DockerImageName.parse of the approved digest passes", () ->
+                expectClean(withImages().write(DATABASE_TEST, database("DockerImageName.parse(\"postgres@sha256:"
+                        + POSTGRES + "\")", "new org.testcontainers.postgresql.PostgreSQLContainer(DockerImageName.parse("
+                        + "\"postgres@sha256:" + POSTGRES + "\"))")).findings()));
+        for (String container : List.of("new GenericContainer<>(IMAGE)", "new FixedHostPortGenericContainer(IMAGE)",
+                "new org.testcontainers.containers.GenericContainer<>(IMAGE)", "PostgreSQLContainer::new")) {
+            test("images: a container class other than the reviewed PostgreSQLContainer fails: " + container, () ->
+                    expectFinding(withImages().write(DATABASE_TEST, database("DockerImageName.parse(\"postgres@sha256:"
+                            + POSTGRES + "\")", container)).findings(), "images", DATABASE_TEST + ":8: "));
+        }
+        test("images: the deprecated org.testcontainers.containers.PostgreSQLContainer fails", () -> expectFinding(
+                withImages().edit(DATABASE_TEST, "org.testcontainers.postgresql.PostgreSQLContainer",
+                        "org.testcontainers.containers.PostgreSQLContainer").findings(), "images",
+                DATABASE_TEST + ":3: org.testcontainers.containers.PostgreSQLContainer"));
+        test("images: a class that extends a container fails", () -> expectFinding(withImages().edit(DATABASE_TEST,
+                "class DatabaseTest {", "class DatabaseTest extends PostgreSQLContainer {").findings(), "images",
+                DATABASE_TEST + ":6: extends PostgreSQLContainer"));
+        for (String call : List.of("IMAGE.withTag(\"18\")", "IMAGE.withRegistry(\"registry.example.org\")",
+                "IMAGE.withRepository(\"other\")", "IMAGE.asCompatibleSubstituteFor(\"postgres\")",
+                "new DockerImageName(\"postgres\")", "new ImageFromDockerfile()", "new RemoteDockerImage(IMAGE)")) {
+            test("images: an image name derived, built or resolved in code fails: " + call, () -> expectFinding(
+                    withImages().edit(DATABASE_TEST, "    final PostgreSQLContainer postgres",
+                            "    final Object other = " + call + ";\n    final PostgreSQLContainer postgres").findings(),
+                    "images", DATABASE_TEST + ":8: "));
+        }
+        for (String call : List.of("withFileSystemBind(\"/tmp\", \"/x\")", "withClasspathResourceMapping(\"a\", \"/b\", null)",
+                "withCopyToContainer(null, \"/x\")", "withCopyFileToContainer(null, \"/x\")", "copyFileToContainer(null, \"/x\")",
+                "withAccessToHost(true)", "withPrivilegedMode(true)", "withReuse(true)", "withNetworkMode(\"host\")",
+                "withCreateContainerCmdModifier(cmd -> { })", "withVolumesFrom(null, null)")) {
+            test("images: a container feature the reviews forbid fails: " + call, () -> expectFinding(withImages()
+                    .edit(DATABASE_TEST, "new PostgreSQLContainer(IMAGE)", "new PostgreSQLContainer(IMAGE)." + call)
+                    .findings(), "images", DATABASE_TEST + ":8: "));
+        }
+        for (String call : List.of("Testcontainers.exposeHostPorts(5432)", "new DockerComposeContainer(null)",
+                "new ComposeContainer(null)", "client.createContainerCmd(\"alpine\")", "client.pullImageCmd(\"alpine\")",
+                "client.buildImageCmd()", "client.loadImageCmd(null)", "client.copyArchiveToContainerCmd(\"x\")",
+                "factory.runInsideDocker(null, null)", "factory.checkAndPullImage(client, \"alpine\")")) {
+            test("images: a Testcontainers or docker-java call that pulls, builds, copies or runs another container fails: "
+                    + call, () -> expectFinding(withImages().edit(DATABASE_TEST, "    final PostgreSQLContainer postgres",
+                    "    final Object other = " + call + ";\n    final PostgreSQLContainer postgres").findings(), "images",
+                    DATABASE_TEST + ":8: "));
+        }
+        test("images: a Testcontainers JDBC URL fails, in code and in configuration", () -> {
+            Repo repo = withImages().edit(DATABASE_TEST, "    final PostgreSQLContainer postgres",
+                    "    final String url = \"jdbc:tc:postgresql:18.6:///shipping\";\n    final PostgreSQLContainer postgres")
+                    .write("apps/demo/src/test/resources/application.yml",
+                            "spring:\n  datasource:\n    url: jdbc:tc:postgresql:18.6:///shipping\n");
+            List<String> findings = repo.findings();
+            expect(findings.size() == 2, findings.toString());
+            expectFinding(findings, "images", DATABASE_TEST + ":8: a Testcontainers JDBC URL");
+            expectFinding(findings, "images", "apps/demo/src/test/resources/application.yml:3: a Testcontainers JDBC URL");
+        });
+        for (String file : List.of("apps/demo/src/test/resources/testcontainers.properties", ".testcontainers.properties",
+                "testcontainers.properties", "apps/demo/src/test/resources/META-INF/services/"
+                        + "org.testcontainers.utility.ImageNameSubstitutor")) {
+            test("images: a Testcontainers configuration file fails wherever it is: " + file, () -> expectOnly(
+                    withImages().write(file, "# only a comment\n").findings(), "images",
+                    file + ": a Testcontainers configuration file"));
+        }
+        for (String[] setting : new String[][] {
+                {".github/workflows/ci.yml", "jobs:\n  x:\n    env:\n      TESTCONTAINERS_RYUK_CONTAINER_IMAGE: other\n", "4"},
+                {"apps/demo/build.gradle.kts", "tasks.test { environment(\"TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX\", \"m/\") }\n", "1"},
+                {"gradle.properties", "systemProp.image.substitutor=demo.Substitutor\n", "1"},
+                {DATABASE_TEST, database("DockerImageName.parse(\"postgres@sha256:" + POSTGRES + "\")",
+                        "new PostgreSQLContainer(IMAGE); final String key = \"tinyimage.container.image\"").strip(), "8"}}) {
+            test("images: a Testcontainers image setting fails in " + setting[0], () -> expectOnly(withImages()
+                    .write(setting[0], setting[1]).findings(), "images",
+                    setting[0] + ":" + setting[2] + ": ", "configures an image for Testcontainers"));
+        }
+        test("images: a pull of anything but one digest fails, and an unapproved digest is named", () -> {
+            for (String command : List.of("docker pull alpine:3.17", "docker image pull alpine", "docker pull \"$image\"",
+                    "docker pull")) {
+                expectOnly(withImages().write(STAGING, staging(command)).findings(), "images",
+                        STAGING + ":4: docker pull of something other than one image by digest");
+            }
+            expectOnly(withImages().write(STAGING, staging("docker pull postgres@sha256:" + UNLISTED)).findings(),
+                    "images", STAGING + ":4: postgres@sha256:" + UNLISTED + " has no review on the allowlist");
+            expectClean(withImages().write(STAGING, staging("docker pull --platform linux/amd64 postgres@sha256:"
+                    + POSTGRES)).findings());
+        });
+        for (String command : List.of("docker run --rm postgres@sha256:" + POSTGRES, "docker create alpine",
+                "docker container run alpine", "docker build .", "docker buildx build .", "docker compose up",
+                "docker login", "docker load --input image.tar", "docker image import image.tar", "docker exec x id",
+                "docker cp file x:/tmp", "docker tag a b", "docker --host tcp://example.org:2375 info", "docker \"$command\"",
+                "docker-compose up", "podman run alpine")) {
+            test("images: a workflow or script runs no container, builds no image and logs in nowhere: " + command, () ->
+                    expectOnly(withImages().write(STAGING, staging(command)).findings(), "images", STAGING + ":4: "));
+        }
+        test("images: the docker commands of the staging, the checks and the cleanup pass", () -> {
+            for (String command : List.of("docker version --format '{{.Server.Version}}'", "docker info",
+                    "docker image ls --digests", "docker images", "docker ps -aq --filter label=x",
+                    "docker rm -f -v \"$id\"", "docker network ls -q", "docker network rm \"$id\"",
+                    "docker events --since 1 --until 2", "docker inspect x", "docker manifest inspect --verbose postgres@sha256:"
+                            + POSTGRES, "echo ok # docker run is only a comment here")) {
+                expectClean(withImages().write(STAGING, staging(command)).findings());
+            }
+        });
+        test("images: a workflow with a job or service container fails", () -> {
+            for (String key : List.of("container", "services")) {
+                Repo repo = withImages().write(".github/workflows/ci.yml",
+                        "jobs:\n  x:\n    runs-on: ubuntu-24.04\n    " + key + ":\n      image: alpine\n");
+                expectOnly(repo.findings(), "images", ".github/workflows/ci.yml:4: a job or service container");
+            }
+        });
+        test("images: a build script or a test that runs a container runtime as a command fails", () -> {
+            expectOnly(withImages().write("apps/demo/build.gradle.kts",
+                    "tasks.register<Exec>(\"pull\") { commandLine(\"docker\", \"pull\", \"alpine\") }\n").findings(),
+                    "images", "apps/demo/build.gradle.kts:1: runs a container runtime as a command");
+            expectOnly(withImages().edit(DATABASE_TEST, "    final PostgreSQLContainer postgres",
+                    "    final ProcessBuilder pull = new ProcessBuilder(\"podman\", \"pull\");\n    final PostgreSQLContainer postgres")
+                    .findings(), "images", DATABASE_TEST + ":8: runs a container runtime as a command");
+        });
+        test("images: a reference in documents, reviews and the checker's own tests is no use of an image", () -> {
+            Repo repo = withImages().write("docs/notes.md", "Ryuk would be testcontainers/ryuk@sha256:" + RYUK
+                    + "; docker run alpine:3.17 and jdbc:tc:postgresql:18.6:///x are rejected.\n")
+                    .write("tools/policy/Example.java", "class Example { String s = \"alpine@sha256:" + UNLISTED + "\"; }\n");
+            expectClean(repo.findings());
+        });
+        test("images: a file that is not Testcontainers code may name its own classes Container", () ->
+                expectClean(withImages().write("apps/demo/src/main/java/demo/Parcel.java",
+                        "package demo;\n\nrecord Parcel(ShippingContainer container) {\n"
+                                + "    Parcel { container = new ShippingContainer(\"blue\"); }\n}\n").findings()));
+        test("images: markup in an image reference is printed as safe characters", () -> {
+            List<String> findings = withImages().edit(DATABASE_TEST, "\"postgres@sha256:" + POSTGRES,
+                    "\"**md**_x/postgres@sha256:" + UNLISTED).findings();
+            expectOnly(findings, "images", "??md???x/postgres@sha256:" + UNLISTED + " has no review on the allowlist");
+            expect(!findings.getFirst().contains("**"), findings.toString());
         });
     }
 
