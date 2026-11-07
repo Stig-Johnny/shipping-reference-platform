@@ -474,6 +474,40 @@ table {
   font-size: 14px;
 }
 
+/* On the model pages, wide tables keep readable columns on narrow screens: they scroll sideways inside their labelled
+   region, and a hint at its start says so while the region is narrower than the table. */
+.table-wide-model,
+.table-wide-flow {
+  container-type: inline-size;
+}
+
+.table-wide-model table {
+  min-width: 60rem;
+}
+
+.table-wide-flow table {
+  min-width: 48rem;
+}
+
+.table-hint {
+  margin: 0;
+  padding: 12px 16px 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+@container (min-width: 60rem) {
+  .table-wide-model .table-hint {
+    display: none;
+  }
+}
+
+@container (min-width: 48rem) {
+  .table-wide-flow .table-hint {
+    display: none;
+  }
+}
+
 caption {
   padding: 12px 16px;
   font-weight: 600;
@@ -569,11 +603,22 @@ tr.group th {
 
 .diagram-scroll svg {
   display: block;
+  max-width: 100%;
   height: auto;
   margin: 0 auto;
 }
 
+/* Until the script has fitted a drawing to its complete bounds (data-fitted="true"), the drawing is invisible, so no
+   frame shows it cut. Only the drawing: the caption and the tables stay, and without the script there is no drawing,
+   only its source. */
+.diagram:not([data-fitted="true"]) .diagram-scroll svg {
+  visibility: hidden;
+}
+
+/* Enlarged: the natural width or one and a half times the region, whichever is wider, within the same bounds. */
 .diagram.is-enlarged .diagram-scroll svg {
+  width: max(var(--diagram-width, 100%), 150%);
+  max-width: none;
   margin: 0;
 }
 

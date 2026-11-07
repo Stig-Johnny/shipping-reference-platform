@@ -155,6 +155,41 @@ class SiteAssetsTest {
         assertThat(css).contains(".diagram-scroll {").contains("background: #FFFFFF;");
     }
 
+    @Test
+    void theModelPagesWideTablesKeepAMinimumWidthAndTheirHintShowsOnlyWhileTheyScroll() {
+        assertThat(css).contains(".table-wide-model,\n.table-wide-flow {\n  container-type: inline-size;\n}")
+                .contains(".table-wide-model table {\n  min-width: 60rem;\n}")
+                .contains(".table-wide-flow table {\n  min-width: 48rem;\n}")
+                .contains("@container (min-width: 60rem) {\n  .table-wide-model .table-hint {\n    display: none;\n")
+                .contains("@container (min-width: 48rem) {\n  .table-wide-flow .table-hint {\n    display: none;\n");
+        // The region stays the one that scrolls; the page never does.
+        assertThat(css).contains(".table-scroll {\n  margin: 16px 0 24px;\n  overflow-x: auto;");
+    }
+
+    @Test
+    void eachDrawnDiagramIsFittedToItsCompleteBoundsBeforeItShows() {
+        // The bounds are measured in the drawing's own units: every shape, label and edge with half its stroke, and the
+        // arrowhead at each marked end; then padding, and the same aspect ratio at every size.
+        assertThat(js).contains("svg.getScreenCTM()", "shape.getBBox()", "'marker-start', 'marker-end'",
+                "shape.getPointAtLength(", "svg.setAttribute('viewBox', ",
+                "svg.setAttribute('preserveAspectRatio', 'xMidYMid meet')", "figure.setAttribute('data-fitted', 'true')");
+        // Mermaid's own size limit gives way to the fitted size; enlargement keeps the same bounds and only widens it.
+        assertThat(js).contains("svg.style.removeProperty('max-width')", "svg.style.setProperty('--diagram-width', ")
+                .doesNotContain("svg.style.width =", "viewBox.baseVal");
+        assertThat(css).contains(".diagram-scroll svg {\n  display: block;\n  max-width: 100%;\n  height: auto;\n")
+                .contains("""
+                        .diagram.is-enlarged .diagram-scroll svg {
+                          width: max(var(--diagram-width, 100%), 150%);
+                          max-width: none;
+                        """);
+        // Until it is fitted, only the drawing is invisible: never a cut frame, while the caption and the tables stay,
+        // and without the script there is no drawing to hide, only its source.
+        assertThat(css).contains(".diagram:not([data-fitted=\"true\"]) .diagram-scroll svg {\n  visibility: hidden;\n}");
+        // A change of the region's width fits it again; a change of bounds hides the drawing until the next frame.
+        assertThat(js).contains("new window.ResizeObserver(", "observer.observe(region)",
+                "figure.removeAttribute('data-fitted')", "window.requestAnimationFrame(");
+    }
+
     private static int count(String text, String part) {
         int count = 0;
         for (int at = text.indexOf(part); at >= 0; at = text.indexOf(part, at + 1)) {

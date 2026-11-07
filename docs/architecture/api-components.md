@@ -12,6 +12,8 @@ updated: 2026-11-07
 
 The seven modules of the API and the dependencies between them: REQUIRED, PERMITTED or planned. Planned modules and dependencies are labelled as planned.
 
+[Open this diagram on the documentation site for enlargement and its text equivalent](https://stig-johnny.github.io/shipping-reference-platform/model/api-components.html#figure-api-components)
+
 ```mermaid
 flowchart LR
     accTitle: Components of the API
@@ -74,8 +76,9 @@ The same definition is in [api-components.mmd](api-components.mmd).
 - Each box is an element of the model: its name, its C4 type in brackets and, in parentheses, its implementation status.
 - "(planned)" marks an element that has no code yet.
 - Each line is labelled with its number in the view's relationships table and, where it has one, its mode.
-- A thick line is a REQUIRED dependency between modules. The planned conformance check will require a static reference for REQUIRED relationships. It is not implemented yet.
-- A dotted line labelled PERMITTED is a dependency between modules that the code may have; the planned check will not require a reference for it.
+- A thick line is a REQUIRED dependency between modules. Where both modules are built, the checker in libs/c4-contract-kit fails when the compiled classes have no static reference for it.
+- A dotted line labelled PERMITTED is a dependency between modules that the code may have; the checker requires no reference for it and reports one without any as "no static evidence".
+- The checker does not evaluate a line that touches a planned module until both modules are built.
 - A dotted line labelled planned is a relationship that does not exist yet.
 - A solid thin line is a relationship of people, systems or containers, which module conformance does not cover.
 - Arrows point from the element that depends on the other.

@@ -1,7 +1,8 @@
 /*
  * The site's one script, generated with the site by tools/docs: the theme switch, the navigation disclosure, the copy
- * button of the brain, diagram enlargement, and Mermaid on the diagram pages. It stores nothing, fetches nothing and
- * writes no markup. Without it every page still works: the navigation stays open and the diagrams show their source.
+ * button of the brain, diagram enlargement, and Mermaid on the diagram pages, whose drawings it fits to their bounds.
+ * It stores nothing, fetches nothing and writes no markup. Without it every page still works: the navigation stays
+ * open and the diagrams show their source.
  */
 (function () {
   'use strict';
@@ -89,39 +90,146 @@
     });
   }
 
-  // Diagram enlargement: a toggle button (aria-pressed); the enlarged diagram scrolls inside its labelled region.
+  // Diagram enlargement: a toggle button (aria-pressed); the enlarged diagram scrolls inside its labelled region. The
+  // stylesheet widens the drawing to its natural width or one and a half times the region, whichever is wider, within
+  // the same fitted bounds.
   Array.prototype.forEach.call(document.querySelectorAll('[data-enlarge]'), function (button) {
     var figure = document.getElementById(button.getAttribute('data-enlarge'));
     if (!figure) {
       return;
     }
-    var fitted = null;
     button.hidden = false;
     button.addEventListener('click', function () {
       var enlarged = button.getAttribute('aria-pressed') !== 'true';
-      var svg = figure.querySelector('svg');
-      var region = figure.querySelector('.diagram-scroll');
       button.setAttribute('aria-pressed', enlarged ? 'true' : 'false');
       figure.classList.toggle('is-enlarged', enlarged);
-      if (!svg || !region) {
-        return;
-      }
-      if (fitted === null) {
-        fitted = { width: svg.style.width, maxWidth: svg.style.maxWidth };
-      }
-      var box = svg.viewBox && svg.viewBox.baseVal;
-      if (enlarged && box && box.width) {
-        svg.style.width = Math.round(Math.max(box.width, region.clientWidth * 1.5)) + 'px';
-        svg.style.maxWidth = 'none';
-      } else {
-        svg.style.width = fitted.width;
-        svg.style.maxWidth = fitted.maxWidth;
-      }
     });
   });
 
+  // Diagram fitting. Mermaid sizes a drawing from a box that leaves out strokes and arrowheads, so a drawing could be
+  // cut at its edges. Once drawn, its viewBox becomes its complete bounds, measured in the drawing's own units: every
+  // shape, label and edge with half its stroke, and the arrowhead at each marked end, plus padding. The drawing keeps
+  // that aspect ratio at every size, fitted to its region or enlarged. Until then it is invisible: the stylesheet hides
+  // the drawing of a figure without data-fitted="true", while the caption and the tables stay, and without the script
+  // there is no drawing, only its source. A ResizeObserver on each region fits again when the region's width changes;
+  // bounds that changed are applied in the next frame, with the drawing hidden until then, so no frame shows it cut.
+  var FIT_PADDING = 16;
+  var MARKER_REFERENCE = /#([^"')\s]+)["']?\)/;
+  var drawnBounds = function (svg) {
+    var screen = svg.getScreenCTM();
+    if (!screen || !screen.a) {
+      return null;
+    }
+    var toUser = screen.inverse();
+    var bounds = null;
+    var include = function (matrix, x, y) {
+      var point = new DOMPoint(x, y).matrixTransform(matrix);
+      if (bounds === null) {
+        bounds = { left: point.x, top: point.y, right: point.x, bottom: point.y };
+        return;
+      }
+      bounds.left = Math.min(bounds.left, point.x);
+      bounds.top = Math.min(bounds.top, point.y);
+      bounds.right = Math.max(bounds.right, point.x);
+      bounds.bottom = Math.max(bounds.bottom, point.y);
+    };
+    var includeBox = function (matrix, left, top, right, bottom) {
+      include(matrix, left, top);
+      include(matrix, right, top);
+      include(matrix, left, bottom);
+      include(matrix, right, bottom);
+    };
+    var shapes = svg.querySelectorAll('path, rect, circle, ellipse, line, polyline, polygon, text, image');
+    Array.prototype.forEach.call(shapes, function (shape) {
+      if (shape.closest('defs, marker, clipPath, mask, pattern, symbol')) {
+        return;
+      }
+      var local = shape.getScreenCTM();
+      var box = shape.getBBox();
+      if (!local || (!box.width && !box.height)) {
+        return;
+      }
+      var matrix = toUser.multiply(local);
+      var style = window.getComputedStyle(shape);
+      var stroke = style.stroke && style.stroke !== 'none' ? (parseFloat(style.strokeWidth) || 0) / 2 : 0;
+      includeBox(matrix, box.x - stroke, box.y - stroke, box.x + box.width + stroke, box.y + box.height + stroke);
+      if (typeof shape.getTotalLength !== 'function') {
+        return;
+      }
+      ['marker-start', 'marker-end'].forEach(function (property) {
+        var reference = MARKER_REFERENCE.exec(shape.getAttribute(property) || style.getPropertyValue(property) || '');
+        var marker = reference && document.getElementById(reference[1]);
+        if (!marker) {
+          return;
+        }
+        var size = Math.max(parseFloat(marker.getAttribute('markerWidth')) || 3,
+            parseFloat(marker.getAttribute('markerHeight')) || 3);
+        if (marker.getAttribute('markerUnits') !== 'userSpaceOnUse') {
+          size *= parseFloat(style.strokeWidth) || 1;
+        }
+        var end = shape.getPointAtLength(property === 'marker-end' ? shape.getTotalLength() : 0);
+        includeBox(matrix, end.x - size, end.y - size, end.x + size, end.y + size);
+      });
+    });
+    return bounds;
+  };
+  var measureFit = function (figure) {
+    var svg = figure.querySelector('.diagram-scroll svg');
+    var bounds = null;
+    try {
+      bounds = svg ? drawnBounds(svg) : null;
+    } catch (error) {
+      bounds = null;
+    }
+    if (!bounds || bounds.right <= bounds.left || bounds.bottom <= bounds.top) {
+      return null;
+    }
+    var left = Math.floor(bounds.left) - FIT_PADDING;
+    var top = Math.floor(bounds.top) - FIT_PADDING;
+    var width = Math.ceil(bounds.right) + FIT_PADDING - left;
+    var height = Math.ceil(bounds.bottom) + FIT_PADDING - top;
+    return { svg: svg, viewBox: left + ' ' + top + ' ' + width + ' ' + height, width: width, height: height };
+  };
+  var applyFit = function (figure, fit) {
+    var svg = fit.svg;
+    svg.setAttribute('viewBox', fit.viewBox);
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    svg.setAttribute('width', String(fit.width));
+    svg.setAttribute('height', String(fit.height));
+    svg.style.removeProperty('max-width');
+    svg.style.setProperty('--diagram-width', fit.width + 'px');
+    figure.setAttribute('data-fitted', 'true');
+  };
+  var fitOnResize = function (figure) {
+    var region = figure.querySelector('.diagram-scroll');
+    if (!region || !window.ResizeObserver) {
+      return;
+    }
+    var lastWidth = -1;
+    var observer = new window.ResizeObserver(function () {
+      var width = region.clientWidth;
+      if (width === 0 || width === lastWidth) {
+        return;
+      }
+      lastWidth = width;
+      var fit = measureFit(figure);
+      if (!fit || (figure.getAttribute('data-fitted') === 'true' && fit.svg.getAttribute('viewBox') === fit.viewBox)) {
+        return;
+      }
+      figure.removeAttribute('data-fitted');
+      window.requestAnimationFrame(function () {
+        var next = measureFit(figure);
+        if (next) {
+          applyFit(figure, next);
+        }
+      });
+    });
+    observer.observe(region);
+  };
+
   // Mermaid, on the diagram pages only: initialised once, strict, without HTML labels, and run only on the diagram
-  // sources the generator emitted. A failure leaves the source and shows a note; the tables say the same.
+  // sources the generator emitted. Each drawing is then fitted. A failure leaves the source and shows a note; the
+  // tables say the same.
   var diagrams = document.querySelectorAll('pre.diagram-source[data-diagram]');
   var mermaid = window.mermaid;
   if (diagrams.length > 0 && mermaid && typeof mermaid.initialize === 'function' && typeof mermaid.run === 'function') {
@@ -134,7 +242,15 @@
       fontFamily: 'system-ui, sans-serif',
       themeVariables: { fontFamily: 'system-ui, sans-serif', fontSize: '16px' }
     });
-    mermaid.run({ nodes: Array.prototype.slice.call(diagrams) }).catch(function () {
+    mermaid.run({ nodes: Array.prototype.slice.call(diagrams) }).then(function () {
+      Array.prototype.forEach.call(document.querySelectorAll('figure.diagram'), function (figure) {
+        var fit = measureFit(figure);
+        if (fit) {
+          applyFit(figure, fit);
+        }
+        fitOnResize(figure);
+      });
+    }, function () {
       Array.prototype.forEach.call(document.querySelectorAll('.diagram-failed'), function (note) {
         note.hidden = false;
       });
