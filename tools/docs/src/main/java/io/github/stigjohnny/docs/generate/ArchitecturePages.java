@@ -15,11 +15,15 @@ import java.util.TreeMap;
 /**
  * {@code docs/architecture/}: one Markdown page per view, with the validated Mermaid definition in a fence that GitHub
  * renders, the legend, the text equivalent and the view's limits, and the same definition as a {@code .mmd} file.
+ * Right before the fence, a link opens the view's figure on the documentation site, where it can be enlarged and has
+ * its text equivalent beside it.
  */
 public final class ArchitecturePages {
 
     public static final String DIRECTORY = "docs/architecture/";
     public static final String NOTICE = "Generated—do not hand-edit";
+    /** The public documentation site, as .github/workflows/pages.yml publishes it from main. */
+    public static final String SITE = "https://stig-johnny.github.io/shipping-reference-platform/";
 
     private ArchitecturePages() {
     }
@@ -53,6 +57,8 @@ public final class ArchitecturePages {
                 .append("; ").append(code(":tools:docs:checkGenerated")).append(" fails on any difference.\n\n")
                 .append("# ").append(title).append("\n\n")
                 .append(view.description()).append("\n\n")
+                .append("[Open this diagram on the documentation site for enlargement and its text equivalent](")
+                .append(SITE).append("model/").append(slug).append(".html#figure-").append(slug).append(")\n\n")
                 .append("```mermaid\n").append(diagram.definition()).append("```\n\n")
                 .append("The same definition is in [").append(slug).append(".mmd](").append(slug).append(".mmd).\n\n")
                 .append("## How to read it\n\n");

@@ -120,6 +120,14 @@ class PublicationScannerTest {
         assertThat(scan().findings()).isEmpty();
     }
 
+    @Test
+    void theDocumentationSitesOwnAddressIsNotALinkToTheRepository() throws IOException {
+        write("page.html", "<!DOCTYPE html>\n<p>[Open](https://stig-johnny.github.io/" + "shipping-reference-platform/"
+                + "model/system-context.html#figure-system-context)</p>\n");
+
+        assertThat(scan().findings()).isEmpty();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"a bearer credential, sent with bearer authentication", "Authorization: Bearer <token>",
         "scheme: bearer\n  bearerFormat: demo", "the password is required", "secret: \"short\"",

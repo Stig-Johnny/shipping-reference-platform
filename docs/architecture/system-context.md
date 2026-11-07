@@ -12,6 +12,8 @@ updated: 2026-11-07
 
 Who uses the platform and which systems it talks to.
 
+[Open this diagram on the documentation site for enlargement and its text equivalent](https://stig-johnny.github.io/shipping-reference-platform/model/system-context.html#figure-system-context)
+
 ```mermaid
 flowchart LR
     accTitle: System context

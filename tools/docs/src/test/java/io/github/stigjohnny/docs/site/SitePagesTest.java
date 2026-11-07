@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.stigjohnny.docs.Html;
 import io.github.stigjohnny.docs.generate.Brains;
+import io.github.stigjohnny.docs.generate.GeneratedFiles;
 import io.github.stigjohnny.docs.repo.Allowlist;
 import io.github.stigjohnny.docs.repo.AllowlistEntry;
 import io.github.stigjohnny.docs.repo.Capability;
@@ -391,6 +392,24 @@ class SitePagesTest {
                 + "is reported as \"no static evidence\". It does not evaluate a relationship that touches a planned "
                 + "module. Every module of the API is planned and has no code yet, so these views are the accepted "
                 + "design, not verified structure.").doesNotContain("That check is planned", "is to compare");
+    }
+
+    @Test
+    void theGeneratedArchitecturePagesLinkFiguresThatTheSiteHas() {
+        Pattern link = Pattern.compile("\\(https://stig-johnny\\.github\\.io/shipping-reference-platform/"
+                + "(model/[a-z-]+\\.html)#(figure-[a-z-]+)\\)\n\n```mermaid\n");
+        List<String> targets = new ArrayList<>();
+        GeneratedFiles.generate(sources).forEach((path, text) -> {
+            Matcher found = link.matcher(text);
+            while (found.find()) {
+                assertThat(site.pages()).as(path).contains(found.group(1));
+                assertThat(site.text(found.group(1))).as(path).contains("<figure class=\"diagram\" id=\""
+                        + found.group(2) + "\">");
+                targets.add(found.group(1));
+            }
+        });
+        assertThat(targets).containsExactlyInAnyOrder("model/api-components.html", "model/containers.html",
+                "model/quote-book-label.html", "model/system-context.html");
     }
 
     @Test

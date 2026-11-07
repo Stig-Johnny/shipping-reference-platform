@@ -12,6 +12,8 @@ updated: 2026-11-07
 
 Quote, book and download a simulated label. Steps and their tests: docs/flows/quote-book-label.md.
 
+[Open this diagram on the documentation site for enlargement and its text equivalent](https://stig-johnny.github.io/shipping-reference-platform/model/quote-book-label.html#figure-quote-book-label)
+
 ```mermaid
 flowchart LR
     accTitle: Quote, book and download a simulated label

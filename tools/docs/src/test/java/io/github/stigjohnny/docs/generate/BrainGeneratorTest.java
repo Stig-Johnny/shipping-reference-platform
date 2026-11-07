@@ -98,6 +98,20 @@ class BrainGeneratorTest {
     }
 
     @Test
+    void eachGeneratedDiagramLinksItsFigureOnTheSiteRightBeforeItsFence() {
+        Map<String, String> files = GeneratedFiles.generate(sources());
+
+        for (String slug : List.of("system-context", "containers", "api-components", "quote-book-label")) {
+            String page = file(files, "docs/architecture/" + slug + ".md");
+            String link = "[Open this diagram on the documentation site for enlargement and its text equivalent]("
+                    + "https://stig-johnny.github.io/" + "shipping-reference-platform/model/" + slug + ".html#figure-"
+                    + slug + ")";
+            assertThat(page).as(slug).contains(link + "\n\n```mermaid\n");
+            assertThat(page.split("```mermaid", -1)).as(slug).hasSize(2);
+        }
+    }
+
+    @Test
     void theLegendsSayWhatTheImplementedCheckerCoversAndThatItLeavesOutPlannedModules() {
         Map<String, String> files = GeneratedFiles.generate(sources());
         String components = file(files, "docs/architecture/api-components.md");

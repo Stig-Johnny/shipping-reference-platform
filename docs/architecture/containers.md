@@ -12,6 +12,8 @@ updated: 2026-11-07
 
 The web app, the API (one deployable modular monolith) and the database.
 
+[Open this diagram on the documentation site for enlargement and its text equivalent](https://stig-johnny.github.io/shipping-reference-platform/model/containers.html#figure-containers)
+
 ```mermaid
 flowchart LR
     accTitle: Containers

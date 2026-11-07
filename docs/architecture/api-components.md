@@ -12,6 +12,8 @@ updated: 2026-11-07
 
 The seven modules of the API and the dependencies between them: REQUIRED, PERMITTED or planned. Planned modules and dependencies are labelled as planned.
 
+[Open this diagram on the documentation site for enlargement and its text equivalent](https://stig-johnny.github.io/shipping-reference-platform/model/api-components.html#figure-api-components)
+
 ```mermaid
 flowchart LR
     accTitle: Components of the API
