@@ -38,8 +38,8 @@ flowchart LR
             style 14 fill:#f1f5f9,stroke:#64748b,color:#334155
             8["Quotes [Component] (built)"]
             style 8 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
-            9["Shipments [Component] (planned)"]
-            style 9 fill:#f1f5f9,stroke:#64748b,color:#334155
+            9["Shipments [Component] (built)"]
+            style 9 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
         end
         15[("Database [Container] (planned)")]
         style 15 fill:#f1f5f9,stroke:#64748b,color:#334155
@@ -91,7 +91,7 @@ The same definition is in [api-components.mmd](api-components.mmd).
 | 4 | Carrier (simulated) | Software System |  | external, simulated | A fictional parcel carrier. v0.1 simulates its tariff, tracking numbers and labels inside the API; no network calls. |
 | 6 | Web app | Container | React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
 | 8 | Quotes | Component | Spring Modulith module | built | Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes. |
-| 9 | Shipments | Component | Spring Modulith module | planned | Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled. |
+| 9 | Shipments | Component | Spring Modulith module | built | Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled. |
 | 10 | Tenants | Component | Spring Modulith module | built | Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags. |
 | 11 | Audit | Component | Spring Modulith module | planned | Appends one tenant-scoped audit entry per shipment event, deduplicated by event ID; replayed from the publication registry after failures. |
 | 12 | Orders | Component | Spring Modulith module | planned | Planned: imports webshop orders and turns them into quote and booking requests. |

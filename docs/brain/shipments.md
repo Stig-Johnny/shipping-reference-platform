@@ -12,7 +12,7 @@ updated: 2026-11-07
 
 Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled.
 
-- **Status in the model:** planned (`contract.status`). No production class may exist in its packages until the status is built.
+- **Status in the model:** built (`contract.status`).
 - **Packages:** `io.github.stigjohnny.shipping.shipments`
 - **Risk level:** 3
 - **Specification:** [docs/modules/shipments.md](../modules/shipments.md)
@@ -45,8 +45,8 @@ Books shipments from quote offers with tenant-scoped idempotency, cancels them a
 
 | Capability | Status | Acceptance tests | Evidence |
 |---|---|---|---|
-| `shipments.book-from-offer` | planned | BookShipmentTest, RecipientTest, ShipmentsHttpContractTest | none yet |
-| `shipments.idempotent-booking` | planned | BookingIdempotencyIntegrationTest, RequestFingerprintTest | none yet |
+| `shipments.book-from-offer` | partial | BookShipmentTest, RecipientTest, ShipmentsHttpContractTest | BookShipmentTest, RecipientTest |
+| `shipments.idempotent-booking` | partial | BookingIdempotencyIntegrationTest, RequestFingerprintTest | RequestFingerprintTest |
 | `shipments.cancel-shipment` | planned | ShipmentTest, CancelShipmentTest | none yet |
 | `shipments.list-and-read` | planned | ShipmentListingIntegrationTest, ShipmentsHttpContractTest | none yet |
 | `shipments.simulated-label` | planned | SvgLabelRendererTest, ShipmentsHttpContractTest | none yet |
@@ -62,4 +62,6 @@ Books shipments from quote offers with tenant-scoped idempotency, cancels them a
 
 ## Gaps that name it
 
-No module-specific gaps are recorded here. See the project-wide known gaps in [docs/gaps.md](../gaps.md).
+- 0. State of this commit: The specification, the reviewed toolchain and the dependency allowlist with its enforcement are in place, and so are the reviewed dependencies of the docs generator and of the shipping API. The docs generator itself, `tools/docs`, exists: it generates the C4 view pages, `BRAIN.md` and the module brains, and builds the documentation site, which `.github/workflows/pages.yml` publishes from `main` after the publication scan. Its own controls, `control.brain-check` and `control.publication-scan`, are shipped with their tests as evidence. The library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. The first application code exists: the domain and application layers of the `quotes` module and of booking in the `shipments` module, and the tenant context of the `tenants` module, checked by `ArchitectureConformanceTest`, `ModularityTest` and `HexagonalLayeringTest`. Six capabilities have passing tests: two of the quotes module are shipped, and two of it and two of the shipments module are partial. Every other capability in `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for them is still to be written (red first), except `ShipmentTest`, which exists for booking and does not yet assert cancellation.
+- 0. State of this commit: **The shipments module runs in its tests only.** No class of it is a Spring bean, and no endpoint, database or running application exists. `BookShipment`'s `@Transactional` has no effect yet, and that `ShipmentBooked` is published inside the booking's transaction is unproven until `ShipmentEventsIntegrationTest` exists. Requests with the same `Idempotency-Key` are not serialized yet: the advisory lock, the recheck under it and the handling of unique-key failures belong to the planned JDBC adapter, and `BookingIdempotencyIntegrationTest`, which is to show that concurrent duplicates create one shipment, is planned. The stores and the tracking numbers its tests use are in memory.
+- 6. Tests and quality gates: Mutation testing runs for `libs/c4-contract-kit` only, in CI (the `mutation` job), over all its production classes, at a 90 % threshold. The planned measure per change (80 % of mutants on changed lines, 90 % for pricing and checker code) is not built yet, and equivalent-mutant exclusions are reviewed by hand. So the pricing code of the `quotes` module and the booking code of the `shipments` module are not mutation-tested yet: PIT is not reviewed for `:apps:shipping-api`.
