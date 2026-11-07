@@ -2,16 +2,28 @@
 title: "Module: quotes"
 description: "Prices parcels with the synthetic tariff and issues tenant-scoped quotes whose offers expire after 30 minutes."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 module: quotes
-moduleStatus: planned
+moduleStatus: built
 riskLevel: 3
 ---
 
 # Module: quotes
 
-Package `io.github.stigjohnny.shipping.quotes`. C4 component `quotes` (`contract.status planned`). Risk level 3:
+Package `io.github.stigjohnny.shipping.quotes`. C4 component `quotes` (`contract.status built`). Risk level 3:
 all of its code is pricing.
+
+## Implementation state
+
+Built: the public API below, the domain model and two application classes with their port: `CreateQuote`,
+`QuoteOffersService` and `QuoteStore`. Their tests use a store in memory, a fixed clock and deterministic IDs.
+`quotes.synthetic-tariff` and `quotes.quote-expiry` are shipped; `quotes.create-quote` and `quotes.offer-lookup`
+are partial, since `QuotesHttpContractTest` and `QuotesModuleIntegrationTest` are planned; `quotes.get-quote` is
+planned.
+
+Planned: `GetQuote`, both adapters, the migration and the demo fixture, and the wiring into a running application.
+Until then no class of the module is a Spring bean: `CreateQuote`'s `@Transactional` has no effect yet, and nothing
+yet shows that `QuoteIssued` is published inside the quote's transaction.
 
 ## Responsibilities
 
@@ -141,7 +153,8 @@ Worked example (the contract's example): `NO 0150` to `SE 11122`, 1200 g, 300 x 
 - `QuoteRequest(Parcel parcel, Place origin, Place destination, @Nullable ServiceLevel serviceLevel)`.
 - `Offer(OfferId id, ServiceLevel level, Money price, TransitDays transitDays)`.
 - `Quote` (aggregate): `QuoteId`, `TenantId`, request values, `Zone`, billable weight, `issuedAt`, `expiresAt` and
-  `List<Offer>` in `ServiceLevel` order. Immutable. `status(Instant now)` returns `OPEN` or `EXPIRED`.
+  `List<Offer>` in `ServiceLevel` order. Immutable. `status(Instant now)` returns `QuoteStatus.OPEN` or
+  `QuoteStatus.EXPIRED`.
 - `QuoteResult`: `sealed interface QuoteResult permits Offered, Unavailable`; `Offered(Quote quote)`,
   `Unavailable(UnavailableReason reason)`.
 - `UnavailableReason`: `ROUTE_NOT_SERVED`, `BILLABLE_WEIGHT_ABOVE_LIMIT`, `SERVICE_LEVEL_NOT_AVAILABLE`.
@@ -204,7 +217,8 @@ quote for Tenant Alpha, used by `expired-quote.spec.ts`. The script binds Tenant
 | Q9 | Quotes of another tenant are not found, through the repository and through `QuoteOffers`. | `QuotesModuleIntegrationTest`, `CrossTenantAccessTest` |
 | Q10 | HTTP responses match the contract, including problem bodies. | `QuotesHttpContractTest` |
 
-Mutation testing: at least 90 % killed mutants on changed lines in this module (pricing logic).
+Mutation testing: at least 90 % killed mutants on changed lines in this module (pricing logic). Not run yet: PIT runs
+for `libs/c4-contract-kit` only (`docs/gaps.md`, section 6).
 
 ## Risk levels of its paths (`policy/risk.json`)
 

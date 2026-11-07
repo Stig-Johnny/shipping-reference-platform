@@ -29,10 +29,10 @@ flowchart LR
     subgraph 5 ["Shipping reference platform"]
         style 5 fill:#ffffff,stroke:#475569,color:#475569
         15[("Database [Container] (planned)")]
-        style 15 fill:#115e59,stroke:#475569,color:#ffffff
+        style 15 fill:#f1f5f9,stroke:#64748b,color:#334155
         6["Web app [Container] (planned)"]
-        style 6 fill:#115e59,stroke:#475569,color:#ffffff
-        7["API [Container] (planned)"]
+        style 6 fill:#f1f5f9,stroke:#64748b,color:#334155
+        7["API [Container]"]
         style 7 fill:#115e59,stroke:#475569,color:#ffffff
     end
     1 -->|"1"| 3
@@ -65,7 +65,7 @@ The same definition is in [containers.mmd](containers.mmd).
 | 3 | Webshop | Software System |  | external | A merchant's online shop (simulated). Source of the orders that need shipping. |
 | 4 | Carrier (simulated) | Software System |  | external, simulated | A fictional parcel carrier. v0.1 simulates its tariff, tracking numbers and labels inside the API; no network calls. |
 | 6 | Web app | Container | React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
-| 7 | API | Container | Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring Data JDBC | Planned; not covered by module conformance | Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. |
+| 7 | API | Container | Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring Data JDBC | Not covered by module conformance | Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. |
 | 15 | Database | Container | PostgreSQL 18.6 | Planned; not covered by module conformance | One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data. |
 
 ## Relationships

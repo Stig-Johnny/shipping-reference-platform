@@ -2,13 +2,13 @@
 title: "ADR 0002: Diagrams first: the C4 model is the structural authority"
 description: "architecture/workspace.dsl defines the product's structure; c4-contract-kit fails the build on undeclared and on missing required module dependencies."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
   - "java: :tools:docs:checkGenerated regenerates the view pages in docs/architecture/ and fails on any difference (BrainCheckTest)"
+  - "java: ArchitectureConformanceTest checks the API's compiled classes against architecture/workspace.dsl in both directions (c4-contract-kit)"
 plannedEnforcement:
-  - "java: ArchitectureConformanceTest (c4-contract-kit, both directions)"
   - "risk-approval: architecture/ is level 3"
 ---
 

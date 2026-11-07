@@ -420,10 +420,12 @@ class DemoPagesTest {
         assertThat(ledgerRow(second, "Planned implementation")).endsWith(" Manual today: the author of a change states "
                 + "its risk level, and the owner records the approval of a level 3 change; the risk-approval check that "
                 + "is to enforce this (control.risk-classification) is planned.");
-        // The double rule only beside passing evidence with a named scope.
+        // The double rule only beside passing evidence. Product capabilities contribute tests now, so the line no longer
+        // says that they all verify tooling.
         String evidence = ledgerRow(second, "Verified evidence");
-        assertThat(evidence).startsWith("<span class=\"badge badge-shipped\">Tooling tests passing</span> ")
-                .contains("These tests verify repository tooling, not shipping behaviour.");
+        assertThat(evidence).startsWith("<span class=\"badge badge-shipped\">Passing</span> ")
+                .contains("SyntheticTariffTest", "ArchitectureConformanceTest")
+                .doesNotContain("These tests verify repository tooling, not shipping behaviour.");
         assertThat(count(site.text(DECK), "badge-shipped")).isEqualTo(1);
         assertThat(slide(site.text(DECK), "one-change-the-gate-rejects")).doesNotContain("badge-shipped")
                 .contains("<p>Recorded output — not rerun by this site build. Full record in the notes.</p>");

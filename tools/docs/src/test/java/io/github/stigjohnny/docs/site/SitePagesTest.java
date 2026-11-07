@@ -45,7 +45,8 @@ class SitePagesTest {
         String start = site.text("index.html");
 
         assertThat(start).contains("<h1>Shipping reference platform</h1>", "A reference monorepo",
-                "Specification only", "synthetic", "Reading path for a COO", "Reading path for a Java lead")
+                "<span class=\"badge badge-partial\">Partly built</span>", "synthetic", "Reading path for a COO",
+                "Reading path for a Java lead").doesNotContain("Specification only", "No application code exists yet")
                 .contains("href=\"model/flow-quote-book-label.html\"", "href=\"trust/risk-levels.html\"",
                         "href=\"trust/gaps.html\"", "href=\"model/api-components.html\"", "href=\"modules/index.html\"",
                         "href=\"api/index.html\"", "href=\"decisions/index.html\"", "href=\"trust/allowlist.html\"");
@@ -62,7 +63,12 @@ class SitePagesTest {
                     "Verified evidence");
         }
         assertThat(site.text("brain/index.html")).contains("BrainGeneratorTest", "BrainCheckTest");
-        assertThat(site.text("modules/quotes.html")).contains("5 capabilities planned").contains("None yet");
+        // quotes has passing tests for four of its five capabilities; tenants is built, but none of its own has one.
+        assertThat(site.text("modules/quotes.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
+                + "</span> 2 capabilities shipped, 2 capabilities partial, 1 capability planned.",
+                "<span class=\"badge badge-shipped\">Passing</span> 7 evidence test classes passed");
+        assertThat(site.text("modules/tenants.html")).contains("<span class=\"badge badge-planned\">Planned</span> 6 "
+                + "capabilities planned.", "<span class=\"badge badge-none\">None yet</span>");
     }
 
     @Test
@@ -150,8 +156,8 @@ class SitePagesTest {
         assertThat(components).contains("Where both modules are built, the checker in libs/c4-contract-kit fails when "
                 + "the compiled classes have no static reference for it.", "The checker does not evaluate a line "
                 + "that touches a planned module until both modules are built.", "A REQUIRED arrow specifies an "
-                + "obligation; a future passing conformance check would establish a static reference, not runtime "
-                + "behaviour.");
+                + "obligation; where both modules are built, a passing conformance check establishes a static "
+                + "reference, not runtime behaviour.").doesNotContain("a future passing conformance check");
         for (String page : List.of(containers, components, site.text("model/system-context.html"),
                 site.text("model/quote-book-label.html"), flow)) {
             assertThat(page).doesNotContain("the build fails when it does not", "proves that a reference exists",
@@ -164,7 +170,10 @@ class SitePagesTest {
     void plannedElementsAreLabelledNotFaded() {
         String page = site.text("model/api-components.html");
 
-        assertThat(page).contains("Quotes [Component] (planned)", "Planned");
+        assertThat(page).contains("Shipments [Component] (planned)", "Quotes [Component] (built)",
+                "Web app [Container] (planned)", "Database [Container] (planned)", "Planned");
+        assertThat(site.text("model/containers.html")).contains("Web app [Container] (planned)",
+                "Database [Container] (planned)").doesNotContain("API [Container] (planned)");
         for (String path : site.pages()) {
             assertThat(site.text(path)).as(path).doesNotContainIgnoringCase("faded").doesNotContain("opacity");
         }
@@ -279,20 +288,12 @@ class SitePagesTest {
     @Test
     void theBrainOverviewMatchesItsTables() {
         String brain = site.text("brain/index.html");
-        assertThat(sources.capabilities().specificationOnly()).as("every product capability is planned").isTrue();
-        long capabilities = sources.capabilities().capabilities().size();
-        List<String> controls = new ArrayList<>();
-        for (Capability.Status status : Capability.Status.values()) {
-            long count = sources.capabilities().controls().stream().filter(c -> c.status() == status).count();
-            if (count > 0) {
-                controls.add(count + (count == 1 ? " control " : " controls ") + status.value());
-            }
-        }
-        String counted = controls.size() == 1 ? controls.getFirst() : String.join(", ",
-                controls.subList(0, controls.size() - 1)) + " and " + controls.getLast();
+        assertThat(sources.capabilities().specificationOnly()).as("some product capabilities have passing tests")
+                .isFalse();
 
-        assertThat(brain).contains("<span class=\"badge badge-partial\">Partly shipped</span> " + capabilities
-                + " capabilities planned; " + counted + ".");
+        assertThat(brain).contains("<span class=\"badge badge-partial\">Partly shipped</span> "
+                + counted(sources.capabilities().capabilities(), "capability", "capabilities") + "; "
+                + counted(sources.capabilities().controls(), "control", "controls") + ".");
         List<Capability> evidenced = sources.capabilities().all().stream()
                 .filter(c -> c.evidence().stream().anyMatch(sources.evidence()::passed)).toList();
         if (evidenced.stream().allMatch(c -> c.control() && c.where().startsWith("tools/docs"))) {
@@ -375,35 +376,40 @@ class SitePagesTest {
 
         assertThat(repository).contains("<th>Implementation state</th>", "The planned v0.1 behaviour is: a shipping "
                 + "clerk", "<td>Planned for v0.1; no code yet</td>",
-                "<td>Minimal implementation planned for v0.1; no code yet</td>")
+                "<td>Minimal implementation planned for v0.1; no code yet</td>",
+                "<td>Built in part: tariff, rating, quote creation and offer lookup, without HTTP or a database</td>",
+                "<td>Built in part: the tenant's identity and the tenant bound to the current thread; the rest of the "
+                        + "minimal implementation is planned</td>")
                 .doesNotContain("<td>built</td>", "<td>built (minimal)</td>", "v0.1 target, not implemented");
     }
 
     @Test
     void theModelPagesQualifyTheCheckersEvidenceAndSayWhatItCovers() {
         // The count and what the tests do not prove stay in the ledger's line; the names are in the disclosure.
-        String evidence = "<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Checker tests "
-                + "passing</span> 2 evidence test classes passed in the build that generated this site. These tests "
-                + "verify the checker; the shipping modules remain planned.\n<details class=\"evidence-tests\"><summary>"
-                + "Evidence test classes (2)</summary><p>ConformanceDivergenceTest, ConformanceAbsenceTest</p></details>"
-                + "</dd>";
+        String evidence = "<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Conformance tests "
+                + "passing</span> 3 evidence test classes passed in the build that generated this site. These tests "
+                + "verify the checker and the built modules&#39; static dependencies against the model, not their "
+                + "behaviour.\n<details class=\"evidence-tests\"><summary>Evidence test classes (3)</summary><p>"
+                + "ConformanceDivergenceTest, ArchitectureConformanceTest, ConformanceAbsenceTest</p></details></dd>";
         for (String page : List.of("model/index.html", "model/system-context.html", "model/containers.html",
                 "model/api-components.html", "model/quote-book-label.html")) {
             assertThat(site.text(page)).as(page).contains(evidence).doesNotContain(">Passing</span>",
                     "It is not implemented yet", "The planned conformance check", "the planned check");
         }
-        // The flow page keeps its own evidence: no test of its capabilities passes yet.
+        // The flow page keeps its own evidence: the quotes module's tests that pass.
         assertThat(site.text("model/flow-quote-book-label.html"))
-                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-none\">None yet</span>")
-                .doesNotContain("Checker tests passing");
+                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> 7 evidence "
+                        + "test classes passed")
+                .doesNotContain("Checker tests passing", "Conformance tests passing");
         String index = site.text("model/index.html");
         assertThat(index).contains("The checker in <code>libs/c4-contract-kit</code> is implemented and its own "
                 + "tests pass. It compares the direct static references in compiled classes with the model in both "
                 + "directions: a dependency between two modules that the model does not declare fails the check, and "
                 + "so does a REQUIRED relationship without any static reference; a PERMITTED relationship without one "
                 + "is reported as \"no static evidence\". It does not evaluate a relationship that touches a planned "
-                + "module. Every module of the API is planned and has no code yet, so these views are the accepted "
-                + "design, not verified structure.").doesNotContain("That check is planned", "is to compare");
+                + "module. Where a relationship touches a planned module, the views show the accepted design, not "
+                + "verified structure.").doesNotContain("That check is planned", "is to compare",
+                        "Every module of the API is planned");
     }
 
     @Test
@@ -430,8 +436,16 @@ class SitePagesTest {
                 .filter(c -> c.id().startsWith("control.c4-")).toList();
 
         assertThat(ModelPages.checkerEvidence(conformance, sources.evidence(), false))
-                .contains("passed in the build that generated this site. These tests verify the checker, not the "
-                        + "shipping modules.\n<details class=\"evidence-tests\">");
+                .contains("passed in the build that generated this site. These tests verify the checker and the built "
+                        + "modules&#39; static dependencies against the model, not their behaviour.\n<details "
+                        + "class=\"evidence-tests\">");
+        // Without the API's own check among them, the same tests verify the checker only.
+        TestEvidence checkerOnly = new TestEvidence(Set.of("ConformanceDivergenceTest", "ConformanceAbsenceTest"),
+                Map.of("ConformanceDivergenceTest", passed("ConformanceDivergenceTest"), "ConformanceAbsenceTest",
+                        passed("ConformanceAbsenceTest")));
+        assertThat(ModelPages.checkerEvidence(conformance, checkerOnly, false)).startsWith("<span class=\"badge "
+                + "badge-shipped\">Checker tests passing</span> ").contains("These tests verify the checker, not the "
+                + "shipping modules.");
         assertThat(ModelPages.checkerEvidence(conformance, new TestEvidence(Set.of(), Map.of()), true))
                 .contains(">None yet</span>");
     }
@@ -489,5 +503,22 @@ class SitePagesTest {
             count++;
         }
         return count;
+    }
+
+    /** The brain's count of entries by status, as its overview words it: "2 capabilities shipped and 3 planned". */
+    private static String counted(List<Capability> entries, String one, String many) {
+        List<String> parts = new ArrayList<>();
+        for (Capability.Status status : Capability.Status.values()) {
+            long count = entries.stream().filter(c -> c.status() == status).count();
+            if (count > 0) {
+                parts.add(count + " " + (count == 1 ? one : many) + " " + status.value());
+            }
+        }
+        return parts.size() == 1 ? parts.getFirst()
+                : String.join(", ", parts.subList(0, parts.size() - 1)) + " and " + parts.getLast();
+    }
+
+    private static TestEvidence.Result passed(String test) {
+        return new TestEvidence.Result("fx." + test, 1, 0, 0, 0);
     }
 }

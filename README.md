@@ -3,9 +3,10 @@
 A reference monorepo that shows how a Java and React product can be built when the architecture model, the
 API contract and the documentation lead and the code follows, and when each claim about the code is backed by a
 check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is
-synthetic and the carrier is simulated. Application code is not written yet. What exists is the tooling that will
-judge it: a checker that holds compiled Java classes to the C4 model in both directions, a dependency allowlist check
-and a documentation tool.
+synthetic and the carrier is simulated. The application's first code exists: the pricing and quotes of the API's
+quotes module and the tenant context they need, without HTTP or a database; most of the application is still planned.
+The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions,
+a dependency allowlist check and a documentation tool.
 
 ## What exists today
 
@@ -20,6 +21,12 @@ Built and running:
   requests from forks. Its tests, `tools/policy/PolicyCheckTest.java`, need only the JDK too and run in `java`;
   before them, scripted tamperings (ADR 0007) and two pull requests made to fail on purpose
   ([security/README.md](security/README.md)) showed that it fails.
+- **The shipping API's first code**, `apps/shipping-api`: in the `tenants` module the tenant's identity and the
+  tenant bound to the current thread, and in the `quotes` module the synthetic tariff, rating, quote creation and the
+  offer lookup, in the domain and application layers. Their tests use a store in memory, a fixed clock and
+  deterministic IDs; no endpoint, database or running application exists yet. In `java`, `ArchitectureConformanceTest`
+  checks the API's classes against the model with the checker, `ModularityTest` runs Spring Modulith's verification
+  and `HexagonalLayeringTest` the layering rules, and each of the three also fails on fixtures that break it.
 - **The documentation tool**, `tools/docs`, with its tests. It generates the C4 view pages, `BRAIN.md` and a static
   site. In `java`, it checks committed generated files for drift, repository-local links and anchors for validity,
   and shipped or partial capability claims against passing test evidence. The `pages` workflow scans the site before
@@ -28,10 +35,11 @@ Built and running:
 The specification is in place too: the model, the API contract, the decisions, the module specifications, the risk
 policy and the agent rules, with the reviewed toolchain.
 
-Planned, with no code yet: the shipping API's seven modules (`apps/shipping-api` holds only its build file, lockfile
-and `AGENTS.md`), the React workbench, the generated API client and the checks that need them. Every product
-capability in [docs/capabilities/capabilities.yaml](docs/capabilities/capabilities.yaml) is `planned`; that file is
-the source of truth for status and evidence. [docs/gaps.md](docs/gaps.md) lists what a green build does not prove.
+Planned, with no code yet: the API's other five modules, everything of quotes and tenants that needs HTTP or the
+database, the React workbench, the generated API client and the checks that need them. In
+[docs/capabilities/capabilities.yaml](docs/capabilities/capabilities.yaml), the source of truth for status and
+evidence, the quotes module's tariff and quote expiry are shipped and its quote creation and offer lookup partial;
+every other product capability is `planned`. [docs/gaps.md](docs/gaps.md) lists what a green build does not prove.
 
 ## The checker
 
@@ -58,10 +66,13 @@ The evidence is the checker's own tests, and most of them are negative fixtures:
   the library conforms to its own model, `libs/c4-contract-kit/architecture/self.dsl`, in which each of the eight
   allowed edges between its five packages is `REQUIRED`; the same model with one edge removed fails with a divergence.
 
-The checker does not check the shipping API yet. That check, `ArchitectureConformanceTest`, comes with the API's
-code; until then the repository's model passes because every module in it is planned (`RepositoryWorkspaceTest`).
-The library's API and rules are in `libs/c4-contract-kit/README.md`; what the check cannot prove is in section 1 of
-[docs/gaps.md](docs/gaps.md#1-what-the-architecture-check-cannot-prove).
+The checker also checks the shipping API: `ArchitectureConformanceTest` compares every main class-output directory of
+`:apps:shipping-api` with `architecture/workspace.dsl` and writes its report to
+`apps/shipping-api/build/reports/c4-contract/`. Two modules are built, `quotes` and `tenants`, so one relationship is
+evaluated, `quotes -> tenants` (`REQUIRED`), and it converges; the other nine touch a planned module and are not
+evaluated. With that relationship removed from the model, the same test shows the API's own classes failing the check
+with a divergence. The library's API and rules are in `libs/c4-contract-kit/README.md`; what the check cannot prove is
+in section 1 of [docs/gaps.md](docs/gaps.md#1-what-the-architecture-check-cannot-prove).
 
 ## Try it
 
@@ -162,9 +173,9 @@ see each other's data, enforced in queries and by forced PostgreSQL row-level se
 
 | Module | Implementation state | Depends on (from the model) |
 |---|---|---|
-| `quotes` | Planned for v0.1; no code yet | `tenants` (REQUIRED) |
+| `quotes` | Built in part: tariff, rating, quote creation and offer lookup, without HTTP or a database | `tenants` (REQUIRED) |
 | `shipments` | Planned for v0.1; no code yet | `quotes`, `tenants` (REQUIRED) |
-| `tenants` | Minimal implementation planned for v0.1; no code yet | nothing |
+| `tenants` | Built in part: the tenant's identity and the tenant bound to the current thread; the rest of the minimal implementation is planned | nothing |
 | `audit` | Minimal implementation planned for v0.1; no code yet | `shipments`, `tenants` (REQUIRED); `quotes` (PERMITTED, not evaluated) |
 | `orders` | planned, no code | `quotes`, `shipments` (PERMITTED, not evaluated) |
 | `tracking` | planned, no code | `shipments` (PERMITTED, not evaluated) |
@@ -172,18 +183,18 @@ see each other's data, enforced in queries and by forced PostgreSQL row-level se
 
 ## Controls and how each one can fail
 
-The status says which part of each control runs and can fail today (**enforced**, or **partial** where only the
-checker exists) and which part is **planned**.
+The status says which part of each control runs and can fail today (**enforced**, or **partial** where only part of
+it runs) and which part is **planned**.
 
 | Control | Fails the build when | What it cannot catch | Where it runs | Status |
 |---|---|---|---|---|
-| C4 conformance: divergence | A class in one module references another module without a relationship in the model. | Use through reflection, SQL, HTTP or configuration; references lost through constant inlining or not reported by ArchUnit, including casts; a model widened to allow the dependency (the owner's approval of such a change is not enforced yet). | `java`: `ArchitectureConformanceTest` | partial: the checker and its tests run in `java`; the check of the application waits for its code |
-| C4 conformance: absence | A `REQUIRED` relationship has no static reference in the bytecode. | A reference that exists while the behaviour behind it does nothing. | `java`: `ArchitectureConformanceTest` | partial (as above) |
-| Model validity | Package mappings overlap, are empty or leave classes uncovered; a planned module has code; forbidden DSL directives; tags disagree with contract properties; cycles. | Whether the model describes the right architecture. | `java`: `RepositoryWorkspaceTest` reads `architecture/workspace.dsl` with the library | **enforced** for the model file; the rules that need classes (uncovered classes, code in a planned module) wait for application code |
-| Module boundaries and layering | Access to another module's internal packages, module cycles, Spring in domain code, unexpected packages. | Coupling through shared data or timing. | `java`: `ModularityTest`, `HexagonalLayeringTest` | planned |
+| C4 conformance: divergence | A class in one module references another module without a relationship in the model. | Use through reflection, SQL, HTTP or configuration; references lost through constant inlining or not reported by ArchUnit, including casts; a model widened to allow the dependency (the owner's approval of such a change is not enforced yet). | `java`: `ArchitectureConformanceTest` | **enforced**: the checker's tests and the check of the API's classes run in `java`; a relationship that touches a planned module is not evaluated |
+| C4 conformance: absence | A `REQUIRED` relationship has no static reference in the bytecode. | A reference that exists while the behaviour behind it does nothing. | `java`: `ArchitectureConformanceTest` | **enforced** (as above) |
+| Model validity | Package mappings overlap, are empty or leave classes uncovered; a planned module has code; forbidden DSL directives; tags disagree with contract properties; cycles. | Whether the model describes the right architecture. | `java`: `RepositoryWorkspaceTest` reads `architecture/workspace.dsl` with the library; `ArchitectureConformanceTest` applies the rules that need classes | **enforced**: for the model file, and for the API's classes (uncovered classes, code in a planned module) |
+| Module boundaries and layering | Access to another module's internal packages, module cycles, Spring in domain code, unexpected packages. | Coupling through shared data or timing. | `java`: `ModularityTest`, `HexagonalLayeringTest` | **enforced** for the built modules, each rule with a fixture that fails it |
 | API contract | A response deviates from the OpenAPI schema; the regenerated TypeScript client differs from the committed one. | Operations and status codes no test exercises. | `java`: `*HttpContractTest`; `web` | planned |
 | Tenant isolation | A tenant table lacks forced row-level security; the runtime role could bypass it; another tenant's IDs are readable through SQL or HTTP. | SQL run as the owner role; the shared event publication table; strength of the demo authentication. | `java`: `RowLevelSecurityCatalogTest`, `RowLevelSecurityIntegrationTest`, `CrossTenantAccessTest` | planned |
-| Domain invariants | Golden tariff prices, monotonicity and rounding properties, idempotent booking, expiry rules. | Wrong requirements. | `java` (parameterized property tests included: `SyntheticTariffPropertiesTest`) | planned |
+| Domain invariants | Golden tariff prices, monotonicity and rounding properties, idempotent booking, expiry rules. | Wrong requirements. | `java` (parameterized property tests included: `SyntheticTariffPropertiesTest`) | partial: the tariff and expiry tests run in `java`; idempotent booking is planned |
 | Event delivery | A failed audit write is lost, or a replay has a second effect. | Consumers nobody has written yet. | `java`: `AuditReplayIntegrationTest` | planned |
 | Mutation testing | Fewer than 80 % of mutants on changed lines are killed (90 % for pricing and checker code). | Tests that consistently assert the wrong thing; hand-reviewed equivalent mutants. | `mutation` | planned (today the `mutation` job runs PIT on the contract kit and fails under 90 % killed; it is not a required check) |
 | Dependency allowlist, before use | A locked dependency, the Gradle wrapper or an Action has no approved, unexpired review; a checksum or a vendored file differs from its review; an Action is not pinned to an allowlisted commit; the reviewed set changed after the owner accepted it; the checked tree holds a symbolic link. | Build code that downloads executables itself, compromised approved artifacts, runner compromise, local agents bypassing CI, a reviewed component used outside the scope of its review. | `preflight` (from the base branch); `java` before Gradle starts, then the checker's tests (`tools/policy/PolicyCheckTest.java`) | **enforced**: `preflight` is a required check, made to fail on purpose by pull requests #16 and #17 (`security/README.md`). Planned, which is why `capabilities.yaml` still lists the control as planned: a schema for the allowlist, the checker's acceptance tests named there (its JDK-only tests run in `java` but write no JUnit report), and approval bound to a pull request's head |
@@ -193,11 +204,12 @@ checker exists) and which part is **planned**.
 | Documentation and brain | Generated docs or `BRAIN.md` drift; budgets exceeded; a capability claims `shipped` without passing evidence; a link, anchor or ADR reference is broken; the site's Mermaid bundle differs from its review; code changed without its module document. | Whether the prose is right. | `java`: `:tools:docs:check` (`BrainGeneratorTest`, `BrainCheckTest`, `SiteBuilderTest`) | **enforced** in the required `java` check, except the module-document check, which is planned |
 | Publication scan of the public site | The built site holds a secret's shape, a link to this repository on GitHub, a local path, a private address or host name, an HTML comment or a term of the confidential dictionary; the dictionary is missing; the Mermaid bundle differs from its review; the site directory holds a link or a hidden file. | A paraphrase, a confidential term that is not in the dictionary, what a sentence means. | `pages`, build job: `:tools:docs:scanSite` before the upload (`PublicationScannerTest`, `PagesWorkflowTest`) | **enforced** on every deployment from `main`; the dictionary is a secret of the `github-pages` environment, and without it the scan fails closed |
 
-Every advertised failure requires a deliberate negative fixture. The checker's own tests have theirs, and the
-documentation and brain control has them in `BrainCheckTest` and `SiteBuilderTest`; the application's do not exist
-yet. The allowlist check's JDK-only tests, `tools/policy/PolicyCheckTest.java`, build theirs in temporary
-directories; before them, scripted tamperings (ADR 0007) and the closed pull requests that `security/README.md` lists
-showed that it fails. The full list of limits is in `docs/gaps.md`.
+Every advertised failure requires a deliberate negative fixture. The checker's own tests have theirs, the
+documentation and brain control has them in `BrainCheckTest` and `SiteBuilderTest`, and the API's architecture tests
+have theirs; the application's other controls are planned and have none yet. The allowlist check's JDK-only tests,
+`tools/policy/PolicyCheckTest.java`, build theirs in temporary directories; before them, scripted tamperings
+(ADR 0007) and the closed pull requests that `security/README.md` lists showed that it fails. The full list of
+limits is in `docs/gaps.md`.
 
 ## Layout
 
@@ -206,7 +218,8 @@ architecture/workspace.dsl       C4 model of the product: the structural authori
 contracts/shipping.openapi.yaml  HTTP contract (ADR 0004)
 libs/c4-contract-kit/            Gradle project :libs:c4-contract-kit, the model-versus-code checker, with its
                                  self-model architecture/self.dsl
-apps/shipping-api/               Gradle project :apps:shipping-api: so far only its build file, lockfile and AGENTS.md
+apps/shipping-api/               Gradle project :apps:shipping-api: the first code of the quotes and tenants modules, with
+                                 their tests and the architecture tests
 apps/shipping-web/               the React workbench's agent rules (AGENTS.md); the workbench itself is planned
 docs/                            Markdown with frontmatter: adr/, modules/, flows/, capabilities/, ui/, demos/ (one
                                  demonstration per pull request, how to write one, and the milestone deck), gaps.md,

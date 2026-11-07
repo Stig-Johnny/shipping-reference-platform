@@ -296,16 +296,24 @@ final class ModelPages {
                 checkerEvidence(conformance, context.sources().evidence(), allPlanned));
     }
 
+    /** The API's own check against the model (ADR 0002); the conformance controls' other tests are the checker's. */
+    static final String API_CONFORMANCE_TEST = "ArchitectureConformanceTest";
+
     /**
-     * The model pages' evidence: the conformance controls' passing tests, by name, under a badge that says they are the
-     * checker's tests, since they verify the checker and not the shipping modules. Without a passing test it is the
-     * evidence of any page.
+     * The model pages' evidence: the conformance controls' passing tests, by name, under a badge that says what they
+     * verify: the checker, and the built modules' static dependencies once the API's own check passes too, never the
+     * modules' behaviour. Without a passing test it is the evidence of any page.
      */
     static String checkerEvidence(List<Capability> conformance, TestEvidence evidence, boolean modulesPlanned) {
         List<String> passing = conformance.stream().flatMap(c -> c.evidence().stream()).filter(evidence::passed)
                 .distinct().toList();
         if (passing.isEmpty()) {
             return Statuses.evidence(conformance, evidence);
+        }
+        if (!modulesPlanned && passing.contains(API_CONFORMANCE_TEST)) {
+            return Badge.SHIPPED.html("Conformance tests passing") + " " + Statuses.passed(passing, "These tests "
+                    + "verify the checker and the built modules' static dependencies against the model, not their "
+                    + "behaviour.");
         }
         return Badge.SHIPPED.html("Checker tests passing") + " " + Statuses.passed(passing, modulesPlanned
                 ? "These tests verify the checker; the shipping modules remain planned."

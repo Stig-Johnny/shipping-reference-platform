@@ -51,10 +51,20 @@ class BrainCheckTest {
 
     @Test
     void aShippedCapabilityWithoutEvidenceFails() {
-        fixture.edit(CAPABILITIES, text -> text.replaceFirst("(id: quotes.synthetic-tariff\n(?:    .*\n){2})"
+        fixture.edit(CAPABILITIES, text -> text.replaceFirst("(id: quotes.get-quote\n(?:    .*\n){2})"
                 + "    status: planned", "$1    status: shipped"));
 
-        assertFails().hasMessageContaining("quotes.synthetic-tariff: claims shipped without evidence");
+        assertFails().hasMessageContaining("quotes.get-quote: claims shipped without evidence");
+    }
+
+    @Test
+    void aShippedCapabilityWithAnAcceptanceTestMissingFromItsEvidenceFails() {
+        // quotes.create-quote is partial: QuotesHttpContractTest, one of its acceptance tests, does not exist yet.
+        fixture.edit(CAPABILITIES, text -> text.replaceFirst("(id: quotes.create-quote\n(?:    .*\n){2})"
+                + "    status: partial", "$1    status: shipped"));
+
+        assertFails().hasMessageContaining("quotes.create-quote: claims shipped, but acceptance test "
+                + "QuotesHttpContractTest is not in its evidence");
     }
 
     @Test
@@ -109,18 +119,18 @@ class BrainCheckTest {
 
     @Test
     void aPlannedCapabilityThatNamesEvidenceFails() {
-        fixture.edit(CAPABILITIES, text -> text.replaceFirst("(id: quotes.synthetic-tariff\n(?:    .*\n){4})"
-                + "    evidence: none yet", "$1    evidence: [SyntheticTariffTest]"));
+        fixture.edit(CAPABILITIES, text -> text.replaceFirst("(id: quotes.get-quote\n(?:    .*\n){4})"
+                + "    evidence: none yet", "$1    evidence: [QuoteExpiryTest]"));
 
-        assertFails().hasMessageContaining("quotes.synthetic-tariff: a planned capability names no evidence");
+        assertFails().hasMessageContaining("quotes.get-quote: a planned capability names no evidence");
     }
 
     @Test
     void anEvidenceLabelOnAPlannedCapabilityFails() {
-        fixture.edit(CAPABILITIES, text -> text.replaceFirst("(id: quotes.synthetic-tariff\n)", "$1    evidenceLabel: "
-                + "tariff\n"));
+        fixture.edit(CAPABILITIES, text -> text.replaceFirst("(id: quotes.get-quote\n)", "$1    evidenceLabel: "
+                + "quotes\n"));
 
-        assertFails().hasMessageContaining("quotes.synthetic-tariff: an evidence label names passing evidence, and a "
+        assertFails().hasMessageContaining("quotes.get-quote: an evidence label names passing evidence, and a "
                 + "planned capability has none");
     }
 
@@ -158,9 +168,13 @@ class BrainCheckTest {
 
     @Test
     void aStaleModuleStatusFails() {
-        fixture.edit("docs/modules/quotes.md", text -> text.replace("moduleStatus: planned", "moduleStatus: built"));
+        // Both ways: shipments is planned in the model, and quotes is built.
+        fixture.edit("docs/modules/shipments.md", text -> text.replace("moduleStatus: planned", "moduleStatus: built"))
+                .edit("docs/modules/quotes.md", text -> text.replace("moduleStatus: built", "moduleStatus: planned"));
 
-        assertFails().hasMessageContaining("docs/modules/quotes.md: moduleStatus 'built' is stale");
+        assertFails().hasMessageContaining("docs/modules/shipments.md: moduleStatus 'built' is stale; the model's "
+                + "contract.status is 'planned'").hasMessageContaining("docs/modules/quotes.md: moduleStatus 'planned' "
+                + "is stale; the model's contract.status is 'built'");
     }
 
     @Test

@@ -26,8 +26,11 @@ class MermaidAdapterTest {
     private static final ParsedWorkspace WORKSPACE =
             Workspaces.read(Repository.file("architecture/workspace.dsl"), "architecture/workspace.dsl");
     private static final C4Model MODEL = WORKSPACE.model();
-    /** The repository is specification only: every product capability is planned. */
-    private static final ElementStatus STATUS = new ElementStatus(true);
+    /**
+     * Some product capabilities are built: the system and its containers are labelled planned only by their own
+     * Planned tag, as the web app and the database are.
+     */
+    private static final ElementStatus STATUS = new ElementStatus(false);
 
     @Test
     void everyViewBecomesAValidatedPlainTextFlowchart() {
@@ -72,14 +75,19 @@ class MermaidAdapterTest {
     void plannedElementsAreLabelledInWordsInsteadOfFaded() {
         MermaidDiagram components = adapt("ApiComponents");
 
-        assertThat(components.nodes()).filteredOn(n -> n.id().equals("8")).extracting(Node::label)
-                .containsExactly("Quotes [Component] (planned)");
+        assertThat(components.nodes()).filteredOn(n -> List.of("6", "8", "9", "10", "15").contains(n.id()))
+                .extracting(Node::label).containsExactlyInAnyOrder("Web app [Container] (planned)",
+                        "Quotes [Component] (built)", "Shipments [Component] (planned)", "Tenants [Component] (built)",
+                        "Database [Container] (planned)");
         MermaidDiagram context = adapt("SystemContext");
         assertThat(context.nodes()).extracting(Node::label).containsExactlyInAnyOrder("Shipping clerk [Person]",
                 "Platform administrator [Person]", "Webshop [Software System] (external)",
                 "Carrier (simulated) [Software System] (external, simulated)",
-                "Shipping reference platform [Software System] (planned)");
+                "Shipping reference platform [Software System]");
         assertThat(edge(context.edges(), "3", "5").label()).isEqualTo("4 \u2014 planned");
+        // While every product capability is planned, the system is labelled planned without a tag of its own.
+        assertThat(MermaidAdapter.adapt(raw("SystemContext"), MODEL, new ElementStatus(true)).nodes())
+                .extracting(Node::label).contains("Shipping reference platform [Software System] (planned)");
     }
 
     @Test

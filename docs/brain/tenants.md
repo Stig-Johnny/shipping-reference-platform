@@ -12,7 +12,7 @@ updated: 2026-11-07
 
 Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags.
 
-- **Status in the model:** planned (`contract.status`). No production class may exist in its packages until the status is built.
+- **Status in the model:** built (`contract.status`).
 - **Packages:** `io.github.stigjohnny.shipping.tenants`
 - **Risk level:** 3
 - **Specification:** [docs/modules/tenants.md](../modules/tenants.md)
@@ -54,4 +54,5 @@ Authenticates synthetic users, derives the tenant from membership, binds it to e
 
 ## Gaps that name it
 
+- 0. State of this commit: The specification, the reviewed toolchain and the dependency allowlist with its enforcement are in place, and so are the reviewed dependencies of the docs generator and of the shipping API. The docs generator itself, `tools/docs`, exists: it generates the C4 view pages, `BRAIN.md` and the module brains, and builds the documentation site, which `.github/workflows/pages.yml` publishes from `main` after the publication scan. Its own controls, `control.brain-check` and `control.publication-scan`, are shipped with their tests as evidence. The library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. The first application code exists: the domain and application layers of the `quotes` module and the tenant context of the `tenants` module, checked by `ArchitectureConformanceTest`, `ModularityTest` and `HexagonalLayeringTest`. Four capabilities of the quotes module have passing tests: two are shipped and two partial. Every other capability in `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for them is still to be written (red first).
 - 2. Security and identity: **Demo authentication only.** Tokens are public, guessable fixtures (`docs/modules/tenants.md`). No expiry, rotation, revocation, multi-factor authentication, rate limiting or lockout. Local runs use plain HTTP. Production identity (for example OpenID Connect through Spring Security's resource server) is not designed yet.

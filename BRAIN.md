@@ -10,9 +10,9 @@ updated: 2026-11-07
 
 # Brain: shipping-reference-platform
 
-A reference monorepo that shows how a Java and React product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. Application code is not written yet. What exists is the tooling that will judge it: a checker that holds compiled Java classes to the C4 model in both directions, a dependency allowlist check and a documentation tool.
+A reference monorepo that shows how a Java and React product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. The application's first code exists: the pricing and quotes of the API's quotes module and the tenant context they need, without HTTP or a database; most of the application is still planned. The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions, a dependency allowlist check and a documentation tool.
 
-**State at this commit.** 27 capabilities: 27 planned; 17 controls: 6 shipped, 2 partial, 9 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
+**State at this commit.** 27 capabilities: 2 shipped, 2 partial, 23 planned; 17 controls: 10 shipped, 7 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
 
 ## Read first
 
@@ -27,9 +27,9 @@ From `architecture/workspace.dsl`. Arrows in the model point from the module who
 
 | Module | Status | Risk | Depends on | Brain | Specification |
 |---|---|---|---|---|---|
-| `quotes` | planned | 3 | tenants (REQUIRED) | [quotes](docs/brain/quotes.md) | [docs/modules/quotes.md](docs/modules/quotes.md) |
+| `quotes` | built | 3 | tenants (REQUIRED) | [quotes](docs/brain/quotes.md) | [docs/modules/quotes.md](docs/modules/quotes.md) |
 | `shipments` | planned | 3 | tenants (REQUIRED), quotes (REQUIRED) | [shipments](docs/brain/shipments.md) | [docs/modules/shipments.md](docs/modules/shipments.md) |
-| `tenants` | planned | 3 | nothing | [tenants](docs/brain/tenants.md) | [docs/modules/tenants.md](docs/modules/tenants.md) |
+| `tenants` | built | 3 | nothing | [tenants](docs/brain/tenants.md) | [docs/modules/tenants.md](docs/modules/tenants.md) |
 | `audit` | planned | 2 | shipments (REQUIRED), tenants (REQUIRED), quotes (PERMITTED) | [audit](docs/brain/audit.md) | [docs/modules/audit.md](docs/modules/audit.md) |
 | `orders` | planned | 3 | quotes (PERMITTED, planned), shipments (PERMITTED, planned) | [orders](docs/brain/orders.md) | [docs/modules/orders.md](docs/modules/orders.md) |
 | `tracking` | planned | 3 | shipments (PERMITTED, planned) | [tracking](docs/brain/tracking.md) | [docs/modules/tracking.md](docs/modules/tracking.md) |
@@ -43,14 +43,14 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 
 | Control | Status | Check | Evidence |
 |---|---|---|---|
-| `control.c4-divergence` | partial | `java` | ConformanceDivergenceTest |
-| `control.c4-absence` | partial | `java` | ConformanceAbsenceTest |
+| `control.c4-divergence` | shipped | `java` | ConformanceDivergenceTest, ArchitectureConformanceTest |
+| `control.c4-absence` | shipped | `java` | ConformanceAbsenceTest, ArchitectureConformanceTest |
 | `control.no-static-evidence-report` | shipped | `java` | ReportNoStaticEvidenceTest |
 | `control.model-validation` | shipped | `java` | RestrictedDslParserTest, MappingValidationTest |
 | `control.bytecode-evidence` | shipped | `java` | BytecodeEvidenceTest |
 | `control.deterministic-reports` | shipped | `java` | ReportDeterminismTest, ConformanceAssertionsTest, SelfConformanceTest |
-| `control.modulith-verification` | planned | `java` | none yet |
-| `control.hexagonal-layering` | planned | `java` | none yet |
+| `control.modulith-verification` | shipped | `java` | ModularityTest |
+| `control.hexagonal-layering` | shipped | `java` | HexagonalLayeringTest |
 | `control.table-ownership` | planned | `java` | none yet |
 | `control.migrations` | planned | `java` | none yet |
 | `control.http-contract` | planned | `java` | none yet |
@@ -67,7 +67,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 |---|---|---|
 | [ADR 0001: Record architecture decisions as MADR files](docs/adr/0001-record-architecture-decisions.md) | accepted | java |
 | [ADR 0002: Diagrams first: the C4 model is the structural authority](docs/adr/0002-c4-model-is-the-structural-authority.md) | accepted | java |
-| [ADR 0003: Modular monolith with Spring Modulith and hexagonal modules](docs/adr/0003-modular-monolith-with-spring-modulith-and-hexagonal-modules.md) | accepted | not enforced yet |
+| [ADR 0003: Modular monolith with Spring Modulith and hexagonal modules](docs/adr/0003-modular-monolith-with-spring-modulith-and-hexagonal-modules.md) | accepted | java |
 | [ADR 0004: Contract-first OpenAPI 3.1.2 with RFC 9457 problem details](docs/adr/0004-contract-first-openapi-with-rfc-9457-problems.md) | accepted | not enforced yet |
 | [ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security](docs/adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md) | accepted | not enforced yet |
 | [ADR 0006: Module events through the publication registry, with idempotent consumers](docs/adr/0006-module-events-through-the-publication-registry.md) | accepted | not enforced yet |

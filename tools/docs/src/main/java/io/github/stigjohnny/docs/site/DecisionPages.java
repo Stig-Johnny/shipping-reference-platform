@@ -123,7 +123,9 @@ final class DecisionPages {
      */
     private static final Map<String, String> EVIDENCE_SCOPE = Map.of(
             "0001", "This verifies the documentation's structure and references.",
-            "0002", "This verifies generated documentation, not shipping-module conformance.",
+            "0002", "This verifies the generated view pages and the built modules' static dependencies against the "
+                    + "model, not runtime behaviour.",
+            "0003", "This verifies the structure of the built modules, not their behaviour.",
             "0011", "This verifies documentation tooling and publication controls, not shipping behaviour.");
 
     private static String scope(DocFile adr) {

@@ -5,8 +5,7 @@ status: accepted
 updated: 2026-11-07
 date: 2026-11-06
 decision-makers: repository owner
-enforcedBy: [not enforced yet]
-plannedEnforcement:
+enforcedBy:
   - "java: ModularityTest (Spring Modulith verify)"
   - "java: HexagonalLayeringTest (ArchUnit)"
   - "java: ArchitectureConformanceTest (C4 edges)"
@@ -79,8 +78,9 @@ Chosen option 1.
 
 - `java` runs `ModularityTest`: `ApplicationModules.of(ShippingApplication.class).verify()`.
 - `java` runs `HexagonalLayeringTest` (ArchUnit 1.5.1): only the five package names above inside a built module;
-  domain free of `org.springframework..`, `jakarta..`, `java.sql..` and adapter packages; `adapter.in` independent of
-  `adapter.out`; every package has a `package-info.java` annotated `@NullMarked`.
+  domain free of `org.springframework..`, `jakarta..`, `java.sql..`, `javax.sql..`, `application` and adapter
+  packages; `application` free of adapter packages; `adapter.in` independent of `adapter.out`; every package has a
+  `package-info.java` annotated `@NullMarked`. Each rule also fails on a fixture that breaks it.
 - `java` runs `ArchitectureConformanceTest` (ADR 0002).
 - Compilation fails on Error Prone errors and NullAway findings; `@SuppressWarnings("NullAway")` is a level 3
   behaviour signal in `policy/risk.json`.
