@@ -31,6 +31,7 @@ Built and running:
   site. In `java`, it checks committed generated files for drift, repository-local links and anchors for validity,
   and shipped or partial capability claims against passing test evidence. The `pages` workflow scans the site before
   each upload and publishes it from `main` at <https://stig-johnny.github.io/shipping-reference-platform/>.
+  The site's use case overview shows each capability's actors and what its tests showed, not a runtime trace.
 
 The specification is in place too: the model, the API contract, the decisions, the module specifications, the risk
 policy and the agent rules, with the reviewed toolchain.

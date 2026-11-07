@@ -494,7 +494,7 @@ class SitePagesTest {
                         + "current head.</li>");
         assertThat(repository.indexOf("<li>An issue states the change.</li>"))
                 .isGreaterThan(repository.indexOf("Workflow source"));
-        assertThat(site.text("trust/third-party-notices.html")).contains("six diagram pages");
+        assertThat(site.text("trust/third-party-notices.html")).contains("seven diagram pages");
     }
 
     private static int count(String text, String part) {

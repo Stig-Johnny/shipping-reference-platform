@@ -610,7 +610,8 @@ thead th,
   border-left-width: 4px;
 }
 
-.badge-rejected {
+.badge-rejected,
+.badge-failing {
   color: var(--failure);
 }
 
@@ -741,6 +742,50 @@ table {
   }
 }
 
+/* The use case overview's register keeps 60rem like the model's tables and takes its column widths from its header, so
+   that a status word never breaks and the test evidence has the most room. Up to 600 px wide it keeps 44rem, so that a
+   use case and its status share the first screen. */
+.table-wide-use-cases {
+  container-type: inline-size;
+}
+
+.table-wide-use-cases table {
+  min-width: 60rem;
+  table-layout: fixed;
+}
+
+.table-wide-use-cases thead th:nth-child(1) {
+  width: 32%;
+}
+
+.table-wide-use-cases thead th:nth-child(2) {
+  width: 11%;
+}
+
+.table-wide-use-cases thead th:nth-child(4) {
+  width: 18%;
+}
+
+@container (min-width: 60rem) {
+  .table-wide-use-cases .table-hint {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .table-wide-use-cases table {
+    min-width: 44rem;
+  }
+
+  .table-wide-use-cases thead th:nth-child(1) {
+    width: 28%;
+  }
+
+  .table-wide-use-cases thead th:nth-child(2) {
+    width: 15%;
+  }
+}
+
 caption {
   padding: 12px 0;
   color: var(--ink-muted);
@@ -790,6 +835,19 @@ tr.group th {
   display: block;
   margin-top: 4px;
   font-weight: 400;
+}
+
+/* In the use case overview, a use case's title stands below its ID, and each of its actors on a line of its own. */
+.use-case-title {
+  display: block;
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+.use-case-actors {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .group-record,

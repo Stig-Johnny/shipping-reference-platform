@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
 /**
  * The Model section: an overview, one page per C4 view under the diagram template (purpose above, a white panel that
  * can be enlarged from the keyboard, the legend right below, then the element and relationship tables as the text
- * equivalent, and the view's limits), and the flows.
+ * equivalent, and the view's limits), the flows, and the use case overview ({@link UseCasePage}).
  */
 final class ModelPages {
 
@@ -43,6 +43,7 @@ final class ModelPages {
         for (DocFile flow : context.sources().docsUnder("docs/flows/")) {
             pages.add(flow(context, flow));
         }
+        pages.add(UseCasePage.of(context));
         return pages;
     }
 
@@ -166,22 +167,31 @@ final class ModelPages {
      * equivalent is, in the caption and in both notes.
      */
     static String figure(C4View view, MermaidDiagram diagram, String definition, C4Model model, String captionTail) {
-        String slug = ViewNames.slug(view);
+        return figure(ViewNames.slug(view), Sheets.code(viewPage(view)), ViewNames.title(view), definition,
+                String.join(" ", ViewText.legend(diagram, model)), captionTail);
+    }
+
+    /**
+     * The diagram template for any validated definition: {@code code} is the sheet code in its title, {@code slug}
+     * names the figure and the drawing, and {@code legend} is plain text.
+     */
+    static String figure(String slug, String code, String title, String definition, String legend,
+            String captionTail) {
         String figure = "figure-" + slug;
         return "<figure class=\"diagram\" id=\"" + figure + "\">\n"
-                + "<div class=\"diagram-toolbar\"><p class=\"diagram-title\">" + Sheets.code(viewPage(view)) + " · "
-                + Html.escape(ViewNames.title(view)) + "</p><button type=\"button\" class=\"button\" data-enlarge=\""
+                + "<div class=\"diagram-toolbar\"><p class=\"diagram-title\">" + code + " · "
+                + Html.escape(title) + "</p><button type=\"button\" class=\"button\" data-enlarge=\""
                 + figure + "\" aria-pressed=\"false\" hidden>Enlarge diagram</button></div>\n"
                 + "<noscript><p class=\"diagram-note\">A script draws this diagram; without it you see its source. "
                 + captionTail + "</p></noscript>\n"
                 + "<p class=\"diagram-note diagram-failed\" hidden>The diagram could not be drawn here; its source is "
                 + "shown instead. " + captionTail + "</p>\n"
                 + "<div class=\"diagram-scroll\" role=\"region\" tabindex=\"0\" aria-label=\""
-                + Html.escape("Diagram: " + ViewNames.title(view) + ". Scrolls when enlarged.") + "\">\n"
+                + Html.escape("Diagram: " + title + ". Scrolls when enlarged.") + "\">\n"
                 + "<pre class=\"diagram-source\" data-diagram=\"" + slug + "\">" + Html.escape(definition)
                 + "</pre>\n</div>\n"
                 + "<figcaption class=\"diagram-caption\">\n<p><strong>Legend.</strong> "
-                + Html.escape(String.join(" ", ViewText.legend(diagram, model))) + "</p>\n"
+                + Html.escape(legend) + "</p>\n"
                 + "<p>" + captionTail + "</p>\n</figcaption>\n</figure>\n";
     }
 
@@ -204,7 +214,11 @@ final class ModelPages {
                     flow.title())).append(": ").append(Html.escape(flow.description())).append("</li>\n");
         }
         boolean allPlanned = modules(sources).stream().allMatch(ModelElement::planned);
-        body.append("</ul>\n<h2 id=\"checking\">How the model is checked</h2>\n<p class=\"prose\">The model is the "
+        body.append("</ul>\n<h2 id=\"use-cases\">Use cases</h2>\n<p class=\"prose\">")
+                .append(SiteContext.link(INDEX, UseCasePage.PAGE, "The use case overview"))
+                .append(" draws every product capability with the people and systems that take part, and stamps it "
+                        + "with what the tests of the build that generated this site showed.</p>\n");
+        body.append("<h2 id=\"checking\">How the model is checked</h2>\n<p class=\"prose\">The model is the "
                 + "structural authority (ADR 0002). The checker in <code>libs/c4-contract-kit</code> is implemented "
                 + "and its own tests pass. It compares the direct static references in compiled classes with the model "
                 + "in both directions: a dependency between two modules that the model does not declare fails the "
@@ -218,6 +232,7 @@ final class ModelPages {
                 + "from the context to the API's modules and one flow through them. Each view has its own page with "
                 + "its text equivalent.", status(context, modules(sources)), List.of(
                         new SitePage.Contents("views", "The views"), new SitePage.Contents("flows", "Flows"),
+                        new SitePage.Contents("use-cases", "Use cases"),
                         new SitePage.Contents("checking", "How the model is checked")),
                 body.toString(), context.mentioned("ADR 0002", INDEX), Sources.WORKSPACE, false);
     }
