@@ -98,7 +98,9 @@ request changed, from `docs/demos/` (the recipe for writing one is `docs/demos/h
 - **Register (X-00).** A register table: the outcome, the record's title linked to its sheet with its description, the
   one sentence on why it matters, below it; the pull request as plain text (`#42`), never a link; the kind in words;
   the recorded date. Newest recording first, then the higher pull request; an edit (`updated`) never reorders it.
-  Without demonstrations, it says so in a sentence.
+  Without demonstrations, it says so in a sentence. On a narrow screen the table keeps a minimum width of 40rem and
+  scrolls inside its labelled, focusable region with the hint "Scroll horizontally for all columns.", hidden once the
+  region is 40rem wide; up to 600 px wide its layout is fixed and the outcome's column is 16rem.
 - **Sheet (X-42).** The sheet header with the pull request, the kind and the recorded date beside the description,
   and a note that the revision in the title block is the commit the site was built from, not the recording's. The
   title block's date is the record's `updated` date. Then the status ledger, "On this sheet", and the sections in a

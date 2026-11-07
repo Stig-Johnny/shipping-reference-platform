@@ -104,7 +104,8 @@ final class DemoPages {
             body.append("<p class=\"prose\">There are no demonstrations yet.</p>\n");
         } else {
             HtmlTable table = HtmlTable.of("Demonstrations (" + demos.size() + "), newest recording first",
-                    "Demonstrations, scrolls sideways", "Outcome", "Pull request", "Kind", "Recorded");
+                    "Demonstrations, scrolls sideways", "Outcome", "Pull request", "Kind", "Recorded")
+                    .wide(HtmlTable.Width.DEMOS);
             for (DemoRecord demo : demos) {
                 table.row(SiteContext.link(INDEX, page(context, demo), demo.doc().title())
                                 + "<span class=\"register-why\">" + Html.escape(demo.doc().description()) + "</span>",

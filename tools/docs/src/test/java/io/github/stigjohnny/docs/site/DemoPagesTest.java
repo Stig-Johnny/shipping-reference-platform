@@ -62,7 +62,10 @@ class DemoPagesTest {
 
         String index = build().text("demos/index.html");
 
-        assertThat(index).contains("<caption>Demonstrations (5), newest recording first</caption>",
+        // On a narrow screen the register keeps readable columns and scrolls inside its labelled region, with the hint.
+        assertThat(index).contains("<div class=\"table-scroll table-wide-demos\" role=\"region\" tabindex=\"0\" "
+                + "aria-label=\"Demonstrations, scrolls sideways\">\n<p class=\"table-hint\">Scroll horizontally for "
+                + "all columns.</p>\n<table>\n<caption>Demonstrations (5), newest recording first</caption>",
                 "<thead><tr><th scope=\"col\">Outcome</th><th scope=\"col\">Pull request</th><th scope=\"col\">Kind"
                         + "</th><th scope=\"col\">Recorded</th></tr></thead>",
                 "<tr><th scope=\"row\"><a href=\"42-gate.html\">An unreviewed dependency now fails the check</a>"

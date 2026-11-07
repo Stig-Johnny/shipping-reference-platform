@@ -714,6 +714,33 @@ table {
   }
 }
 
+/* The register of demonstrations: an outcome and why it matters need a readable measure, so on a narrow screen the
+   table keeps 40rem and scrolls inside its region with the same hint, and up to 600 px wide its first column is a fixed
+   16rem. */
+.table-wide-demos {
+  container-type: inline-size;
+}
+
+.table-wide-demos table {
+  min-width: 40rem;
+}
+
+@container (min-width: 40rem) {
+  .table-wide-demos .table-hint {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .table-wide-demos table {
+    table-layout: fixed;
+  }
+
+  .table-wide-demos th:first-child {
+    width: 16rem;
+  }
+}
+
 caption {
   padding: 12px 0;
   color: var(--ink-muted);

@@ -177,6 +177,17 @@ class SiteAssetsTest {
     }
 
     @Test
+    void theDemoRegisterKeepsReadableColumnsOnPhonesAndItsHintShowsOnlyWhileItScrolls() {
+        // A minimum width of 40rem, scrolling inside its region; up to 600 px wide a fixed layout with a 16rem first
+        // column, so that an outcome and why it matters keep a readable measure; the hint hides once the table fits.
+        assertThat(css).contains(".table-wide-demos {\n  container-type: inline-size;\n}",
+                ".table-wide-demos table {\n  min-width: 40rem;\n}",
+                "@container (min-width: 40rem) {\n  .table-wide-demos .table-hint {\n    display: none;\n",
+                "@media (max-width: 600px) {\n  .table-wide-demos table {\n    table-layout: fixed;\n  }\n\n"
+                        + "  .table-wide-demos th:first-child {\n    width: 16rem;\n  }\n}");
+    }
+
+    @Test
     void eachDrawnDiagramIsFittedToItsCompleteBoundsBeforeItShows() {
         // The bounds are measured in the drawing's own units: every shape, label and edge with half its stroke, and the
         // arrowhead at each marked end; then padding, and the same aspect ratio at every size.
