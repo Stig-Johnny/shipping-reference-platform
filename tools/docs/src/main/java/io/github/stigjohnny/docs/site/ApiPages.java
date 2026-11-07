@@ -45,7 +45,7 @@ final class ApiPages {
         YMap info = contract.root().map("info");
         RenderedMarkdown description = context.render(info.optionalString("description").orElse(""),
                 ApiContract.PATH, INDEX, false);
-        String body = "<p class=\"prose\">The contract is the authority for the HTTP interface (ADR 0004). "
+        String body = "<p class=\"prose\">The contract is the authority for the HTTP interface (ADR 0012). "
                 + SiteContext.link(INDEX, SiteMap.CONTRACT_DOWNLOAD, "Download the contract") + " (OpenAPI "
                 + Html.escape(contract.root().string("openapi")) + ", YAML), exactly as committed.</p>\n"
                 + "<h2 id=\"operations\">Operations</h2>\n" + table.html()
@@ -62,7 +62,7 @@ final class ApiPages {
         return new SitePage(INDEX, "API: " + contract.title() + " " + contract.version(), "Overview",
                 SiteSection.API, info.optionalString("summary").orElse(""), status(context, contract.operations()),
                 contents, body, context.mentioned(info.optionalString("description").orElse("")
-                        + " ADR 0004", INDEX), ApiContract.PATH, false);
+                        + " ADR 0012", INDEX), ApiContract.PATH, false);
     }
 
     private static SitePage operation(SiteContext context, Operation operation) {
@@ -278,7 +278,7 @@ final class ApiPages {
                 .forEach(tag -> capabilities.addAll(context.sources().capabilities().ofModule(tag)));
         List<Capability> contractControls = context.sources().capabilities().controls().stream()
                 .filter(c -> c.id().equals("control.http-contract")).toList();
-        return new StatusPanel(Statuses.design("accepted", "Contract-first (ADR 0004): OpenAPI "
+        return new StatusPanel(Statuses.design("accepted", "Contract-first (ADR 0012): OpenAPI "
                 + context.sources().contract().root().string("openapi") + ", API version "
                 + context.sources().contract().version() + "."), Statuses.implementation(capabilities),
                 Statuses.evidence(contractControls, context.sources().evidence()));

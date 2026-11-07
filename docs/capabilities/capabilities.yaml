@@ -338,7 +338,7 @@ controls:
     evidence: [ModularityTest]
     acceptanceTests: [ModularityTest]
     negativeFixture: A shipments class importing quotes.internal.domain.Quote, and two modules that use each other (fixtures of ModularityTest).
-    docs: docs/adr/0003-modular-monolith-with-spring-modulith-and-hexagonal-modules.md
+    docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.hexagonal-layering
     title: Domain code free of Spring, Jakarta, JDBC and adapters; only the five allowed packages per module; @NullMarked everywhere.
     where: apps/shipping-api
@@ -348,17 +348,17 @@ controls:
     evidence: [HexagonalLayeringTest]
     acceptanceTests: [HexagonalLayeringTest]
     negativeFixture: A domain class annotated with a Spring stereotype; one fixture for each other rule (fixtures of HexagonalLayeringTest).
-    docs: docs/adr/0003-modular-monolith-with-spring-modulith-and-hexagonal-modules.md
+    docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.table-ownership
-    title: Each module maps only tables in its own schema.
+    title: Each module's adapters run SQL only against tables in its own schema.
     where: apps/shipping-api
     check: java
     status: planned
     target: v0.1
     evidence: none yet
     acceptanceTests: [TableOwnershipTest]
-    negativeFixture: An audit entity mapped to a table in schema shipments.
-    docs: docs/adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md
+    negativeFixture: An audit adapter statement that reads shipments.shipment.
+    docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.migrations
     title: Migrations apply cleanly to an empty database as the owner role; the runtime role cannot run DDL.
     where: apps/shipping-api
@@ -368,7 +368,7 @@ controls:
     evidence: none yet
     acceptanceTests: [MigrationsIntegrationTest]
     negativeFixture: A DDL statement attempted as shipping_app.
-    docs: docs/adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md
+    docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.http-contract
     title: Exercised HTTP responses, including framework problems, conform to contracts/shipping.openapi.yaml.
     where: apps/shipping-api
@@ -378,17 +378,17 @@ controls:
     evidence: none yet
     acceptanceTests: [QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest]
     negativeFixture: A response with an undocumented member fails validation.
-    docs: docs/adr/0004-contract-first-openapi-with-rfc-9457-problems.md
+    docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.web-import-boundaries
-    title: Web app import boundaries and cycles (dependency-cruiser deferred).
-    where: tools/web-imports, apps/shipping-web
-    check: web
+    title: Web app import boundaries and cycles, and a direct import for each REQUIRED relationship whose endpoints are built.
+    where: libs/c4-contract-kit, apps/shipping-web
+    check: java
     status: planned
     target: v0.1
     evidence: none yet
-    acceptanceTests: [check-imports.test.mjs]
-    negativeFixture: Fixture files with a cycle and a cross-feature internal import.
-    docs: docs/adr/0009-react-workbench-with-a-generated-client.md
+    acceptanceTests: [WebArchitectureConformanceTest]
+    negativeFixture: Fixture files with a cycle, a cross-feature internal import, and a REQUIRED relationship between built parts without an import.
+    docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.dependency-allowlist
     title: No third-party component is downloaded or run on the sanctioned CI path unless reviewed and allowlisted.
     where: tools/policy, security/

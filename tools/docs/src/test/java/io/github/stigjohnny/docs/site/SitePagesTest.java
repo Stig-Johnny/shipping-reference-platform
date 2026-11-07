@@ -503,6 +503,41 @@ class SitePagesTest {
         assertThat(site.text("trust/third-party-notices.html")).contains("six diagram pages");
     }
 
+    @Test
+    void theModulesIndexSaysTheWebAppCallsTheApiThroughItsHandWrittenAdapter() {
+        // ADR 0012: the first runnable slice generates no client.
+        String row = "<tr><th scope=\"row\">Web app</th><td>a container, not a checked module</td><td></td>"
+                + "<td>the API, through its hand-written typed HTTP adapter</td>";
+
+        assertThat(site.text("modules/index.html")).contains(row).doesNotContain("generated client");
+    }
+
+    @Test
+    void theFirstSliceRecordSupersedesFourRecordsAndThePagesCiteIt() {
+        String successor = "0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.html";
+        List<String> superseded = List.of("0003-modular-monolith-with-spring-modulith-and-hexagonal-modules",
+                "0004-contract-first-openapi-with-rfc-9457-problems",
+                "0005-postgresql-spring-data-jdbc-flyway-and-forced-rls",
+                "0009-react-workbench-with-a-generated-client");
+        String record = site.text("decisions/" + successor);
+
+        for (String old : superseded) {
+            String number = old.substring(0, 4);
+            assertThat(record).contains("Supersedes <a href=\"" + old + ".html\">ADR " + number + "</a>.");
+            assertThat(site.text("decisions/" + old + ".html")).as(old).contains("<span class=\"badge "
+                    + "badge-neutral\">Superseded</span> Superseded by <a href=\"" + successor + "\">ADR 0012</a>.");
+        }
+        // ADR 0012 carries forward ADR 0003's structure checks, so its evidence says what those checks verify.
+        assertThat(record).contains("<span class=\"badge badge-shipped\">Passing</span> 3 evidence test classes passed "
+                + "in the build that generated this site. This verifies the structure of the built modules, not their "
+                + "behaviour.").doesNotContain(Statuses.TOOLING);
+        assertThat(site.text("api/index.html")).contains("The contract is the authority for the HTTP interface "
+                + "(ADR 0012).", "Contract-first (ADR 0012): OpenAPI 3.1.2").doesNotContain("ADR 0004");
+        assertThat(site.text("modules/index.html")).contains("<a href=\"../decisions/" + successor + "\">ADR 0012: "
+                + "First runnable slice with a plain TypeScript workbench and Spring JDBC</a>")
+                .doesNotContain("0003-modular");
+    }
+
     private static int count(String text, String part) {
         int count = 0;
         for (int at = text.indexOf(part); at >= 0; at = text.indexOf(part, at + 1)) {
