@@ -13,10 +13,11 @@ import java.util.List;
  * @param acceptanceTests the tests that must exist and pass before the status may be shipped
  * @param enforcedSubset for a control not yet shipped, the part that is enforced today, in one sentence; may be empty
  * @param plannedRemainder for a control not yet shipped, the part that is still planned, in one sentence; may be empty
+ * @param evidenceLabel what its evidence tests are called in a sentence, such as "documentation-tool"; may be empty
  */
 public record Capability(String id, boolean control, String module, String where, String check, String title,
         Status status, String target, List<String> evidence, List<String> acceptanceTests, String docs,
-        String negativeFixture, String enforcedSubset, String plannedRemainder) {
+        String negativeFixture, String enforcedSubset, String plannedRemainder, String evidenceLabel) {
 
     public Capability {
         evidence = List.copyOf(evidence);

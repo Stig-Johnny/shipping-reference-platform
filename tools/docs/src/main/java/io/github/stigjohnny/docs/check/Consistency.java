@@ -244,6 +244,10 @@ public final class Consistency {
                     if (!capability.evidence().isEmpty()) {
                         problems.add(where + ": a planned capability names no evidence ('none yet')");
                     }
+                    if (!capability.evidenceLabel().isEmpty()) {
+                        problems.add(where + ": an evidence label names passing evidence, and a planned capability "
+                                + "has none");
+                    }
                 }
                 case SHIPPED, PARTIAL -> {
                     if (capability.evidence().isEmpty()) {

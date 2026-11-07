@@ -311,6 +311,22 @@ class SitePagesTest {
     }
 
     @Test
+    void adr0011sEvidenceIsOneSentenceAndItsTestsAreListedOnceUnderConfirmation() {
+        String adr = site.text("decisions/0011-java-documentation-tool-and-publication.html");
+        String status = adr.substring(adr.indexOf("status-grid"), adr.indexOf("</dl>", adr.indexOf("status-grid")));
+
+        assertThat(status).contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> "
+                + "The documentation-tool and publication-scanner tests passed in the build that generated this site. "
+                + "<a href=\"#confirmation\">See confirmation</a>.</dd>").doesNotContain("Passed in the build",
+                "pages: the build job");
+        assertThat(count(adr, "Passed in the build that generated this site:")).isEqualTo(1);
+        assertThat(adr.indexOf("Passed in the build that generated this site:"))
+                .isGreaterThan(adr.indexOf("<h3 id=\"confirmation\">Confirmation</h3>"));
+        assertThat(adr).contains("Passed in the build that generated this site: BrainGeneratorTest, BrainCheckTest, "
+                + "PublicationScannerTest, PagesWorkflowTest.");
+    }
+
+    @Test
     void reviewSummariesAreBlocksAndTheNotFoundPageHasItsBreadcrumbAndStatements() {
         assertThat(site.text("trust/allowlist.html")).contains("<div class=\"group-summary\">")
                 .doesNotContain("<span class=\"group-summary\">");

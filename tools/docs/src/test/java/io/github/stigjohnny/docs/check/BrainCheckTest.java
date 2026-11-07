@@ -100,6 +100,15 @@ class BrainCheckTest {
     }
 
     @Test
+    void anEvidenceLabelOnAPlannedCapabilityFails() {
+        fixture.edit(CAPABILITIES, text -> text.replaceFirst("(id: quotes.synthetic-tariff\n)", "$1    evidenceLabel: "
+                + "tariff\n"));
+
+        assertFails().hasMessageContaining("quotes.synthetic-tariff: an evidence label names passing evidence, and a "
+                + "planned capability has none");
+    }
+
+    @Test
     void aShippedControlCannotHaveAPlannedRemainder() {
         fixture.edit(CAPABILITIES, text -> text.replace("    evidence: [BrainGeneratorTest, BrainCheckTest]\n",
                 "    evidence: [BrainGeneratorTest, BrainCheckTest]\n    plannedRemainder: Nothing.\n"));

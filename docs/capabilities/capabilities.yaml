@@ -22,6 +22,8 @@
 #   enforcedSubset   Optional, for a control that is not shipped: the part enforced today, in one sentence. It never
 #                    changes the status; the document named in docs gives the details.
 #   plannedRemainder Optional, for a control that is not shipped: the part still planned, in one sentence.
+#   evidenceLabel    Optional, for a capability or control with evidence: what its tests are called in a sentence
+#                    ("the documentation-tool tests"), so that a decision's page can name them in a few words.
 #
 # A pull request that adds passing acceptance tests moves their names into `evidence` and changes the status in the
 # same commit; `:tools:docs:checkGenerated` rejects a shipped or partial status whose evidence does not exist or did
@@ -420,6 +422,7 @@ controls:
     status: shipped
     target: v0.1
     evidence: [BrainGeneratorTest, BrainCheckTest]
+    evidenceLabel: documentation-tool
     acceptanceTests: [BrainGeneratorTest, BrainCheckTest]
     negativeFixture: A shipped capability without evidence; a hand-edited BRAIN.md.
     docs: docs/adr/0011-java-documentation-tool-and-publication.md
@@ -431,6 +434,7 @@ controls:
     status: shipped
     target: v0.1
     evidence: [PublicationScannerTest, PagesWorkflowTest]
+    evidenceLabel: publication-scanner
     acceptanceTests: [PublicationScannerTest, PagesWorkflowTest]
     negativeFixture: One value per rule; a missing dictionary; a stale exception; a symbolic link in the site.
     docs: docs/adr/0011-java-documentation-tool-and-publication.md

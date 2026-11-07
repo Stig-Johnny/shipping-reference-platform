@@ -70,7 +70,8 @@ public record Capabilities(List<Capability> capabilities, List<Capability> contr
                     entry.string("docs"),
                     control ? entry.string("negativeFixture") : "",
                     entry.optionalString("enforcedSubset").orElse(""),
-                    entry.optionalString("plannedRemainder").orElse("")));
+                    entry.optionalString("plannedRemainder").orElse(""),
+                    entry.optionalString("evidenceLabel").orElse("")));
         }
         return out;
     }
