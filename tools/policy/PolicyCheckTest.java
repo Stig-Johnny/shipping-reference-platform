@@ -82,6 +82,7 @@ public final class PolicyCheckTest {
             vendored();
             images();
             imageBypasses();
+            imageNormalisation();
             tree();
             commandLine();
         } finally {
@@ -873,6 +874,85 @@ public final class PolicyCheckTest {
                 withImages().write("apps/demo/build.gradle.kts",
                         "dependencies { testImplementation(\"org.testcontainers:testcontainers-postgresql\") }\n")
                         .findings()));
+    }
+
+    /**
+     * What the shell, javac, kotlinc, groovyc or a YAML parser reads as docker, Testcontainers or a container, whatever
+     * the spelling: quotes, escapes, comments and string forms are normalised before matching, not enumerated. First
+     * the counterexamples of the second review of pull request #54, then the spellings this pull request tried itself.
+     */
+    static void imageNormalisation() {
+        String groovy = "apps/demo/build.gradle";
+        String kotlin = "apps/demo/build.gradle.kts";
+        // The second review's counterexamples.
+        for (String command : List.of("d\"ocker\" run alpine:3.17", "dock\\er run alpine:3.17")) {
+            test("normalised: the shell joins quotes and escapes into docker: " + show(command), () -> expectFinding(
+                    withImages().write(STAGING, staging(command)).findings(), "images", STAGING + ":4: docker run"));
+        }
+        test("normalised: a Groovy build script's single-quoted strings are strings", () -> expectFinding(withImages()
+                .write(groovy, "tasks.register('pull', Exec) { commandLine 'docker', 'run', 'alpine:3.17' }\n")
+                .findings(), "images", groovy + ":1: runs a container runtime as a command"));
+        test("normalised: a comment between the parts of a package name hides nothing", () -> expectFinding(withImages()
+                .write(OTHER_TEST, "import org./*gap*/testcontainers.containers.GenericContainer;\n\nclass OtherTest {\n"
+                        + "    void run() {\n        new GenericContainer<>(\"alpine:3.17\").start();\n    }\n}\n")
+                .findings(), "images", OTHER_TEST + ":1: ", "only ReviewedPostgres"));
+        // The class of each: shell quoting, escapes and expansions; comments; every string form; any reference.
+        for (String command : List.of("'do''cker' run alpine:3.17", "do\"\"cker run alpine:3.17",
+                "\"$(echo docker)\" run alpine:3.17", "`echo docker` run alpine:3.17", "x=${runtime:-docker}",
+                "bash -c 'd''ocker run alpine:3.17'", "eval d\\\"ocker\\\" run alpine:3.17", "sudo -E d\\ocker run alpine")) {
+            test("normalised: a script that spells docker this way is refused: " + show(command), () -> expectFinding(
+                    withImages().write(STAGING, staging(command)).findings(), "images", STAGING + ":4: "));
+        }
+        test("normalised: a workflow step that quotes docker is refused", () -> expectFinding(withImages().write(WORKFLOW,
+                workflow("    steps:\n      - run: d\"ocker\" run alpine:3.17").replace(
+                        "    steps:\n      - run: echo", "      - run: echo")).findings(), "images", WORKFLOW + ":6: "));
+        test("normalised: a line comment and a line break hide no package name", () -> {
+            expectFinding(withImages().write(OTHER_TEST, "import org.//gap\ntestcontainers.containers.GenericContainer;\n"
+                    + "class OtherTest { }\n").findings(), "images", OTHER_TEST + ":1: ", "only ReviewedPostgres");
+            expectFinding(withImages().write(OTHER_TEST, "class OtherTest { Object c = com./**/github./**/dockerjava.api"
+                    + ".model.Bind.parse(\"/:/h\"); }\n").findings(), "images", OTHER_TEST + ":1: ", "only ReviewedPostgres");
+        });
+        test("normalised: any reference to Testcontainers outside the harness is refused, a star import too", () ->
+                expectFinding(withImages().write(OTHER_TEST, "import org.testcontainers.containers.*;\n\nclass OtherTest {\n"
+                        + "    Object c = new GenericContainer<>(\"alpine:3.17\");\n}\n").findings(), "images",
+                        OTHER_TEST + ":1: ", "only ReviewedPostgres"));
+        for (String script : List.of("tasks.register('pull', Exec) { commandLine '''docker''', 'run', 'alpine:3.17' }\n",
+                "tasks.register('pull', Exec) { commandLine \"\"\"docker\"\"\", 'run', 'alpine:3.17' }\n",
+                "tasks.register('pull', Exec) { commandLine 'd\\u006fcker', 'run', 'alpine:3.17' }\n")) {
+            test("normalised: a Groovy string form is read: " + show(script.strip()), () -> expectFinding(withImages()
+                    .write(groovy, script).findings(), "images", groovy + ":1: runs a container runtime as a command"));
+        }
+        for (String script : List.of(
+                "tasks.register<Exec>(\"pull\") { commandLine(\"sh\", \"-c\", \"\"\"d\"ocker\" run alpine\"\"\") }\n",
+                "tasks.register<Exec>(\"pull\") { commandLine(\"\\u0064ocker\", \"run\", \"alpine\") }\n")) {
+            test("normalised: a Kotlin string form is read: " + show(script.strip()), () -> expectFinding(withImages()
+                    .write(kotlin, script).findings(), "images", kotlin + ":1: runs a container runtime as a command"));
+        }
+        // Spellings this pull request tried against its own check. The first three are new to it: ANSI-C quoting, a
+        // Java octal escape and an escaped YAML string. Each reaches docker in bash, javac or the workflow's parser.
+        test("own evasion 1: ANSI-C quoting spells docker with an escape", () -> expectFinding(withImages().write(STAGING,
+                staging("$'\\x64ocker' run alpine:3.17")).findings(), "images", STAGING + ":4: "));
+        test("own evasion 2: a Java octal escape spells docker in a command", () -> expectFinding(withImages()
+                .write(OTHER_TEST, "class OtherTest {\n    ProcessBuilder p = new ProcessBuilder(\"\\144ocker\", \"run\", "
+                        + "\"alpine:3.17\");\n}\n").findings(), "images", OTHER_TEST + ":2: runs a container runtime"));
+        test("own evasion 3: an escaped YAML string spells docker in a workflow step", () -> expectFinding(withImages()
+                .write(WORKFLOW, workflow("    steps:\n      - run: \"\\u0064ocker run alpine:3.17\"").replace(
+                        "    steps:\n      - run: echo", "      - run: echo")).findings(), "images", WORKFLOW + ":6: "));
+        test("own evasion 4: a heredoc that bash runs is read as commands", () -> expectFinding(withImages().write(
+                STAGING, staging("bash <<'SCRIPT'\ndocker run alpine:3.17\nSCRIPT")).findings(), "images", STAGING + ":5: "));
+        test("own evasion 5: a Java text block joins a line break into docker", () -> expectFinding(withImages()
+                .write(OTHER_TEST, "class OtherTest {\n    String s = \"\"\"\n        doc\\\n        ker run alpine:3.17\n"
+                        + "        \"\"\";\n}\n").findings(), "images", OTHER_TEST + ":", "runs a container runtime"));
+        // What the normalisation must leave alone.
+        test("normalised: paths, the socket, the service and a read of the engine are no refused command", () -> {
+            for (String command : List.of("printf '{\"ip\":\"127.0.0.1\"}\\n' | sudo tee /etc/docker/daemon.json > /dev/null",
+                    "export DOCKER_HOST=unix:///var/run/docker.sock", "sudo systemctl restart docker || exit 1",
+                    "echo \"the engine runs\"", "docker version --format \"$(printf '%s' '{{.Server.Version}}')\"")) {
+                expectClean(withImages().write(STAGING, staging(command)).findings());
+            }
+            expectClean(withImages().write(OTHER_TEST, "class OtherTest {\n    String socket = \"unix:///var/run/docker.sock\";"
+                    + "\n    // A comment may say that a docker run is refused.\n}\n").findings());
+        });
     }
 
     // ---- the checked tree: no symbolic link in it, nothing read from outside it ----
