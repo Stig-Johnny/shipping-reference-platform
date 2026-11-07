@@ -19,3 +19,7 @@ gradle-app.setting
 .project
 # JDT-specific (Eclipse Java Development Tools)
 .classpath
+
+# npm workspaces: installed packages and the web app's compiled output
+node_modules/
+apps/shipping-web/dist/
