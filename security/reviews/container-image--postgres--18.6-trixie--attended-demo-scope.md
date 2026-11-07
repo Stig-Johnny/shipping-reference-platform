@@ -4,7 +4,7 @@ kind: container-image
 version: "18.6-trixie, index sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583 (linux/arm64/v8 sha256:a8a18afebc8b2b529112c931f193151b712e566b7a49563dc0f328d51f652087)"
 verdict: APPROVE-WITH-CONDITIONS
 scope: "Attended demo only: the database of the Java API's demo profile, created by the reviewed harness ReviewedPostgres in the colima profile of the host the owner picks (PENDING): demotest on the owner's MacBook or rigbuild on the Mac Mini, both linux/arm64. One session, attended by the owner, synthetic data only. Not for production, deployment, CI or unattended use. The engine's own record (homebrew--colima-lima-docker--attended-demo-scope.md) blocks it until the harness, its launcher and the wrapper are reviewed and the picked host's precondition holds"
-conditions: ["Created only by the reviewed harness ReviewedPostgres, which references docker.io/library/postgres@sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583 alone, never by tag and never in the name:tag@sha256 form", "The image is staged by that digest before the session; the harness pulls nothing and checks it: RepoDigests contains the index digest and the platform image is linux/arm64/v8 sha256:a8a18afebc8b2b529112c931f193151b712e566b7a49563dc0f328d51f652087. No other image is in the VM", "No /docker-entrypoint-initdb.d content, no copy into the container, no bind mount and no named volume. The schema comes only from the API's Flyway migrations over JDBC, and the data only from the repository's synthetic seed migrations", "The harness generates a random password for each session and the launcher hands it to the application in-process. It is never exported to the environment, written to a file, printed, logged or committed, and it is never the default test/test or POSTGRES_HOST_AUTH_METHOD=trust", "The one published port is bound to 127.0.0.1 only, as the harness asserts, and it is never forwarded or tunnelled; on the Mac Mini only the application's HTTP port is tunnelled", "The database lives for one demo session. Closing the harness's Database removes the container with its volume, and the script's sweep afterwards checks that nothing remains; nothing is kept between sessions", "A new digest, PostgreSQL 18.7 or a CVE published against 18.6 is a new review before use; the operator checks this on the demo day", "The engine is the picked host's profile under homebrew--colima-lima-docker--attended-demo-scope.md, with all its conditions; until that record's conditions 1 and 2 and the picked variant's precondition hold, this approval cannot be used"]
+conditions: ["Created only by the reviewed harness ReviewedPostgres, which references docker.io/library/postgres@sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583 alone, never by tag and never in the name:tag@sha256 form", "The image is staged by that digest before the session; the harness pulls nothing and checks it: RepoDigests contains the index digest and the platform image is linux/arm64/v8 sha256:a8a18afebc8b2b529112c931f193151b712e566b7a49563dc0f328d51f652087. No other image is in the VM", "No /docker-entrypoint-initdb.d content, no copy into the container, no bind mount and no named volume. The schema comes only from the API's Flyway migrations over JDBC, and the data only from the repository's synthetic seed migrations", "The harness generates a random password for each session, and the launcher hands it to the application in-process: it never enters the launcher's or the script's environment, a file, a log, the output or a commit. Testcontainers passes it to the container as POSTGRES_PASSWORD (PostgreSQLContainer.configure() in testcontainers-postgresql 2.0.5), so it is in the container's environment, readable through the engine's API by the host user for the session. It is never the default test/test, and never POSTGRES_HOST_AUTH_METHOD=trust", "The one published port is bound to 127.0.0.1 only, as the harness asserts, and it is never forwarded or tunnelled; on the Mac Mini only the application's HTTP port is tunnelled", "The database lives for one demo session. Closing the harness's Database removes the container with its volume, and the script's sweep afterwards checks that nothing remains; nothing is kept between sessions", "A new digest, PostgreSQL 18.7 or a CVE published against 18.6 is a new review before use; the operator checks this on the demo day", "The engine is the picked host's profile under homebrew--colima-lima-docker--attended-demo-scope.md, with all its conditions; until that record's conditions 1 and 2 and the picked variant's precondition hold, this approval cannot be used"]
 reviewer: "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06"
 reviewedAt: "2026-11-07"
 expiresAt: "2027-05-06"
@@ -22,7 +22,8 @@ condition still applies, and this record adds lifetime, operator and data condit
 
 - **Digest only.** The base conditions 1 and 2.
 - **No init scripts, copies or mounts.** Base condition 3; this record adds "no named volume".
-- **A random password and loopback only.** Base condition 4; the harness owns the password.
+- **A random password and loopback only.** Base condition 4. The harness owns the password, and Testcontainers puts it
+  in the container's environment.
 - **Removal with the volume.** Base condition 5.
 - **Re-review on a new digest, 18.7 or a CVE.** Base condition 6.
 - **A reviewed engine.** Base condition 7.
@@ -30,6 +31,9 @@ condition still applies, and this record adds lifetime, operator and data condit
 **Method.** On 2026-11-07:
 
 - **Re-read** the base record and the harness `ReviewedPostgres` at pull request #54's head `9464cf3`.
+- **Read** the bytecode of `PostgreSQLContainer` in testcontainers-postgresql 2.0.5 with the reviewed JDK's `javap`
+  (the jar's SHA-256 equals `gradle/verification-metadata.xml`). Its `configure()` calls
+  `addEnv("POSTGRES_PASSWORD", password)`.
 - **Read** PostgreSQL's security page (`https://www.postgresql.org/support/security/`) and release roadmap
   (`https://www.postgresql.org/developer/roadmap/`).
 - **Read** Docker Hub's tag document for `18.6-trixie`.
@@ -91,6 +95,8 @@ Nothing is redistributed. The PostgreSQL License is a permissive licence, but it
   container.
 - **What changes for the demo.**
   - The application connects over the loopback-published port, with the password the harness passed to it in-process.
+  - The container's environment holds that password too, as `POSTGRES_PASSWORD`, which Testcontainers sets. Anyone
+    who can reach the engine's socket can read it with `docker inspect`: the host user, for the session.
   - The container lives for the session, not for one test run.
   - Its data is synthetic and is deleted with its volume at the end.
 - **On the Mac Mini** only the application's HTTP port is tunnelled to the owner's MacBook. The database port never
@@ -113,8 +119,9 @@ Unchanged: `debian:trixie-slim`, the PGDG `postgresql-18` packages and gosu 1.19
 
 **Residual risk.**
 
-- **A shared loopback port.** For the session, every process of the host's user can reach the database port, though
-  logging in needs the password, which stays in the JVM.
+- **A shared loopback port.** For the session, every process of the host's user can reach the database port. Logging
+  in needs the password, which the JVM and the container's environment hold. The engine's API, which the host user
+  can reach, shows the latter.
 - **Unscanned packages.** The image's Debian packages and gosu were not scanned (base record).
 
 ## 11. Not verified

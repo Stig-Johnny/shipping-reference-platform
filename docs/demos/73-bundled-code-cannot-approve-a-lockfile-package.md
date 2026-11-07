@@ -28,11 +28,18 @@ The owner's acceptance of the reviewed set is pending.
 
 ## Try it
 
-With the reviewed JDK as `JAVA_HOME`, create `package-lock.json` at the repository root with one package:
-`node_modules/npm` at version 11.20.0, resolved from `https://registry.npmjs.org/npm/-/npm-11.20.0.tgz`, with an
-`sha512-` integrity value. Run the check; it reports the package. Replace that entry with `node_modules/typescript` at
-5.9.3, resolved from `https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz`, and run it again; it passes.
-Delete the file afterwards. Until the owner's acceptance is recorded, the check also reports that it is pending.
+Work in a disposable scratch copy of the repository, never in a clone you build or install from. Use the reviewed JDK
+as `JAVA_HOME`.
+
+1. At the copy's root, create `package-lock.json` with one package: `node_modules/npm` at version 11.20.0, resolved
+   from `https://registry.npmjs.org/npm/-/npm-11.20.0.tgz`, with an `sha512-` integrity value.
+2. Run the check from the copy's root. It reports the package.
+3. Replace that entry with `node_modules/typescript` at 5.9.3, resolved from
+   `https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz`, and run it again. It passes.
+4. Delete the copy afterwards.
+
+This file is a fixture for the check only. Never use it as an input to `npm ci` or any other install. Until the owner's
+acceptance is recorded, the check also reports that it is pending.
 
 ```sh
 java tools/policy/PolicyCheck.java .

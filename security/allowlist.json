@@ -4,7 +4,7 @@
   "acceptance": {
     "status": "pending",
     "note": "PENDING: the owner has not accepted this reviewed set. reviewedSetSha256 below is its digest, printed by java tools/policy/PolicyCheck.java --print-digest . for the Tuesday-slice security reviews (issue #59); it becomes an acceptance only when the orchestrator records the owner's literal yes here (status, by, at, how), after recomputing the digest if anything changed since.",
-    "reviewedSetSha256": "566c19ec11e7da9e5a4ec28c0994e72588e53a96ab824d7d37bbaade226b78b9",
+    "reviewedSetSha256": "2f2f841a4832531d5ebfc114b623a36eb2dde366b969bb5407dad0ec67cfec22",
     "previous": [
       {
         "by": "Stig-Johnny (repository owner and code owner)",
@@ -1236,7 +1236,7 @@
       "conditions": [
         "Only as inlined in the reviewed playwright-core 1.65.0 tarball (lib/vite (web apps)); never installed, resolved or required on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries this component's full licence text and copyright notice (@playwright/test condition 7)"
+        "Runs only in a browser that opens the HTML report or a viewer, never in CI; neither the HTML report folder nor any trace is uploaded or published, so this code is never distributed (@playwright/test condition 7)"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -1257,7 +1257,7 @@
       "conditions": [
         "Only as inlined in the reviewed playwright-core 1.65.0 tarball (lib/vite (web apps)); never installed, resolved or required on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries this component's full licence text and copyright notice (@playwright/test condition 7)"
+        "Runs only in a browser that opens the HTML report or a viewer, never in CI; neither the HTML report folder nor any trace is uploaded or published, so this code is never distributed (@playwright/test condition 7)"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -1278,7 +1278,7 @@
       "conditions": [
         "Only as inlined in the reviewed playwright-core 1.65.0 tarball (lib/vite (web apps)); never installed, resolved or required on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries this component's full licence text and copyright notice (@playwright/test condition 7)"
+        "Runs only in a browser that opens the HTML report or a viewer, never in CI; neither the HTML report folder nor any trace is uploaded or published, so this code is never distributed (@playwright/test condition 7)"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -1743,7 +1743,7 @@
       "conditions": [
         "Only as inlined in the reviewed playwright-core 1.65.0 tarball (lib/vite (web apps)); never installed, resolved or required on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries this component's full licence text and copyright notice (@playwright/test condition 7)"
+        "Runs only in a browser that opens the HTML report or a viewer, never in CI; neither the HTML report folder nor any trace is uploaded or published, so this code is never distributed (@playwright/test condition 7)"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -3470,7 +3470,7 @@
       "conditions": [
         "Only as inlined in the reviewed playwright-core 1.65.0 tarball (lib/vite (web apps)); never installed, resolved or required on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries this component's full licence text and copyright notice (@playwright/test condition 7)"
+        "Runs only in a browser that opens the HTML report or a viewer, never in CI; neither the HTML report folder nor any trace is uploaded or published, so this code is never distributed (@playwright/test condition 7)"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -3491,7 +3491,7 @@
       "conditions": [
         "Only as inlined in the reviewed playwright-core 1.65.0 tarball (lib/vite (web apps)); never installed, resolved or required on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries this component's full licence text and copyright notice (@playwright/test condition 7)"
+        "Runs only in a browser that opens the HTML report or a viewer, never in CI; neither the HTML report folder nor any trace is uploaded or published, so this code is never distributed (@playwright/test condition 7)"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -3612,7 +3612,7 @@
       "conditions": [
         "Only as inlined in the reviewed playwright-core 1.65.0 tarball (lib/vite (web apps)); never installed, resolved or required on its own",
         "All @playwright/test 1.65.0 conditions apply",
-        "Runs only in a browser that opens the HTML report or a viewer, never in CI; an uploaded HTML report carries this component's full licence text and copyright notice (@playwright/test condition 7)"
+        "Runs only in a browser that opens the HTML report or a viewer, never in CI; neither the HTML report folder nor any trace is uploaded or published, so this code is never distributed (@playwright/test condition 7)"
       ],
       "reviewRecord": "security/reviews/npm--playwright-test--1.65.0.md",
       "reviewer": "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06",
@@ -4211,7 +4211,7 @@
         "Created only by the reviewed harness ReviewedPostgres, which references docker.io/library/postgres@sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583 alone, never by tag and never in the name:tag@sha256 form",
         "The image is staged by that digest before the session; the harness pulls nothing and checks it: RepoDigests contains the index digest and the platform image is linux/arm64/v8 sha256:a8a18afebc8b2b529112c931f193151b712e566b7a49563dc0f328d51f652087. No other image is in the VM",
         "No /docker-entrypoint-initdb.d content, no copy into the container, no bind mount and no named volume. The schema comes only from the API's Flyway migrations over JDBC, and the data only from the repository's synthetic seed migrations",
-        "The harness generates a random password for each session and the launcher hands it to the application in-process. It is never exported to the environment, written to a file, printed, logged or committed, and it is never the default test/test or POSTGRES_HOST_AUTH_METHOD=trust",
+        "The harness generates a random password for each session, and the launcher hands it to the application in-process: it never enters the launcher's or the script's environment, a file, a log, the output or a commit. Testcontainers passes it to the container as POSTGRES_PASSWORD (PostgreSQLContainer.configure() in testcontainers-postgresql 2.0.5), so it is in the container's environment, readable through the engine's API by the host user for the session. It is never the default test/test, and never POSTGRES_HOST_AUTH_METHOD=trust",
         "The one published port is bound to 127.0.0.1 only, as the harness asserts, and it is never forwarded or tunnelled; on the Mac Mini only the application's HTTP port is tunnelled",
         "The database lives for one demo session. Closing the harness's Database removes the container with its volume, and the script's sweep afterwards checks that nothing remains; nothing is kept between sessions",
         "A new digest, PostgreSQL 18.7 or a CVE published against 18.6 is a new review before use; the operator checks this on the demo day",
@@ -11182,9 +11182,9 @@
         "No `playwright install`, `install-deps`, `--with-deps` or branded channels (chrome, msedge) in CI; PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1; the browser comes only via browser-binary--chrome-headless-shell--158.0.8127.18 and launchOptions.executablePath",
         "No PLAYWRIGHT_DOWNLOAD_HOST or PLAYWRIGHT_*_DOWNLOAD_HOST overrides",
         "Tests navigate only to the application started by webServer on 127.0.0.1; webServer.command is a command committed in the repository and reviewed in its pull request (CODEOWNERS review is not enforced, so it is not counted as approval)",
-        "No --ui, show-report or trace-viewer servers in CI (reports are uploaded as artifacts); no video recording (it needs the unreviewed ffmpeg download)",
+        "No --ui, show-report or trace-viewer servers in CI (results are kept as text and screenshots, condition 7); no video recording (it needs the unreviewed ffmpeg download)",
         "Only the playwright test command runs: never init-agents, init-skills, install-skill, mcp, run-test-mcp-server, test-server, cli, run-server, launch-server, run-driver, show-trace, open, show-report, install, install-deps, uninstall or mark-docker-image. The skills and agent definitions shipped in the packages (playwright-core/lib/tools/skills/, playwright/lib/agents/) are never activated, loaded, installed or copied into any agent's configuration, in this repository or on any machine that works on it; nothing those commands write (.claude/, .github/agents/, .github/workflows/copilot-setup-steps.yml, .vscode/mcp.json, SKILL.md files) is committed",
-        "The HTML reporter, if configured, sets open: 'never'. Recommended: upload no HTML report. If one is uploaded or published, it carries a notices file with the full licence texts and copyright notices its code requires, taken from each component's own package at that version: Playwright's LICENSE and NOTICE (Apache-2.0); React 19.2.7, React DOM 19.2.7 and scheduler 0.27.0 (MIT); zip.js 2.7.73 (BSD-3-Clause); and, when the run kept traces (the reporter then copies the trace viewer into trace/), also CodeMirror 5.65.18, @xterm/xterm 5.5.0 and @xterm/addon-fit 0.10.0 (MIT), yaml 2.9.0 (ISC), the VS Code codicons (MIT) and the Chromium DevTools snippet (BSD-3-Clause)",
+        "The HTML reporter, if configured, sets open: 'never'. Neither the HTML report folder nor any trace is uploaded, published or attached anywhere, CI artifacts included. The report folder holds Playwright's report app, and when the run kept traces the reporter also copies the trace viewer into it. CI keeps test results as text (JUnit XML, the list or dot output) and screenshots only, so the inlined third-party code is never distributed (condition 11)",
         "No proxy at any level. The job's environment has no variable whose name ends in _proxy, in any case: http_proxy, https_proxy, all_proxy, no_proxy and their upper-case forms, which the inlined proxy-from-env reads lower case first (utilsBundle.js:48518). No proxy option is set in use.proxy, use.launchOptions.proxy or use.contextOptions.proxy, nor passed to browserType.launch, launchPersistentContext, launchServer, browser.newContext, browser.newPage or request.newContext. The contract-e2e workflow demonstrates both checks (a step that fails on any such variable, and a check of the resolved config and the test sources), recorded as an amendment; until then ip-address 10.7.2 (GHSA-rxp7-6hxx-x8q5) counts as open, not unreachable",
         "Every pattern that reaches minimatch 10.2.5 (GHSA-g3hv-75wg-m249) comes from files committed in the repository and reviewed in their pull request: testMatch, testIgnore and build.external (the transform's externals) in the Playwright config, and the .gitignore files Playwright reads under the test directory. None is built from environment variables, workflow inputs or event data: no ${{ inputs.* }}, ${{ github.event.* }} or similar interpolation into the test command or the config. CODEOWNERS review is not enforced and is not counted as approval",
         "The third-party code inlined in the three packages (section B of the 2026-11-07 amendment, one allowlist entry of kind bundled each) is approved only as inlined there; none of it is installed, resolved or required on its own",
