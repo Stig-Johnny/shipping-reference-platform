@@ -92,7 +92,9 @@ SnakeYAML Engine 3.2.
   relative links, so it works under any base path. Its sections are Start, Model, Modules, Decisions, API, Trust and
   Brain, with a reading path for a COO and one for a Java lead. Every page states three things apart: the accepted
   design, the planned implementation and the verified evidence; a test counts as evidence only when its report
-  passed in the build that made the site. The API pages come from `contracts/shipping.openapi.yaml`, which is
+  passed in the build that made the site. Its visual design is bound by `docs/ui/documentation-site.md`: a drawing
+  set, in which every page is a sheet with a code and a title block, and the navigation is the register of
+  sheets. The API pages come from `contracts/shipping.openapi.yaml`, which is
   offered for download, and the Trust section shows the allowlist with every entry, rejected ones included, below
   the current acceptance and its reviewed-set digest, which the build recomputes and must match. The Trust section
   also publishes the repository's LICENSE and NOTICE, complete and unchanged, beside the third-party notices, as the
@@ -178,7 +180,9 @@ SnakeYAML Engine 3.2.
   allowlist with its acceptance, the API, the brain and the notices), `SiteAccessibilityTest` (landmarks, the skip
   link, one H1 and the page order, labelled controls and scroll regions, `aria-current`, the copy status) and
   `SiteAssetsTest` (the design tokens in both themes, the layout, focus and motion rules, and the Mermaid
-  conditions on the script).
+  conditions on the script) and `SheetDesignTest` (one sheet code per page and no shared code, the title block's
+  date only where one document gives it, passing evidence as a count with its limits, the register and the start
+  sheet's drawing).
 - `PublicationScannerTest` (a negative fixture for every rule, the dictionary through entities, NFKC, tags and
   zero-width characters, failing closed without a dictionary or with a malformed one, exact and stale exceptions,
   links and unreadable files, the digest and the revision in the summary, and no value or term in any output),

@@ -36,11 +36,31 @@ without a review record and an allowlist entry, and both of those files belong t
 | `.github/CODEOWNERS` (**not enforced yet**) | A change to `security/`, the lockfiles, the build logic or the workflows that the owner has not approved. | Pull request review, once GitHub can require code owner review (see below). |
 
 **Every check must be able to fail.** Until 2026-11-06, `preflight` could not. Its `java … | tee` step ran under
-GitHub's default `bash -e`, without `pipefail`, so the step took `tee`'s exit code and passed with findings. A review
-found it before the repository went public. The workflows now name `bash`, which runs with `pipefail`. The upload
-guard had a similar flaw: `if: always()` uploaded the reports even after the guard step had failed. Two pull requests
-proved the fix and were closed unmerged: #16 added a deliberately unreviewed coordinate and failed with exit 1
-(findings), and #17 made the allowlist unreadable and failed with exit 2 (could not complete).
+GitHub's default `bash -e`, without `pipefail`, so the step took `tee`'s exit code and passed with findings: the fix's
+commit message names run 42280120112, which printed a finding and passed. A review found it before the repository
+went public. The workflows now name `bash`, which runs with `pipefail`. The upload guard had a similar flaw:
+`if: always()` uploaded the reports even after the guard step had failed. Pull request #15 fixed both. Two pull
+requests then made `preflight` fail on purpose and were closed unmerged:
+
+| Pull request | What it changed | Expected | Recorded outcome |
+|---|---|---|---|
+| #16 | Added the line `com.example:unreviewed-library:1.0.0=runtimeClasspath` to `tools/docs/gradle.lockfile`. | Exit 1 (findings), with the finding `com.example:unreviewed-library 1.0.0 (in tools/docs/gradle.lockfile) has no review on the allowlist`. | `preflight` failed with exit 1. |
+| #17 | Replaced `security/allowlist.json` with the text `{ this is not JSON`. | Exit 2 (could not complete): `## Dependency allowlist: could not complete`, then `java.lang.IllegalArgumentException: JSON expected '"' at offset 2`. | `preflight` failed with exit 2. |
+
+The expected column is the checker's own output. `tools/policy/PolicyCheck.java` was unchanged from those runs to
+2026-11-07, so both can be replayed in a clone, the missing `pipefail` too; `git checkout` undoes each change:
+
+```bash
+echo 'com.example:unreviewed-library:1.0.0=runtimeClasspath' >> tools/docs/gradle.lockfile
+java tools/policy/PolicyCheck.java .; echo "exit $?"                                         # exit 1
+bash -e -c 'java tools/policy/PolicyCheck.java . | tee /dev/null'; echo "exit $?"            # exit 0: the bug
+bash -eo pipefail -c 'java tools/policy/PolicyCheck.java . | tee /dev/null'; echo "exit $?"  # exit 1: the fix
+git checkout -- tools/docs/gradle.lockfile
+
+echo '{ this is not JSON' > security/allowlist.json
+java tools/policy/PolicyCheck.java .; echo "exit $?"                                         # exit 2
+git checkout -- security/allowlist.json
+```
 
 **What GitHub enforces today.** Branch protection on `main` requires a pull request, with the status checks
 `preflight` and `java` passing on a branch that is up to date with `main`, for administrators too. It dismisses stale

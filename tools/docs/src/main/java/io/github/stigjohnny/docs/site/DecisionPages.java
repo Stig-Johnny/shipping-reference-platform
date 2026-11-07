@@ -117,10 +117,18 @@ final class DecisionPages {
                 .map(Capability::evidenceLabel).toList();
     }
 
-    /** Words joined as a list in prose: "a", "a and b", "a, b and c". */
-    private static String inWords(List<String> words) {
-        return words.size() <= 1 ? String.join("", words)
-                : String.join(", ", words.subList(0, words.size() - 1)) + " and " + words.getLast();
+    /**
+     * What a record's passing tests verify, said beside them in the ledger so that a passing badge never reads as
+     * verified shipping behaviour; a record without its own sentence gets the general one for tooling.
+     */
+    private static final Map<String, String> EVIDENCE_SCOPE = Map.of(
+            "0001", "This verifies the documentation's structure and references.",
+            "0002", "This verifies generated documentation, not shipping-module conformance.",
+            "0011", "This verifies documentation tooling and publication controls, not shipping behaviour.");
+
+    private static String scope(DocFile adr) {
+        String file = adr.path().substring(adr.path().lastIndexOf('/') + 1);
+        return EVIDENCE_SCOPE.getOrDefault(file.substring(0, Math.min(4, file.length())), Statuses.TOOLING);
     }
 
     /** An ADR's own status: its decision, its planned enforcement, and the enforcement that exists. */
@@ -134,13 +142,12 @@ final class DecisionPages {
         String verified;
         if (enforcedBy.contains(NOT_ENFORCED) || enforcedBy.isEmpty()) {
             verified = Badge.NONE.html("None yet") + " Not enforced yet.";
-        } else if (!labels.isEmpty()) {
-            verified = Badge.SHIPPED.html("Passing") + " " + Html.escape("The " + inWords(labels) + " tests passed in "
-                    + "the build that generated this site.") + " <a href=\"#confirmation\">See confirmation</a>.";
+        } else if (!labels.isEmpty() || !passing.isEmpty()) {
+            // The count and what it verifies; the checks themselves are described in the record's Confirmation.
+            verified = Badge.SHIPPED.html("Passing") + " " + Statuses.passed(passing, scope(adr),
+                    " <a href=\"#confirmation\">See confirmation</a>.");
         } else {
-            verified = (passing.isEmpty() ? Badge.NEUTRAL.html("Enforced") : Badge.SHIPPED.html("Passing")) + " "
-                    + Html.escape(String.join("; ", enforcedBy) + "." + (passing.isEmpty() ? ""
-                            : " Passed in the build that generated this site: " + String.join(", ", passing) + "."));
+            verified = Badge.NEUTRAL.html("Enforced") + " " + Html.escape(String.join("; ", enforcedBy) + ".");
         }
         List<Capability> summarised = documented.stream()
                 .filter(c -> !c.enforcedSubset().isEmpty() || !c.plannedRemainder().isEmpty()).toList();

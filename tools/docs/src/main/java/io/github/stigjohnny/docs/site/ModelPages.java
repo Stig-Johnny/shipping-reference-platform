@@ -160,24 +160,26 @@ final class ModelPages {
     }
 
     /**
-     * The diagram template: a white panel that can be enlarged from the keyboard, the generated definition that the
-     * site's script draws, the notes for a reader without the script, and the legend right below; {@code captionTail}
-     * says where the text equivalent is.
+     * The diagram template: the notes for a reader without the script and for a drawing that failed, then the panel
+     * on the light sheet that can be enlarged from the keyboard once its drawing is fitted, with the generated
+     * definition that the site's script draws, and the legend right below; {@code captionTail} says where the text
+     * equivalent is, in the caption and in both notes.
      */
     static String figure(C4View view, MermaidDiagram diagram, String definition, C4Model model, String captionTail) {
         String slug = ViewNames.slug(view);
         String figure = "figure-" + slug;
         return "<figure class=\"diagram\" id=\"" + figure + "\">\n"
-                + "<div class=\"diagram-toolbar\"><button type=\"button\" class=\"button\" data-enlarge=\"" + figure
-                + "\" aria-pressed=\"false\" hidden>Enlarge diagram</button></div>\n"
+                + "<div class=\"diagram-toolbar\"><p class=\"diagram-title\">" + Sheets.code(viewPage(view)) + " · "
+                + Html.escape(ViewNames.title(view)) + "</p><button type=\"button\" class=\"button\" data-enlarge=\""
+                + figure + "\" aria-pressed=\"false\" hidden>Enlarge diagram</button></div>\n"
+                + "<noscript><p class=\"diagram-note\">A script draws this diagram; without it you see its source. "
+                + captionTail + "</p></noscript>\n"
+                + "<p class=\"diagram-note diagram-failed\" hidden>The diagram could not be drawn here; its source is "
+                + "shown instead. " + captionTail + "</p>\n"
                 + "<div class=\"diagram-scroll\" role=\"region\" tabindex=\"0\" aria-label=\""
                 + Html.escape("Diagram: " + ViewNames.title(view) + ". Scrolls when enlarged.") + "\">\n"
                 + "<pre class=\"diagram-source\" data-diagram=\"" + slug + "\">" + Html.escape(definition)
                 + "</pre>\n</div>\n"
-                + "<noscript><p class=\"diagram-note\">A script draws this diagram. Without it you see the diagram's "
-                + "source, and the tables list the same elements and relationships.</p></noscript>\n"
-                + "<p class=\"diagram-note diagram-failed\" hidden>The diagram could not be drawn here. The tables list "
-                + "the same elements and relationships.</p>\n"
                 + "<figcaption class=\"diagram-caption\">\n<p><strong>Legend.</strong> "
                 + Html.escape(String.join(" ", ViewText.legend(diagram, model))) + "</p>\n"
                 + "<p>" + captionTail + "</p>\n</figcaption>\n</figure>\n";
@@ -305,10 +307,9 @@ final class ModelPages {
         if (passing.isEmpty()) {
             return Statuses.evidence(conformance, evidence);
         }
-        return Badge.SHIPPED.html("Checker tests passing") + " " + Html.escape(String.join(", ", passing)
-                + " passed in the build that generated this site. " + (modulesPlanned
-                        ? "These tests verify the checker; the shipping modules remain planned."
-                        : "These tests verify the checker, not the shipping modules."));
+        return Badge.SHIPPED.html("Checker tests passing") + " " + Statuses.passed(passing, modulesPlanned
+                ? "These tests verify the checker; the shipping modules remain planned."
+                : "These tests verify the checker, not the shipping modules.");
     }
 
     private static String statusWords(String status) {
