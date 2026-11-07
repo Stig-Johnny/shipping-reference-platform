@@ -117,7 +117,11 @@ quote, and expiry while waiting.
 `offerId`, `recipient.name`, `recipient.addressLine1`, `recipient.addressLine2`, `recipient.postcode`,
 `recipient.city`, `recipient.countryCode`, `reference`. Each field is written as its UTF-8 byte length in decimal,
 a colon, and the value; an absent optional field is written as `0:`. No separators. Values are used exactly as
-received after validation; there is no trimming or case folding.
+received after validation; there is no trimming or case folding. Validation accepts well-formed Unicode only: a
+recipient text field with a lone surrogate (a code unit from U+D800 to U+DFFF without its pair, which only a JSON
+escape can carry) is rejected, since UTF-8 cannot encode it. A lenient encoder would write `?` in its place, so two
+different requests would share a fingerprint, and a changed body would be replayed instead of refused. The
+fingerprint's encoder refuses such text as well; it never replaces a character.
 
 **Tracking numbers:** `SIM` followed by the next value of the database sequence `shipments.tracking_number_seq`,
 left-padded with zeros to 10 digits (the first is `SIM0000000001`). Unique across tenants.

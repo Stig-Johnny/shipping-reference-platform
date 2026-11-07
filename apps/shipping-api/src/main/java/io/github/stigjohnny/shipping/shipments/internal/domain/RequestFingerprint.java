@@ -1,5 +1,10 @@
 package io.github.stigjohnny.shipping.shipments.internal.domain;
 
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -13,7 +18,8 @@ import org.jspecify.annotations.Nullable;
  * booking request's fields in the specification's order (docs/modules/shipments.md, "Request fingerprint"). Each field
  * is written as its UTF-8 byte length in decimal, a colon and its value, and an absent optional field as "0:", with no
  * separators, so no two requests share an encoding. Values count exactly as they were validated: no trimming and no
- * case folding.
+ * case folding. Text is encoded strictly: what UTF-8 cannot encode, such as a lone surrogate, is refused, never
+ * replaced.
  */
 public record RequestFingerprint(String value) {
 
@@ -59,9 +65,23 @@ public record RequestFingerprint(String value) {
         sha256.update(bytes);
     }
 
-    /** The text's UTF-8 bytes. Package-private, so that its own test reaches it. */
+    /**
+     * The text's UTF-8 bytes, encoded strictly. A lenient encoder writes ? for a lone surrogate, which would give two
+     * values one encoding; this one refuses it. Recipient refuses such text already, so this is the fingerprint's own
+     * guard. Package-private, so that its own test reaches it.
+     */
     static byte[] utf8(String value) {
-        return value.getBytes(StandardCharsets.UTF_8);
+        CharsetEncoder strict = StandardCharsets.UTF_8.newEncoder().onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT);
+        try {
+            ByteBuffer encoded = strict.encode(CharBuffer.wrap(value));
+            byte[] bytes = new byte[encoded.remaining()];
+            encoded.get(bytes);
+            return bytes;
+        } catch (CharacterCodingException e) {
+            throw new IllegalArgumentException("A booking request's text is not well-formed Unicode, so it has no "
+                    + "fingerprint.", e);
+        }
     }
 
     private static MessageDigest sha256() {

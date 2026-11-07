@@ -7,8 +7,10 @@ import org.jspecify.annotations.Nullable;
 /**
  * Who a shipment goes to, validated as the contract's Recipient schema says. The name and the address lines hold 1 to
  * 70 characters and the city 1 to 50, counted in Unicode code points as the schema counts them, none of them a control
- * character; postcode and countryCode follow the contract's Postcode and CountryCode patterns. A recipient is personal
- * data, synthetic in this repository and never logged, so a rejection names the field and its rule, never the value.
+ * character; postcode and countryCode follow the contract's Postcode and CountryCode patterns. The text is well-formed
+ * Unicode: a lone surrogate, which a JSON escape can carry and UTF-8 cannot encode, is refused, so that each accepted
+ * value has one UTF-8 encoding and the request fingerprint tells every two values apart. A recipient is personal data,
+ * synthetic in this repository and never logged, so a rejection names the field and its rule, never the value.
  */
 public record Recipient(String name, String addressLine1, @Nullable String addressLine2, String postcode, String city,
         String countryCode) {
@@ -40,6 +42,10 @@ public record Recipient(String name, String addressLine1, @Nullable String addre
 
     private static void text(String field, String value, int maxLength) {
         Objects.requireNonNull(value, field);
+        // codePoints() joins each surrogate pair into the code point it encodes: a surrogate it yields is a lone one.
+        if (value.codePoints().anyMatch(codePoint -> Character.getType(codePoint) == Character.SURROGATE)) {
+            throw new IllegalArgumentException(field + " must be well-formed Unicode, without a lone surrogate.");
+        }
         int length = value.codePointCount(0, value.length());
         if (length < 1 || length > maxLength || !NO_CONTROL_CHARACTER.matcher(value).matches()) {
             throw new IllegalArgumentException(field + " must be 1 to " + maxLength + " characters, none of them a "

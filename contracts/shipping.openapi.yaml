@@ -941,16 +941,25 @@ components:
           minLength: 1
           maxLength: 70
           pattern: '^[^\u0000-\u001F\u007F]+$'
+          description: |
+            Well-formed Unicode only: a lone surrogate (a code unit from U+D800 to U+DFFF without its pair,
+            which only a JSON escape can carry) is rejected with `400 validation-failed`.
         addressLine1:
           type: string
           minLength: 1
           maxLength: 70
           pattern: '^[^\u0000-\u001F\u007F]+$'
+          description: |
+            Well-formed Unicode only: a lone surrogate (a code unit from U+D800 to U+DFFF without its pair,
+            which only a JSON escape can carry) is rejected with `400 validation-failed`.
         addressLine2:
           type: string
           minLength: 1
           maxLength: 70
           pattern: '^[^\u0000-\u001F\u007F]+$'
+          description: |
+            Well-formed Unicode only: a lone surrogate (a code unit from U+D800 to U+DFFF without its pair,
+            which only a JSON escape can carry) is rejected with `400 validation-failed`.
         postcode:
           $ref: '#/components/schemas/Postcode'
         city:
@@ -958,6 +967,9 @@ components:
           minLength: 1
           maxLength: 50
           pattern: '^[^\u0000-\u001F\u007F]+$'
+          description: |
+            Well-formed Unicode only: a lone surrogate (a code unit from U+D800 to U+DFFF without its pair,
+            which only a JSON escape can carry) is rejected with `400 validation-failed`.
         countryCode:
           $ref: '#/components/schemas/CountryCode'
     ShipmentReference:
