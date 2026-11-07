@@ -157,6 +157,21 @@ class ImportScannerTest {
     }
 
     @Test
+    void aTestMayLocateFilesWithImportMetaButNotResolveModules() {
+        // Tests run in Node.js and read fixtures through node:fs; locating a file is no import. Browser code may not.
+        String text = """
+                const contract = new URL('../../../../contracts/shipping.openapi.yaml', import.meta.url);
+                const here = import.meta.dirname + import.meta.filename;
+                const resolved = import.meta.resolve('./x.ts');
+                """;
+
+        assertThat(ImportScanner.scan(text, false, true).refusals()).extracting(Refusal::line, Refusal::reason)
+                .containsExactly(tuple(3, ImportScanner.IMPORT_META));
+        assertThat(ImportScanner.scan(text, false, false).refusals()).extracting(Refusal::line)
+                .containsExactly(1, 2, 3);
+    }
+
+    @Test
     void typeScriptModuleFormsOutsideTheGrammarAreRefused() {
         ImportScanner.Scan scan = ts("""
                 import fs = require('fs');

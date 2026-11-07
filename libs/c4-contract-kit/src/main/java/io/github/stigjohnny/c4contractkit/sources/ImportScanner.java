@@ -73,12 +73,17 @@ final class ImportScanner {
         }
     }
 
+    /** What import.meta may name in a test: the location of the file, which no module is. */
+    private static final Set<String> TEST_IMPORT_META = Set.of("url", "dirname", "filename");
+
     private final List<Token> tokens;
+    private final boolean test;
     private final List<SourceImport> imports = new ArrayList<>();
     private final List<Refusal> refusals = new ArrayList<>();
 
-    private ImportScanner(List<Token> tokens) {
+    private ImportScanner(List<Token> tokens, boolean test) {
         this.tokens = tokens;
+        this.test = test;
     }
 
     /**
@@ -87,6 +92,17 @@ final class ImportScanner {
      * @param jsx whether the file is {@code .tsx}, where {@code <} can start a JSX element
      */
     static Scan scan(String text, boolean jsx) {
+        return scan(text, jsx, false);
+    }
+
+    /**
+     * Scans one TypeScript file.
+     *
+     * @param jsx whether the file is {@code .tsx}, where {@code <} can start a JSX element
+     * @param test whether the file is a test, which runs in Node.js and may locate files with {@code import.meta.url},
+     *     {@code import.meta.dirname} and {@code import.meta.filename}
+     */
+    static Scan scan(String text, boolean jsx, boolean test) {
         List<Token> tokens = new ArrayList<>();
         List<Refusal> lexical = new ArrayList<>();
         int stoppedAt = Integer.MAX_VALUE;
@@ -96,7 +112,7 @@ final class ImportScanner {
             lexical.add(new Refusal(stop.line(), stop.reason()));
             stoppedAt = stop.line();
         }
-        ImportScanner scanner = new ImportScanner(tokens);
+        ImportScanner scanner = new ImportScanner(tokens, test);
         scanner.read();
         List<Refusal> refusals = new ArrayList<>(lexical);
         // After the lexer stopped, the last statement it read may be cut off: refuse it only for the lexer's reason.
@@ -191,7 +207,10 @@ final class ImportScanner {
             return;
         }
         if (punctuator(i + 1, ".")) {
-            if (!(identifier(i + 2, "meta") && punctuator(i + 3, ".") && identifier(i + 4, "env"))) {
+            boolean env = identifier(i + 2, "meta") && punctuator(i + 3, ".") && identifier(i + 4, "env");
+            boolean location = test && identifier(i + 2, "meta") && punctuator(i + 3, ".")
+                    && type(i + 4, TokenType.IDENTIFIER) && TEST_IMPORT_META.contains(tokens.get(i + 4).text());
+            if (!env && !location) {
                 refuse(keyword, IMPORT_META);
             }
             return;

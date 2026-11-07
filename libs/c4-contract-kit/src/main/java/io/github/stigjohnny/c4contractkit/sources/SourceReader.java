@@ -76,7 +76,8 @@ public final class SourceReader {
                 ImportScanner.scanStyle(text.get()).forEach(refusal ->
                         refusals.add(new FileRefusal(file.path(), refusal.line(), refusal.reason())));
             } else {
-                ImportScanner.Scan scan = ImportScanner.scan(text.get(), file.path().endsWith(".tsx"));
+                ImportScanner.Scan scan = ImportScanner.scan(text.get(), file.path().endsWith(".tsx"),
+                        file.kind() == FileKind.TEST);
                 for (SourceImport found : scan.imports()) {
                     imports.add(new ResolvedImport(file.path(), found.line(), found.specifier(), found.kind(),
                             Specifiers.resolve(file.path(), found.specifier(), paths)));

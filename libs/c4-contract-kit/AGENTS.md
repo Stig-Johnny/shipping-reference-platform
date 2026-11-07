@@ -124,7 +124,8 @@ directories included: links are checked before anything is left out. Files must 
 The restricted import grammar reads, with the line of the specifier: `import ... from 'x'`, `import 'x'`,
 `import type`, `export * from`, `export { a } from`, their type-only forms, and `import('x')` with one plain string
 literal anywhere, types included. It refuses: `import()` with anything else, `require`, `import.meta` other than
-`import.meta.env`, import-equals declarations, import attributes, a module declaration with a module name
+`import.meta.env` (a test, which runs in Node.js, may also locate files with `import.meta.url`, `import.meta.dirname`
+and `import.meta.filename`), import-equals declarations, import attributes, a module declaration with a module name
 (`module 'x'`, with or without `declare`), code that loads code at run time (`eval` and the `Function` constructor,
 even as properties such as `globalThis.eval`; a call of a `constructor` property; `Worker`, `SharedWorker`,
 `importScripts` and `serviceWorker`; `setTimeout` and `setInterval` with a string), triple-slash directives, JSX
