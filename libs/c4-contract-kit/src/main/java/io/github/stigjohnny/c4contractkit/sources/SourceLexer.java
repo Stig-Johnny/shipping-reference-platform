@@ -18,7 +18,8 @@ import org.jspecify.annotations.Nullable;
  * a backslash in code, the line separators U+2028 and U+2029, and JSX it does not cover. A slash or, in {@code .tsx},
  * a {@code <} starts a regular expression or a JSX element where an expression can start, as decided from the token
  * before it; a generic arrow function or generic function type that starts with {@code <} in a {@code .tsx} file is
- * therefore read as JSX and refused.
+ * therefore read as JSX and refused. A keyword right after {@code .} or {@code #} is a property name
+ * ({@code options.default}, {@code this.#in}), after which a value has ended.
  */
 final class SourceLexer {
 
@@ -179,10 +180,23 @@ final class SourceLexer {
             return true;
         }
         return switch (previous.type()) {
-            case IDENTIFIER -> EXPRESSION_KEYWORDS.contains(previous.text());
+            case IDENTIFIER -> EXPRESSION_KEYWORDS.contains(previous.text()) && !afterMemberAccess();
             case PUNCTUATOR -> !VALUE_ENDS.contains(previous.text());
             case STRING, TEMPLATE, NUMBER, REGEX, JSX -> false;
         };
+    }
+
+    /**
+     * Whether the identifier just read follows {@code .} or {@code #}, so that it names a property, not a keyword. An
+     * identifier is always the last token added: only punctuators and templates replace {@code last} otherwise.
+     */
+    private boolean afterMemberAccess() {
+        int index = tokens.size() - 2;
+        if (index < 0) {
+            return false;
+        }
+        Token before = tokens.get(index);
+        return before.type() == TokenType.PUNCTUATOR && (before.text().equals(".") || before.text().equals("#"));
     }
 
     private void lineComment() {

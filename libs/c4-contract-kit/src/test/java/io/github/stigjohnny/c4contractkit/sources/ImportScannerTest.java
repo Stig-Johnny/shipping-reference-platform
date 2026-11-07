@@ -224,6 +224,37 @@ class ImportScannerTest {
     }
 
     @Test
+    void aKeywordAfterADotOrAHashIsAPropertyNameSoASlashOrALessThanAfterItIsAnOperator() {
+        // After return or default an expression starts, so a slash starts a regular expression. After options.default a
+        // value has ended: read as a regular expression, this division would hide the package import beside it, with
+        // no refusal.
+        ImportScanner.Scan division = ts(
+                "const half = options.default / 2; const chart = import('chart-kit'); const third = total / 3;\n");
+
+        assertThat(division.refusals()).isEmpty();
+        assertThat(division.imports()).extracting(SourceImport::specifier, SourceImport::kind)
+                .containsExactly(tuple("chart-kit", ImportKind.DYNAMIC));
+
+        ImportScanner.Scan scan = ts("""
+                const quarter = this.#in / 4; import('./rest.ts'); const fifth = total / 5;
+                const ratio = size?.of / 2;
+                export function first(items: string[]) { return /^[a-z]/.test(items[0] ?? ''); }
+                """);
+
+        assertThat(scan.refusals()).isEmpty();
+        assertThat(scan.imports()).extracting(SourceImport::line, SourceImport::specifier)
+                .containsExactly(tuple(1, "./rest.ts"));
+
+        ImportScanner.Scan jsx = tsx("""
+                const small = options.default < 3;
+                import later from './later.ts';
+                """);
+
+        assertThat(jsx.refusals()).isEmpty();
+        assertThat(jsx.imports()).extracting(SourceImport::specifier).containsExactly("./later.ts");
+    }
+
+    @Test
     void jsxTextAndAttributesMayHoldQuotesAndCodeLikeWordsWhileExpressionsInsideThemAreCode() {
         ImportScanner.Scan scan = tsx("""
                 import { lazy } from 'react';

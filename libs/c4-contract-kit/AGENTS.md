@@ -123,7 +123,9 @@ The restricted import grammar reads, with the line of the specifier: `import ...
 literal anywhere, types included. It refuses: `import()` with anything else, `require`, `import.meta` other than
 `import.meta.env`, import-equals declarations, import attributes, `declare module 'x'`, triple-slash directives, JSX
 pragmas and a backslash escape in a specifier. Strings, comments, templates, regular expressions and JSX text never
-yield code; template substitutions and JSX expressions do. Whatever the lexer cannot read with certainty stops the
+yield code; template substitutions and JSX expressions do. A slash, and in `.tsx` a `<`, starts a regular expression
+or a JSX element only where an expression can start, as decided from the token before it; a keyword right after `.`
+or `#` is a property name (`options.default / 2` divides). Whatever the lexer cannot read with certainty stops the
 scan of that file with a refusal: unterminated literals or comments, a backslash in code, U+2028 and U+2029, and JSX
 it does not cover, including a `.tsx` generic arrow function that starts with `<`.
 
