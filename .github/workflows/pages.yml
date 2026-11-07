@@ -1,15 +1,21 @@
 # pages: build the documentation site on main, scan it, and publish it on GitHub Pages (ADR 0011).
-# The build job runs on a commit that is already on main. Staging the reviewed JDK and the allowlist check are its
-# trusted bootstrap; then it verifies the Gradle wrapper, builds the site from scratch, scans the final directory with
-# the dictionary from the github-pages environment, re-checks Mermaid's SHA-256 and refuses links, and only then
-# uploads the site directory. The deploy job has one step and the only write permissions.
-# The conditions of the Pages actions' reviews in security/reviews/ apply to every line here.
+# Three jobs, so that the job that runs the tests holds no publication privilege, and the jobs that hold one run no
+# test. Each runs on a commit that is already on main, and stages the reviewed JDK and runs the allowlist check, its
+# trusted bootstrap, then verifies the Gradle wrapper before it runs Gradle.
+#   test    No environment, no secret, read-only, on ubuntu-24.04 under the container engine's review: it runs every
+#           project's tests (the database tests start the reviewed PostgreSQL) while it checks the docs and builds the
+#           site, as the java check does, then hands this run's JUnit reports and the site's digest to the build job.
+#   build   In the github-pages environment, whose secret is the scan dictionary. It builds the site again from the
+#           same commit and those reports, without running the tests, requires the test job's digest, scans the site,
+#           re-checks Mermaid's SHA-256, refuses links and hidden files, and only then uploads the site directory.
+#   deploy  One step and the only write permissions.
+# The conditions of the Pages actions' reviews and of the runner review in security/reviews/ apply to every line here.
 name: pages
 
 on:
   push:
     branches: [main]
-  # The github-pages environment's branch policy (OpenTofu) allows main only; both jobs also check the ref.
+  # The github-pages environment's branch policy (OpenTofu) allows main only; every job also checks the ref.
   workflow_dispatch:
 
 permissions: {}
@@ -24,15 +30,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
-    name: build
+  test:
+    name: test
     if: ${{ github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
+    # The runner review's scope: GitHub-hosted ubuntu-24.04 exactly, no environment, no secret, read-only.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
-    # The scan dictionary is a secret of this environment, which only main may use.
-    environment: github-pages
     permissions:
       contents: read
+    outputs:
+      reports: ${{ steps.handover.outputs.reports }}
+      reports-sha256: ${{ steps.handover.outputs.reports-sha256 }}
+      site-sha256: ${{ steps.handover.outputs.site-sha256 }}
     steps:
       # On a push to main the trusted base and the candidate are the same commit, so one checkout is enough.
       - name: Check out the commit
@@ -61,11 +70,103 @@ jobs:
       - name: Verify the Gradle wrapper before running it
         run: echo "3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  gradle/wrapper/gradle-wrapper.jar" | sha256sum --check --strict
 
-      - name: Check the docs and build the site
-        # :tools:docs:site empties tools/docs/build/site and writes it again from the sources of this commit.
+      - name: Check the container engine against its review before any container runs
+        # The runner, Ubuntu and Docker Engine versions and runc, recorded in the job summary; a loopback-only daemon;
+        # an empty registry configuration. A mismatch stops the job: another version needs a review, not a looser check.
+        env:
+          DOCKER_HOST: unix:///var/run/docker.sock
+          DOCKER_CONFIG: ${{ runner.temp }}/docker-config
+        run: tools/ci/container-engine.sh prepare
+
+      - name: Stage the reviewed PostgreSQL image by digest
+        id: stage
+        env:
+          DOCKER_HOST: unix:///var/run/docker.sock
+          DOCKER_CONFIG: ${{ runner.temp }}/docker-config
+        run: tools/ci/container-engine.sh stage
+
+      - name: Run every project's tests, check the docs and build the site
+        # :tools:docs:check and :tools:docs:site run after the tests of every project with test sources and read their
+        # reports, so the site's evidence is this build's. :tools:docs:site empties tools/docs/build/site and writes it
+        # again from the sources of this commit.
         env:
           GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
+          SRP_CONTAINER_ENGINE: github-ubuntu-24.04
+          DOCKER_HOST: unix:///var/run/docker.sock
+          DOCKER_CONFIG: ${{ runner.temp }}/docker-config
+          TESTCONTAINERS_RYUK_DISABLED: 'true'
+          TESTCONTAINERS_CHECKS_DISABLE: 'true'
         run: ./gradlew --no-daemon --console=plain :tools:docs:check :tools:docs:site
+
+      - name: Check that only the reviewed image ran, then remove the test containers
+        # After the tests, whatever their outcome, once the image was staged: the image set, the containers made, no
+        # copy into one; then the sweep.
+        if: ${{ !cancelled() && steps.stage.outcome == 'success' }}
+        env:
+          DOCKER_HOST: unix:///var/run/docker.sock
+          DOCKER_CONFIG: ${{ runner.temp }}/docker-config
+        run: tools/ci/container-engine.sh verify
+
+      - name: Hand this run's test reports and the site's digest to the build job
+        id: handover
+        run: tools/ci/site-handover.sh send
+
+  build:
+    name: build
+    needs: test
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # The scan dictionary is a secret of this environment, which only main may use.
+    environment: github-pages
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Stage the reviewed JDK
+        id: jdk
+        run: tools/ci/stage-temurin.sh "$RUNNER_TEMP/jdk"
+
+      - name: Install the staged JDK
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0, reviewed
+        with:
+          distribution: jdkfile
+          jdk-file: ${{ steps.jdk.outputs.jdk-file }}
+          java-version: '25.0.5'
+          architecture: x64
+          token: ''
+
+      - name: Check the commit against the allowlist (trusted bootstrap)
+        # 1 = findings and 2 = the check could not complete both fail the job (pipefail).
+        run: java tools/policy/PolicyCheck.java . | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify the Gradle wrapper before running it
+        run: echo "3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  gradle/wrapper/gradle-wrapper.jar" | sha256sum --check --strict
+
+      - name: Take over the test job's reports
+        # This run's JUnit reports, checked against their SHA-256 and unpacked only as report files into a checkout
+        # that has none: the evidence the site shows is the test job's, never an earlier build's.
+        env:
+          REPORTS: ${{ needs.test.outputs.reports }}
+          REPORTS_SHA256: ${{ needs.test.outputs.reports-sha256 }}
+        run: tools/ci/site-handover.sh receive
+
+      - name: Build the site from this commit and those reports, without running the tests again
+        # -x test: every test ran in the test job of this run, which has no environment and no secret. The database
+        # tests may not run here. :tools:docs:site empties tools/docs/build/site and writes it again.
+        env:
+          GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
+        run: ./gradlew --no-daemon --console=plain :tools:docs:site -x test
+
+      - name: Require the site that the test job built
+        env:
+          SITE_SHA256: ${{ needs.test.outputs.site-sha256 }}
+        run: tools/ci/site-handover.sh compare
 
       - name: Scan the site before publication
         # The only step that receives the dictionary. The scan prints rule IDs and files, never a value or a term, and
