@@ -147,6 +147,39 @@ is never evidence.
 - **Print.** One 16:9 slide on each landscape page (320 × 180 mm), in the light palette, with each slide's code, number
   and provenance, and without the register, the overview, the index, the controls or the notes.
 
+## The use case overview
+
+Sheet `M-07`, after the flows in the Model section: every product capability of
+`docs/capabilities/capabilities.yaml` as a use case, stamped with what the build that made the site observed of its
+acceptance tests. It answers which use cases have evidence; it never claims that a use case ran as drawn. The evidence
+comes first: the introduction, with a visible link to the actor map, then the register, the actor map, the actors and
+what a stamp means.
+
+- **Actors.** A capability names its actors in `actors`, by their identifiers in `architecture/workspace.dsl`: people
+  and external systems, or `[]` to declare none, which does not establish how the use case is triggered. The docs tool
+  fails unless the model relates each actor to the capability's module, directly or through an element the actor
+  uses, and that relationship sets the arrow: from an actor that starts the use case, to a system that the use case
+  relies on.
+- **Register.** One table, grouped by module: the use case's ID and title, its status in the registry, its test
+  evidence, and its actors ("Started by", "Relies on" or "No actor declared"). It keeps 60rem, 44rem up to 600 px
+  wide, and takes its column widths from its header, so that no status word breaks and a use case and its status
+  share a phone's first screen; narrower, it scrolls inside its region with the hint.
+- **Actor map.** After the register, under its own heading, with the instruction "Enlarge the diagram and scroll to
+  read its labels." One drawing panel, whose region is at most 36rem tall and scrolls, and which enlarges like every
+  drawing: actors as boxes with their C4 type; each module's use cases as rounded boxes, Mermaid's stadium, in a
+  group, with the registry's status in parentheses; thin solid arrows without labels. It has no colours of its own.
+  The legend says that a use case without an arrow names no actor in the registry, which does not establish how it is
+  triggered; that the arrows are declared, not traced; and that a stamp says which named tests passed, not that the
+  use case ran as drawn. A person or system that no capability names is not drawn; the actors table lists it.
+- **Stamps.** A badge in words, a sentence with the counts, and the named tests with their states in a disclosure.
+  "All passed" has the double rule and needs every named test to have passed in that build; "Some failing" is in the
+  failure colour; "Not run or missing" (no report, skipped, no test run, ambiguous, not in the repository, or a
+  TypeScript or JavaScript test, which the build does not read) and "No tests yet" (planned: none named, or none of
+  those named in the repository) are muted. An empty list is never green. A test that more than one producer reports
+  counts as its worst report.
+- **What a stamp means.** Below the actors table: the four stamps in words, that a stamp is no runtime trace, and the
+  reports the build read, by Gradle task, so that a test whose task did not run shows as not run.
+
 ## Diagrams
 
 Mermaid draws with `theme: 'base'` under the reviewed strict settings, with ink lines, the light sheet as background

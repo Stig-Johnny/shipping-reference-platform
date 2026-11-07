@@ -62,6 +62,11 @@ closes it.
 - **Ordering and timing.** The model says who may depend on whom, not in which order things happen or whether they
   happen in the same transaction. The dynamic view and `docs/flows/quote-book-label.md` describe order; tests
   assert it.
+- **Scenario diagrams are not compared with what runs.** The dynamic view and the site's use case overview (sheet
+  M-07) show who takes part in what, as the model and `docs/capabilities/capabilities.yaml` declare it. A use case's
+  stamp there says that its named acceptance tests passed in the build that made the site, not that an actor started
+  it or that its interactions happened as drawn. The next increment is to compare the interactions that a scenario
+  executes with its dynamic view, step by step.
 - **Only direct references.** A transitive path neither satisfies nor violates an edge. Two modules can be coupled
   through a third without any report.
 - **Only what the class file records, as ArchUnit 1.5.1 reads it.** javac copies compile-time constants
