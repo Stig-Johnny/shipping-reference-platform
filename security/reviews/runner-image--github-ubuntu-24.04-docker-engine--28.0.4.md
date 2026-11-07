@@ -4,7 +4,7 @@ kind: runner-image
 version: "28.0.4"
 verdict: APPROVE-WITH-CONDITIONS
 scope: "CI only: this repository's Testcontainers 2.0.5 PostgreSQL integration tests in a job with `runs-on: ubuntu-24.04` (GitHub-hosted, x64). Not `ubuntu-latest`, not `ubuntu-24.04-arm`, not larger or self-hosted runners, not any other Docker use (image builds, `services:`, `container:`, Docker actions). The rest of the runner image's software is not reviewed here."
-conditions: ["Fail closed in code: the test base class aborts unless Engine ServerVersion is exactly 28.0.4 and the runc component is >= 1.3.3 (1.2.x rejected); it logs ServerVersion, ApiVersion, the containerd and runc versions and commits, KernelVersion and OperatingSystem", "`runs-on: ubuntu-24.04` exactly; the job log's `Set up job` > `Runner Image` version is kept with the run", "The first CI run's logged containerd and runc versions are appended to this review as an amendment (2026-11-07: containerd v2.4.2, runc 1.5.2, from run 42410533646); `java` was already a required check, so the owner's acceptance of the amended record precedes merging the database harness", "TESTCONTAINERS_RYUK_DISABLED=true; no privileged container", "Only the PostgreSQL 18.6 image from its own review, referenced by index digest; an image-set diff before and after the tests fails the job on any other new image (Ryuk, alpine, sshd)", "TESTCONTAINERS_CHECKS_DISABLE=true; no bind mounts, no copy-to-container (withCopyToContainer, withCopyFileToContainer, copyFileToContainer: the archive API), no exposeHostPorts/withAccessToHost, image builds, host networking or create-command modifiers", "A workflow step writes /etc/docker/daemon.json `{\"ip\":\"127.0.0.1\"}` and restarts docker, failing if the file already exists; the test asserts every published port has HostIp 127.0.0.1", "Explicit DOCKER_HOST=unix:///var/run/docker.sock, DOCKER_CONFIG pointing at an empty directory holding `{}`, no docker login, no testcontainers.properties on the classpath", "Job permissions `contents: read`, no secrets, no environment, checkout with persist-credentials false", "Any other Engine version (the runner-images toolset pin moving) is a delta review, not a relaxed check"]
+conditions: ["Fail closed in code: the test base class aborts unless Engine ServerVersion is exactly 28.0.4 and the runc component is >= 1.3.3 (1.2.x rejected); it logs ServerVersion, ApiVersion, the containerd and runc versions and commits, KernelVersion and OperatingSystem", "`runs-on: ubuntu-24.04` exactly; the job log's `Set up job` > `Runner Image` version is kept with the run", "The first CI run's logged containerd and runc versions are appended to this review as an amendment before the job becomes a required check", "TESTCONTAINERS_RYUK_DISABLED=true; no privileged container", "Only the PostgreSQL 18.6 image from its own review, referenced by index digest; an image-set diff before and after the tests fails the job on any other new image (Ryuk, alpine, sshd)", "TESTCONTAINERS_CHECKS_DISABLE=true; no bind mounts, no copy-to-container (withCopyToContainer, withCopyFileToContainer, copyFileToContainer: the archive API), no exposeHostPorts/withAccessToHost, image builds, host networking or create-command modifiers", "A workflow step writes /etc/docker/daemon.json `{\"ip\":\"127.0.0.1\"}` and restarts docker, failing if the file already exists; the test asserts every published port has HostIp 127.0.0.1", "Explicit DOCKER_HOST=unix:///var/run/docker.sock, DOCKER_CONFIG pointing at an empty directory holding `{}`, no docker login, no testcontainers.properties on the classpath", "Job permissions `contents: read`, no secrets, no environment, checkout with persist-credentials false", "Any other Engine version (the runner-images toolset pin moving) is a delta review, not a relaxed check"]
 reviewer: "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06"
 reviewedAt: "2026-11-06"
 expiresAt: "2027-05-06"
@@ -79,36 +79,3 @@ Frontmatter conditions 1-10 apply. The engine check in CI behaves like the colim
 - Whether runner VMs accept inbound connections; Docker's default `ip` was not re-fetched from the dockerd reference.
 - The ubuntu-24.04-arm image (same Docker 28.0.4 in its README, out of scope), Scorecard, and package SHA-256 values.
 - That an EOL containerd branch is safe for this use: the reachability argument rests on the advisory texts, not on source reading.
-
-## Amendment 2026-11-07: the first CI run's versions (condition 3)
-
-Proposed by an AI agent in pull request #54; it takes effect when the owner accepts the reviewed set with it, as for
-any review record (security/AGENTS.md).
-
-**Provenance.** The first run of `tools/ci/container-engine.sh prepare`, which logs these versions and writes them to
-the job summary: workflow `java`, run 42410533646, job 128517490346
-(https://github.com/Stig-Johnny/shipping-reference-platform/actions/runs/42410533646), event `pull_request`, commit
-`2e48660da65b389f4a83806cf6fb207ada9cc11a` of pull request #54, job started 2026-11-07T20:19:57Z, conclusion success.
-The values below are copied from that job's log, read through the GitHub API on 2026-11-07. Run 42411311212 (job
-128519873034), on the same pull request about ten minutes later, logged the same values.
-
-| What | Version | Commit |
-|---|---|---|
-| Runner image (`Set up job` > `Runner Image`) | ubuntu-24.04, Version 20261101.360.1 (`ImageOS` ubuntu24) | — |
-| Operating system | Ubuntu 24.04.5 LTS, x86_64, kernel 7.0.0-1017-azure | — |
-| Docker Engine (server and CLI) | 28.0.4, API 1.48 | 6430e49 |
-| containerd | v2.4.2 | b7a25261e029d68978bbf290df0a62fc819b3c51 |
-| runc | 1.5.2 | v1.5.2-0-g29dd3dc2 |
-| docker-init | 0.19.0 | de40ad0 |
-
-runc 1.5.2 meets condition 1's floor (1.3.3 or later; 1.2.x and prereleases of 1.3.3 are refused). Section 11 left
-both versions unverified; this records them, it does not review them: their advisories at these versions were not
-checked here. `containerd.io` floats with each image build (section 3), so later runs may report other versions;
-condition 1 still gates runc on every run, and every run's job summary records what it found.
-
-**Chronology.** Condition 3 asked for this amendment before the job became a required check. `java` was already a
-required check of `main` (security/README.md) before any run could record these versions, so the amendment could not
-come first. What holds instead: the database harness of pull request #54 does not merge before the owner has accepted
-this amended record. The acceptance digest in `security/allowlist.json` covers this file byte for byte, so until that
-acceptance is recorded the allowlist checker fails, `preflight` and `java` are red, and the pull request cannot
-merge. The required check stays on, and nothing here claims that the amendment preceded it.
