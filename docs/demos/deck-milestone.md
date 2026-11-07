@@ -34,7 +34,7 @@ The checker and the dependency gate run; the shipping app has its first code, an
 |---|---|
 | The model governs the structure | Built and tested: the checker |
 | The gate stops unreviewed dependencies | Declared dependencies are checked in the approved CI run |
-| The shipping app itself | Planned: 20 of 27 capabilities |
+| The shipping app itself | Planned: 18 of 27 capabilities |
 
 ### Notes
 
@@ -118,7 +118,7 @@ I own the delivery and the technical decisions; the Java lead challenges the tec
 
 - I learned Java at university and have 17 years of experience with C# and .NET
 - I make uncertainty explicit.
-- This repository specifies Spring Data JDBC; its persistence code is still planned. We will make any JPA decisions together.
+- This repository specifies Spring JDBC (JdbcClient); its persistence code is still planned. We will make any JPA decisions together.
 
 ### Notes
 

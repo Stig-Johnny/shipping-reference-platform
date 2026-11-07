@@ -29,7 +29,7 @@ class WorkspacesTest {
 
         assertThat(modules).extracting(m -> m.contractId().orElseThrow() + ": " + m.contractStatus().orElseThrow()
                 + (m.planned() ? ", tagged Planned" : "")).containsExactly("quotes: built",
-                "shipments: planned, tagged Planned", "tenants: built", "audit: planned, tagged Planned",
+                "shipments: built", "tenants: built", "audit: planned, tagged Planned",
                 "orders: planned, tagged Planned", "tracking: planned, tagged Planned", "returns: planned, tagged Planned");
         assertThat(modules).allSatisfy(m -> assertThat(m.contractPackages())
                 .containsExactly("io.github.stigjohnny.shipping." + m.contractId().get()));

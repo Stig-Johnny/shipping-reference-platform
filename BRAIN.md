@@ -10,9 +10,9 @@ updated: 2026-11-07
 
 # Brain: shipping-reference-platform
 
-A reference monorepo that shows how a Java and React product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. The application's first code exists: the API's pricing and quotes and its demo authentication, served over HTTP in tests, without a database yet; most of the application is still planned. The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions, a dependency allowlist check and a documentation tool.
+A reference monorepo that shows how a Java and TypeScript product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. The application's first code exists: the API's pricing and quotes and its demo authentication, served over HTTP in tests, and booking in its shipments module, without HTTP yet. No database exists yet, and most of the application is still planned. The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions, a dependency allowlist check and a documentation tool.
 
-**State at this commit.** 27 capabilities: 2 shipped, 5 partial, 20 planned; 17 controls: 10 shipped, 1 partial, 6 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
+**State at this commit.** 27 capabilities: 2 shipped, 7 partial, 18 planned; 17 controls: 10 shipped, 1 partial, 6 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
 
 ## Read first
 
@@ -28,7 +28,7 @@ From `architecture/workspace.dsl`. Arrows in the model point from the module who
 | Module | Status | Risk | Depends on | Brain | Specification |
 |---|---|---|---|---|---|
 | `quotes` | built | 3 | tenants (REQUIRED) | [quotes](docs/brain/quotes.md) | [docs/modules/quotes.md](docs/modules/quotes.md) |
-| `shipments` | planned | 3 | tenants (REQUIRED), quotes (REQUIRED) | [shipments](docs/brain/shipments.md) | [docs/modules/shipments.md](docs/modules/shipments.md) |
+| `shipments` | built | 3 | tenants (REQUIRED), quotes (REQUIRED) | [shipments](docs/brain/shipments.md) | [docs/modules/shipments.md](docs/modules/shipments.md) |
 | `tenants` | built | 3 | nothing | [tenants](docs/brain/tenants.md) | [docs/modules/tenants.md](docs/modules/tenants.md) |
 | `audit` | planned | 2 | shipments (REQUIRED), tenants (REQUIRED), quotes (PERMITTED) | [audit](docs/brain/audit.md) | [docs/modules/audit.md](docs/modules/audit.md) |
 | `orders` | planned | 3 | quotes (PERMITTED, planned), shipments (PERMITTED, planned) | [orders](docs/brain/orders.md) | [docs/modules/orders.md](docs/modules/orders.md) |
@@ -54,7 +54,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | `control.table-ownership` | planned | `java` | none yet |
 | `control.migrations` | planned | `java` | none yet |
 | `control.http-contract` | partial | `java` | QuotesHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest |
-| `control.web-import-boundaries` | planned | `web` | none yet |
+| `control.web-import-boundaries` | planned | `java` | none yet |
 | `control.dependency-allowlist` | planned | `preflight` | none yet |
 | `control.risk-classification` | planned | `risk-approval` | none yet |
 | `control.mutation-testing` | planned | `mutation` | none yet |
@@ -67,15 +67,16 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 |---|---|---|
 | [ADR 0001: Record architecture decisions as MADR files](docs/adr/0001-record-architecture-decisions.md) | accepted | java |
 | [ADR 0002: Diagrams first: the C4 model is the structural authority](docs/adr/0002-c4-model-is-the-structural-authority.md) | accepted | java |
-| [ADR 0003: Modular monolith with Spring Modulith and hexagonal modules](docs/adr/0003-modular-monolith-with-spring-modulith-and-hexagonal-modules.md) | accepted | java |
-| [ADR 0004: Contract-first OpenAPI 3.1.2 with RFC 9457 problem details](docs/adr/0004-contract-first-openapi-with-rfc-9457-problems.md) | accepted | not enforced yet |
-| [ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security](docs/adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md) | accepted | not enforced yet |
+| [ADR 0003: Modular monolith with Spring Modulith and hexagonal modules](docs/adr/0003-modular-monolith-with-spring-modulith-and-hexagonal-modules.md) | superseded by ADR 0012 | java |
+| [ADR 0004: Contract-first OpenAPI 3.1.2 with RFC 9457 problem details](docs/adr/0004-contract-first-openapi-with-rfc-9457-problems.md) | superseded by ADR 0012 | not enforced yet |
+| [ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security](docs/adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md) | superseded by ADR 0012 | not enforced yet |
 | [ADR 0006: Module events through the publication registry, with idempotent consumers](docs/adr/0006-module-events-through-the-publication-registry.md) | accepted | not enforced yet |
 | [ADR 0007: Dependency allowlist with pre-use enforcement](docs/adr/0007-dependency-allowlist-and-pre-use-enforcement.md) | accepted | preflight (required check), java (required check), tools/ci/stage-temurin.sh, GitHub Actions setting, acceptance |
 | [ADR 0008: Risk levels 0 to 3 decide who must approve a change](docs/adr/0008-risk-levels-0-to-3.md) | accepted | branch protection on main, GitHub Actions setting |
-| [ADR 0009: React workbench with a generated API client](docs/adr/0009-react-workbench-with-a-generated-client.md) | accepted | not enforced yet |
+| [ADR 0009: React workbench with a generated API client](docs/adr/0009-react-workbench-with-a-generated-client.md) | superseded by ADR 0012 | not enforced yet |
 | [ADR 0010: Documentation as code with a generated brain](docs/adr/0010-documentation-as-code-with-a-generated-brain.md) | superseded by ADR 0011 | not enforced yet |
 | [ADR 0011: A Java documentation tool, a static site and a scanned publication](docs/adr/0011-java-documentation-tool-and-publication.md) | accepted | java, pages |
+| [ADR 0012: First runnable slice with a plain TypeScript workbench and Spring JDBC](docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md) | accepted | java |
 
 ## Third-party components
 

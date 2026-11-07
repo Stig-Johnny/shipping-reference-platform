@@ -190,8 +190,8 @@ Worked example (the contract's example): `NO 0150` to `SE 11122`, 1200 g, 300 x 
   as the contract's conventions say: `OptionalMember` reads it, and an explicit `null` is `400 validation-failed`
   naming `/serviceLevel`. Every optional member of a request body is read that way. `QuotesConfiguration` wires the
   use cases with the application's clock and random UUIDs as the module's IDs.
-- `internal.adapter.out.jdbc`, planned: `JdbcQuoteStore` with Spring Data JDBC; `Quote` maps to one aggregate (quote
-  plus offers).
+- `internal.adapter.out.jdbc`, planned: `JdbcQuoteStore` with Spring JDBC's `JdbcClient` (ADR 0012); it writes and
+  reads a `Quote` as one aggregate (quote plus offers).
 
 ## Data: schema `quotes` (migration `V2__quotes.sql`)
 
@@ -200,7 +200,7 @@ Worked example (the contract's example): `NO 0150` to `SE 11122`, 1200 g, 300 x 
 | `quotes.quote` | `tenant_id uuid`, `quote_id uuid`, `issued_at timestamptz`, `expires_at timestamptz`, `weight_grams int`, `length_mm int`, `width_mm int`, `height_mm int`, `billable_weight_grams int`, `zone text`, `origin_country char(2)`, `origin_postcode varchar(10)`, `destination_country char(2)`, `destination_postcode varchar(10)`; all `not null` | PK `(tenant_id, quote_id)`; checks on every bound in the contract; `expires_at = issued_at + interval '30 minutes'` |
 | `quotes.quote_offer` | `tenant_id uuid`, `quote_id uuid`, `offer_id uuid`, `service_level text`, `amount numeric(11,2)`, `currency char(3)`, `transit_min_days smallint`, `transit_max_days smallint`; all `not null` | PK `(tenant_id, offer_id)`; unique `(tenant_id, quote_id, service_level)`; FK `(tenant_id, quote_id)` to `quotes.quote`; `amount >= 0`; `currency = 'EUR'` |
 
-Both tables: row-level security enabled and forced, policy `tenant_isolation` (ADR 0005). Grants to
+Both tables: row-level security enabled and forced, policy `tenant_isolation` (ADR 0012). Grants to
 `shipping_app`: `USAGE` on the schema, `SELECT, INSERT` on both tables (quotes are immutable). No foreign keys to
 other modules' schemas.
 

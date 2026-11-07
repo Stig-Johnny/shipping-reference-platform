@@ -43,7 +43,7 @@ that sets `app.tenant_id`, prototype flags (until then every flag is off and `en
 
 - Authenticate each API request with a demo bearer token (demo profile only).
 - Derive the tenant from the authenticated user's membership. Never from a header, path, query or body.
-- Bind the tenant to every database transaction so PostgreSQL row-level security applies (ADR 0005).
+- Bind the tenant to every database transaction so PostgreSQL row-level security applies (ADR 0012).
 - Offer `TenantScope` so asynchronous work (event listeners) runs in the event's tenant.
 - Evaluate server-side, tenant-scoped prototype flags (default off, with owner and expiry).
 - Serve `GET /api/v1/me`.

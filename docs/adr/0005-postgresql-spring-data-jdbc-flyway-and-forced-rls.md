@@ -1,7 +1,8 @@
 ---
 title: "ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security"
 description: "PostgreSQL 18.6, one schema per module, Spring Data JDBC, Flyway migrations under a separate role, and forced row-level security for tenant isolation."
-status: accepted
+status: superseded
+supersededBy: "0012"
 updated: 2026-11-06
 date: 2026-11-06
 decision-makers: repository owner

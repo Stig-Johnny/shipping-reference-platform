@@ -34,8 +34,11 @@
 # and the current membership are partial: their HTTP contract tests run the whole application with test doubles for
 # the ports that have no database adapter yet, so they prove the HTTP edge, not persistence. That is why creating a
 # quote, demo authentication and the current membership stay partial although every test they name passes: no quote
-# or token reaches PostgreSQL yet, and prototype flags are planned. The HTTP contract control is partial, since the
-# shipments operations are planned. Every other status is planned and its evidence is "none yet".
+# or token reaches PostgreSQL yet, and prototype flags are planned. The shipments module's booking tests pass too:
+# booking from an offer and idempotent booking are partial, since their HTTP and database tests are planned.
+# ShipmentTest passes, but it asserts only what booking produces, not cancellation, so shipments.cancel-shipment stays
+# planned. The HTTP contract control is partial, since the shipments operations are planned. Every other status is
+# planned and its evidence is "none yet".
 
 schemaVersion: 1
 
@@ -86,17 +89,17 @@ capabilities:
   - id: shipments.book-from-offer
     module: shipments
     title: Book one shipment per quote from an unexpired offer whose destination matches the recipient.
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [BookShipmentTest, RecipientTest]
     acceptanceTests: [BookShipmentTest, RecipientTest, ShipmentsHttpContractTest]
     docs: docs/modules/shipments.md
   - id: shipments.idempotent-booking
     module: shipments
     title: The same tenant, Idempotency-Key and body return the same shipment; a reused key with another body is refused.
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [RequestFingerprintTest]
     acceptanceTests: [BookingIdempotencyIntegrationTest, RequestFingerprintTest]
     docs: docs/modules/shipments.md
   - id: shipments.cancel-shipment
@@ -339,7 +342,7 @@ controls:
     evidence: [ModularityTest]
     acceptanceTests: [ModularityTest]
     negativeFixture: A shipments class importing quotes.internal.domain.Quote, and two modules that use each other (fixtures of ModularityTest).
-    docs: docs/adr/0003-modular-monolith-with-spring-modulith-and-hexagonal-modules.md
+    docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.hexagonal-layering
     title: Domain code free of Spring, Jakarta, JDBC and adapters; only the five allowed packages per module; @NullMarked everywhere.
     where: apps/shipping-api
@@ -349,17 +352,17 @@ controls:
     evidence: [HexagonalLayeringTest]
     acceptanceTests: [HexagonalLayeringTest]
     negativeFixture: A domain class annotated with a Spring stereotype; one fixture for each other rule (fixtures of HexagonalLayeringTest).
-    docs: docs/adr/0003-modular-monolith-with-spring-modulith-and-hexagonal-modules.md
+    docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.table-ownership
-    title: Each module maps only tables in its own schema.
+    title: Each module's adapters run SQL only against tables in its own schema.
     where: apps/shipping-api
     check: java
     status: planned
     target: v0.1
     evidence: none yet
     acceptanceTests: [TableOwnershipTest]
-    negativeFixture: An audit entity mapped to a table in schema shipments.
-    docs: docs/adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md
+    negativeFixture: An audit adapter statement that reads shipments.shipment.
+    docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.migrations
     title: Migrations apply cleanly to an empty database as the owner role; the runtime role cannot run DDL.
     where: apps/shipping-api
@@ -369,7 +372,7 @@ controls:
     evidence: none yet
     acceptanceTests: [MigrationsIntegrationTest]
     negativeFixture: A DDL statement attempted as shipping_app.
-    docs: docs/adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md
+    docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.http-contract
     title: Exercised HTTP responses, including framework problems, conform to contracts/shipping.openapi.yaml.
     where: apps/shipping-api
@@ -381,17 +384,17 @@ controls:
     negativeFixture: A response with an undocumented member, an impossible date-time, an invalid header or a problem title that is not its type's, and a status that the operation does not document and no path may give, fails validation (ContractTest).
     enforcedSubset: Every response that the HTTP tests exercise, of GET /api/v1/me, both quote operations and the problems that any path can give, is validated against the contract in java, on the application with test doubles for its database adapters.
     plannedRemainder: The shipments operations (ShipmentsHttpContractTest) and the same responses from the PostgreSQL-backed application remain.
-    docs: docs/adr/0004-contract-first-openapi-with-rfc-9457-problems.md
+    docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.web-import-boundaries
-    title: Web app import boundaries and cycles (dependency-cruiser deferred).
-    where: tools/web-imports, apps/shipping-web
-    check: web
+    title: Web app import boundaries and cycles, and a direct import for each REQUIRED relationship whose endpoints are built.
+    where: libs/c4-contract-kit, apps/shipping-web
+    check: java
     status: planned
     target: v0.1
     evidence: none yet
-    acceptanceTests: [check-imports.test.mjs]
-    negativeFixture: Fixture files with a cycle and a cross-feature internal import.
-    docs: docs/adr/0009-react-workbench-with-a-generated-client.md
+    acceptanceTests: [WebArchitectureConformanceTest]
+    negativeFixture: Fixture files with a cycle, a cross-feature internal import, and a REQUIRED relationship between built parts without an import.
+    docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.dependency-allowlist
     title: No third-party component is downloaded or run on the sanctioned CI path unless reviewed and allowlisted.
     where: tools/policy, security/

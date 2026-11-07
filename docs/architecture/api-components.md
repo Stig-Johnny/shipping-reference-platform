@@ -38,8 +38,8 @@ flowchart LR
             style 14 fill:#f1f5f9,stroke:#64748b,color:#334155
             8["Quotes [Component] (built)"]
             style 8 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
-            9["Shipments [Component] (planned)"]
-            style 9 fill:#f1f5f9,stroke:#64748b,color:#334155
+            9["Shipments [Component] (built)"]
+            style 9 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
         end
         15[("Database [Container] (planned)")]
         style 15 fill:#f1f5f9,stroke:#64748b,color:#334155
@@ -89,9 +89,9 @@ The same definition is in [api-components.mmd](api-components.mmd).
 |---|---|---|---|---|---|
 | 3 | Webshop | Software System |  | external | A merchant's online shop (simulated). Source of the orders that need shipping. |
 | 4 | Carrier (simulated) | Software System |  | external, simulated | A fictional parcel carrier. v0.1 simulates its tariff, tracking numbers and labels inside the API; no network calls. |
-| 6 | Web app | Container | React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
+| 6 | Web app | Container | Plain TypeScript SPA (no framework), TypeScript 5.9.3 | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
 | 8 | Quotes | Component | Spring Modulith module | built | Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes. |
-| 9 | Shipments | Component | Spring Modulith module | planned | Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled. |
+| 9 | Shipments | Component | Spring Modulith module | built | Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled. |
 | 10 | Tenants | Component | Spring Modulith module | built | Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags. |
 | 11 | Audit | Component | Spring Modulith module | planned | Appends one tenant-scoped audit entry per shipment event, deduplicated by event ID; replayed from the publication registry after failures. |
 | 12 | Orders | Component | Spring Modulith module | planned | Planned: imports webshop orders and turns them into quote and booking requests. |
@@ -107,10 +107,10 @@ The same definition is in [api-components.mmd](api-components.mmd).
 | 2 | Web app | Quotes | Creates and reads quotes | JSON over HTTPS | solid: not covered by module conformance |
 | 3 | Web app | Shipments | Books, lists, reads and cancels shipments; downloads labels | JSON over HTTPS | solid: not covered by module conformance |
 | 4 | Webshop | Orders | Will submit orders to ship | JSON over HTTPS | dotted: planned |
-| 5 | Quotes | Database | Stores quotes and offers in schema quotes | Spring Data JDBC | solid: not covered by module conformance |
-| 6 | Shipments | Database | Stores shipments and idempotency keys in schema shipments; writes event publications | Spring Data JDBC | solid: not covered by module conformance |
+| 5 | Quotes | Database | Stores quotes and offers in schema quotes | Spring JDBC (JdbcClient) | solid: not covered by module conformance |
+| 6 | Shipments | Database | Stores shipments and idempotency keys in schema shipments; writes event publications | Spring JDBC (JdbcClient) | solid: not covered by module conformance |
 | 7 | Tenants | Database | Resolves demo tokens through a security-definer function, reads prototype flags, sets app.tenant_id in every transaction | JDBC | solid: not covered by module conformance |
-| 8 | Audit | Database | Appends audit entries in schema audit | Spring Data JDBC | solid: not covered by module conformance |
+| 8 | Audit | Database | Appends audit entries in schema audit | Spring JDBC (JdbcClient) | solid: not covered by module conformance |
 | 9 | Quotes | Carrier (simulated) | Prices each service level from the carrier's synthetic tariff (simulated in-process) | In-process simulation | solid: not covered by module conformance |
 | 10 | Shipments | Carrier (simulated) | Assigns simulated tracking numbers and renders simulated labels (in-process) | In-process simulation | solid: not covered by module conformance |
 | 11 | Tracking | Carrier (simulated) | Will receive tracking events | HTTPS webhook | dotted: planned |

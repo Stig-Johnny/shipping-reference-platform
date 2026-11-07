@@ -168,11 +168,11 @@ class BrainCheckTest {
 
     @Test
     void aStaleModuleStatusFails() {
-        // Both ways: shipments is planned in the model, and quotes is built.
-        fixture.edit("docs/modules/shipments.md", text -> text.replace("moduleStatus: planned", "moduleStatus: built"))
+        // Both ways: audit is planned in the model, and quotes is built.
+        fixture.edit("docs/modules/audit.md", text -> text.replace("moduleStatus: planned", "moduleStatus: built"))
                 .edit("docs/modules/quotes.md", text -> text.replace("moduleStatus: built", "moduleStatus: planned"));
 
-        assertFails().hasMessageContaining("docs/modules/shipments.md: moduleStatus 'built' is stale; the model's "
+        assertFails().hasMessageContaining("docs/modules/audit.md: moduleStatus 'built' is stale; the model's "
                 + "contract.status is 'planned'").hasMessageContaining("docs/modules/quotes.md: moduleStatus 'planned' "
                 + "is stale; the model's contract.status is 'built'");
     }
