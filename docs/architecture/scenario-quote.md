@@ -61,7 +61,7 @@ The same definition is in [scenario-quote.mmd](scenario-quote.mmd).
 |---|---|---|---|---|---|
 | 1 | Shipping clerk | Person |  | Role; implementation status not applicable | Works for a webshop. Prices parcels, books shipments and downloads labels. |
 | 4 | Carrier (simulated) | Software System |  | external, simulated | A fictional parcel carrier. v0.1 simulates its tariff, tracking numbers and labels inside the API; no network calls. |
-| 6 | Web app | Container | React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
+| 6 | Web app | Container | Plain TypeScript SPA (no framework), TypeScript 5.9.3 | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
 | 8 | Quotes | Component | Spring Modulith module | built | Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes. |
 | 10 | Tenants | Component | Spring Modulith module | built | Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags. |
 | 15 | Database | Container | PostgreSQL 18.6 | Planned; not covered by module conformance | One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data. |
@@ -74,8 +74,8 @@ The same definition is in [scenario-quote.mmd](scenario-quote.mmd).
 | 2 | Web app | Quotes | POST /api/v1/quotes (createQuote), answered 201 with the quote | JSON over HTTPS | solid: not covered by module conformance |
 | 3 | Quotes | Tenants | CurrentTenant.require(): the tenant bound for the request | Java | thick: REQUIRED dependency |
 | 4 | Quotes | Carrier (simulated) | Rates each service level with the synthetic tariff, simulated in-process | In-process simulation | solid: not covered by module conformance |
-| 5 | Quotes | Database | Inserts the quote and its offers in schema quotes | Spring Data JDBC | solid: not covered by module conformance |
-| 6 | Quotes | Database | Publishes QuoteIssued in the quote's transaction; no module listens to it in v0.1 | Spring Data JDBC | solid: not covered by module conformance |
+| 5 | Quotes | Database | Inserts the quote and its offers in schema quotes | Spring JDBC (JdbcClient) | solid: not covered by module conformance |
+| 6 | Quotes | Database | Publishes QuoteIssued in the quote's transaction; no module listens to it in v0.1 | Spring JDBC (JdbcClient) | solid: not covered by module conformance |
 
 ## What this view cannot show
 

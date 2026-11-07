@@ -1,5 +1,5 @@
 ---
-title: "ADR 0014: Scenario views are checked against recorded interactions"
+title: "ADR 0013: Scenario views are checked against recorded interactions"
 description: "Each executable scenario view has a validated sidecar of machine-readable steps; a test runs the scenario, a test-only recorder observes every interaction that crosses a module boundary, and a comparator checks the run against the steps, with the outcome asserted separately."
 status: accepted
 updated: 2026-11-07
@@ -14,7 +14,7 @@ plannedEnforcement:
   - "java: HTTP exchanges observed at the API's edge, database steps observed through JDBC, listener executions observed after commit"
 ---
 
-# ADR 0014: Scenario views are checked against recorded interactions
+# ADR 0013: Scenario views are checked against recorded interactions
 
 ## Context and Problem Statement
 
@@ -129,4 +129,5 @@ What is built, and where it differs from the decision above. The decision stands
 
 - The scenarios, their steps and the report format: `docs/flows/quote-book-label.md`, "Executable scenarios".
 - What a green scenario does not prove: `docs/gaps.md`, section 6.
-- Related: ADR 0002 (the static check), ADR 0003 (the modules), ADR 0006 (events and listeners).
+- Related: ADR 0002 (the static check), ADR 0006 (events and listeners), ADR 0012 (the modules, carried forward from
+  ADR 0003).

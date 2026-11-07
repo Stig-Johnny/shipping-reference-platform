@@ -60,7 +60,7 @@ The same definition is in [scenario-tenant-denial.mmd](scenario-tenant-denial.mm
 | ID | Element | Type | Technology | Status | Description |
 |---|---|---|---|---|---|
 | 1 | Shipping clerk | Person |  | Role; implementation status not applicable | Works for a webshop. Prices parcels, books shipments and downloads labels. |
-| 6 | Web app | Container | React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
+| 6 | Web app | Container | Plain TypeScript SPA (no framework), TypeScript 5.9.3 | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
 | 8 | Quotes | Component | Spring Modulith module | built | Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes. |
 | 9 | Shipments | Component | Spring Modulith module | planned | Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled. |
 | 10 | Tenants | Component | Spring Modulith module | built | Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags. |
@@ -74,7 +74,7 @@ The same definition is in [scenario-tenant-denial.mmd](scenario-tenant-denial.mm
 | 2 | Web app | Shipments | POST /api/v1/shipments (bookShipment), answered 404 quote-not-found, as for an unknown quote | JSON over HTTPS | solid: not covered by module conformance |
 | 3 | Shipments | Tenants | CurrentTenant.require(): Tenant Beta | Java | thick: REQUIRED dependency |
 | 4 | Shipments | Quotes | QuoteOffers.findOffer for Tenant Beta: QuoteNotFound | Java | thick: REQUIRED dependency |
-| 5 | Quotes | Database | Selects the quote by Tenant Beta and its ID: no row | Spring Data JDBC | solid: not covered by module conformance |
+| 5 | Quotes | Database | Selects the quote by Tenant Beta and its ID: no row | Spring JDBC (JdbcClient) | solid: not covered by module conformance |
 
 ## What this view cannot show
 
