@@ -83,6 +83,7 @@ public final class PolicyCheckTest {
             images();
             imageBypasses();
             imageNormalisation();
+            imageFailClosed();
             tree();
             commandLine();
         } finally {
@@ -977,6 +978,65 @@ public final class PolicyCheckTest {
             }
             expectClean(withImages().write(OTHER_TEST, "class OtherTest {\n    String socket = \"unix:///var/run/docker.sock\";"
                     + "\n    // A comment may say that a docker run is refused.\n}\n").findings());
+        });
+    }
+
+    /**
+     * Fail closed: a form that this check cannot decode completely is refused, whatever it holds. First the
+     * counterexamples of the third review of pull request #54, each through every entry point it named.
+     */
+    static void imageFailClosed() {
+        String heredoc = "cat <<EOF\n# $(d\"ocker\" run alpine:3.17)\nEOF";
+        test("closed: an unquoted heredoc in a script, where # does not start a comment", () -> expectFinding(withImages()
+                .write(STAGING, staging(heredoc)).findings(), "images", STAGING + ":4: ", "heredoc"));
+        test("closed: the heredoc as a bash -c string from Java", () -> expectFinding(withImages().write(OTHER_TEST,
+                "class OtherTest {\n    ProcessBuilder p = new ProcessBuilder(\"bash\", \"-c\", \"cat <<EOF\\n# $(d\\\"ocker\\\""
+                        + " run alpine:3.17)\\nEOF\");\n}\n").findings(), "images", OTHER_TEST + ":2: ", "heredoc"));
+        test("closed: the heredoc as a bash -c string from Kotlin", () -> expectFinding(withImages().write(
+                "apps/demo/src/test/kotlin/demo/Probe.kt", "package demo\n\nval p = ProcessBuilder(\"bash\", \"-c\", \"\"\"" + heredoc
+                        + "\"\"\")\n").findings(), "images", "apps/demo/src/test/kotlin/demo/Probe.kt:3: ", "heredoc"));
+        test("closed: the heredoc as a bash -c string from the Kotlin DSL", () -> expectFinding(withImages().write(
+                "apps/demo/build.gradle.kts", "tasks.register<Exec>(\"probe\") { commandLine(\"bash\", \"-c\", \"\"\"" + heredoc
+                        + "\"\"\") }\n").findings(), "images", "apps/demo/build.gradle.kts:1: ", "heredoc"));
+        test("closed: the heredoc as a bash -c string from Groovy", () -> expectFinding(withImages().write(
+                "apps/demo/src/test/groovy/demo/Probe.groovy", "class Probe { def p = ['bash', '-c', '''" + heredoc
+                        + "'''].execute() }\n").findings(), "images", "apps/demo/src/test/groovy/demo/Probe.groovy:1: "));
+        test("closed: the heredoc as a bash -c string from the Groovy DSL", () -> expectFinding(withImages().write(
+                "apps/demo/build.gradle", "tasks.register('probe', Exec) { commandLine 'bash', '-c', '''" + heredoc
+                        + "''' }\n").findings(), "images", "apps/demo/build.gradle:1: "));
+        test("closed: a YAML double-quoted scalar that spans lines, with an escape", () -> expectFinding(withImages()
+                .write(WORKFLOW, workflow("    steps:\n      - run: \"\n          d\\u006fcker run alpine:3.17\"").replace(
+                        "    steps:\n      - run: echo", "      - run: echo")).findings(), "images", WORKFLOW + ":6: "));
+        test("closed: a quoted line continuation in a run block, which YAML dedents", () -> expectFinding(withImages()
+                .write(WORKFLOW, workflow("    steps:\n      - run: |\n          d\"oc\\\n          ker\" run alpine:3.17")
+                        .replace("    steps:\n      - run: echo", "      - run: echo")).findings(), "images", WORKFLOW + ":"));
+        test("closed: a Kotlin escaped identifier in a package name", () -> expectFinding(withImages().write(
+                "apps/demo/src/test/kotlin/demo/Probe.kt", "package demo\n\nimport org.`testcontainers`.containers.GenericContainer"
+                        + "\n\nfun test() { GenericContainer<Nothing>(\"alpine:3.17\").start() }\n").findings(), "images",
+                "apps/demo/src/test/kotlin/demo/Probe.kt:3: "));
+        test("closed: a constant concatenation that spells docker", () -> expectFinding(withImages().write(OTHER_TEST,
+                "class OtherTest {\n    Process p() throws Exception {\n        return new ProcessBuilder(\"do\" + \"cker\", \"run\", "
+                        + "\"alpine:3.17\").start();\n    }\n}\n").findings(), "images", OTHER_TEST + ":3: "));
+        test("closed: a script in a resource, by its #! line, whatever its extension", () -> expectFinding(withImages()
+                .write("apps/demo/src/test/resources/probe.bash", "#!/usr/bin/env bash\ndocker run alpine:3.17\n").findings(),
+                "images", "apps/demo/src/test/resources/probe.bash:2: docker run"));
+        test("closed: a resource is normalised like shell text", () -> expectFinding(withImages().write(
+                "apps/demo/src/test/resources/command.txt", "d\"ocker\" run alpine:3.17\n").findings(), "images",
+                "apps/demo/src/test/resources/command.txt:1: "));
+        // What must still pass: the repository's own forms.
+        test("closed: here-strings, arithmetic, conditions, case patterns and wrappers are read, not refused", () -> {
+            for (String command : List.of("read -r a b <<< \"$line\"", "count=$((count + 1))",
+                    "if (( 10#${have[i]} > 10#${need[i]} )); then echo more; fi",
+                    "[[ \"$name\" != TESTCONTAINERS_* || \"$name\" == \"X\" ]] || exit 1",
+                    "case \"${1:-}\" in\n  prepare | stage) echo one ;;\n  *) echo usage ;;\nesac",
+                    "(cd \"$dir\" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) > out",
+                    "exec /usr/bin/grep -q x file", "sudo -E env A=1 tee /etc/docker/daemon.json < /dev/null")) {
+                expectClean(withImages().write(STAGING, staging(command)).findings());
+            }
+            expectClean(withImages().write(WORKFLOW, "name: ci\non: push\njobs:\n  x:\n    runs-on: ubuntu-24.04\n"
+                    + "    env:\n      FLAG: 'true'\n    steps:\n      - name: A step\n        if: ${{ !cancelled() }}\n"
+                    + "        run: |\n          echo \"3b8a  x.jar\" | sha256sum --check --strict\n"
+                    + "          if [[ -n \"$links\" ]]; then\n            exit 1\n          fi\n").findings());
         });
     }
 
