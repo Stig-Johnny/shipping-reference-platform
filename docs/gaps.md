@@ -175,10 +175,10 @@ closes it.
   TypeScript test name stays an acceptance target until the web build writes reports that the docs tool reads.
 - The module brains list the entries of this file that name a module in code, by its document or as "the X module".
   An entry that concerns a module without naming it is not listed there, so this whole file still applies.
-- The documentation site is public. Until the repository is public too, which the owner has decided (ADR 0008), the
-  site is the public's only view of it: the documents, the model, the contract, the allowlist with a summary of each
-  review, and the brain. Paths of files it does not publish, such as source code, workflows and review records,
-  appear as plain text, and it does not link to the repository.
+- The documentation site and the repository are both public (the repository since 2026-11-07). The site still does
+  not link into the repository: paths of files it does not publish, such as source code, workflows and review
+  records, appear as plain text, because its publication scan still treats a link to the repository as a finding.
+  Enabling those links is a separate, reviewed change to the scan.
 - The publication scan matches shapes and listed terms. It cannot catch a paraphrase, a confidential name or detail
   that is not in its dictionary, or what a sentence means; nor a secret whose shape it does not know. A person
   still reads every public page that changes. The dictionary lives outside the repository, so whether it is
