@@ -577,7 +577,8 @@ public final class PolicyCheckTest {
         });
         test("tree: symbolic links in the directories the checks skip are refused too", () -> {
             for (String path : List.of(".git/hooks/pre-commit", "build/output", ".gradle/cache", "node_modules/.bin/tool")) {
-                expectRefused(Repo.clean().link(path, Path.of("elsewhere")), LINK_REFUSED + path);
+                // A printed path passes through PolicyCheck.safe, which has no '_': names come from the pull request.
+                expectRefused(Repo.clean().link(path, Path.of("elsewhere")), LINK_REFUSED + path.replace('_', '?'));
             }
         });
         test("tree: a checked tree that is itself a symbolic link is refused", () -> {
@@ -747,14 +748,19 @@ public final class PolicyCheckTest {
         test("cli: markup and control characters in a coordinate, an Action or a URL are printed as safe characters", () -> {
             Repo repo = withNpm()
                     .append("gradle.lockfile", "org.example:**md**<b>x</b>\u001b[31m:1.0.0=runtimeClasspath\n")
+                    .append("gradle.lockfile", "org.example:_emphasis_:1.0.0=runtimeClasspath\n")
+                    .append("gradle.lockfile", "org.example:__strong__:1.0.0=runtimeClasspath\n")
                     .write(".github/workflows/ci.yml", "jobs:\n  x:\n    steps:\n      - uses: <script>x</script>@v1\n")
                     .edit("package-lock.json", "https://registry.npmjs.org/example-pkg/-/example-pkg-1.0.0.tgz",
                             "https://registry.example.org/[click](javascript:alert(1))<img src=x>")
                     .save();
             Run run = launch(repo.root.toString());
-            expectNoContent(run, "**md**", "<b>", "</b>", "\u001b", "<script>", "[click](", "<img", "src=x>");
+            expectNoContent(run, "**md**", "<b>", "</b>", "\u001b", "<script>", "[click](", "<img", "src=x>",
+                    "_emphasis_", "__strong__");
             expect(run.exit() == 1 && run.error().isEmpty()
                     && run.output().contains("- org.example:??md???b?x?/b???31m 1.0.0 (in gradle.lockfile) has no review")
+                    && run.output().contains("- org.example:?emphasis? 1.0.0 (in gradle.lockfile) has no review")
+                    && run.output().contains("- org.example:??strong?? 1.0.0 (in gradle.lockfile) has no review")
                     && run.output().contains("- .github/workflows/ci.yml:4: ?script?x?/script?@v1 is not pinned")
                     && run.output().contains("(https://registry.example.org/?click??javascript:alert?1???img?src=x?)"),
                     run.toString());

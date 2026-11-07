@@ -450,9 +450,10 @@ public final class PolicyCheck {
     String relative(Path p) { return safe(repo.relativize(p)); }
 
     /**
-     * A value from a file, as a message may print it: ASCII letters and digits and the characters . : _ + - / @ = are
-     * kept, every other character becomes '?', and at most {@link #SHOWN} of them are shown. So no Markdown, HTML or
-     * control character that a file holds can reach the log or the step summary.
+     * A value from a file, as a message may print it: ASCII letters and digits and the characters . : + - / @ = are
+     * kept, every other character becomes '?', and at most {@link #SHOWN} of them are shown. So no Markdown emphasis
+     * or link syntax, HTML or control character that a file holds can reach the log or the step summary; GitHub may
+     * still turn a printed URL or @name into a link.
      */
     static String safe(Object value) {
         String text = String.valueOf(value);
@@ -460,7 +461,7 @@ public final class PolicyCheck {
         for (int i = 0; i < Math.min(text.length(), SHOWN); i++) {
             char c = text.charAt(i);
             boolean kept = c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'
-                    || ".:_+-/@=".indexOf(c) >= 0;
+                    || ".:+-/@=".indexOf(c) >= 0;
             out.append(kept ? c : '?');
         }
         return text.length() > SHOWN ? out + "..." : out.toString();
