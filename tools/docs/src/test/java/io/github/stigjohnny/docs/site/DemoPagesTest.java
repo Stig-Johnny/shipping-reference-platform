@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.stigjohnny.docs.DocsException;
+import io.github.stigjohnny.docs.markdown.SlideOutline;
 import io.github.stigjohnny.docs.repo.Capability;
+import io.github.stigjohnny.docs.repo.DeckRecord;
 import io.github.stigjohnny.docs.repo.DemoRecord;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.Sources;
@@ -18,6 +20,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -461,6 +464,50 @@ class DemoPagesTest {
 
         assertThat(sheet).contains("<a rel=\"nofollow\" href=\"deck-milestone.html#state-today\">the deck</a>",
                 "<a rel=\"nofollow\" href=\"deck-milestone-notes.html#state-today\">its notes</a>");
+    }
+
+    @Test
+    void aSlideHeadedByTheRepositorysAddressKeepsItsSourceAnchorSoNoTwoSlidesShareOne() {
+        // The site shows the repository's address as "the repository on GitHub". The deck's check and the site map read
+        // a slide's anchor from the source, so both pages use those anchors, not ones taken from the rewritten text.
+        fixture.write(Decks.PATH, Decks.with("## What is built", "## <https://github.com/Stig-Johnny/"
+                + "shipping-reference-platform>").replace("## State today", "## The repository on GitHub"));
+
+        BuiltSite site = build();
+        Sources sources = Sources.read(fixture.root(), List.of(fixture.reports()));
+        List<String> anchors = DeckRecord.outline(sources.doc(Decks.PATH).orElseThrow()).slides().stream()
+                .map(SlideOutline::id).toList();
+        SiteMap map = SiteMap.of(sources);
+
+        assertThat(anchors).containsExactly("httpsgithubcomstig-johnnyshipping-reference-platform",
+                "the-repository-on-github", "one-change-the-gate-rejects", "appendix-tools");
+        assertThat(site.text(DECK)).contains("<h2 id=\"site-slide-1\">the repository on GitHub</h2>",
+                "<h2 id=\"site-slide-2\">The repository on GitHub</h2>");
+        Pattern section = Pattern.compile("<section class=\"(?:slide|deck-note)\" id=\"([^\"]+)\"");
+        for (String page : List.of(DECK, NOTES)) {
+            String html = site.text(page);
+            // Distinct, and the same anchors as the deck's outline and the site map.
+            assertThat(section.matcher(html).results().map(m -> m.group(1)).toList()).as(page).isEqualTo(anchors);
+            assertThat(anchors).allSatisfy(id -> assertThat(map.hasAnchor(page, id)).as(page + "#" + id).isTrue());
+            assertThat(count(html, " id=\"")).as(page + ": no identifier twice").isEqualTo(site.ids(page).size());
+            // Every link of the page reaches a page of the site and, with a fragment, an identifier on it.
+            for (String url : site.urls(page)) {
+                if (url.startsWith("https://") || url.startsWith("http://") || url.equals("data:,")) {
+                    continue;
+                }
+                String target = BuiltSite.resolve(page, url);
+                assertThat(site.files()).as(page + " links " + url).containsKey(target);
+                if (url.contains("#")) {
+                    assertThat(site.ids(target)).as(page + " links " + url)
+                            .contains(url.substring(url.indexOf('#') + 1));
+                }
+            }
+        }
+        assertThat(site.urls(DECK)).contains("#httpsgithubcomstig-johnnyshipping-reference-platform",
+                "#the-repository-on-github");
+        assertThat(site.urls(NOTES)).contains(
+                "deck-milestone.html#httpsgithubcomstig-johnnyshipping-reference-platform",
+                "deck-milestone.html#the-repository-on-github");
     }
 
     @Test

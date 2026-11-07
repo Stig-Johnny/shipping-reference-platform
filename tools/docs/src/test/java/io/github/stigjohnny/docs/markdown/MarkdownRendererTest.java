@@ -9,6 +9,7 @@ import io.github.stigjohnny.docs.markdown.LinkDecision.Keep;
 import io.github.stigjohnny.docs.markdown.LinkDecision.Reject;
 import io.github.stigjohnny.docs.markdown.LinkDecision.Rewrite;
 import io.github.stigjohnny.docs.markdown.LinkDecision.Unlink;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -266,6 +267,37 @@ class MarkdownRendererTest {
         // The page shows the title; the deck's own blocks never include it.
         assertThat(String.join("", deck.slides().stream().map(RenderedSlide::html).toList())).doesNotContain("<h1",
                 "Milestone");
+    }
+
+    @Test
+    void aSlidesAnchorIsTakenFromItsSourceBeforeItsLinksAreRewritten() {
+        // The site shows the repository's address as "the repository on GitHub". Were a slide's anchor taken after its
+        // links are rewritten, these two slides would share one, which the deck's check, reading the source, never
+        // sees.
+        String deck = """
+                # T
+
+                ## <https://github.com/Stig-Johnny/shipping-reference-platform>
+
+                Text.
+
+                ## The repository on GitHub
+
+                Text.
+                """;
+        LinkResolver links = destination -> new Unlink("the repository on GitHub");
+
+        RenderedDeck rendered = MarkdownRenderer.renderDeck(deck, "docs/demos/deck-x.md", links, "Notes");
+
+        List<String> outline = MarkdownRenderer.deck(deck, "docs/demos/deck-x.md", "Notes").slides().stream()
+                .map(SlideOutline::id).toList();
+        assertThat(rendered.slides()).extracting(RenderedSlide::id).doesNotHaveDuplicates()
+                .containsExactly("httpsgithubcomstig-johnnyshipping-reference-platform", "the-repository-on-github")
+                .containsExactlyElementsOf(outline);
+        // What a slide shows is its heading as rewritten.
+        assertThat(rendered.slides()).extracting(RenderedSlide::title, RenderedSlide::titleHtml).containsExactly(
+                tuple("the repository on GitHub", "the repository on GitHub"),
+                tuple("The repository on GitHub", "The repository on GitHub"));
     }
 
     @Test

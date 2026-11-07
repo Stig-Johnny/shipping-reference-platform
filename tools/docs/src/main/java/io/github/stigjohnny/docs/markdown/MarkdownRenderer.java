@@ -10,7 +10,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -174,6 +173,11 @@ public final class MarkdownRenderer {
      * its first slide are left out, and so are the notes headings. A deck's pages have no anchor but its slides', so an
      * in-page link must name a slide. Tables are numbered on each page, the slides' and the notes', and named as a
      * document's are, with the slide's title as their section.
+     *
+     * <p>Each slide's anchor is taken from its source heading before any link is rewritten, the anchor {@link #deck}
+     * gives, which the deck's check and the site map read: rewriting can change a heading's text, such as the
+     * repository's address shown as words, and so its slug. What the slide shows, its title as text and as HTML, comes
+     * from the rewritten heading.
      */
     public static RenderedDeck renderDeck(String markdown, String source, LinkResolver links, String notesHeading) {
         try {
@@ -181,21 +185,22 @@ public final class MarkdownRenderer {
             List<Node> blocks = children(document);
             Map<Node, Section> headings = headings(blocks);
             DeckNodes deck = group(blocks, notesHeading);
-            Set<String> anchors = new HashSet<>();
+            List<String> ids = new ArrayList<>();
             for (SlideNodes slide : deck.slides()) {
-                anchors.add(slug(text(slide.heading()).strip()));
+                ids.add(slug(text(slide.heading()).strip()));
             }
-            rewriteLinks(document, source, links, anchors);
+            rewriteLinks(document, source, links, Set.copyOf(ids));
             Tables slideTables = new Tables();
             Tables noteTables = new Tables();
             List<RenderedSlide> slides = new ArrayList<>();
-            for (SlideNodes slide : deck.slides()) {
+            for (int i = 0; i < deck.slides().size(); i++) {
+                SlideNodes slide = deck.slides().get(i);
                 String title = text(slide.heading()).strip();
                 StringBuilder titleHtml = new StringBuilder();
                 for (Node child : children(slide.heading())) {
                     titleHtml.append(RENDERER.render(child));
                 }
-                slides.add(new RenderedSlide(slug(title), title, titleHtml.toString(),
+                slides.add(new RenderedSlide(ids.get(i), title, titleHtml.toString(),
                         html(slide.content(), headings, title, slideTables, source), slide.notesHeading() != null,
                         html(slide.notes(), headings, title, noteTables, source)));
             }
