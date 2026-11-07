@@ -1,7 +1,8 @@
 # java: build and test with the reviewed toolchain, after the base branch's allowlist checker has passed the candidate.
 # Every dependency resolves from the lockfiles and is checked against gradle/verification-metadata.xml; CI never writes
 # either of them. GRADLE_USER_HOME starts empty on every run, because the wrapper checks the distribution's SHA-256
-# only when it downloads it.
+# only when it downloads it. The database tests run here, on the runner's Docker Engine, only under the conditions of
+# its review: the engine checks, the staging and the image-set check below, and the test harness's own checks.
 name: java
 
 on:
@@ -68,16 +69,60 @@ jobs:
         working-directory: candidate
         run: java tools/policy/PolicyCheckTest.java
 
+      - name: Check the candidate with its own allowlist checker as well
+        # The base branch's run above is the gate. The candidate's copy runs too, so that a rule a pull request adds,
+        # such as the container image references (check 8), applies to that pull request itself, before anything is
+        # pulled. It reads files only; 1 = findings and 2 = could not complete fail the job.
+        working-directory: candidate
+        run: java tools/policy/PolicyCheck.java . | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Verify the Gradle wrapper before running it
         working-directory: candidate
         run: echo "3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  gradle/wrapper/gradle-wrapper.jar" | sha256sum --check --strict
 
+      # The database tests start the reviewed PostgreSQL through Testcontainers, on this runner's Docker Engine, under
+      # security/reviews/runner-image--github-ubuntu-24.04-docker-engine--28.0.4.md. These steps are the runner's half
+      # of its conditions (tools/ci/container-engine.sh, the candidate's copy: the base branch's checkers have passed
+      # the candidate); the test harness checks the rest from inside the test JVM before it starts a container.
+      - name: Check the container engine against its review before any container runs
+        # The runner, Ubuntu and Docker Engine versions and runc, recorded in the job summary; a loopback-only daemon;
+        # an empty registry configuration. A mismatch stops the job: another version needs a review, not a looser check.
+        working-directory: candidate
+        env:
+          DOCKER_HOST: unix:///var/run/docker.sock
+          DOCKER_CONFIG: ${{ runner.temp }}/docker-config
+        run: tools/ci/container-engine.sh prepare
+
+      - name: Stage the reviewed PostgreSQL image by digest
+        id: stage
+        working-directory: candidate
+        env:
+          DOCKER_HOST: unix:///var/run/docker.sock
+          DOCKER_CONFIG: ${{ runner.temp }}/docker-config
+        run: tools/ci/container-engine.sh stage
+
       - name: Build and test
+        # SRP_CONTAINER_ENGINE names the engine the steps above prepared; the harness refuses to start PostgreSQL
+        # without it, the socket, the empty registry configuration and both Testcontainers settings.
         working-directory: candidate
         env:
           GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
+          SRP_CONTAINER_ENGINE: github-ubuntu-24.04
+          DOCKER_HOST: unix:///var/run/docker.sock
+          DOCKER_CONFIG: ${{ runner.temp }}/docker-config
           TESTCONTAINERS_RYUK_DISABLED: 'true'
+          TESTCONTAINERS_CHECKS_DISABLE: 'true'
         run: ./gradlew --no-daemon --console=plain check
+
+      - name: Check that only the reviewed image ran, then remove the test containers
+        # After the tests, whatever their outcome, once the image was staged: the image set, the containers made, no
+        # copy into one; then the sweep.
+        if: ${{ !cancelled() && steps.stage.outcome == 'success' }}
+        working-directory: candidate
+        env:
+          DOCKER_HOST: unix:///var/run/docker.sock
+          DOCKER_CONFIG: ${{ runner.temp }}/docker-config
+        run: tools/ci/container-engine.sh verify
 
       - name: Refuse symbolic links before uploading reports
         # Any link under libs/ or apps/, the report directories themselves included: the upload follows links.
