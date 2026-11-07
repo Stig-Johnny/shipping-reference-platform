@@ -55,6 +55,9 @@ Adds to the root `AGENTS.md`. Decisions: ADR 0003 (modules), 0004 (contract), 00
 - Migrations live in `src/main/resources/db/migration`, are forward-only, and never change after merge. Seed data
   lives in `src/main/resources/db/demo` (profile `demo` and tests only) and binds the tenant with
   `set_config('app.tenant_id', ..., true)` before inserting tenant-owned rows.
+- Every migration has a down script, `src/main/resources/db/down/V<n>__<description>.down.sql`, that drops what it
+  created; `MigrationFilesTest` and `MigrationRoundTripTest` fail without it (ADR 0012). Down scripts are for
+  development databases and CI: a deployed database only rolls forward.
 - The runtime uses `shipping_app` only. `shipping_owner` is for Flyway only.
 
 ## Events
