@@ -87,8 +87,8 @@ Node needs its own review, and then this record names that build instead.
 - **Node.js:** MIT, with bundled components under their own licences (unchanged).
 - **npm 11.20.0:** **Artistic-2.0** (version document `license`). That is not on the list `security/AGENTS.md` accepts
   without conditions, and the earlier Node reviews did not name it. Here npm is an unmodified build tool that is never
-  distributed. The new `bundled` entry for the darwin-arm64 copy carries this as a condition for the owner's explicit
-  decision.
+  distributed. Both `bundled` entries for npm 11.20.0 carry this as a condition for the owner's explicit decision:
+  the new one for the darwin-arm64 copy and the existing one for the linux-x64 copy.
 
 ## 7. Execution privileges
 

@@ -181,8 +181,11 @@ Nothing was installed or run.
     6.0.2), by `utils/libwebp-wasm/build.sh` at that commit. So it is reproducible only approximately.
   - It runs inside V8 and is used only for WebP screenshots and WebP screenshot comparisons.
 - **Shell scripts.**
-  - `playwright-core/bin/reinstall_*` (12) install branded Chrome or Edge with `sudo`, and `bin/*.ps1` are for
-    Windows. All are reachable only through `playwright install chrome|msedge`, which is not approved.
+  - `playwright-core/bin/reinstall_*` are 15 scripts: ten shell scripts for Linux and macOS and five PowerShell
+    scripts for Windows. They download branded Chrome or Edge from `dl.google.com` or `packages.microsoft.com` and
+    install it; the three macOS Edge scripts call `sudo`.
+  - `install_media_pack.ps1` and `install_webkit_wsl.ps1` are for Windows.
+  - All of them are reachable only through `playwright install`, which is not approved.
   - `lib/xdg-open` (32,416 bytes, from xdg-utils, MIT) is byte-identical to `package/xdg-open` of `open` 11.0.0
     (SHA-256 `7d759d54…98cf`; that tarball checked against its registry integrity). The inlined `open` uses it to open a
     browser. In CI, the HTML reporter never opens one: it returns early when `CI` is set (`lib/runner/index.js:3788`),
@@ -260,9 +263,9 @@ version applies):
 | Copied code | Licence (file header at the release commit) | Where |
 |---|---|---|
 | pixelmatch (Mapbox) | ISC | `packages/utils/third_party/pixelmatch.js` → `coreBundle.js` (screenshot comparison) |
-| extract-zip (Max Ogden and contributors) | BSD-2-Clause | `packages/utils/third_party/extractZip.ts` → `coreBundle.js` (browser downloads only) |
+| extract-zip | BSD-2-Clause | `packages/utils/third_party/extractZip.ts` → `coreBundle.js` (browser downloads only) |
 | proper-lockfile (MOXY), modified | MIT | `packages/utils/third_party/lockfile.ts` → `coreBundle.js` |
-| minimist (James Halliday), modified | MIT | `packages/playwright-core/src/tools/cli-client/minimist.ts` → `lib/tools/cli-client/minimist.js` (`cli` only) |
+| minimist, modified | MIT | `packages/playwright-core/src/tools/cli-client/minimist.ts` → `lib/tools/cli-client/minimist.js` (`cli` only) |
 | Puppeteer BiDi helpers (Google) | Apache-2.0 | `packages/playwright-core/src/server/bidi/third_party/*` → `coreBundle.js` (BiDi browsers only) |
 | Chromium DevTools snippet (The Chromium Authors) | BSD-3-Clause | `packages/trace-viewer/src/third_party/devtools.ts` → trace viewer |
 | VS Code codicons (Microsoft) | MIT | `packages/web/src/third_party/vscode/*` → the web apps' fonts and CSS |
@@ -275,14 +278,15 @@ version applies):
   GHSA-7mvr-c777-76hp from all three, so the queries can return a hit.
 - **The 171 inlined components: two medium-severity advisories** (OSV `querybatch`):
   - **ip-address 10.7.2, GHSA-rxp7-6hxx-x8q5** (CVE-2026-111997, fixed in 10.7.4). Parsing an attacker-supplied IPv6
-    string with many `%` characters takes quadratic time. The inlined `socks` client parses proxy addresses with it, so
-    it is reachable only with a SOCKS proxy. Condition 8 keeps proxies out.
+    string with many `%` characters takes quadratic time. In `utilsBundle.js` only the inlined `socks` client
+    (`socksclient.js`, `helpers.js`) calls it, so it is reachable only with a SOCKS proxy. Condition 8 keeps proxies
+    out.
   - **minimatch 10.2.5, GHSA-g3hv-75wg-m249** (CVE-2026-118764, affects 7.0.0 to before 11.0.1). An attacker-supplied
     glob pattern can grow without bound in preprocessing. Playwright matches test files and filters with it, and those
     patterns come from our config (condition 9).
   - Both are denial of service on inputs that the conditions keep in the repository's hands. Neither can be upgraded
     apart from Playwright.
-- **The copied sources in B7 and the axe-core-side packages** were not queried by version, because they carry none.
+- **The copied sources in B7** were not queried by version, because they carry none.
 
 **Licences.** The inlined components are 150 MIT, 12 ISC (electron-to-chromium, graceful-fs, ini, isexe, lru-cache,
 picocolors, semver, signal-exit, which, yallist, yaml, zod-to-json-schema), 5 BSD-3-Clause, 1 BSD-2-Clause,

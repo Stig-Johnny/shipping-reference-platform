@@ -44,8 +44,8 @@ class AllowlistTest {
 
     @Test
     void entriesKeepTheirVerdictScopeAndConditions() {
-        assertThat(ALLOWLIST.entries()).hasSize(308);
-        assertThat(ALLOWLIST.approved()).isEqualTo(293);
+        assertThat(ALLOWLIST.entries()).hasSize(516);
+        assertThat(ALLOWLIST.approved()).isEqualTo(501);
         assertThat(ALLOWLIST.rejected()).isEqualTo(15);
         AllowlistEntry snakeyaml = ALLOWLIST.entries().stream()
                 .filter(e -> e.coordinate().equals("org.snakeyaml:snakeyaml-engine") && e.version().equals("3.2"))
