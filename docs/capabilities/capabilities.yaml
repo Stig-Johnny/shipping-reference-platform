@@ -33,8 +33,10 @@
 # are partial: their in-process scenarios and negative fixtures pass, while the booking, replay and label scenarios and
 # the observation of HTTP and SQL are planned. Of the product, the
 # quotes module's domain and application tests pass: the synthetic tariff and quote expiry are shipped, creating a
-# quote and the offer lookup are partial, since their HTTP and database tests are planned. Every other status is
-# planned and its evidence is "none yet".
+# quote and the offer lookup are partial, since their HTTP and database tests are planned. So do the shipments
+# module's booking tests: booking from an offer and idempotent booking are partial, since their HTTP and database
+# tests are planned. ShipmentTest passes too, but it asserts only what booking produces, not cancellation, so
+# shipments.cancel-shipment stays planned. Every other status is planned and its evidence is "none yet".
 
 schemaVersion: 1
 
@@ -85,17 +87,17 @@ capabilities:
   - id: shipments.book-from-offer
     module: shipments
     title: Book one shipment per quote from an unexpired offer whose destination matches the recipient.
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [BookShipmentTest, RecipientTest]
     acceptanceTests: [BookShipmentTest, RecipientTest, ShipmentsHttpContractTest]
     docs: docs/modules/shipments.md
   - id: shipments.idempotent-booking
     module: shipments
     title: The same tenant, Idempotency-Key and body return the same shipment; a reused key with another body is refused.
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [RequestFingerprintTest]
     acceptanceTests: [BookingIdempotencyIntegrationTest, RequestFingerprintTest]
     docs: docs/modules/shipments.md
   - id: shipments.cancel-shipment

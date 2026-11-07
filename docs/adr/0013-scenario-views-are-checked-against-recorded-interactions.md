@@ -117,13 +117,13 @@ Chosen option 1.
 What is built, and where it differs from the decision above. The decision stands; the differences are open work.
 
 - **In process, on the built modules.** The scenarios run in a Spring context that the tests wire, with the real
-  classes of quotes and tenants and the in-memory quote store; the application's own wiring is planned. HTTP
+  classes of tenants, quotes and shipments and the in-memory stores; the application's own wiring is planned. HTTP
   exchanges, database steps and listener executions are not observed yet, so those steps are not evaluated, and each
   report says why.
 - **Two of five scenarios.** `ScenarioQuote` evaluates two of its six steps: `CurrentTenant.require()` once, then
-  `QuoteIssued` published once. `ScenarioTenantDenial` evaluates none of its five, since each touches the clerk, the
-  planned shipments module or the database; its run checks that no interaction crosses a module boundary and asserts
-  the outcome. First booking, booking replay and label are planned.
+  `QuoteIssued` published once. `ScenarioTenantDenial` evaluates two of its six, through the real booking use case:
+  shipments' `CurrentTenant.require()`, then `QuoteOffers.findOffer`. First booking, booking replay and label are
+  planned.
 
 ## More Information
 

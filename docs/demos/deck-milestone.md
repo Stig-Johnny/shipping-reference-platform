@@ -34,7 +34,7 @@ The checker and the dependency gate run; the shipping app has its first code, an
 |---|---|
 | The model governs the structure | Built and tested: the checker |
 | The gate stops unreviewed dependencies | Declared dependencies are checked in the approved CI run |
-| The shipping app itself | Planned: 23 of 27 capabilities |
+| The shipping app itself | Planned: 21 of 27 capabilities |
 
 ### Notes
 

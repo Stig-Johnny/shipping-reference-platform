@@ -70,7 +70,9 @@ class ScenarioFixturesTest {
     @Test
     void anAddedCallAlongAPermittedRelationshipIsAnUnexpectedInteraction(TestInfo test) {
         try (ScenarioRun run = ScenarioRun.fixture("ScenarioTenantDenial", "added-call", test, Observers.inProcess(),
-                InProcessModules.Core.class, InProcessModules.InMemoryStore.class, OffersThatAskForTheTenant.class)) {
+                InProcessModules.Core.class, InProcessModules.InMemoryStore.class,
+                InProcessModules.InMemoryShipments.class, OffersThatAskForTheTenant.class,
+                InProcessModules.Shipments.class)) {
             TenantDenialScenarioTest.TenantDenial.runIn(run);
 
             ScenarioRun.Result finished = run.finish();
@@ -171,8 +173,7 @@ class ScenarioFixturesTest {
     @Test
     void aRunWithoutAStimulusFailsEvenWhereNoStepIsEvaluated(TestInfo test) {
         try (ScenarioRun run = ScenarioRun.fixture("ScenarioTenantDenial", "no-stimulus", test,
-                Observers.inProcess(), InProcessModules.Core.class, InProcessModules.InMemoryStore.class,
-                InProcessModules.Quotes.class)) {
+                Observers.inProcess(), TenantDenialScenarioTest.TenantDenial.MODULES)) {
             ScenarioRun.Result finished = run.finish();
 
             assertThat(finished.verdict()).isEqualTo("DOES_NOT_CONFORM");

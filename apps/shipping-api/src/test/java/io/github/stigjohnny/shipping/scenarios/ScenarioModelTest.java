@@ -69,7 +69,8 @@ class ScenarioModelTest {
                 .containsExactly(tuple(1, "clerk", "web"), tuple(2, "web", "quotes"), tuple(3, "quotes", "tenants"),
                         tuple(4, "quotes", "carrier"), tuple(5, "quotes", "db"), tuple(6, "quotes", "db"));
         assertThat(model.module("quotes").orElseThrow().built()).isTrue();
-        assertThat(model.module("shipments").orElseThrow().built()).isFalse();
+        assertThat(model.module("shipments").orElseThrow().built()).isTrue();
+        assertThat(model.module("audit").orElseThrow().built()).isFalse();
         assertThat(model.moduleOf("io.github.stigjohnny.shipping.quotes.internal.application.CreateQuote"))
                 .contains("quotes");
         assertThat(model.element("db").orElseThrow().tags()).containsExactly("Database", "Planned");

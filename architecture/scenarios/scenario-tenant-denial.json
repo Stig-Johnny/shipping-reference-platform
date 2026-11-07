@@ -36,6 +36,17 @@
     },
     {
       "order": 4,
+      "id": "find-key",
+      "kind": "DATABASE_READ",
+      "from": "shipments",
+      "to": "db",
+      "operation": {"statement": "SELECT", "schema": "shipments"},
+      "phase": "SYNCHRONOUS",
+      "cardinality": "1",
+      "after": ["resolve-tenant"]
+    },
+    {
+      "order": 5,
       "id": "find-offer",
       "kind": "MODULE_API_CALL",
       "from": "shipments",
@@ -43,10 +54,10 @@
       "operation": {"interface": "io.github.stigjohnny.shipping.quotes.api.QuoteOffers", "method": "findOffer"},
       "phase": "SYNCHRONOUS",
       "cardinality": "1",
-      "after": ["resolve-tenant"]
+      "after": ["find-key"]
     },
     {
-      "order": 5,
+      "order": 6,
       "id": "select-quote",
       "kind": "DATABASE_READ",
       "from": "quotes",

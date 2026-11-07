@@ -7,20 +7,27 @@ import io.github.stigjohnny.shipping.quotes.internal.application.QuoteOffersServ
 import io.github.stigjohnny.shipping.quotes.internal.application.QuoteStore;
 import io.github.stigjohnny.shipping.quotes.internal.domain.IdGenerator;
 import io.github.stigjohnny.shipping.quotes.internal.domain.QuoteFixtures;
+import io.github.stigjohnny.shipping.shipments.internal.application.BookShipment;
+import io.github.stigjohnny.shipping.shipments.internal.application.InMemoryShipmentStore;
+import io.github.stigjohnny.shipping.shipments.internal.application.ShipmentStore;
+import io.github.stigjohnny.shipping.shipments.internal.application.TrackingNumbers;
+import io.github.stigjohnny.shipping.shipments.internal.domain.ShipmentFixtures;
+import io.github.stigjohnny.shipping.shipments.internal.domain.TrackingNumber;
 import io.github.stigjohnny.shipping.tenants.api.CurrentTenant;
 import io.github.stigjohnny.shipping.tenants.internal.application.ThreadTenantContext;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * The built modules, tenants and quotes, wired in a Spring context for the in-process scenarios: their real classes
- * with a fixed clock, deterministic identifiers and the in-memory quote store. The application's own wiring is
- * planned, so the scenarios wire the modules here; each part is a configuration of its own, so that a negative fixture
- * can replace one part with an altered implementation.
+ * The built modules, tenants, quotes and shipments, wired in a Spring context for the in-process scenarios: their real
+ * classes with a fixed clock, deterministic identifiers, the in-memory stores and tracking numbers counted in memory.
+ * The application's own wiring is planned, so the scenarios wire the modules here; each part is a configuration of its
+ * own, so that a negative fixture can replace one part with an altered implementation.
  */
 final class InProcessModules {
 
@@ -57,6 +64,39 @@ final class InProcessModules {
         @Bean
         QuoteStore quoteStore() {
             return new InMemoryQuoteStore();
+        }
+    }
+
+    /** The shipments module's store and tracking numbers, in memory; never database evidence. */
+    @Configuration(proxyBeanMethods = false)
+    static class InMemoryShipments {
+
+        @Bean
+        ShipmentStore shipmentStore() {
+            return new InMemoryShipmentStore();
+        }
+
+        @Bean
+        TrackingNumbers trackingNumbers() {
+            AtomicLong taken = new AtomicLong();
+            return () -> new TrackingNumber("SIM%010d".formatted(taken.incrementAndGet()));
+        }
+
+        @Bean
+        io.github.stigjohnny.shipping.shipments.internal.domain.IdGenerator shipmentIds() {
+            return ShipmentFixtures.sequentialIds();
+        }
+    }
+
+    /** The shipments module's booking use case as main code defines it. */
+    @Configuration(proxyBeanMethods = false)
+    static class Shipments {
+
+        @Bean
+        BookShipment bookShipment(Clock clock, io.github.stigjohnny.shipping.shipments.internal.domain.IdGenerator ids,
+                CurrentTenant currentTenant, QuoteOffers quoteOffers, ApplicationEventPublisher events,
+                ShipmentStore store, TrackingNumbers trackingNumbers) {
+            return new BookShipment(clock, ids, currentTenant, quoteOffers, events, store, trackingNumbers);
         }
     }
 

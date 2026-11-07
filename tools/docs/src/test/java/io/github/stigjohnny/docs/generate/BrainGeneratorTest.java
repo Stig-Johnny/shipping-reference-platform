@@ -95,7 +95,8 @@ class BrainGeneratorTest {
         assertThat(page).contains("```mermaid\n" + definition + "```")
                 .contains("## Elements", "## Relationships", "## What this view cannot show")
                 .contains("| 8 | Quotes | Component | Spring Modulith module | built |",
-                        "| 9 | Shipments | Component | Spring Modulith module | planned |")
+                        "| 9 | Shipments | Component | Spring Modulith module | built |",
+                        "| 11 | Audit | Component | Spring Modulith module | planned |")
                 .contains("| Quotes | Tenants | Resolves the caller's tenant (tenants.api: CurrentTenant, TenantId) "
                         + "| Java | thick: REQUIRED dependency |");
     }

@@ -83,11 +83,11 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
                     }
                 }
 
-                shipments = component "Shipments" "Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled." "Spring Modulith module" "Planned" {
+                shipments = component "Shipments" "Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled." "Spring Modulith module" {
                     properties {
                         "contract.id" "shipments"
                         "contract.packages" "io.github.stigjohnny.shipping.shipments"
-                        "contract.status" "planned"
+                        "contract.status" "built"
                     }
                 }
 
@@ -271,6 +271,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
             clerk -> web "A clerk of Tenant Beta books an offer of Tenant Alpha's quote"
             web -> shipments "POST /api/v1/shipments (bookShipment), answered 404 quote-not-found, as for an unknown quote"
             shipments -> tenants "CurrentTenant.require(): Tenant Beta"
+            shipments -> db "Looks up the Idempotency-Key for Tenant Beta: no earlier shipment"
             shipments -> quotes "QuoteOffers.findOffer for Tenant Beta: QuoteNotFound"
             quotes -> db "Selects the quote by Tenant Beta and its ID: no row"
             autoLayout lr

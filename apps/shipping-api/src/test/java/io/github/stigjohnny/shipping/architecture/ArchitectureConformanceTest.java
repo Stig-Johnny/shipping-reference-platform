@@ -35,6 +35,8 @@ class ArchitectureConformanceTest {
     private static final Path MODEL = Path.of("../../architecture/workspace.dsl");
     private static final Path REPORTS = Path.of("build/reports/c4-contract");
     private static final String QUOTES = "io.github.stigjohnny.shipping.quotes.";
+    private static final String QUOTES_API = QUOTES + "api.";
+    private static final String SHIPMENTS = "io.github.stigjohnny.shipping.shipments.";
     private static final String TENANTS_API = "io.github.stigjohnny.shipping.tenants.api.";
 
     @Test
@@ -45,11 +47,11 @@ class ArchitectureConformanceTest {
         assertThat(report.components()).extracting(ComponentResult::id, ComponentResult::status).containsExactly(
                 tuple("audit", ComponentStatus.PLANNED), tuple("orders", ComponentStatus.PLANNED),
                 tuple("quotes", ComponentStatus.BUILT), tuple("returns", ComponentStatus.PLANNED),
-                tuple("shipments", ComponentStatus.PLANNED), tuple("tenants", ComponentStatus.BUILT),
+                tuple("shipments", ComponentStatus.BUILT), tuple("tenants", ComponentStatus.BUILT),
                 tuple("tracking", ComponentStatus.PLANNED));
         assertThat(report.components()).allSatisfy(component -> assertThat(component.classCount() > 0)
                 .as(component.id()).isEqualTo(component.status() == ComponentStatus.BUILT));
-        // The one relationship between built modules is evaluated; every other one touches a planned module.
+        // The three relationships between built modules are evaluated; every other one touches a planned module.
         assertThat(report.edges()).extracting(EdgeResult::source, EdgeResult::target, EdgeResult::mode,
                 EdgeResult::status).containsExactly(
                 tuple("audit", "quotes", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED),
@@ -59,16 +61,22 @@ class ArchitectureConformanceTest {
                 tuple("orders", "shipments", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED),
                 tuple("quotes", "tenants", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
                 tuple("returns", "shipments", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED),
-                tuple("shipments", "quotes", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
-                tuple("shipments", "tenants", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
+                tuple("shipments", "quotes", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
+                tuple("shipments", "tenants", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
                 tuple("tracking", "shipments", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED));
-        List<Evidence> quotesToTenants = report.edges().get(5).evidence();
-        assertThat(quotesToTenants).allSatisfy(evidence -> {
+        // Each converging arrow is backed by references from its source module into the target's api package only.
+        assertThat(evidence(report, "quotes", "tenants")).allSatisfy(evidence -> {
             assertThat(evidence.originClass()).startsWith(QUOTES);
             assertThat(evidence.targetClass()).startsWith(TENANTS_API);
-        });
-        assertThat(quotesToTenants).extracting(Evidence::targetClass)
-                .contains(TENANTS_API + "CurrentTenant", TENANTS_API + "TenantId");
+        }).extracting(Evidence::targetClass).contains(TENANTS_API + "CurrentTenant", TENANTS_API + "TenantId");
+        assertThat(evidence(report, "shipments", "quotes")).allSatisfy(evidence -> {
+            assertThat(evidence.originClass()).startsWith(SHIPMENTS);
+            assertThat(evidence.targetClass()).startsWith(QUOTES_API);
+        }).extracting(Evidence::targetClass).contains(QUOTES_API + "QuoteOffers", QUOTES_API + "BookableOffer");
+        assertThat(evidence(report, "shipments", "tenants")).allSatisfy(evidence -> {
+            assertThat(evidence.originClass()).startsWith(SHIPMENTS);
+            assertThat(evidence.targetClass()).startsWith(TENANTS_API);
+        }).extracting(Evidence::targetClass).contains(TENANTS_API + "CurrentTenant", TENANTS_API + "TenantId");
     }
 
     @Test
@@ -101,5 +109,11 @@ class ArchitectureConformanceTest {
         assertThatThrownBy(() -> ConformanceAssertions.assertConforms(report, dir.resolve("reports")))
                 .isInstanceOf(AssertionError.class)
                 .hasMessageContaining("DIVERGENCE quotes, tenants: quotes depends on tenants");
+    }
+
+    /** The references behind the edge from one component to another, which the report must have. */
+    private static List<Evidence> evidence(Report report, String source, String target) {
+        return report.edges().stream().filter(edge -> edge.source().equals(source) && edge.target().equals(target))
+                .findFirst().orElseThrow(() -> new AssertionError("no edge " + source + " -> " + target)).evidence();
     }
 }
