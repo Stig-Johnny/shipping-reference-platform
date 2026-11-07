@@ -93,12 +93,13 @@
   // Diagram enlargement: a toggle button (aria-pressed); the enlarged diagram scrolls inside its labelled region. The
   // stylesheet widens the drawing to its natural width or one and a half times the region, whichever is wider, within
   // the same fitted bounds.
+  // The button stays hidden until its figure's drawing is fitted (revealEnlarge, below); a figure whose drawing
+  // failed never offers it.
   Array.prototype.forEach.call(document.querySelectorAll('[data-enlarge]'), function (button) {
     var figure = document.getElementById(button.getAttribute('data-enlarge'));
     if (!figure) {
       return;
     }
-    button.hidden = false;
     button.addEventListener('click', function () {
       var enlarged = button.getAttribute('aria-pressed') !== 'true';
       button.setAttribute('aria-pressed', enlarged ? 'true' : 'false');
@@ -227,12 +228,54 @@
     observer.observe(region);
   };
 
+  var revealEnlarge = function (figure) {
+    var button = figure.querySelector('[data-enlarge]');
+    if (button) {
+      button.hidden = false;
+    }
+  };
+  // A figure whose drawing could not be made or fitted shows its failure note and its source again (as text), and
+  // offers no enlargement.
+  var failFigure = function (figure, source, original) {
+    figure.removeAttribute('data-fitted');
+    figure.classList.remove('is-enlarged');
+    if (source.textContent !== original || source.querySelector('svg')) {
+      source.textContent = original;
+    }
+    source.removeAttribute('data-processed');
+    var button = figure.querySelector('[data-enlarge]');
+    if (button) {
+      button.hidden = true;
+      button.setAttribute('aria-pressed', 'false');
+    }
+    var note = figure.querySelector('.diagram-failed');
+    if (note) {
+      note.hidden = false;
+    }
+  };
+
   // Mermaid, on the diagram pages only: initialised once, strict, without HTML labels, and run only on the diagram
-  // sources the generator emitted. Each drawing is then fitted. A failure leaves the source and shows a note; the
-  // tables say the same.
+  // sources the generator emitted. Each drawing is then fitted, and only then can it be enlarged. A missing or
+  // incomplete Mermaid, an exception, a rejected rendering or a drawing that cannot be fitted leaves the source and
+  // shows the note, which says where the text equivalent is.
   var diagrams = document.querySelectorAll('pre.diagram-source[data-diagram]');
+  var originals = Array.prototype.map.call(diagrams, function (source) {
+    return source.textContent;
+  });
+  var failAll = function () {
+    Array.prototype.forEach.call(diagrams, function (source, index) {
+      var figure = source.closest('figure.diagram');
+      if (figure) {
+        failFigure(figure, source, originals[index]);
+      }
+    });
+  };
   var mermaid = window.mermaid;
-  if (diagrams.length > 0 && mermaid && typeof mermaid.initialize === 'function' && typeof mermaid.run === 'function') {
+  if (diagrams.length > 0 && !(mermaid && typeof mermaid.initialize === 'function'
+      && typeof mermaid.run === 'function')) {
+    failAll();
+  } else if (diagrams.length > 0) {
+    try {
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: 'strict',
@@ -252,17 +295,23 @@
       }
     });
     mermaid.run({ nodes: Array.prototype.slice.call(diagrams) }).then(function () {
-      Array.prototype.forEach.call(document.querySelectorAll('figure.diagram'), function (figure) {
+      Array.prototype.forEach.call(diagrams, function (source, index) {
+        var figure = source.closest('figure.diagram');
+        if (!figure) {
+          return;
+        }
         var fit = measureFit(figure);
         if (fit) {
           applyFit(figure, fit);
+          revealEnlarge(figure);
+          fitOnResize(figure);
+        } else {
+          failFigure(figure, source, originals[index]);
         }
-        fitOnResize(figure);
       });
-    }, function () {
-      Array.prototype.forEach.call(document.querySelectorAll('.diagram-failed'), function (note) {
-        note.hidden = false;
-      });
-    });
+    }, failAll);
+    } catch (error) {
+      failAll();
+    }
   }
 })();

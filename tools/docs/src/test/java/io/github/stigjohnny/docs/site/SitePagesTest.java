@@ -342,10 +342,13 @@ class SitePagesTest {
         String adr = site.text("decisions/0011-java-documentation-tool-and-publication.html");
         String status = adr.substring(adr.indexOf("status-grid"), adr.indexOf("</dl>", adr.indexOf("status-grid")));
 
-        assertThat(status).contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> "
-                + "The documentation-tool and publication-scanner tests passed in the build that generated this site. "
-                + "<a href=\"#confirmation\">See confirmation</a>.</dd>").doesNotContain("Passed in the build",
-                "pages: the build job");
+        // A count of test classes and what they verify, then the names in a disclosure; the checks themselves are
+        // described once, under Confirmation.
+        assertThat(status).containsPattern("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing"
+                + "</span> \\d+ evidence test classes passed in the build that generated this site\\. This verifies "
+                + "documentation tooling and publication controls, not shipping behaviour\\. <a href=\"#confirmation\">"
+                + "See confirmation</a>\\.\n<details class=\"evidence-tests\"><summary>Evidence test classes \\(\\d+\\)"
+                + "</summary>").doesNotContain("Passed in the build", "pages: the build job");
         assertThat(count(adr, "Passed in the build that generated this site:")).isEqualTo(1);
         assertThat(adr.indexOf("Passed in the build that generated this site:"))
                 .isGreaterThan(adr.indexOf("<h3 id=\"confirmation\">Confirmation</h3>"));
@@ -380,9 +383,10 @@ class SitePagesTest {
     void theModelPagesQualifyTheCheckersEvidenceAndSayWhatItCovers() {
         // The count and what the tests do not prove stay in the ledger's line; the names are in the disclosure.
         String evidence = "<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Checker tests "
-                + "passing</span> 2 tests passed in the build that generated this site. These tests verify the "
-                + "checker; the shipping modules remain planned.\n<details class=\"evidence-tests\"><summary>The 2 "
-                + "tests by name</summary><p>ConformanceDivergenceTest, ConformanceAbsenceTest</p></details></dd>";
+                + "passing</span> 2 evidence test classes passed in the build that generated this site. These tests "
+                + "verify the checker; the shipping modules remain planned.\n<details class=\"evidence-tests\"><summary>"
+                + "Evidence test classes (2)</summary><p>ConformanceDivergenceTest, ConformanceAbsenceTest</p></details>"
+                + "</dd>";
         for (String page : List.of("model/index.html", "model/system-context.html", "model/containers.html",
                 "model/api-components.html", "model/quote-book-label.html")) {
             assertThat(site.text(page)).as(page).contains(evidence).doesNotContain(">Passing</span>",

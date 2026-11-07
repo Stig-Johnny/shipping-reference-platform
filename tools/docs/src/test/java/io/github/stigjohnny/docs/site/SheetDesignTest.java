@@ -85,11 +85,13 @@ class SheetDesignTest {
     void passingEvidenceIsACountWithWhatItDoesNotProveAndTheNamesInADisclosure() {
         String start = ledgerRow(site.text("index.html"), "Verified evidence");
         String line = start.substring(0, start.indexOf("\n<details"));
-        assertThat(line).contains("<span class=\"badge badge-shipped\">Passing</span> ")
-                .contains(" tests passed in the build that generated this site.")
+        // Only controls contribute passing evidence today, so the badge and the line say it is the tooling's.
+        assertThat(line).contains("<span class=\"badge badge-shipped\">Tooling tests passing</span> ")
+                .endsWith(" evidence test classes passed in the build that generated this site. These tests verify "
+                        + "repository tooling, not shipping behaviour.")
                 .doesNotContain("ConformanceDivergenceTest");
         assertThat(start.substring(start.indexOf("\n<details"))).startsWith(
-                "\n<details class=\"evidence-tests\"><summary>The ").contains("ConformanceDivergenceTest");
+                "\n<details class=\"evidence-tests\"><summary>Evidence test classes (").contains("ConformanceDivergenceTest");
         String model = ledgerRow(site.text("model/api-components.html"), "Verified evidence");
         assertThat(model.substring(0, model.indexOf("\n<details")))
                 .endsWith("These tests verify the checker; the shipping modules remain planned.");
@@ -127,6 +129,20 @@ class SheetDesignTest {
 
         assertThat(api).contains("<nav class=\"page-contents\" aria-labelledby=\"site-contents-title\">\n<details>\n"
                 + "<summary id=\"site-contents-title\">On this sheet (3)</summary>");
+    }
+
+    @Test
+    void theDiagramNotesComeBeforeTheDrawingAndSayWhereItsTextEquivalentIs() {
+        String start = site.text("index.html");
+        int failed = start.indexOf("<p class=\"diagram-note diagram-failed\" hidden>");
+        int noScript = start.indexOf("<noscript><p class=\"diagram-note\">");
+        int region = start.indexOf("<div class=\"diagram-scroll\"");
+
+        assertThat(List.of(noScript, failed, region)).doesNotContain(-1).isSorted();
+        assertThat(start.substring(failed, start.indexOf("</p>", failed))).contains("could not be drawn here; its source "
+                + "is shown instead. Sheet M-01 lists every element and relationship: <a href=\"model/system-context.html\">");
+        assertThat(start).contains("<button type=\"button\" class=\"button\" data-enlarge=\"figure-system-context\" "
+                + "aria-pressed=\"false\" hidden>Enlarge diagram</button>");
     }
 
     private static String titleBlock(String page) {

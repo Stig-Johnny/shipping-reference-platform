@@ -542,7 +542,7 @@ thead th,
 }
 
 .evidence-tests summary {
-  display: inline-block;
+  display: list-item;
   min-height: 24px;
   color: var(--link);
   font-size: 14px;
@@ -570,7 +570,9 @@ thead th,
   line-height: 20px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   vertical-align: 1px;
 }
 
@@ -970,6 +972,28 @@ blockquote {
     min-height: 44px;
     padding-top: 12px;
     padding-bottom: 12px;
+  }
+
+  .button,
+  .theme-switch label,
+  details > summary,
+  .evidence-tests summary,
+  .page-contents a,
+  .page-related a,
+  .card-title a,
+  .reading-paths a,
+  .actions > a,
+  .breadcrumb a,
+  .site-name a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .reading-paths a,
+  .actions > a,
+  .breadcrumb a,
+  .site-name a {
+    display: inline-block;
   }
 
   .site-main {

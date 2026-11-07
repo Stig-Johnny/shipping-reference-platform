@@ -200,6 +200,46 @@ class SiteAssetsTest {
                 "figure.removeAttribute('data-fitted')", "window.requestAnimationFrame(");
     }
 
+    @Test
+    void aDiagramThatCannotBeDrawnOrFittedShowsItsNoteAndSourceAndOffersNoEnlargement() {
+        // The button is revealed only by revealEnlarge, after a successful fit.
+        assertThat(count(js, "button.hidden = false")).isEqualTo(1);
+        assertThat(js.indexOf("button.hidden = false")).isGreaterThan(js.indexOf("var revealEnlarge = function"));
+        assertThat(js).contains("applyFit(figure, fit);\n          revealEnlarge(figure);",
+                "failFigure(figure, source, originals[index]);", "}, failAll);", "} catch (error) {\n      failAll();",
+                "source.textContent = original;", "button.hidden = true;", "note.hidden = false;");
+        // A missing or incomplete Mermaid fails every figure on the page.
+        assertThat(js).contains("if (diagrams.length > 0 && !(mermaid && typeof mermaid.initialize === 'function'\n"
+                + "      && typeof mermaid.run === 'function')) {\n    failAll();");
+    }
+
+    @Test
+    void statusWordsReflowAndNarrowScreensGetFortyFourPixelTargets() {
+        int badge = css.indexOf("\n.badge {");
+        assertThat(css.substring(badge, css.indexOf("}", badge))).contains("white-space: normal;",
+                "max-width: 100%;", "overflow-wrap: anywhere;").doesNotContain("nowrap");
+        int narrow = css.indexOf("@media (max-width: 719.98px)");
+        String phone = css.substring(narrow, css.indexOf("@media (min-width: 720px)"));
+        assertThat(phone).contains("""
+                  .button,
+                  .theme-switch label,
+                  details > summary,
+                  .evidence-tests summary,
+                  .page-contents a,
+                  .page-related a,
+                  .card-title a,
+                  .reading-paths a,
+                  .actions > a,
+                  .breadcrumb a,
+                  .site-name a {
+                    min-height: 44px;
+                    min-width: 44px;
+                  }
+                """);
+        int disclosure = css.indexOf(".evidence-tests summary {");
+        assertThat(css.substring(disclosure, css.indexOf("}", disclosure))).contains("display: list-item;");
+    }
+
     private static int count(String text, String part) {
         int count = 0;
         for (int at = text.indexOf(part); at >= 0; at = text.indexOf(part, at + 1)) {
