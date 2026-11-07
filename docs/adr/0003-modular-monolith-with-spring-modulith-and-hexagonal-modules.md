@@ -69,7 +69,8 @@ Chosen option 1.
 - Bad, because extracting a module would still be a redesign of that boundary, not a packaging change. A booking
   looks up its quote's offer and records its event publication in one database transaction
   (`docs/modules/shipments.md`). Across services that lookup becomes a network call that can fail or time out on its
-  own, and the publication, delivered within one process today, needs a message broker to reach a consumer in another.
+  own, and the planned in-process publication would need reliable cross-service delivery, for example through a
+  message broker.
 - Bad, because hexagonal ports add interfaces that a small CRUD module would not need.
 - Bad, because Error Prone and NullAway couple the build to compiler internals; a JDK update needs a compatibility
   check and an allowlist review.

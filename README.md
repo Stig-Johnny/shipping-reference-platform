@@ -16,29 +16,30 @@ Built and running:
 - **The dependency allowlist check**, `tools/policy/PolicyCheck.java`. It needs only the JDK. It fails when a locked
   dependency, the Gradle wrapper or an Action has no approved, unexpired review in `security/allowlist.json`, or when
   a checksum differs from its review. The required `preflight` check runs the main branch's copy of it on every pull
-  request. It has no tests of its own yet: scripted tamperings (ADR 0007) and two pull requests made to fail on
-  purpose ([security/README.md](security/README.md)) showed that it fails.
+  request that targets `main`, and refuses pull requests from forks. It has no tests of its own yet: scripted
+  tamperings (ADR 0007) and two pull requests made to fail on purpose ([security/README.md](security/README.md))
+  showed that it fails.
 - **The documentation tool**, `tools/docs`, with its tests. It generates the C4 view pages, `BRAIN.md` and a static
-  site. In `java` it fails when they drift from their sources, when a link or anchor is broken, or when a capability
-  is claimed without a passing test. The `pages` workflow scans the site before each upload and publishes it from
-  `main` at <https://stig-johnny.github.io/shipping-reference-platform/>.
+  site. In `java`, it checks committed generated files for drift, repository-local links and anchors for validity,
+  and shipped or partial capability claims against passing test evidence. The `pages` workflow scans the site before
+  each upload and publishes it from `main` at <https://stig-johnny.github.io/shipping-reference-platform/>.
 
 The specification is in place too: the model, the API contract, the decisions, the module specifications, the risk
 policy and the agent rules, with the reviewed toolchain.
 
-Planned, with no code yet: the shipping API's seven modules (`apps/shipping-api` holds only its build file and
-lockfile), the React workbench, the generated API client and the checks that need them. Every product capability in
-[docs/capabilities/capabilities.yaml](docs/capabilities/capabilities.yaml) is `planned`; that file is the source of
-truth for status and evidence. [docs/gaps.md](docs/gaps.md) lists what a green build does not prove.
+Planned, with no code yet: the shipping API's seven modules (`apps/shipping-api` holds only its build file, lockfile
+and `AGENTS.md`), the React workbench, the generated API client and the checks that need them. Every product
+capability in [docs/capabilities/capabilities.yaml](docs/capabilities/capabilities.yaml) is `planned`; that file is
+the source of truth for status and evidence. [docs/gaps.md](docs/gaps.md) lists what a green build does not prove.
 
 ## The checker
 
 `libs/c4-contract-kit` reads a C4 model written in Structurizr DSL and the compiled class files, without loading the
 classes, and compares the two in both directions. A reference from one component to another that the model does not
 declare fails the check as a divergence, which lists each reference: the classes and members on both ends, its kind,
-and the source line where the class file records one. A relationship marked `REQUIRED` that no class backs with a
-direct static reference fails it as an absence. A `PERMITTED` relationship without references is reported as "no
-static evidence", not as a failure.
+and the source line where the class file records one. For relationships between built components, a `REQUIRED` one
+that no class backs with a direct static reference fails the check as an absence, and a `PERMITTED` one without
+references is reported as "no static evidence", not as a failure.
 
 For example, a test fixture models a small shop in which `orders -> billing` is `REQUIRED`. Remove the one method in
 `orders` that uses `billing`, and the check fails with an absence: "The model requires orders -> billing, but no class
@@ -163,7 +164,7 @@ see each other's data, enforced in queries and by forced PostgreSQL row-level se
 | `quotes` | Planned for v0.1; no code yet | `tenants` (REQUIRED) |
 | `shipments` | Planned for v0.1; no code yet | `quotes`, `tenants` (REQUIRED) |
 | `tenants` | Minimal implementation planned for v0.1; no code yet | nothing |
-| `audit` | Minimal implementation planned for v0.1; no code yet | `shipments`, `tenants` (REQUIRED); `quotes` (PERMITTED, no static evidence yet) |
+| `audit` | Minimal implementation planned for v0.1; no code yet | `shipments`, `tenants` (REQUIRED); `quotes` (PERMITTED, not evaluated) |
 | `orders` | planned, no code | `quotes`, `shipments` (PERMITTED, not evaluated) |
 | `tracking` | planned, no code | `shipments` (PERMITTED, not evaluated) |
 | `returns` | planned, no code | `shipments` (PERMITTED, not evaluated) |
@@ -175,7 +176,7 @@ checker exists) and which part is **planned**.
 
 | Control | Fails the build when | What it cannot catch | Where it runs | Status |
 |---|---|---|---|---|
-| C4 conformance: divergence | A class in one module references another module without a relationship in the model. | Use through reflection, SQL, HTTP or configuration; references the class file does not record (compile-time constants, casts); a model widened to allow the dependency (the owner's approval of such a change is not enforced yet). | `java`: `ArchitectureConformanceTest` | partial: the checker and its tests run in `java`; the check of the application waits for its code |
+| C4 conformance: divergence | A class in one module references another module without a relationship in the model. | Use through reflection, SQL, HTTP or configuration; references lost through constant inlining or not reported by ArchUnit, including casts; a model widened to allow the dependency (the owner's approval of such a change is not enforced yet). | `java`: `ArchitectureConformanceTest` | partial: the checker and its tests run in `java`; the check of the application waits for its code |
 | C4 conformance: absence | A `REQUIRED` relationship has no static reference in the bytecode. | A reference that exists while the behaviour behind it does nothing. | `java`: `ArchitectureConformanceTest` | partial (as above) |
 | Model validity | Package mappings overlap, are empty or leave classes uncovered; a planned module has code; forbidden DSL directives; tags disagree with contract properties; cycles. | Whether the model describes the right architecture. | `java`: `RepositoryWorkspaceTest` reads `architecture/workspace.dsl` with the library | **enforced** for the model file; the rules that need classes (uncovered classes, code in a planned module) wait for application code |
 | Module boundaries and layering | Access to another module's internal packages, module cycles, Spring in domain code, unexpected packages. | Coupling through shared data or timing. | `java`: `ModularityTest`, `HexagonalLayeringTest` | planned |
@@ -230,14 +231,14 @@ off.
 
 | Step | Command |
 |---|---|
-| Check every dependency against the allowlist (the JDK alone; nothing from the repository runs) | `java tools/policy/PolicyCheck.java .` |
+| Check every dependency against the allowlist (the JDK alone; runs the repository's policy checker without invoking the build) | `java tools/policy/PolicyCheck.java .` |
 | Run all Java checks (compile with Error Prone and NullAway, tests) | `./gradlew check` |
 | Run mutation tests (CI only, the `mutation` job: PIT's control socket accepts unauthenticated connections) | `./gradlew :libs:c4-contract-kit:pitest` |
 | Check docs and the brain; regenerate them | `./gradlew :tools:docs:check`; `./gradlew :tools:docs:generate` |
 | Build the documentation site into `tools/docs/build/site/` (open its `index.html`) | `./gradlew :tools:docs:site` |
 
-Not built yet; their commands arrive with their code: a toolchain bootstrap script, PostgreSQL 18.6 with the two
-roles, the API with the `demo` profile, the workbench, web checks, and contract and end-to-end tests.
+Not built yet; their commands arrive with their code: a developer toolchain bootstrap script, PostgreSQL 18.6 with
+the two roles, the API with the `demo` profile, the workbench, web checks, and contract and end-to-end tests.
 
 ## Honest limits
 
@@ -252,12 +253,6 @@ roles, the API with the `demo` profile, the workbench, web checks, and contract 
 - Pre-use dependency enforcement covers declared dependencies on the sanctioned CI path only.
 - The tariff, carrier and labels are fictional. Nothing here is production-ready. The application is not deployed
   anywhere; only the documentation site is published.
-
-## Approval
-
-Agent-authored changes receive recorded automated review; sensitive changes additionally receive the owner’s human
-approval. This demonstrates accountable human oversight, not independent two-person review or a production-security
-certification. Today both are practice, not enforcement: no check requires the review record or the approval yet.
 
 ## Prior art
 

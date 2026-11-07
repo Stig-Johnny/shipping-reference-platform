@@ -76,10 +76,10 @@ None in v0.1. The module has no `api` package, and no other module depends on au
 | A4 | The listener cannot write under the wrong tenant or without a tenant. | `RowLevelSecurityIntegrationTest` |
 | A5 | The runtime role cannot update or delete audit entries. | `RowLevelSecurityCatalogTest` |
 
-The static check proves only that audit references `shipments.api`. A listener that compiles but never writes still
-passes it. The integration tests above are to catch that case. A demonstration of exactly this limit with a
-deliberately broken listener is planned as the library's slice 10 (`libs/c4-contract-kit/AGENTS.md`); like the
-tests, it does not exist yet.
+Once implemented, the C4 check will prove only that audit references shipments; separate module-boundary checks will
+restrict access to `shipments.api`. A listener that compiles but never writes would still pass them. The integration
+tests above are to catch that case. A demonstration of exactly this limit with a deliberately broken listener is
+planned as the library's slice 10 (`libs/c4-contract-kit/AGENTS.md`); like the tests, it does not exist yet.
 
 ## Risk levels of its paths (`policy/risk.json`)
 

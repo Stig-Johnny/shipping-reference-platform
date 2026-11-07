@@ -71,7 +71,7 @@ Unknown paths are level 3. Details: `docs/risk-levels.md`, `policy/risk.json`.
   scripts unless the allowlist entry's conditions name that command.
 - Never use remote `!include`, scripts or plugins in DSL files, or remote Gradle scripts.
 - Never run pull request code in a `pull_request_target` workflow: such a workflow runs in the base repository's
-  context, where secrets and a token that can write are available. It may check out the pull request only as data,
+  context, which can expose secrets and a write-capable token. It may check out the pull request only as data,
   into a directory of its own and without persisted credentials, for the base branch's tools to read; nothing from
   that checkout may be executed, built, installed or sourced. `preflight` is the only such workflow. It refuses pull
   requests from forks, has `contents: read` only, and apart from two reviewed Actions it runs only the base branch's
