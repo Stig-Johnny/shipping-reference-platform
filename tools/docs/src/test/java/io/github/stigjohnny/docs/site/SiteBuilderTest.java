@@ -230,6 +230,15 @@ class SiteBuilderTest {
     }
 
     @Test
+    void theFlowDiagramsDescriptionCountsItsSequenceFromTheSource() {
+        fixture.edit("docs/flows/quote-book-label.md", text -> text.replaceFirst("(?m)^.*Web->>Shipments: GET "
+                + "/api/v1/shipments/\\{id}/label\\n", ""));
+
+        assertThat(build("site").text("model/flow-quote-book-label.html"))
+                .contains("The step tables below follow the separate 28-step sequence.");
+    }
+
+    @Test
     void aBrokenAnchorFailsTheBuild() {
         fixture.edit("docs/risk-levels.md", text -> text + "\nSee [nowhere](gaps.md#no-such-section).\n");
 

@@ -350,6 +350,17 @@ class SitePagesTest {
     }
 
     @Test
+    void theFlowDiagramDescribesItselfForScreenReaders() {
+        String flow = site.text("model/flow-quote-book-label.html");
+
+        assertThat(flow).contains("accDescr: Dynamic view with 8 elements and 15 relationships. The linked Quote, book "
+                + "and download a simulated label page lists its elements and relationships. The step tables below "
+                + "follow the separate 29-step sequence.");
+        assertThat(site.text("model/quote-book-label.html")).contains("accDescr: Dynamic view with 8 elements and 15 "
+                + "relationships. The tables on the page list every one of them.");
+    }
+
+    @Test
     void theRepositoryPageDescribesTheWorkflowInOrder() {
         String repository = site.text("start/repository.html");
 

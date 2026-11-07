@@ -4,6 +4,7 @@ import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.Html;
 import io.github.stigjohnny.docs.generate.ViewText;
 import io.github.stigjohnny.docs.mermaid.MermaidDiagram;
+import io.github.stigjohnny.docs.mermaid.MermaidValidator;
 import io.github.stigjohnny.docs.model.C4Model;
 import io.github.stigjohnny.docs.model.C4View;
 import io.github.stigjohnny.docs.model.ModelElement;
@@ -14,8 +15,11 @@ import io.github.stigjohnny.docs.repo.Sources;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * The Model section: an overview, one page per C4 view under the diagram template (purpose above, a white panel that
@@ -66,7 +70,10 @@ final class ModelPages {
                     || !rendered.body().contains(marker)) {
                 throw new DocsException(flow.path() + ": the dynamic view's place cannot be found");
             }
-            String figure = figure(view, diagram, model, "The view's page lists its elements and relationships: "
+            String definition = MermaidValidator.validate(diagram.definition().replaceFirst("(?m)^(\\s*accDescr: ).*$",
+                    "$1" + Matcher.quoteReplacement(flowDescription(view, flow.body()))), flow.path());
+            String figure = figure(view, diagram, definition, model, "The view's page lists its elements and "
+                    + "relationships: "
                     + SiteContext.link(page, viewPage(view), ViewNames.title(view)) + ". The step numbers in the "
                     + "tables below follow the sequence source, which has more steps than this view.");
             context.map().anchor(page, "dynamic-view");
@@ -87,6 +94,31 @@ final class ModelPages {
     }
 
     private static final String FIGURE_MARKER = "SITEDYNAMICVIEWFIGURE";
+    private static final Pattern SEQUENCE = Pattern.compile("```mermaid\n\\s*sequenceDiagram\n(.*?)```", Pattern.DOTALL);
+    private static final Pattern MESSAGE = Pattern.compile(
+            "^\\s*[A-Za-z0-9_]+\\s*(-->>|->>|-->|->|--x|-x|--\\)|-\\))\\s*[+-]?[A-Za-z0-9_]+\\s*:");
+
+    /**
+     * The flow figure's accessible description, from the data: the view's elements and relationships, the page that
+     * lists them, and how many numbered steps the flow's hand-written sequence has, which its step tables follow.
+     */
+    static String flowDescription(C4View view, String flowMarkdown) {
+        StringBuilder text = new StringBuilder("Dynamic view with " + view.elementIds().size() + " elements and "
+                + view.steps().size() + " relationships. The linked " + ViewNames.title(view) + " page lists its "
+                + "elements and relationships.");
+        sequenceSteps(flowMarkdown).ifPresent(steps -> text.append(" The step tables below follow the separate ")
+                .append(steps).append("-step sequence."));
+        return text.toString();
+    }
+
+    /** The numbered messages of a document's first autonumbered sequence diagram, if it has one. */
+    static OptionalInt sequenceSteps(String markdown) {
+        Matcher fence = SEQUENCE.matcher(markdown);
+        if (!fence.find() || fence.group(1).lines().noneMatch(line -> line.strip().equals("autonumber"))) {
+            return OptionalInt.empty();
+        }
+        return OptionalInt.of((int) fence.group(1).lines().filter(line -> MESSAGE.matcher(line).find()).count());
+    }
 
     /** The flow's Markdown with a "Dynamic view" section in place of its "Sequence" heading, or before its first one. */
     static String withDynamicView(String markdown) {
@@ -110,7 +142,7 @@ final class ModelPages {
      * site's script draws, the notes for a reader without the script, and the legend right below; {@code captionTail}
      * says where the text equivalent is.
      */
-    static String figure(C4View view, MermaidDiagram diagram, C4Model model, String captionTail) {
+    static String figure(C4View view, MermaidDiagram diagram, String definition, C4Model model, String captionTail) {
         String slug = ViewNames.slug(view);
         String figure = "figure-" + slug;
         return "<figure class=\"diagram\" id=\"" + figure + "\">\n"
@@ -118,7 +150,7 @@ final class ModelPages {
                 + "\" aria-pressed=\"false\" hidden>Enlarge diagram</button></div>\n"
                 + "<div class=\"diagram-scroll\" role=\"region\" tabindex=\"0\" aria-label=\""
                 + Html.escape("Diagram: " + ViewNames.title(view) + ". Scrolls when enlarged.") + "\">\n"
-                + "<pre class=\"diagram-source\" data-diagram=\"" + slug + "\">" + Html.escape(diagram.definition())
+                + "<pre class=\"diagram-source\" data-diagram=\"" + slug + "\">" + Html.escape(definition)
                 + "</pre>\n</div>\n"
                 + "<noscript><p class=\"diagram-note\">A script draws this diagram. Without it you see the diagram's "
                 + "source, and the tables list the same elements and relationships.</p></noscript>\n"
@@ -169,8 +201,8 @@ final class ModelPages {
         body.append("<p class=\"prose\">").append(Html.escape(ViewNames.kind(view) + " of the "
                 + (view.scopeName().isEmpty() ? "workspace" : view.scopeName()) + ". In the model this view is "))
                 .append("<code>").append(Html.escape(view.key())).append("</code>.</p>\n")
-                .append(figure(view, diagram, model, "The tables below list every element and relationship of the "
-                        + "view."));
+                .append(figure(view, diagram, diagram.definition(), model, "The tables below list every element and "
+                        + "relationship of the view."));
         body.append("<h2 id=\"elements\">Elements</h2>\n");
         List<ViewText.ElementRow> elements = ViewText.elements(view, model, sources.elementStatus());
         HtmlTable table = HtmlTable.of("Elements of the view (" + elements.size() + ")", "Elements of " + title
