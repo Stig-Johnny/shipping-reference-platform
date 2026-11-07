@@ -93,5 +93,49 @@ use with the files unmodified triggers none.
 
 ## 11. Not verified
 
-- The tarball contents.
-- The maintainers' identities.
+- The tarball contents. *Closed by the 2026-11-07 amendment.*
+- The maintainers' identities. Still not verified.
+
+## Amendment, 2026-11-07: the tarball audit
+
+**Method.** The security-review agent did this on 2026-11-07, as for axe-core:
+
+- **Downloaded** the tarball into a new empty directory on the owner's MacBook and checked it against `dist.integrity`,
+  `dist.shasum` and the registry signatures.
+- **Verified the attestations.**
+- **Listed and read** its seven entries.
+- **Queried advisories** in OSV, deps.dev and GitHub's advisory database.
+
+Nothing was installed or run.
+
+**Identity and provenance.**
+
+- **The tarball.** `playwright-4.14.0.tgz`, 12,112 bytes, 7 entries (= `dist.fileCount`), SHA-256
+  `0d16690e81a9c80f653920da310010bd530b3e2bffe18d299769113848b40bdf`. Its integrity equals the value in the conditions.
+- **Signatures.** Both registry signatures and the publish attestation are "Verified OK" against npm's key, and the
+  subject's SHA-512 equals the tarball.
+- **SLSA provenance: verified as far as the certificate.**
+  - The DSSE signature checks against a Fulcio certificate that chains to Sigstore's Fulcio root at signing time
+    (2026-10-15 13:31:37Z).
+  - The certificate binds `https://github.com/dequelabs/axe-core-npm/.github/workflows/deploy.yml@refs/heads/master`,
+    trigger `push`, commit `2375f7f5523a2accaeef91a3cb12e30a46e7fbea` (= `gitHead`, as in section 3) and run
+    `38743173140`.
+  - The registry's publish attestation is from 13:33:21Z. Rekor inclusion was not verified.
+
+**Contents.**
+
+- `dist/index.js` (11,756 bytes, CommonJS) and `dist/index.mjs` (9,683 bytes, ES module), from one tsup build, with
+  their two `.d.ts` files, `LICENSE` (MPL-2.0), `README.md` and `package.json`.
+- The only modules required are `assert` and `axe-core`. There is no inlined third-party code: no `__commonJS`, `__esm`
+  or `node_modules` marker, only the package's own functions.
+- No native code, no executable file, and no text addressed to AI agents (case-insensitive search).
+
+**What it does.** It reads `axe-core`'s source and evaluates it in every frame with `frame.evaluate`, then runs
+`axe.runPartial` and `axe.finishRun` (or `axe.run` in legacy mode) and returns the results. It makes no network
+request of its own. The one URL in it (`errorUrl`, a GitHub documentation page) appears only in error messages.
+
+**The `prepare` script** (`pnpm exec playwright install && pnpm run build`). It is unchanged in the tarball's
+`package.json`. npm runs `prepare` for git and local installs, not for a registry tarball, and `--ignore-scripts`
+stops it anyway. The existing condition (registry only, never git) stands.
+
+**Advisories: none.** OSV, deps.dev and GitHub's advisory database return nothing for 4.14.0 on 2026-11-07.
