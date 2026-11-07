@@ -3,10 +3,12 @@ package io.github.stigjohnny.docs.site;
 import io.github.stigjohnny.docs.Html;
 import java.util.List;
 import java.util.function.UnaryOperator;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The shell around every page: the policy, the skip link, the banner with the navigation disclosure and the theme
- * switch, the main landmark with the page template, and the footer. Links come from a {@link UnaryOperator} that turns
+ * The shell around every page: the policy, the skip link, the banner with the register (the navigation disclosure)
+ * and the theme switch, the main landmark with the sheet (its header and title block, then the page template), and
+ * the footer. Links come from a {@link UnaryOperator} that turns
  * a site path into a URL: relative for every page, absolute under the Pages base path for the 404 page only, because
  * GitHub Pages serves that one at whatever path was requested.
  */
@@ -24,7 +26,8 @@ final class PageShell {
     private PageShell() {
     }
 
-    static String render(SitePage page, List<SitePage> pages, String revision, UnaryOperator<String> url) {
+    static String render(SitePage page, List<SitePage> pages, String revision, @Nullable String updated,
+            UnaryOperator<String> url) {
         StringBuilder out = new StringBuilder("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n")
                 .append("<meta http-equiv=\"Content-Security-Policy\" content=\"")
                 .append(page.diagrams() ? MERMAID_POLICY : STRICT_POLICY).append("\">\n")
@@ -50,23 +53,31 @@ final class PageShell {
                 .append("<label><input type=\"radio\" name=\"theme\" value=\"dark\"> Dark</label>\n")
                 .append("</fieldset>\n</details>\n</header>\n")
                 .append("<main id=\"site-main\" class=\"site-main\" tabindex=\"-1\">\n<div class=\"page\">\n");
-        if (page.status() != null) {
-            out.append(Navigation.breadcrumb(page, url));
+        out.append("<header class=\"sheet-header\">\n");
+        StatusPanel status = page.status();
+        if (status != null) {
+            out.append(Navigation.breadcrumb(page, url))
+                    .append("<p class=\"sheet-code\"><span class=\"visually-hidden\">Sheet </span>")
+                    .append(Sheets.code(page.path())).append("</p>\n");
         }
         out.append("<h1>").append(Html.escape(page.title())).append("</h1>\n")
                 .append("<p class=\"page-summary\">").append(Html.escape(page.summary())).append("</p>\n");
-        StatusPanel status = page.status();
+        if (status != null) {
+            out.append(sheetMeta(page, revision, updated));
+        }
+        out.append("</header>\n");
         if (status != null) {
             out.append(status.html());
         }
         if (!page.contents().isEmpty()) {
-            out.append("<nav class=\"page-contents\" aria-labelledby=\"site-contents-title\">\n")
-                    .append("<h2 id=\"site-contents-title\">Contents</h2>\n<ol>\n");
+            out.append("<nav class=\"page-contents\" aria-labelledby=\"site-contents-title\">\n<details>\n")
+                    .append("<summary id=\"site-contents-title\">On this sheet (").append(page.contents().size())
+                    .append(")</summary>\n<ol>\n");
             for (SitePage.Contents entry : page.contents()) {
                 out.append("<li><a href=\"#").append(Html.escape(entry.id())).append("\">")
                         .append(Html.escape(entry.text())).append("</a></li>\n");
             }
-            out.append("</ol>\n</nav>\n");
+            out.append("</ol>\n</details>\n</nav>\n");
         }
         out.append("<div class=\"page-body\">\n").append(page.body()).append("</div>\n");
         if (!page.related().isEmpty()) {
@@ -86,6 +97,22 @@ final class PageShell {
                 .append("\">Repository NOTICE</a> and <a href=\"").append(url.apply(NoticesPage.PAGE))
                 .append("\">Third-party notices</a>.</p>\n</footer>\n</div>\n</body>\n</html>\n");
         return out.toString();
+    }
+
+    /**
+     * The sheet's title block: what the page is generated from, the revision it was built from (its first eight
+     * characters; the full SHA is at the foot of the page) and, when the page renders one hand-written document, that
+     * document's own update date. A page made from several sources shows no date rather than an invented one.
+     */
+    static String sheetMeta(SitePage page, String revision, @Nullable String updated) {
+        StringBuilder out = new StringBuilder("<dl class=\"sheet-meta\">\n")
+                .append("<div><dt>Source</dt><dd>").append(Html.escape(page.source())).append("</dd></div>\n")
+                .append("<div><dt>Revision</dt><dd><code>").append(Html.escape(revision.substring(0, 8)))
+                .append("</code></dd></div>\n");
+        if (updated != null) {
+            out.append("<div><dt>Updated</dt><dd>").append(Html.escape(updated)).append("</dd></div>\n");
+        }
+        return out.append("</dl>\n").toString();
     }
 
     /** The full commit SHA the site was built from, as plain text; the builder accepts nothing else. */

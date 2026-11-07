@@ -5,6 +5,7 @@ import io.github.stigjohnny.docs.repo.Capability;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.TestEvidence;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -71,8 +72,29 @@ final class Statuses {
             return Badge.NONE.html("None yet") + " No passing test is evidence for this page yet; test names in its "
                     + "text are acceptance targets.";
         }
-        return Badge.SHIPPED.html("Passing") + " " + Html.escape(String.join(", ", passing)
-                + " passed in the build that generated this site.");
+        boolean tooling = capabilities.stream().filter(c -> c.evidence().stream().anyMatch(evidence::passed))
+                .allMatch(Capability::control);
+        return tooling ? Badge.SHIPPED.html("Tooling tests passing") + " " + passed(passing, TOOLING)
+                : Badge.SHIPPED.html("Passing") + " " + passed(passing, "");
+    }
+
+    /** What passing tests prove when only controls (the repository's tooling) contribute them. */
+    static final String TOOLING = "These tests verify repository tooling, not shipping behaviour.";
+
+    /**
+     * Passing evidence as a count of test classes, then {@code limits} (which says what they do not prove, and is never
+     * hidden), then the full list of class names in a disclosure. Built from the test names, never from HTML.
+     */
+    static String passed(Collection<String> tests, String limits) {
+        return passed(tests, limits, "");
+    }
+
+    /** As {@link #passed(Collection, String)}, with {@code after}, HTML this tool wrote, ending the first line. */
+    static String passed(Collection<String> tests, String limits, String after) {
+        String count = tests.size() + (tests.size() == 1 ? " evidence test class" : " evidence test classes");
+        return Html.escape(count + " passed in the build that generated this site." + (limits.isEmpty() ? ""
+                : " " + limits)) + after + "\n<details class=\"evidence-tests\"><summary>Evidence test classes ("
+                + tests.size() + ")</summary><p>" + Html.escape(String.join(", ", tests)) + "</p></details>";
     }
 
     static String words(String status) {

@@ -5,8 +5,9 @@ import java.util.List;
 import java.util.function.UnaryOperator;
 
 /**
- * The site navigation and the breadcrumb. Every section is listed; the current section also lists its pages. The
- * current page is marked with {@code aria-current="page"} and the current section with text emphasis.
+ * The site navigation, as the drawing register, and the breadcrumb. Every section is listed with its sheet code; the
+ * current section also lists its pages. The current page is marked with {@code aria-current="page"} and the current
+ * section with text emphasis.
  */
 final class Navigation {
 
@@ -20,8 +21,8 @@ final class Navigation {
             boolean isIndex = inSection && current.path().equals(section.index());
             out.append("<li><a class=\"nav-section").append(inSection ? " is-active" : "").append("\" href=\"")
                     .append(Html.escape(url.apply(section.index()))).append('"')
-                    .append(isIndex ? " aria-current=\"page\"" : "").append('>').append(Html.escape(section.label()))
-                    .append("</a>");
+                    .append(isIndex ? " aria-current=\"page\"" : "").append('>')
+                    .append(row(Sheets.code(section.index()), Html.escape(section.label()))).append("</a>");
             if (inSection) {
                 List<SitePage> children = pages.stream()
                         .filter(p -> p.section() == section && !p.path().equals(section.index())).toList();
@@ -32,8 +33,9 @@ final class Navigation {
                         String badge = child.navBadge();
                         out.append("<li><a href=\"").append(Html.escape(url.apply(child.path()))).append('"')
                                 .append(isCurrent ? " aria-current=\"page\"" : "").append('>')
-                                .append(Html.escape(child.navLabel()))
-                                .append(badge == null ? "" : " " + Badge.NEUTRAL.html(badge)).append("</a></li>\n");
+                                .append(row(Sheets.code(child.path()), Html.escape(child.navLabel())
+                                        + (badge == null ? "" : " " + Badge.NEUTRAL.html(badge))))
+                                .append("</a></li>\n");
                     }
                     out.append("</ul>\n");
                 }
@@ -41,6 +43,12 @@ final class Navigation {
             out.append("</li>\n");
         }
         return out.append("</ul>\n</nav>\n").toString();
+    }
+
+    /** A register row: the sheet code in its fixed column, then the title, which wraps beside it. */
+    private static String row(String code, String title) {
+        return "<span class=\"register-code\">" + code + "</span> <span class=\"register-title\">" + title
+                + "</span>";
     }
 
     static String breadcrumb(SitePage page, UnaryOperator<String> url) {
