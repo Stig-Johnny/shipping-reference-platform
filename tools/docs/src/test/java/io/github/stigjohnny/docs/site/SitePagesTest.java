@@ -497,6 +497,15 @@ class SitePagesTest {
         assertThat(site.text("trust/third-party-notices.html")).contains("six diagram pages");
     }
 
+    @Test
+    void theModulesIndexSaysTheWebAppCallsTheApiThroughItsHandWrittenAdapter() {
+        // ADR 0009, amendment 2026-11-07: the first runnable slice generates no client.
+        String row = "<tr><th scope=\"row\">Web app</th><td>a container, not a checked module</td><td></td>"
+                + "<td>the API, through its hand-written typed HTTP adapter</td>";
+
+        assertThat(site.text("modules/index.html")).contains(row).doesNotContain("generated client");
+    }
+
     private static int count(String text, String part) {
         int count = 0;
         for (int at = text.indexOf(part); at >= 0; at = text.indexOf(part, at + 1)) {

@@ -30,7 +30,7 @@ Books shipments from quote offers with tenant-scoped idempotency, cancels them a
   - returns (PERMITTED, planned): Will create return shipments for delivered shipments [Java]
 - **Other relationships, not checked by the Java check:**
   - from Web app (not checked): Books, lists, reads and cancels shipments; downloads labels [JSON over HTTPS]
-  - to Database (not checked): Stores shipments and idempotency keys in schema shipments; writes event publications [Spring Data JDBC]
+  - to Database (not checked): Stores shipments and idempotency keys in schema shipments; writes event publications [Spring JDBC (JdbcClient)]
   - to Carrier (simulated) (not checked): Assigns simulated tracking numbers and renders simulated labels (in-process) [In-process simulation]
 
 ## HTTP operations

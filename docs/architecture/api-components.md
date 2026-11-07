@@ -107,10 +107,10 @@ The same definition is in [api-components.mmd](api-components.mmd).
 | 2 | Web app | Quotes | Creates and reads quotes | JSON over HTTPS | solid: not covered by module conformance |
 | 3 | Web app | Shipments | Books, lists, reads and cancels shipments; downloads labels | JSON over HTTPS | solid: not covered by module conformance |
 | 4 | Webshop | Orders | Will submit orders to ship | JSON over HTTPS | dotted: planned |
-| 5 | Quotes | Database | Stores quotes and offers in schema quotes | Spring Data JDBC | solid: not covered by module conformance |
-| 6 | Shipments | Database | Stores shipments and idempotency keys in schema shipments; writes event publications | Spring Data JDBC | solid: not covered by module conformance |
+| 5 | Quotes | Database | Stores quotes and offers in schema quotes | Spring JDBC (JdbcClient) | solid: not covered by module conformance |
+| 6 | Shipments | Database | Stores shipments and idempotency keys in schema shipments; writes event publications | Spring JDBC (JdbcClient) | solid: not covered by module conformance |
 | 7 | Tenants | Database | Resolves demo tokens through a security-definer function, reads prototype flags, sets app.tenant_id in every transaction | JDBC | solid: not covered by module conformance |
-| 8 | Audit | Database | Appends audit entries in schema audit | Spring Data JDBC | solid: not covered by module conformance |
+| 8 | Audit | Database | Appends audit entries in schema audit | Spring JDBC (JdbcClient) | solid: not covered by module conformance |
 | 9 | Quotes | Carrier (simulated) | Prices each service level from the carrier's synthetic tariff (simulated in-process) | In-process simulation | solid: not covered by module conformance |
 | 10 | Shipments | Carrier (simulated) | Assigns simulated tracking numbers and renders simulated labels (in-process) | In-process simulation | solid: not covered by module conformance |
 | 11 | Tracking | Carrier (simulated) | Will receive tracking events | HTTPS webhook | dotted: planned |

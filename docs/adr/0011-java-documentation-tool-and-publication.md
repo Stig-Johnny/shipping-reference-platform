@@ -153,7 +153,9 @@ SnakeYAML Engine 3.2.
 
 - ADR 0010 as a whole; it is superseded by this record.
 - ADR 0007's decision names `docs` among the npm workspaces that share the root `package-lock.json`. The
-  documentation is no npm workspace: only `apps/shipping-web` and `packages/shipping-client` are.
+  documentation is no npm workspace: only `apps/shipping-web` and `packages/shipping-client` are. Amendment
+  2026-11-07: the first runnable slice defers `packages/shipping-client` (ADR 0004 and ADR 0009), which leaves
+  `apps/shipping-web`.
 - ADR 0008's decision lists `docs-brain` among the required checks. There is no `docs-brain` job: the documentation
   and brain checks run inside the required `java` check.
 - The Confirmation sections of ADR 0001 and ADR 0002 name `docs-brain` and `brain --check`.

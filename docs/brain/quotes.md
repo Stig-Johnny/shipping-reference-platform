@@ -28,7 +28,7 @@ Prices parcels with the synthetic tariff and issues quotes whose offers expire a
   - orders (PERMITTED, planned): Will request quotes for imported orders [Java]
 - **Other relationships, not checked by the Java check:**
   - from Web app (not checked): Creates and reads quotes [JSON over HTTPS]
-  - to Database (not checked): Stores quotes and offers in schema quotes [Spring Data JDBC]
+  - to Database (not checked): Stores quotes and offers in schema quotes [Spring JDBC (JdbcClient)]
   - to Carrier (simulated) (not checked): Prices each service level from the carrier's synthetic tariff (simulated in-process) [In-process simulation]
 
 ## HTTP operations
