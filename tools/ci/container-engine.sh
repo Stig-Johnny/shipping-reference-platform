@@ -125,8 +125,8 @@ check_engine() {
     || fail "the engine did not answer: version (components)"
   info="$(docker info --format '{{.ServerVersion}}|{{.OperatingSystem}}|{{.KernelVersion}}|{{.OSType}}|{{.Architecture}}')" \
     || fail "the engine did not answer: info"
-  runc="$(awk '$1 == "runc" { print $2 }' <<< "$components")"
-  containerd="$(awk '$1 == "containerd" { print $2 }' <<< "$components")"
+  runc="$(awk '$1 == "runc" { print $2 }' <<< "$components")" || fail "the runc version cannot be read"
+  containerd="$(awk '$1 == "containerd" { print $2 }' <<< "$components")" || fail "the containerd version cannot be read"
 
   echo "## Container engine" >> "$SUMMARY"
   record "Runner image: ${ImageOS:-unset} ${ImageVersion:-unknown} ($pretty, $machine)"
@@ -198,18 +198,14 @@ verify() {
   done <<< "$added"
 
   # The test window's events: what was pulled, what containers were made from, and whether anything was copied in.
-  local events count
+  # The events are counted in this loop, by the shell itself: no command whose failure could read as a count of 0.
+  local events count=0 creates=0 type action actor image
   events="$(docker events --since "$since" --until "$until" \
     --format '{{.Type}} {{.Action}} {{.Actor.ID}} {{index .Actor.Attributes "image"}}')" \
     || fail "the engine did not answer: events"
-  count="$(grep -c . <<< "$events" || true)"
-  if (( count >= EVENT_LIMIT )); then
-    echo "::error::The tests produced $count engine events; the engine keeps $EVENT_LIMIT, so the check cannot be complete"
-    problems=1
-  fi
-  local creates=0 type action actor image
   while read -r type action actor image; do
     [[ -z "$type" ]] && continue
+    count=$((count + 1))
     if [[ "$type" == "container" && "$action" == "create" ]]; then
       creates=$((creates + 1))
       if [[ "$image" != "$IMAGE" ]]; then
@@ -224,6 +220,11 @@ verify() {
       problems=1
     fi
   done <<< "$events"
+  [[ "$count" =~ ^[0-9]+$ ]] || fail "the engine events could not be counted"
+  if (( count >= EVENT_LIMIT )); then
+    echo "::error::The tests produced $count engine events; the engine keeps $EVENT_LIMIT, so the check cannot be complete"
+    problems=1
+  fi
   record "Test window: $count engine events, $creates container creations"
 
   # Cleanup: the label sweep removes the test containers with their anonymous volumes, then their networks. Each list
