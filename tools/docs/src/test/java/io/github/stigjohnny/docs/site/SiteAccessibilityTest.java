@@ -92,7 +92,9 @@ class SiteAccessibilityTest {
             String html = site.text(page);
             int tables = count(html, "<table");
             assertThat(count(html, "<th")).as(page).isGreaterThanOrEqualTo(tables);
-            assertThat(count(html, "<div class=\"table-scroll\"")).as(page).isEqualTo(tables);
+            int regions = count(html, "<div class=\"table-scroll\"")
+                    + count(html, "<div class=\"table-scroll table-wide-");
+            assertThat(regions).as(page).isEqualTo(tables);
         }
     }
 

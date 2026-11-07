@@ -365,6 +365,30 @@ class SitePagesTest {
     }
 
     @Test
+    void theModelAndFlowTablesKeepReadableColumnsOnNarrowScreensAndSaySo() {
+        String hint = "<p class=\"table-hint\">Scroll horizontally for all columns.</p>\n<table>";
+        for (String page : List.of("model/system-context.html", "model/containers.html", "model/api-components.html",
+                "model/quote-book-label.html")) {
+            String html = site.text(page);
+            assertThat(count(html, "<div class=\"table-scroll table-wide-model\" role=\"region\" tabindex=\"0\" "
+                    + "aria-label=\"")).as(page).isEqualTo(2);
+            assertThat(count(html, hint)).as(page).isEqualTo(2);
+        }
+        String flow = site.text("model/flow-quote-book-label.html");
+        String flowRegion = "<div class=\"table-scroll table-wide-flow\" role=\"region\" tabindex=\"0\" aria-label=\"";
+        String steps = "Table 1 in Steps and planned acceptance tests, scrolls sideways";
+        assertThat(count(flow, flowRegion + steps + "\">\n" + hint)).isEqualTo(1);
+        assertThat(count(flow, flowRegion + "Table 2 in Alternatives and failures, scrolls sideways\">\n" + hint))
+                .isEqualTo(1);
+        // Scoped to the model pages: every other table keeps its plain region.
+        for (String page : site.pages()) {
+            if (!page.startsWith("model/")) {
+                assertThat(site.text(page)).as(page).doesNotContain("table-wide", "table-hint");
+            }
+        }
+    }
+
+    @Test
     void theFlowDiagramDescribesItselfForScreenReaders() {
         String flow = site.text("model/flow-quote-book-label.html");
 

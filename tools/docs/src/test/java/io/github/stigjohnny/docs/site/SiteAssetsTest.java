@@ -156,6 +156,17 @@ class SiteAssetsTest {
     }
 
     @Test
+    void theModelPagesWideTablesKeepAMinimumWidthAndTheirHintShowsOnlyWhileTheyScroll() {
+        assertThat(css).contains(".table-wide-model,\n.table-wide-flow {\n  container-type: inline-size;\n}")
+                .contains(".table-wide-model table {\n  min-width: 60rem;\n}")
+                .contains(".table-wide-flow table {\n  min-width: 48rem;\n}")
+                .contains("@container (min-width: 60rem) {\n  .table-wide-model .table-hint {\n    display: none;\n")
+                .contains("@container (min-width: 48rem) {\n  .table-wide-flow .table-hint {\n    display: none;\n");
+        // The region stays the one that scrolls; the page never does.
+        assertThat(css).contains(".table-scroll {\n  margin: 16px 0 24px;\n  overflow-x: auto;");
+    }
+
+    @Test
     void eachDrawnDiagramIsFittedToItsCompleteBoundsBeforeItShows() {
         // The bounds are measured in the drawing's own units: every shape, label and edge with half its stroke, and the
         // arrowhead at each marked end; then padding, and the same aspect ratio at every size.

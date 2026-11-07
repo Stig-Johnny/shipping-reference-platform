@@ -90,7 +90,28 @@ final class ModelPages {
             }
         }
         return new SitePage(doc.path(), doc.title(), doc.navLabel(), doc.section(), doc.summary(), doc.status(),
-                doc.contents(), doc.body(), related, doc.source(), doc.diagrams());
+                doc.contents(), widenThreeColumnTables(doc.body()), related, doc.source(), doc.diagrams());
+    }
+
+    private static final Pattern TABLE_REGION = Pattern.compile(
+            "<div class=\"table-scroll\"( role=\"region\" tabindex=\"0\" aria-label=\"[^\"]*\">\n)(<table>.*?</table>)",
+            Pattern.DOTALL);
+    private static final Pattern HEAD = Pattern.compile("<thead>(.*?)</thead>", Pattern.DOTALL);
+
+    /** A flow's three-column tables, as the Markdown renderer wrote them, get the flow's minimum width and the hint. */
+    static String widenThreeColumnTables(String html) {
+        Matcher region = TABLE_REGION.matcher(html);
+        StringBuilder out = new StringBuilder();
+        while (region.find()) {
+            Matcher head = HEAD.matcher(region.group(2));
+            boolean threeColumns = head.find() && head.group(1).split("<th[ >]", -1).length - 1 == 3;
+            region.appendReplacement(out, Matcher.quoteReplacement(threeColumns
+                    ? "<div class=\"" + HtmlTable.Width.FLOW.regionClass() + "\"" + region.group(1) + HtmlTable.HINT
+                            + region.group(2)
+                    : region.group()));
+        }
+        region.appendTail(out);
+        return out.toString();
     }
 
     private static final String FIGURE_MARKER = "SITEDYNAMICVIEWFIGURE";
@@ -206,7 +227,8 @@ final class ModelPages {
         body.append("<h2 id=\"elements\">Elements</h2>\n");
         List<ViewText.ElementRow> elements = ViewText.elements(view, model, sources.elementStatus());
         HtmlTable table = HtmlTable.of("Elements of the view (" + elements.size() + ")", "Elements of " + title
-                + ", scrolls sideways", "ID", "Element", "Type", "Technology", "Status", "Description");
+                + ", scrolls sideways", "ID", "Element", "Type", "Technology", "Status", "Description")
+                .wide(HtmlTable.Width.MODEL);
         for (ViewText.ElementRow row : elements) {
             table.row(Html.escape(row.id()), Html.escape(row.name()), Html.escape(row.type()),
                     Html.escape(row.technology()), statusWords(row.status()), Html.escape(row.description()));
@@ -215,7 +237,8 @@ final class ModelPages {
         List<ViewText.RelationshipRow> rows = ViewText.relationships(view, model, diagram);
         HtmlTable relationships = HtmlTable.of("Relationships of the view (" + rows.size() + "), in drawing order",
                 "Relationships of " + title + ", scrolls sideways",
-                view.kind() == C4View.Kind.DYNAMIC ? "Step" : "#", "From", "To", "Description", "Technology", "Line");
+                view.kind() == C4View.Kind.DYNAMIC ? "Step" : "#", "From", "To", "Description", "Technology", "Line")
+                .wide(HtmlTable.Width.MODEL);
         for (ViewText.RelationshipRow row : rows) {
             relationships.row(Html.escape(row.number()), Html.escape(row.from()), Html.escape(row.to()),
                     Html.escape(row.description()), Html.escape(row.technology()), Html.escape(row.line()));

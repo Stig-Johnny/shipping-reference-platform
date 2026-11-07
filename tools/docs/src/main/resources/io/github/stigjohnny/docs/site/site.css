@@ -474,6 +474,40 @@ table {
   font-size: 14px;
 }
 
+/* On the model pages, wide tables keep readable columns on narrow screens: they scroll sideways inside their labelled
+   region, and a hint at its start says so while the region is narrower than the table. */
+.table-wide-model,
+.table-wide-flow {
+  container-type: inline-size;
+}
+
+.table-wide-model table {
+  min-width: 60rem;
+}
+
+.table-wide-flow table {
+  min-width: 48rem;
+}
+
+.table-hint {
+  margin: 0;
+  padding: 12px 16px 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+@container (min-width: 60rem) {
+  .table-wide-model .table-hint {
+    display: none;
+  }
+}
+
+@container (min-width: 48rem) {
+  .table-wide-flow .table-hint {
+    display: none;
+  }
+}
+
 caption {
   padding: 12px 16px;
   font-weight: 600;
