@@ -7,6 +7,7 @@ import io.github.stigjohnny.docs.generate.Diagrams;
 import io.github.stigjohnny.docs.repo.Allowlist;
 import io.github.stigjohnny.docs.repo.AllowlistEntry;
 import io.github.stigjohnny.docs.repo.ApiContract;
+import io.github.stigjohnny.docs.repo.DeckRecord;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.Sources;
 import java.io.IOException;
@@ -49,7 +50,8 @@ public final class SiteBuilder {
         }
         Consistency.check(sources);
         SiteMap map = SiteMap.of(sources);
-        SiteContext context = new SiteContext(sources, map, Diagrams.of(sources.workspace(), sources.elementStatus()));
+        SiteContext context = new SiteContext(sources, map, Diagrams.of(sources.workspace(), sources.elementStatus()),
+                revision);
         List<SitePage> pages = new ArrayList<>();
         pages.addAll(StartPages.of(context));
         int start = pages.size();
@@ -63,9 +65,16 @@ public final class SiteBuilder {
         // every other page as built.
         pages.addAll(start, DemoPages.of(context, pages));
         SitePage notFound = NotFoundPage.of();
+        List<String> paths = new ArrayList<>(pages.stream().map(SitePage::path).toList());
+        paths.add(notFound.path());
+        Sheets.unique(paths, Sheets::code);
         Map<String, String> updated = new TreeMap<>();
         for (DocFile doc : sources.docs()) {
             map.site(doc.path()).ifPresent(page -> updated.put(page, doc.updated()));
+        }
+        // A deck's notes page renders the deck's document too, so its title block has the document's date.
+        for (DeckRecord deck : DeckRecord.all(sources)) {
+            map.site(deck.doc().path()).ifPresent(page -> updated.put(DeckRecord.notesPage(page), deck.doc().updated()));
         }
         Map<String, byte[]> files = new TreeMap<>();
         for (SitePage page : pages) {

@@ -7,13 +7,15 @@ import io.github.stigjohnny.docs.mermaid.MermaidDiagram;
 import io.github.stigjohnny.docs.model.C4View;
 import io.github.stigjohnny.docs.model.ViewNames;
 import io.github.stigjohnny.docs.repo.Capability;
+import io.github.stigjohnny.docs.repo.DeckRecord;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.Sources;
 import java.util.List;
 
 /**
  * The start sheet: purpose, state, the system context drawn, the two reading paths (the COO's ends with the
- * demonstrations), the sections and the synthetic-data statement; the README; and how the site itself is drawn.
+ * demonstrations) with a compact link to each milestone deck beside them, the sections and the synthetic-data
+ * statement; the README; and how the site itself is drawn.
  */
 final class StartPages {
 
@@ -34,7 +36,6 @@ final class StartPages {
 
     private static SitePage start(SiteContext context) {
         Sources sources = context.sources();
-        List<Capability> all = sources.capabilities().all();
         StringBuilder body = new StringBuilder();
         C4View systemContext = sources.workspace().model().views().stream()
                 .filter(v -> v.kind() == C4View.Kind.SYSTEM_CONTEXT).findFirst()
@@ -63,7 +64,16 @@ final class StartPages {
                         step(INDEX, "api/index.html", "API: the HTTP contract"),
                         step(INDEX, "decisions/index.html", "Decisions: the architecture decision records"),
                         step(INDEX, "trust/allowlist.html", "Dependency allowlist: every reviewed component"))));
-        body.append("</div>\n<h2 id=\"sections\">Sections</h2>\n<div class=\"card-grid\">\n");
+        body.append("</div>\n");
+        // Beside the reading paths, below the title, the ledger and the drawing: one compact line per deck.
+        for (DeckRecord deck : DeckRecord.all(sources)) {
+            String page = context.map().site(deck.doc().path())
+                    .orElseThrow(() -> SiteContext.missing("a page for " + deck.doc().path()));
+            body.append("<p class=\"start-deck\"><span class=\"register-code\">").append(Sheets.code(page))
+                    .append("</span> ").append(DeckPages.link(INDEX, page, deck)).append(' ')
+                    .append(Badge.NEUTRAL.html(DeckPages.PRESENTATION)).append("</p>\n");
+        }
+        body.append("<h2 id=\"sections\">Sections</h2>\n<div class=\"card-grid\">\n");
         for (SiteSection section : SiteSection.values()) {
             if (section != SiteSection.START) {
                 body.append(card(section.index(), section.label(), section.purpose()));
@@ -84,6 +94,18 @@ final class StartPages {
                 .append("<p class=\"prose\">The site is generated from the repository ")
                 .append("by <code>tools/docs</code> and scanned before publication. Paths of files that it does not ")
                 .append("publish, such as source code and workflows, appear as plain text.</p>\n");
+        return new SitePage(INDEX, "Shipping reference platform", "Start", SiteSection.START,
+                firstSentence(Brains.firstParagraph(sources.readme())), repositoryState(sources), List.of(),
+                body.toString(), List.of(), Sources.README + " and the documentation sources", true);
+    }
+
+    /**
+     * The repository's state in the ledger's three statements, from the sources: the start sheet's, which slide 02 of
+     * a milestone deck carries as well. The counts come from docs/capabilities/capabilities.yaml, the evidence from the
+     * tests that passed in the build that makes the site.
+     */
+    static StatusPanel repositoryState(Sources sources) {
+        List<Capability> all = sources.capabilities().all();
         List<Capability> product = sources.capabilities().capabilities();
         List<Capability> controls = sources.capabilities().controls();
         String counts = count(product, Capability.Status.PLANNED) + " of " + product.size() + " product capabilities "
@@ -93,12 +115,9 @@ final class StartPages {
         String state = sources.capabilities().specificationOnly()
                 ? Badge.PLANNED.html("Specification only") + " " + Html.escape("No application code exists yet. " + counts)
                 : Badge.PARTIAL.html("Partly built") + " " + Html.escape(counts);
-        StatusPanel status = new StatusPanel(Statuses.design("accepted", "The model, the API contract, the "
-                + "decisions and the module specifications are accepted; updated " + sources.documentationDate() + "."),
-                state, Statuses.evidence(all, sources.evidence()));
-        return new SitePage(INDEX, "Shipping reference platform", "Start", SiteSection.START,
-                firstSentence(Brains.firstParagraph(sources.readme())), status, List.of(), body.toString(), List.of(),
-                Sources.README + " and the documentation sources", true);
+        return new StatusPanel(Statuses.design("accepted", "The model, the API contract, the decisions and the "
+                + "module specifications are accepted; updated " + sources.documentationDate() + "."), state,
+                Statuses.evidence(all, sources.evidence()));
     }
 
     /** The first sentence of a paragraph: the start page's purpose line. */

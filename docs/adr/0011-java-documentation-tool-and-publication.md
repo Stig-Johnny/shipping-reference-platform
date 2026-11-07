@@ -106,7 +106,10 @@ SnakeYAML Engine 3.2.
   commands, whole and with exactly its arguments, that it holds no image, embed, raw HTML or unfilled placeholder,
   that recorded output follows the line "Recorded output — not rerun by this site build.", and that its See it links
   open pages of the site. It never runs a command a demonstration shows; only the named tests that passed in the
-  build that made the site count as evidence on its sheet, and recorded output never does.
+  build that made the site count as evidence on its sheet, and recorded output never does. A milestone deck,
+  `docs/demos/deck-<slug>.md`, is published there as well, as slides (X-Dnn) and speaker notes (X-Nnn) that the same
+  Markdown renderer groups by slide on the parsed blocks, after the tool has checked its slides, its counts of
+  capabilities against the sources and the record of its recorded output.
 - A link in a document to a file the site does not publish becomes plain text, and a link to the repository on
   GitHub is not published. A link to a missing file or anchor fails the build. Every page names the full commit SHA
   it was built from, GITHUB_SHA in CI and the checked-out commit locally, and the build fails without one. Two builds

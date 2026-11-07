@@ -121,8 +121,9 @@ public final class Fixture {
     }
 
     /**
-     * Removes the repository's own demonstrations, keeping the how-to, so that a test's sample demonstrations
-     * (pull requests 42 to 46) stand alone and never meet a real one with the same number.
+     * Removes the repository's own demonstrations and milestone decks, keeping the how-to, so that a test's sample
+     * demonstrations (pull requests 42 to 46) and sample deck stand alone and never meet a real one with the same
+     * number or path.
      */
     public Fixture withoutDemos() {
         try (Stream<Path> files = Files.list(root.resolve("docs/demos"))) {

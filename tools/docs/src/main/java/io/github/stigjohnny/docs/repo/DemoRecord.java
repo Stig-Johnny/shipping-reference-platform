@@ -18,7 +18,8 @@ import java.util.regex.Pattern;
 /**
  * A demonstration: what one pull request changed, for a reader who does not read code, with its evidence and its
  * limits (docs/demos/how-to.md). Its file is {@code docs/demos/<pr>-<slug>.md}; {@code docs/demos/how-to.md}, the
- * recipe, is not one. The check of its form is DemoCheck; this record only reads it.
+ * recipe, is not one, and neither is a milestone deck, {@code docs/demos/deck-<slug>.md} ({@link DeckRecord}). The check
+ * of its form is DemoCheck; this record only reads it.
  *
  * @param pr the pull request's number, which the file name starts with
  * @param kind what the demonstration shows, which decides the sections it needs
@@ -30,6 +31,8 @@ public record DemoRecord(DocFile doc, int pr, Kind kind, String recorded, List<S
 
     public static final String DIRECTORY = "docs/demos/";
     public static final String HOW_TO = DIRECTORY + "how-to.md";
+    /** The line that labels recorded output wherever it is shown: on a demonstration's sheet, a slide or its notes. */
+    public static final String RECORDED_OUTPUT = "Recorded output \u2014 not rerun by this site build.";
     /** A demonstration's frontmatter: the four every document has, then its own. A revision or a merge is not one. */
     public static final List<String> KEYS = List.of("title", "description", "status", "updated", "pr", "kind",
             "recorded", "tests");
@@ -84,9 +87,9 @@ public record DemoRecord(DocFile doc, int pr, Kind kind, String recorded, List<S
         }
     }
 
-    /** Whether a document under docs/ is a demonstration: one under docs/demos/ that is not the how-to. */
+    /** Whether a document under docs/ is a demonstration: one under docs/demos/ that is not the how-to or a deck. */
     public static boolean isDemo(String path) {
-        return path.startsWith(DIRECTORY) && !path.equals(HOW_TO);
+        return path.startsWith(DIRECTORY) && !path.equals(HOW_TO) && !DeckRecord.isDeck(path);
     }
 
     /** The pull request number a file name starts with, when the name is {@code docs/demos/<pr>-<slug>.md}. */
@@ -131,7 +134,7 @@ public record DemoRecord(DocFile doc, int pr, Kind kind, String recorded, List<S
             }
         }
         throw new DocsException(doc.path() + ": kind '" + value + "' is not one of visual, gate, build, docs and "
-                + "feature");
+                + "feature" + (DeckRecord.KIND.equals(value) ? "; a deck is named docs/demos/deck-<slug>.md" : ""));
     }
 
     /** {@code recorded}: an ISO date, YYYY-MM-DD. */

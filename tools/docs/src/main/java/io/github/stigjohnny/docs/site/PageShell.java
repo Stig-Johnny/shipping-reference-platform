@@ -11,6 +11,9 @@ import org.jspecify.annotations.Nullable;
  * the footer. Links come from a {@link UnaryOperator} that turns
  * a site path into a URL: relative for every page, absolute under the Pages base path for the 404 page only, because
  * GitHub Pages serves that one at whatever path was requested.
+ *
+ * <p>{@code <html>} names the page's language, English throughout the site, and a deck's layout, so that the stylesheet
+ * puts a deck's register above its slides and snaps its slides into place.
  */
 final class PageShell {
 
@@ -28,7 +31,9 @@ final class PageShell {
 
     static String render(SitePage page, List<SitePage> pages, String revision, @Nullable String updated,
             UnaryOperator<String> url) {
-        StringBuilder out = new StringBuilder("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n")
+        StringBuilder out = new StringBuilder("<!DOCTYPE html>\n<html lang=\"").append(Html.escape(page.lang()))
+                .append(page.layout() == SitePage.Layout.DECK ? "\" class=\"deck\">" : "\">")
+                .append("\n<head>\n<meta charset=\"utf-8\">\n")
                 .append("<meta http-equiv=\"Content-Security-Policy\" content=\"")
                 .append(page.diagrams() ? MERMAID_POLICY : STRICT_POLICY).append("\">\n")
                 .append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n")

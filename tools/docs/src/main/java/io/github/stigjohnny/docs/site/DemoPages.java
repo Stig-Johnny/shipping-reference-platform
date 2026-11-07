@@ -6,6 +6,7 @@ import io.github.stigjohnny.docs.generate.ArchitecturePages;
 import io.github.stigjohnny.docs.markdown.LinkDecision;
 import io.github.stigjohnny.docs.markdown.LinkResolver;
 import io.github.stigjohnny.docs.markdown.MarkdownBlock;
+import io.github.stigjohnny.docs.repo.DeckRecord;
 import io.github.stigjohnny.docs.repo.DemoRecord;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.RepositoryLinks;
@@ -22,7 +23,9 @@ import java.util.regex.Pattern;
 
 /**
  * The Demos section, second in the register (docs/ui/documentation-site.md): the register of demonstrations (X-00),
- * newest recording first; the recipe for writing one (X-GUIDE); and one sheet per pull request (X- and its number).
+ * newest recording first, with each milestone deck featured above them as a presentation; the recipe for writing one
+ * (X-GUIDE); each deck's slides and notes (X-Dnn and X-Nnn, {@link DeckPages}); and one sheet per pull request (X- and
+ * its number).
  * A sheet keeps the ledger's meanings: the record's status, no capability of its own, and as verified evidence only the
  * named tests that passed in the build that made the site, so recorded output never gets the double rule. Its links
  * are checked against the pages as built: See it opens pages of this site, a visual change's evidence links the page it
@@ -62,7 +65,13 @@ final class DemoPages {
         Sources sources = context.sources();
         DocFile howTo = sources.doc(DemoRecord.HOW_TO).orElseThrow(() -> SiteContext.missing(DemoRecord.HOW_TO));
         List<DemoRecord> demos = DemoRecord.all(sources);
+        List<DeckRecord> decks = DeckRecord.all(sources);
         Set<String> pages = new TreeSet<>(List.of(INDEX, HOW_TO));
+        for (DeckRecord deck : decks) {
+            String page = page(context, deck.doc());
+            pages.add(page);
+            pages.add(DeckRecord.notesPage(page));
+        }
         for (SitePage page : built) {
             pages.add(page.path());
             Matcher id = ID.matcher(page.body());
@@ -80,26 +89,35 @@ final class DemoPages {
                     + (problems.size() == 1 ? " problem" : " problems") + "):\n  - " + String.join("\n  - ", problems));
         }
         List<SitePage> section = new ArrayList<>();
-        section.add(index(context, howTo, demos));
+        section.add(index(context, howTo, demos, decks));
         section.add(DocPages.of(context, howTo, SiteSection.DEMOS, howTo.title(), new StatusPanel(
                 Statuses.design(howTo), Badge.NEUTRAL.html("Not applicable") + " A guide for authors: it specifies no "
                         + "capability. The docs tool applies the checks it lists.",
                 Badge.NEUTRAL.html("Not applicable") + " A guide makes no claim to verify; each demonstration states "
                         + "its own evidence."), links(context, howTo.path(), HOW_TO, pages)));
+        for (DeckRecord deck : decks) {
+            section.addAll(DeckPages.of(context, deck, page -> links(context, deck.doc().path(), page, pages)));
+        }
         for (DemoRecord demo : demos) {
             section.add(sheet(context, demo, pages));
         }
         return section;
     }
 
-    /** The register: each outcome with why it matters, its pull request as plain text, its kind and its recording. */
-    private static SitePage index(SiteContext context, DocFile howTo, List<DemoRecord> demos) {
+    /**
+     * The register: each deck first, as a presentation, then each outcome with why it matters, its pull request as plain
+     * text, its kind and its recording.
+     */
+    private static SitePage index(SiteContext context, DocFile howTo, List<DemoRecord> demos, List<DeckRecord> decks) {
         StringBuilder body = new StringBuilder("<p class=\"prose\">Each demonstration shows a reader who does not read "
                 + "code what one pull request changed: what can now be seen or run, the evidence, and the limits. Its "
                 + "output was recorded when the change was made; this site shows it as recorded and does not rerun "
                 + "it. ")
                 .append(SiteContext.link(INDEX, HOW_TO, howTo.title()))
                 .append(" says when one is needed and how to write it.</p>\n");
+        for (DeckRecord deck : decks) {
+            body.append(DeckPages.feature(INDEX, page(context, deck.doc()), deck));
+        }
         if (demos.isEmpty()) {
             body.append("<p class=\"prose\">There are no demonstrations yet.</p>\n");
         } else {
@@ -293,7 +311,7 @@ final class DemoPages {
      * A demonstration's link policy: the site's own, and a link to the site's address, which becomes a relative link to
      * the page and anchor it names and fails the build when this site has no such page or anchor.
      */
-    private static LinkResolver links(SiteContext context, String source, String page, Set<String> pages) {
+    static LinkResolver links(SiteContext context, String source, String page, Set<String> pages) {
         LinkResolver site = context.links(source, page);
         return destination -> {
             if (!destination.startsWith(ArchitecturePages.SITE)) {
@@ -306,11 +324,15 @@ final class DemoPages {
     }
 
     private static String page(SiteContext context, DemoRecord demo) {
-        return context.map().site(demo.doc().path())
-                .orElseThrow(() -> SiteContext.missing("a page for " + demo.doc().path()));
+        return page(context, demo.doc());
     }
 
-    private static String time(String date) {
+    private static String page(SiteContext context, DocFile doc) {
+        return context.map().site(doc.path()).orElseThrow(() -> SiteContext.missing("a page for " + doc.path()));
+    }
+
+    /** A date as a machine-readable time element. */
+    static String time(String date) {
         return "<time datetime=\"" + Html.escape(date) + "\">" + Html.escape(date) + "</time>";
     }
 }

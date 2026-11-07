@@ -90,7 +90,8 @@ context drawn, then the two reading paths; the COO's ends with the Demos section
 ## The Demos section
 
 Demos is the second section of the register, after Start. It shows a reader who does not read code what each pull
-request changed, from `docs/demos/` (the recipe for writing one is `docs/demos/how-to.md`).
+request changed, from `docs/demos/` (the recipe for writing one is `docs/demos/how-to.md`). A milestone deck stands
+there too, drawn as [decks](#decks) are.
 
 - **Codes.** `X-00` is the register of demonstrations, `X-GUIDE` the how-to, and each demonstration is `X-` and its
   pull request's number (`X-42`), from the record's own `pr`, never from its position. The how-to stands first in the
@@ -112,6 +113,39 @@ request changed, from `docs/demos/` (the recipe for writing one is `docs/demos/h
   failed or skipped test is never counted, and recorded output never gets the double rule. The ledger names no merge:
   there is no trustworthy merge record yet.
 - **Text only.** No image, video, embed or raw HTML until a reviewed media gate exists.
+
+## Decks
+
+A milestone deck presents the repository's state as slides for a meeting, from `docs/demos/deck-<slug>.md`, in English
+like the rest of the site. It stands in the Demos section but is not a demonstration: no pull request is its own, and it
+is never evidence.
+
+- **Codes.** The slides are `X-Dnn` and their speaker notes `X-Nnn`, written out page by page in `Sheets.java`:
+  `demos/deck-milestone.html` is X-D01 and `demos/deck-milestone-notes.html` X-N01. `X-` and a number stays a
+  demonstration's. The register of demonstrations (X-00) features each deck above the demonstrations, with the neutral
+  label "Presentation", never a passing-evidence badge, and its description; the start sheet links it in one compact
+  line beside the two reading paths, below the title, the ledger and the drawing.
+- **Layout.** The register, the overview and the slide index ("Overview") stand above the slides, never beside them, so
+  that every slide has the full width. The overview is the sheet header, with the milestone, the source's update date
+  and the build's revision each on its own, and the ledger; "Start slides" leads to slide one. Full screen is the
+  browser's own command; the site's script is unchanged.
+- **Slide anatomy.** Each slide is a section labelled by its title, whose slug is its anchor: the deck's code and the
+  slide's number in a box (`01/10`, and `A1/4` in the appendix, whose titles start with "Appendix:"; read out in
+  words), the title, the content, then below a rule the links "Previous", "Overview" and "Next", which are the
+  dependable controls, and the source with the revision. From the first slide "Previous", and from the last "Next",
+  lead back to the index. Slide 02 carries the repository's ledger, from the sources as the start sheet has it, and
+  says what is still done by hand. Notes under `### Notes` stand on the notes page only, each under its slide's number
+  and title, which link back to the slide.
+- **Type scale.** At 1920 × 1080: titles 64/72 px, body text 32/44, evidence excerpts 28/38 and metadata 20/28. The
+  sizes scale with the viewport, bounded in rem, to about 40 px titles and 24 px body text on a laptop. A slide is at
+  least one viewport tall and grows with its content; nothing is clipped, and nothing is shrunk to rescue a full
+  slide. Scroll snapping helps from 1024 × 600 only; narrower, shorter or zoomed, the slides are ordinary document flow
+  in the site's own sizes. The end of the page is a snap position too, so that a focused footer link is never pulled
+  back out of view to the last slide.
+- **Language and theme.** A deck declares `lang: en`, the site's language, which its two pages state; the check
+  refuses any other. Light is the meeting's palette, chosen with the theme switch; dark stays for readers.
+- **Print.** One 16:9 slide on each landscape page (320 × 180 mm), in the light palette, with each slide's code, number
+  and provenance, and without the register, the overview, the index, the controls or the notes.
 
 ## Diagrams
 

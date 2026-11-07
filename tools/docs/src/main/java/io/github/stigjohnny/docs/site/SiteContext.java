@@ -19,7 +19,10 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** What every page producer needs: the sources, the site map, the diagrams, and the safe rendering of Markdown. */
+/**
+ * What every page producer needs: the sources, the site map, the diagrams, the commit the site is built from, and the
+ * safe rendering of Markdown.
+ */
 final class SiteContext {
 
     private static final Pattern ADR_MENTION = Pattern.compile("\\bADR (\\d{4})\\b");
@@ -28,16 +31,23 @@ final class SiteContext {
     private final SiteMap map;
     private final List<MermaidDiagram> diagrams;
     private final List<ModuleFacts> modules;
+    private final String revision;
 
-    SiteContext(Sources sources, SiteMap map, List<MermaidDiagram> diagrams) {
+    SiteContext(Sources sources, SiteMap map, List<MermaidDiagram> diagrams, String revision) {
         this.sources = sources;
         this.map = map;
         this.diagrams = List.copyOf(diagrams);
         this.modules = ModuleFacts.all(sources);
+        this.revision = revision;
     }
 
     Sources sources() {
         return sources;
+    }
+
+    /** The full commit SHA the site is built from, which the builder has checked. */
+    String revision() {
+        return revision;
     }
 
     SiteMap map() {

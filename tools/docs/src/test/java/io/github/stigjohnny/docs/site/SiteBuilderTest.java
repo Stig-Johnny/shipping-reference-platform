@@ -8,6 +8,7 @@ import io.github.stigjohnny.docs.generate.Brains;
 import io.github.stigjohnny.docs.repo.Allowlist;
 import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.testing.BuiltSite;
+import io.github.stigjohnny.docs.testing.Decks;
 import io.github.stigjohnny.docs.testing.Demos;
 import io.github.stigjohnny.docs.testing.Fixture;
 import java.io.IOException;
@@ -133,6 +134,43 @@ class SiteBuilderTest {
                 "demos/43-visual.html", "demos/44-docs.html", "demos/45-build.html", "demos/46-feature.html");
         first.files().forEach((path, bytes) -> assertThat(second.files().get(path)).as(path).isEqualTo(bytes));
         assertEveryLinkResolves(first);
+    }
+
+    @Test
+    void aSiteWithADeckIsByteIdenticalEveryLinkResolvesAndItsPagesKeepThePolicy() {
+        fixture.write(Decks.PATH, Decks.SAMPLE).write(Demos.path("gate"), Demos.GATE);
+
+        BuiltSite first = build("first");
+        BuiltSite second = build("second");
+
+        assertThat(first.pages()).contains("demos/deck-milestone.html", "demos/deck-milestone-notes.html");
+        assertThat(second.files().keySet()).isEqualTo(first.files().keySet());
+        first.files().forEach((path, bytes) -> assertThat(second.files().get(path)).as(path).isEqualTo(bytes));
+        assertEveryLinkResolves(first);
+        // Every slide's anchor is linked from the slide index, and every note links back to its slide.
+        assertThat(first.urls("demos/deck-milestone.html")).contains("#what-is-built", "#state-today",
+                "#one-change-the-gate-rejects", "#appendix-tools", "#site-deck-index", "deck-milestone-notes.html");
+        assertThat(first.urls("demos/deck-milestone-notes.html")).contains("deck-milestone.html#what-is-built",
+                "deck-milestone.html#appendix-tools");
+        Pattern inlineScript = Pattern.compile("<script(?![^>]*\\ssrc=)[^>]*>");
+        for (String page : List.of("demos/deck-milestone.html", "demos/deck-milestone-notes.html")) {
+            String html = first.text(page);
+            assertThat(html).as(page).contains(STRICT_CSP).doesNotContain(" style=", "<style", "javascript:", "<img",
+                    "<iframe", "<video", "<object", "mermaid.min.js");
+            assertThat(inlineScript.matcher(html).find()).as(page).isFalse();
+            assertThat(count(html, "http-equiv=\"Content-Security-Policy\"")).as(page).isEqualTo(1);
+            // No identifier twice: each slide's anchor, each heading's and the page's own are distinct.
+            assertThat(count(html, " id=\"")).as(page).isEqualTo(first.ids(page).size());
+        }
+    }
+
+    @Test
+    void aBrokenAnchorIntoTheDeckFailsTheBuild() {
+        fixture.write(Decks.PATH, Decks.SAMPLE)
+                .edit("docs/risk-levels.md", text -> text + "\nSee [the notes](demos/deck-milestone.md#notes).\n");
+
+        // The notes heading has an ID on GitHub, but the deck's pages have only the slides' anchors.
+        assertThatThrownBy(() -> build("site")).isInstanceOf(DocsException.class).hasMessageContaining("#notes");
     }
 
     private static void assertEveryLinkResolves(BuiltSite site) {

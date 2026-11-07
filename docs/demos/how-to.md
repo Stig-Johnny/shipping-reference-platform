@@ -26,6 +26,13 @@ that reader.
 - `recorded` is the date the evidence was captured. It never changes afterwards, and the register of demos sorts by
   it, newest first. `updated` changes with every edit, as in any document, and never moves a demo in the register.
 
+## A milestone deck is not a demo
+
+A milestone deck presents the state of the repository as slides for a meeting. It belongs to no pull request, has no
+sections, commands or tests of a demo, and is never evidence. Its file is `docs/demos/deck-<slug>.md`, such as
+`docs/demos/deck-milestone.md`; the tool checks every file named so as a deck, by the rules of
+[how the site draws decks](../ui/documentation-site.md#decks), and never as a demo.
+
 ## Which kind
 
 | Kind | When | Sections besides What changed, Evidence and Limits |
@@ -141,8 +148,9 @@ request, outside the repository; the public page describes in words what they sh
 The documentation tool checks every demo with the other documents (`./gradlew :tools:docs:check`, part of
 `./gradlew check`). It fails on:
 
-- a file under `docs/demos/` other than this one that is not named `docs/demos/<pr>-<slug>.md`, and any file there
-  that is not Markdown: the repository is public as well, so a screenshot committed there would be published;
+- a file under `docs/demos/` other than this one and a milestone deck that is not named `docs/demos/<pr>-<slug>.md`,
+  and any file there that is not Markdown: the repository is public as well, so a screenshot committed there would
+  be published;
 - frontmatter beyond the documents' four keys and `pr`, `kind`, `recorded` and `tests`, so that no revision or merge
   is entered by hand; a `pr` that is not a positive integer or not the file name's number; two demos of one pull
   request, which would share a sheet; an unknown `kind`; a `recorded` that is no ISO date or is later than `updated`;
