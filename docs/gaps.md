@@ -167,10 +167,6 @@ closes it.
   digest of the platform manifest it pulled. That the tests ran the linux/amd64 image `sha256:e923a22a…` follows
   from the pinned index, whose platforms the review lists, and from the image's reported platform; nothing compares
   that digest itself.
-- **The engine review's first-run amendment is pending.** The runner review asks for the containerd and runc
-  versions of the first CI run to be appended to it before the job becomes a required check. `java` is a required
-  check already, and editing a review record needs the owner's acceptance again. The versions are in each run's job
-  summary until the owner records them.
 
 - **Dependabot sees the workflows' Actions, not the Gradle dependencies.** GitHub's dependency graph lists only what
   it can read without running the build: the pinned Actions. Gradle dependencies would need a dependency-submission
