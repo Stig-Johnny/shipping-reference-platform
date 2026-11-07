@@ -51,8 +51,9 @@ pull requests. Until the agents have their own identity (ADR 0008), the owner's 
 acceptance recorded in `allowlist.json`.
 
 Run the checker yourself with the JDK alone: `java tools/policy/PolicyCheck.java .` (exit 0 = clean, 1 = findings,
-2 = it could not complete). `--report-only` prints the findings and exits 0. `--print-digest` prints the digest that an
-acceptance must record (see [Acceptance](#acceptance)). Its regression tests need only the JDK too:
+2 = it could not complete). It reads only regular files inside the tree it checks, and refuses a tree that holds a
+symbolic link anywhere (exit 2). `--report-only` prints the findings and exits 0. `--print-digest` prints the digest
+that an acceptance must record (see [Acceptance](#acceptance)). Its regression tests need only the JDK too:
 `java tools/policy/PolicyCheckTest.java`. The `java` job runs them on every pull request, after the checker has passed
 it.
 

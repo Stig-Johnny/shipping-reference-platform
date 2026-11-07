@@ -4,7 +4,9 @@
 // Print the digest an acceptance must record:               java tools/policy/PolicyCheck.java --print-digest [repo]
 //
 // It reads the repository as data and never runs anything from it. CI runs the MAIN branch's copy of this file
-// against a pull request's files, so a pull request cannot weaken the check that judges it (docs/adr/0007).
+// against a pull request's files, so a pull request cannot weaken the check that judges it (docs/adr/0007). Before it
+// reads anything, it refuses a tree that holds a symbolic link anywhere, the root included, and then reads only regular
+// files inside that tree.
 //
 // What it checks, against security/allowlist.json:
 //   1. every Maven coordinate in every Gradle lockfile has an approved, unexpired entry with a review record;
@@ -19,9 +21,17 @@
 // With --report-only, findings are printed and the exit code is 0 (new checks start report-only, then block).
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringReader;
+import java.nio.ByteBuffer;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
@@ -75,11 +85,17 @@ public final class PolicyCheck {
     private final Set<Finding> findings = new TreeSet<>();
 
     PolicyCheck(Path repo, LocalDate today) throws IOException {
-        this.repo = repo;
+        this.repo = withoutLinks(repo);
         this.today = today;
-        this.allowlist = Json.parse(Files.readString(repo.resolve("security/allowlist.json"))).asObject();
+        this.allowlist = Json.parse(readText(this.repo.resolve("security/allowlist.json"))).asObject();
         this.rawEntries = allowlist.get("entries").asArray().stream().map(Json::asObject).toList();
         this.entries = rawEntries.stream().map(PolicyCheck::toEntry).toList();
+        for (Entry e : entries) {
+            if (!this.repo.resolve(e.reviewRecord()).normalize().startsWith(this.repo)) {
+                throw new IOException("refused: the review record of %s %s is outside the checked tree"
+                        .formatted(e.coordinate(), e.version()));
+            }
+        }
     }
 
     static Entry toEntry(Json.JObject o) {
@@ -124,7 +140,8 @@ public final class PolicyCheck {
             if (!APPROVED.contains(e.verdict()) && !"REJECT".equals(e.verdict())) {
                 add("allowlist", "%s %s has an unknown verdict '%s'".formatted(e.coordinate(), e.version(), e.verdict()));
             }
-            if (e.reviewRecord().isBlank() || !Files.isRegularFile(repo.resolve(e.reviewRecord()))) {
+            Path review = repo.resolve(e.reviewRecord());
+            if (e.reviewRecord().isBlank() || !Files.isRegularFile(review, LinkOption.NOFOLLOW_LINKS)) {
                 add("allowlist", "%s %s: review record '%s' does not exist".formatted(e.coordinate(), e.version(), e.reviewRecord()));
             }
             if (e.approved()) {
@@ -168,7 +185,8 @@ public final class PolicyCheck {
         List<String> lines = new ArrayList<>();
         for (Json.JObject entry : rawEntries) {
             Path review = repo.resolve(entry.text("reviewRecord"));
-            String reviewSha = !entry.text("reviewRecord").isBlank() && Files.isRegularFile(review) ? sha256(review) : "";
+            boolean present = !entry.text("reviewRecord").isBlank() && Files.isRegularFile(review, LinkOption.NOFOLLOW_LINKS);
+            String reviewSha = present ? sha256(read(review)) : "";
             lines.add(Json.canonical(entry) + "|" + reviewSha);
         }
         try {
@@ -184,12 +202,16 @@ public final class PolicyCheck {
 
     void checkGradleLockfiles() throws IOException {
         for (Path lockfile : files(p -> p.getFileName().toString().endsWith(".lockfile"))) {
-            for (String line : Files.readAllLines(lockfile)) {
+            List<String> lines = readText(lockfile).lines().toList();
+            for (int n = 0; n < lines.size(); n++) {
+                String line = lines.get(n);
                 if (line.isBlank() || line.startsWith("#") || line.startsWith("empty=")) continue;
-                String gav = line.substring(0, line.indexOf('='));
-                String[] parts = gav.split(":");
+                int equals = line.indexOf('=');
+                String[] parts = equals < 0 ? new String[0] : line.substring(0, equals).split(":");
                 if (parts.length != 3) {
-                    add("gradle", "%s: unreadable line '%s'".formatted(relative(lockfile), line));
+                    // The file, the line number and a fixed reason: a finding never repeats what a file contains.
+                    add("gradle", "%s:%d: unreadable line (expected group:name:version=configurations)"
+                            .formatted(relative(lockfile), n + 1));
                     continue;
                 }
                 String coordinate = parts[0] + ":" + parts[1];
@@ -202,13 +224,13 @@ public final class PolicyCheck {
 
     void checkVerificationMetadata() throws IOException {
         Path metadata = repo.resolve("gradle/verification-metadata.xml");
-        if (!Files.isRegularFile(metadata)) {
+        if (!Files.isRegularFile(metadata, LinkOption.NOFOLLOW_LINKS)) {
             if (!files(p -> p.getFileName().toString().endsWith(".lockfile")).isEmpty()) {
                 add("gradle", "gradle/verification-metadata.xml is missing, so downloads are not checksum-verified");
             }
             return;
         }
-        Document doc = parseXmlSafely(Files.readString(metadata));
+        Document doc = parseXmlSafely(readText(metadata));
         Element config = (Element) doc.getElementsByTagName("configuration").item(0);
         if (config == null || !"true".equals(text(config, "verify-metadata"))) {
             add("gradle", "verification-metadata.xml does not verify metadata (<verify-metadata>true</verify-metadata>)");
@@ -243,9 +265,9 @@ public final class PolicyCheck {
 
     void checkGradleWrapper() throws IOException {
         Path properties = repo.resolve("gradle/wrapper/gradle-wrapper.properties");
-        if (!Files.isRegularFile(properties)) return;
+        if (!Files.isRegularFile(properties, LinkOption.NOFOLLOW_LINKS)) return;
         Properties p = new Properties();
-        p.load(new StringReader(Files.readString(properties)));
+        p.load(new StringReader(readText(properties)));
         String url = p.getProperty("distributionUrl", "");
         String distributionSha = p.getProperty("distributionSha256Sum", "");
         if (distributionSha.isBlank()) add("wrapper", "gradle-wrapper.properties has no distributionSha256Sum");
@@ -258,7 +280,7 @@ public final class PolicyCheck {
             add("wrapper", "distributionSha256Sum %s differs from the reviewed %s".formatted(distributionSha, distribution.get().sha256()));
         }
         Path jar = repo.resolve("gradle/wrapper/gradle-wrapper.jar");
-        String jarSha = sha256(jar);
+        String jarSha = sha256(read(jar));
         boolean reviewed = entries.stream().filter(e -> "gradle-distribution".equals(e.kind()) && e.approved())
                 .anyMatch(e -> e.artifact().contains("gradle-wrapper.jar") && e.sha256().equalsIgnoreCase(jarSha));
         if (!reviewed) add("wrapper", "gradle-wrapper.jar SHA-256 %s matches no approved wrapper review".formatted(jarSha));
@@ -269,7 +291,7 @@ public final class PolicyCheck {
     void checkWorkflowActions() throws IOException {
         for (Path workflow : files(p -> p.toString().contains(".github/workflows/")
                 && (p.toString().endsWith(".yml") || p.toString().endsWith(".yaml")))) {
-            List<String> lines = Files.readAllLines(workflow);
+            List<String> lines = readText(workflow).lines().toList();
             for (int n = 0; n < lines.size(); n++) {
                 Matcher m = USES.matcher(lines.get(n));
                 if (!m.find()) continue;
@@ -298,7 +320,7 @@ public final class PolicyCheck {
 
     void checkNpmLockfile() throws IOException {
         for (Path lock : files(p -> p.getFileName().toString().equals("package-lock.json"))) {
-            Json.JObject packages = Json.parse(Files.readString(lock)).asObject().get("packages").asObject();
+            Json.JObject packages = Json.parse(readText(lock)).asObject().get("packages").asObject();
             for (Map.Entry<String, Json> pkg : packages.members().entrySet()) {
                 String key = pkg.getKey();
                 if (!key.contains("node_modules/")) continue; // "" is the workspace root, the rest are local workspaces
@@ -321,7 +343,7 @@ public final class PolicyCheck {
     /** A file someone else wrote, committed under a vendor/ directory, must be byte-identical to a reviewed artifact. */
     void checkVendoredFiles() throws IOException {
         for (Path file : files(p -> repo.relativize(p).toString().contains("vendor/"))) {
-            String sha = sha256(file);
+            String sha = sha256(read(file));
             boolean reviewed = entries.stream().anyMatch(e -> e.approved() && e.kind().startsWith("vendored")
                     && e.sha256().equalsIgnoreCase(sha));
             if (!reviewed) {
@@ -350,7 +372,7 @@ public final class PolicyCheck {
 
     List<Path> files(java.util.function.Predicate<Path> wanted) throws IOException {
         try (Stream<Path> walk = Files.walk(repo)) {
-            return walk.filter(Files::isRegularFile)
+            return walk.filter(p -> Files.isRegularFile(p, LinkOption.NOFOLLOW_LINKS))
                     .filter(p -> Stream.of(".git", "build", "node_modules", ".gradle").noneMatch(skip ->
                             repo.relativize(p).toString().startsWith(skip + "/") || repo.relativize(p).toString().contains("/" + skip + "/")))
                     .filter(wanted).sorted().toList();
@@ -358,6 +380,52 @@ public final class PolicyCheck {
     }
 
     String relative(Path p) { return repo.relativize(p).toString(); }
+
+    /**
+     * The tree to check, as its real path, once a walk of all of it has found no symbolic link: not the root, and
+     * nothing below it, the directories the checks skip included. The walk follows no link, and a file or directory it
+     * cannot inspect stops the check, so no link in the tree can lead a read elsewhere.
+     */
+    static Path withoutLinks(Path tree) throws IOException {
+        Path root = tree.toAbsolutePath().normalize();
+        if (Files.readAttributes(root, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS).isSymbolicLink()) {
+            throw new IOException("refused: the checked tree is a symbolic link");
+        }
+        Path real = root.toRealPath();
+        List<String> links = new ArrayList<>();
+        Files.walkFileTree(real, Set.of(), Integer.MAX_VALUE, new SimpleFileVisitor<>() {
+            @Override public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
+                if (attributes.isSymbolicLink()) links.add(real.relativize(file).toString());
+                return FileVisitResult.CONTINUE;
+            }
+            @Override public FileVisitResult visitFileFailed(Path file, IOException e) throws IOException {
+                throw e;
+            }
+        });
+        if (!links.isEmpty()) {
+            links.sort(null);
+            throw new IOException("refused: symbolic link in the checked tree: " + String.join(", ", links));
+        }
+        return real;
+    }
+
+    /** A regular file whose real path is inside the checked tree, opened without following a link; else it stops. */
+    byte[] read(Path file) throws IOException {
+        Path real = file.toRealPath();
+        if (!real.startsWith(repo) || !Files.isRegularFile(real, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("refused: %s is not a regular file inside the checked tree"
+                    .formatted(relative(file)));
+        }
+        try (InputStream in = Files.newInputStream(real, LinkOption.NOFOLLOW_LINKS)) {
+            return in.readAllBytes();
+        }
+    }
+
+    /** A file's text, as strict UTF-8 the way Files.readString reads it. */
+    String readText(Path file) throws IOException {
+        return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(read(file))).toString();
+    }
 
     String report(Set<Finding> found, boolean reportOnly) {
         StringBuilder out = new StringBuilder("## Dependency allowlist: ");
@@ -374,9 +442,9 @@ public final class PolicyCheck {
         return out.toString();
     }
 
-    static String sha256(Path file) throws IOException {
+    static String sha256(byte[] bytes) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(file)));
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }

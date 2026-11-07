@@ -117,7 +117,9 @@ What is built, and where it differs from the decision above. The decision stands
   `vendor/` directories, review record presence, verdicts, expiry dates and the acceptance digest. It does not
   validate the allowlist against a schema. Its XML parser has doctype declarations and external entities switched
   off. Its JSON reader accepts RFC 8259 JSON only: an allowlist or `package-lock.json` with a malformed value, such
-  as an unquoted version or a lone `+`, stops the check with exit 2 instead of being read as data.
+  as an unquoted version or a lone `+`, stops the check with exit 2 instead of being read as data. It refuses symbolic
+  links in the checked tree, the root included (exit 2), and reads only regular files inside the tree; a finding about
+  an unreadable lock-file line names the file and the line number, not the line.
 - **The tests are one more file for the source launcher, not the planned suite.**
   `java tools/policy/PolicyCheckTest.java` compiles `PolicyCheck.java` next to it and calls the checker directly;
   launching the checker never compiles the tests. They cover the JSON reader token by token, and each check above on

@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.CodeSource;
 import java.security.MessageDigest;
 import java.time.Duration;
@@ -30,7 +31,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
@@ -46,6 +49,11 @@ public final class PolicyCheckTest {
     static final String SHA_A = "a".repeat(64);
     static final String SHA_B = "b".repeat(64);
     static final String COMMIT = "0123456789abcdef0123456789abcdef01234567";
+    /** Text that must never reach the checker's output: it stands for contents the checker reads. */
+    static final String MARKER = "marker-" + UUID.randomUUID();
+    static final String LINK_REFUSED = "refused: symbolic link in the checked tree: ";
+    static final String ROOT_REFUSED = "refused: the checked tree is a symbolic link";
+    static final String UNREADABLE_LINE = "unreadable line (expected group:name:version=configurations)";
     static final byte[] WRAPPER_JAR = utf8("a synthetic wrapper jar\n");
     static final byte[] WIDGET = utf8("/* widget 1.0.0, a synthetic vendored file */\n");
 
@@ -69,6 +77,7 @@ public final class PolicyCheckTest {
             actions();
             npm();
             vendored();
+            tree();
             commandLine();
         } finally {
             for (Path dir : temporary) delete(dir);
@@ -326,14 +335,14 @@ public final class PolicyCheckTest {
     // ---- Gradle: lockfiles and verification metadata ----
 
     static void gradle() {
-        test("gradle: a lockfile line that is not group:name:version fails", () -> {
-            for (String line : List.of("org.example:lib=runtimeClasspath", "org.example:lib:1.0.0:extra=runtimeClasspath")) {
-                Repo repo = Repo.clean().append("gradle.lockfile", line + "\n");
-                expectOnly(repo.findings(), "gradle", "gradle.lockfile: unreadable line '" + line + "'");
+        test("gradle: an unreadable lockfile line fails by its number, with or without '=', never by its content", () -> {
+            for (String line : List.of("org.example:lib=runtimeClasspath", "org.example:lib:1.0.0:extra=runtimeClasspath",
+                    "org.example:other:2.0.0", MARKER)) {
+                List<String> findings = Repo.clean().append("gradle.lockfile", line + "\n").findings();
+                expectOnly(findings, "gradle", "gradle.lockfile:4: " + UNREADABLE_LINE);
+                expect(!findings.getFirst().contains(line), "the finding repeats the line: " + findings);
             }
         });
-        test("gradle: a lockfile line without '=' never passes", () ->
-                expectNoPass(Repo.clean().append("gradle.lockfile", "org.example:other:2.0.0\n")));
         test("gradle: lockfiles of nested projects are checked", () -> {
             Repo repo = Repo.clean().write("libs/demo/gradle.lockfile", "org.example:other:2.0.0=runtimeClasspath\n");
             expectOnly(repo.findings(), "gradle", "org.example:other 2.0.0 (in libs/demo/gradle.lockfile) has no review");
@@ -538,6 +547,80 @@ public final class PolicyCheckTest {
         });
     }
 
+    // ---- the checked tree: no symbolic link in it, nothing read from outside it ----
+
+    static void tree() {
+        test("tree: a symbolic link to a lockfile is refused and named", () -> expectRefused(
+                Repo.clean().link("libs/demo/gradle.lockfile", Path.of("../../gradle.lockfile")),
+                LINK_REFUSED + "libs/demo/gradle.lockfile"));
+        test("tree: a symbolic link to a directory that holds a lockfile is refused", () -> {
+            Path elsewhere = temporaryDirectory();
+            Files.writeString(elsewhere.resolve("gradle.lockfile"), "org.example:unreviewed:1.0.0=runtimeClasspath\n");
+            expectRefused(Repo.clean().link("libs/linked", elsewhere), LINK_REFUSED + "libs/linked");
+        });
+        test("tree: a dangling symbolic link is refused", () -> expectRefused(
+                Repo.clean().link("docs/dangling.md", Path.of("missing.md")), LINK_REFUSED + "docs/dangling.md"));
+        test("tree: a symbolic link to a file outside the tree is refused before the file is read", () -> {
+            Path outside = temporaryDirectory().resolve("notes.txt");
+            Files.writeString(outside, MARKER + "=runtimeClasspath\n");
+            IOException e = expectRefused(Repo.clean().link("settings-gradle.lockfile", outside),
+                    LINK_REFUSED + "settings-gradle.lockfile");
+            expect(!e.getMessage().contains(MARKER), "the refusal repeats the file: " + e);
+        });
+        test("tree: symbolic links in the directories the checks skip are refused too", () -> {
+            for (String path : List.of(".git/hooks/pre-commit", "build/output", ".gradle/cache", "node_modules/.bin/tool")) {
+                expectRefused(Repo.clean().link(path, Path.of("elsewhere")), LINK_REFUSED + path);
+            }
+        });
+        test("tree: a checked tree that is itself a symbolic link is refused", () -> {
+            Repo repo = Repo.clean().save();
+            Path link = temporaryDirectory().resolve("repository");
+            Files.createSymbolicLink(link, repo.root);
+            IOException e = expectThrows(IOException.class, () -> new PolicyCheck(link, TODAY));
+            expect(e.getMessage().contains(ROOT_REFUSED), "expected " + ROOT_REFUSED + ", got " + e);
+        });
+        test("tree: a review record outside the tree is refused, by an absolute or a relative path", () -> {
+            Path outside = temporaryDirectory().resolve("review.md");
+            Files.writeString(outside, "# A review record outside the repository\n");
+            for (String record : List.of(outside.toString(), "../" + outside.getParent().getFileName() + "/review.md")) {
+                Repo repo = Repo.clean();
+                repo.lib().put("reviewRecord", record);
+                expectRefused(repo, "refused: the review record of org.example:lib 1.0.0 is outside the checked tree");
+            }
+        });
+        test("tree: a directory the walk cannot read stops the check", () -> {
+            Repo repo = Repo.clean().save();
+            Path locked = Files.createDirectories(repo.root.resolve("locked"));
+            Files.setPosixFilePermissions(locked, Set.of());
+            try {
+                expect(!Files.isReadable(locked), "file permissions do not bind this user: run the tests as a non-root user");
+                IOException e = expectThrows(IOException.class, () -> new PolicyCheck(repo.root, TODAY));
+                expect(e.getMessage().contains("locked"), e.toString());
+            } finally {
+                Files.setPosixFilePermissions(locked, PosixFilePermissions.fromString("rwx------"));
+            }
+        });
+        test("tree: no file outside the tree is read, not even through a link made after the walk", () -> {
+            Path outside = temporaryDirectory().resolve("notes.txt");
+            Files.writeString(outside, MARKER + "\n");
+            Repo repo = Repo.clean().save();
+            PolicyCheck check = new PolicyCheck(repo.root, TODAY);
+            Path late = Files.createSymbolicLink(repo.root.resolve("late-link.txt"), outside);
+            for (Path path : List.of(outside, late, repo.root.resolve("security"))) {
+                IOException e = expectThrows(IOException.class, () -> check.read(path));
+                expect(e.getMessage().contains("is not a regular file inside the checked tree")
+                        && !e.getMessage().contains(MARKER), e.toString());
+            }
+        });
+    }
+
+    /** The check stops before it reads anything, with this reason in its message. */
+    static IOException expectRefused(Repo repo, String reason) {
+        IOException e = expectThrows(IOException.class, repo::findings);
+        expect(e.getMessage() != null && e.getMessage().contains(reason), "expected a refusal with " + reason + ", got " + e);
+        return e;
+    }
+
     // ---- the command line: exit codes 0, 1 and 2 ----
 
     static void commandLine() {
@@ -570,6 +653,18 @@ public final class PolicyCheckTest {
             Run run = launch("--print-digest", repo.root.toString());
             expect(run.exit() == 0, run.toString());
             expectEquals(repo.check().entriesDigest() + System.lineSeparator(), run.output());
+        });
+        test("cli: an unreadable lockfile line is reported by its number, never by its content", () -> {
+            for (String line : List.of(MARKER + "=runtimeClasspath", MARKER)) {
+                Run run = launch(Repo.clean().append("gradle.lockfile", line + "\n").save().root.toString());
+                expect(!run.output().contains(MARKER) && !run.error().contains(MARKER), "the line was printed: " + run);
+                expect(run.exit() == 1 && run.output().contains("- gradle.lockfile:4: " + UNREADABLE_LINE), run.toString());
+            }
+        });
+        test("cli: a symbolic link in the checked tree exits 2 and is named", () -> {
+            Repo repo = Repo.clean().save().link("docs/dangling.md", Path.of("missing.md"));
+            Run run = launch(repo.root.toString());
+            expect(run.exit() == 2 && run.output().contains(LINK_REFUSED + "docs/dangling.md"), run.toString());
         });
         test("cli: a child that does not finish fails its case by timeout, and is stopped", () -> {
             Path hang = temporaryDirectory().resolve("Hang.java");
@@ -749,6 +844,14 @@ public final class PolicyCheckTest {
             return this;
         }
 
+        /** A symbolic link at the path to the target, as given: relative to the link's directory, or absolute. */
+        Repo link(String path, Path target) throws IOException {
+            Path link = root.resolve(path);
+            Files.createDirectories(link.getParent());
+            Files.createSymbolicLink(link, target);
+            return this;
+        }
+
         Repo append(String path, String text) throws IOException {
             Files.writeString(root.resolve(path), text, StandardOpenOption.APPEND);
             return this;
@@ -829,17 +932,6 @@ public final class PolicyCheckTest {
     static void expectFinding(List<String> findings, String area, String... parts) {
         expect(findings.stream().anyMatch(f -> f.startsWith(area + ": ") && Stream.of(parts).allMatch(f::contains)),
                 "expected a " + area + " finding with " + List.of(parts) + ", got " + findings);
-    }
-
-    /** The check reports a finding or stops; either way it does not pass. */
-    static void expectNoPass(Repo repo) throws IOException {
-        List<String> findings;
-        try {
-            findings = repo.findings();
-        } catch (IOException | RuntimeException e) {
-            return;
-        }
-        expect(!findings.isEmpty(), "the check passed");
     }
 
     static String sha256(byte[] bytes) throws Exception {
