@@ -18,7 +18,10 @@
 //   5. every npm package in package-lock.json is allowlisted, comes from registry.npmjs.org and carries an integrity hash;
 //   6. every file under a vendor/ directory is byte-identical (SHA-256) to an approved, reviewed artifact;
 //   7. the owner has accepted exactly this reviewed set: every entry, field by field, and every review record, byte
-//      for byte.
+//      for byte;
+//   8. every container image that Testcontainers code, its configuration, a workflow or a script names is an approved
+//      container-image entry, by its digest alone, in the only forms the reviews allow, so that nothing else can be
+//      pulled: see checkContainerImages.
 // Exit codes: 0 = clean, 1 = findings, 2 = the check could not complete (a broken check never reads as a pass).
 // With --report-only, findings are printed and the exit code is 0 (new checks start report-only, then block).
 
@@ -174,6 +177,7 @@ public final class PolicyCheck {
         checkWorkflowActions();
         checkNpmLockfile();
         checkVendoredFiles();
+        checkContainerImages();
         return findings;
     }
 
@@ -413,6 +417,309 @@ public final class PolicyCheck {
                 add("vendored", "%s (SHA-256 %s) matches no approved vendored artifact".formatted(relative(file), sha));
             }
         }
+    }
+
+    // ---- 8. container images ----
+
+    /*
+     * Fail closed: an image may be named only by an approved digest, and only in forms this check can read. It reads
+     * the files that can name an image for Testcontainers or for the engine, as text: every file under a project's
+     * src/ directory (sources and resources), the Gradle build scripts and gradle.properties, the workflows and every
+     * shell script. Documents, the review records and this checker with its tests are not read: naming an image there
+     * uses nothing. What it refuses:
+     *   - a digest reference ([registry/]name@sha256:<digest>) that no approved container-image entry has, a tag next
+     *     to the digest, and a digest that is not 64 lowercase hexadecimal digits;
+     *   - DockerImageName.parse of anything but one string literal that holds a digest, as a method reference or by a
+     *     static import; a Testcontainers JDBC URL (jdbc:tc:), which names an image by tag;
+     *   - in Testcontainers code (a source that names org.testcontainers or com.github.dockerjava): any container other
+     *     than org.testcontainers.postgresql.PostgreSQLContainer (the deprecated one in .containers included), one made
+     *     from anything but DockerImageName.parse or a DockerImageName that this file parses, an anonymous or declared
+     *     subclass, a constructor reference; and every API that derives, builds or resolves an image name, pulls or
+     *     builds an image, runs another container, copies into one, binds the host, reaches the host, or changes how a
+     *     container is created (FORBIDDEN_API: the conditions of the Testcontainers and runner reviews);
+     *   - a testcontainers.properties file anywhere and a Testcontainers service file, and any setting that gives
+     *     Testcontainers an image (*.container.image, hub.image.name.prefix, image.substitutor, TESTCONTAINERS_*IMAGE*);
+     *   - in workflows and scripts: a docker command other than the reads, removals and the one pull that the staging,
+     *     the checks and the cleanup need (DOCKER_READS), a pull of anything but one image by digest, docker's global
+     *     options, other container runtimes, and job or service containers; in build scripts and sources, a container
+     *     runtime started as a command.
+     * It matches text, not syntax: a comment that spells a forbidden call fails too, and a workflow or script comment
+     * that starts a line or follows whitespace is not read as a command.
+     */
+
+    static final String DIGEST = "@sha256:";
+    static final Pattern DIGEST_REFERENCE = Pattern.compile("[^\\s\"'`()\\[\\]{}<>,;=|&]*" + DIGEST
+            + "[^\\s\"'`()\\[\\]{}<>,;=|&]*");
+    static final Pattern SHA256_HEX = Pattern.compile("[0-9a-f]{64}");
+    static final Pattern PARSE_CALL = Pattern.compile("\\bDockerImageName\\s*\\.\\s*parse\\s*\\(");
+    static final Pattern ONE_LITERAL = Pattern.compile("\\s*\"([^\"\\\\\\n]*)\"\\s*\\)");
+    static final Pattern PARSE_REFERENCE = Pattern.compile("\\bDockerImageName\\s*::\\s*parse\\b");
+    static final Pattern PARSE_IMPORT = Pattern.compile("\\bimport\\s+static\\s+[\\w.]*\\bDockerImageName\\s*\\.");
+    static final Pattern IMAGE_DECLARATION = Pattern.compile(
+            "\\bDockerImageName\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*(?:[\\w.]*\\.)?DockerImageName\\s*\\.\\s*parse\\s*\\(");
+    static final Pattern NEW_CONTAINER = Pattern.compile(
+            "\\bnew\\s+(?:[A-Za-z_$][\\w$]*\\s*\\.\\s*)*([A-Za-z_$][\\w$]*Container)\\b\\s*(?:<[^<>()]*>)?\\s*\\(");
+    static final Pattern CONTAINER_REFERENCE = Pattern.compile("\\b([A-Za-z_$][\\w$]*Container)\\s*::\\s*new\\b");
+    static final Pattern EXTENDS_CONTAINER = Pattern.compile(
+            "\\bextends\\s+(?:[A-Za-z_$][\\w$]*\\s*\\.\\s*)*([A-Za-z_$][\\w$]*Container)\\b");
+    static final Pattern DEPRECATED_CONTAINER = Pattern.compile(
+            "\\borg\\s*\\.\\s*testcontainers\\s*\\.\\s*containers\\s*\\.\\s*PostgreSQLContainer\\b");
+    static final Pattern NEW_IMAGE_NAME = Pattern.compile("\\bnew\\s+(?:[A-Za-z_$][\\w$]*\\s*\\.\\s*)*DockerImageName\\b");
+    static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z_$][\\w$]*");
+    static final String REVIEWED_CONTAINER = "PostgreSQLContainer";
+    static final Pattern FORBIDDEN_API = Pattern.compile("\\b(withTag|withRegistry|withRepository|"
+            + "asCompatibleSubstituteFor|ImageFromDockerfile|RemoteDockerImage|setDockerImageName|DockerComposeContainer|"
+            + "ComposeContainer|withFileSystemBind|addFileSystemBind|withClasspathResourceMapping|withCopyToContainer|"
+            + "withCopyFileToContainer|copyFileToContainer|exposeHostPorts|withAccessToHost|withPrivilegedMode|withReuse|"
+            + "withNetworkMode|withCreateContainerCmdModifier|withVolumesFrom|createContainerCmd|pullImageCmd|"
+            + "buildImageCmd|loadImageCmd|createImageCmd|copyArchiveToContainerCmd|pushImageCmd|tagImageCmd|"
+            + "runInsideDocker|checkAndPullImage)\\b");
+    static final Pattern TC_JDBC_URL = Pattern.compile("jdbc:tc:");
+    static final Pattern IMAGE_SETTING = Pattern.compile("TESTCONTAINERS_[A-Z0-9_]*IMAGE[A-Z0-9_]*"
+            + "|\\b[a-z0-9]+\\.container\\.image\\b|\\bhub\\.image\\.name\\.prefix\\b|\\bimage\\.substitutor\\b");
+    static final Pattern RUNTIME_COMMAND = Pattern.compile("\"(docker|docker-compose|podman|nerdctl|buildah)\"");
+    static final Pattern DOCKER_COMMAND = Pattern.compile("(?<![\\w./-])docker[ \\t]+(\\S+)");
+    static final Pattern OTHER_RUNTIME = Pattern.compile("(?<![\\w./-])(docker-compose|podman|nerdctl|buildah)(?![\\w.-])");
+    static final Pattern JOB_CONTAINER = Pattern.compile("^\\s*(?:-\\s+)?(services|container)\\s*:");
+    static final Pattern COMMAND_WORD = Pattern.compile("[a-z][a-z-]*");
+    /** docker's management commands, whose second word is the command. */
+    static final Set<String> DOCKER_GROUPS = Set.of("builder", "buildx", "checkpoint", "compose", "config", "container",
+            "context", "image", "manifest", "network", "node", "plugin", "secret", "service", "stack", "swarm", "system",
+            "trust", "volume");
+    /** What the staging, the checks and the cleanup need; a pull is checked on its own. */
+    static final Set<String> DOCKER_READS = Set.of("version", "info", "images", "inspect", "ps", "rm", "events",
+            "image ls", "image inspect", "container ls", "container inspect", "container rm", "network ls",
+            "network inspect", "network rm", "volume ls", "volume inspect", "volume rm", "manifest inspect");
+    static final Set<String> TEXT_RESOURCES = Set.of(".java", ".kt", ".kts", ".groovy", ".properties", ".yml", ".yaml",
+            ".xml", ".json", ".sql", ".txt", ".conf", ".cfg", ".sh", ".env");
+
+    void checkContainerImages() throws IOException {
+        for (Path file : files(this::namesImages)) {
+            String rel = repo.relativize(file).toString();
+            String name = file.getFileName().toString();
+            if (name.equals("testcontainers.properties") || name.equals(".testcontainers.properties")
+                    || rel.contains("META-INF/services/org.testcontainers.")) {
+                add("images", "%s: a Testcontainers configuration file; the reviews allow none (no "
+                        .formatted(relative(file)) + "testcontainers.properties, no service file)");
+                continue;
+            }
+            if (!readable(rel, name)) continue;
+            String text = readText(file);
+            for (Matcher m = DIGEST_REFERENCE.matcher(text); m.find(); ) {
+                imageProblem(m.group()).ifPresent(problem ->
+                        add("images", "%s: %s %s".formatted(at(file, text, m.start()), safe(m.group()), problem)));
+            }
+            find(file, text, TC_JDBC_URL, "a Testcontainers JDBC URL (jdbc:tc:) names an image by tag");
+            for (Matcher m = IMAGE_SETTING.matcher(text); m.find(); ) {
+                add("images", "%s: %s configures an image for Testcontainers".formatted(at(file, text, m.start()),
+                        safe(m.group())));
+            }
+            boolean workflow = rel.startsWith(".github/workflows/");
+            boolean source = ("/" + rel).contains("/src/") && Stream.of(".java", ".kt", ".groovy").anyMatch(name::endsWith);
+            if (workflow || name.endsWith(".sh")) checkDockerCommands(file, text, workflow);
+            if (source || name.endsWith(".gradle.kts") || name.endsWith(".gradle")) {
+                find(file, text, RUNTIME_COMMAND, "runs a container runtime as a command");
+            }
+            if (source) checkImageCode(file, text);
+        }
+    }
+
+    /** The files that can name an image: sources and resources, build scripts, workflows and shell scripts. */
+    boolean namesImages(Path p) {
+        String rel = repo.relativize(p).toString();
+        String name = p.getFileName().toString();
+        return ("/" + rel).contains("/src/") || name.endsWith(".sh") || name.endsWith(".gradle.kts")
+                || name.endsWith(".gradle") || name.equals("gradle.properties") || name.endsWith("testcontainers.properties")
+                || rel.startsWith(".github/workflows/") && (name.endsWith(".yml") || name.endsWith(".yaml"));
+    }
+
+    /** A file read as text: a known text format; under src/, a binary file such as an image names no container. */
+    static boolean readable(String rel, String name) {
+        return !("/" + rel).contains("/src/") || TEXT_RESOURCES.stream().anyMatch(name::endsWith);
+    }
+
+    /**
+     * Why a digest reference is not an approved image, or empty when it is one: [registry/]name@sha256:<digest>,
+     * where the name with its registry is the coordinate of an approved container-image entry and the digest is its
+     * sha256. Docker Hub's spellings are one registry: docker.io, index.docker.io and none.
+     */
+    Optional<String> imageProblem(String reference) {
+        int at = reference.indexOf(DIGEST);
+        String name = reference.substring(0, at);
+        String digest = reference.substring(at + DIGEST.length());
+        if (!SHA256_HEX.matcher(digest).matches()) {
+            return Optional.of("is not a sha256 digest of 64 lowercase hexadecimal digits");
+        }
+        if (name.indexOf(':', name.lastIndexOf('/') + 1) >= 0) {
+            return Optional.of("names a tag next to its digest; an image is named by its digest alone");
+        }
+        String coordinate = imageCoordinate(name);
+        List<Entry> matching = entries.stream().filter(e -> "container-image".equals(e.kind())
+                && e.coordinate().equals(coordinate) && e.sha256().equals(digest)).toList();
+        if (matching.stream().anyMatch(Entry::approved)) return Optional.empty();
+        return Optional.of(matching.isEmpty() ? "has no review on the allowlist"
+                : "was REJECTED in " + safe(matching.getFirst().reviewRecord()));
+    }
+
+    /** An image name as the allowlist writes it: registry/path, with Docker Hub as docker.io and its library/. */
+    static String imageCoordinate(String name) {
+        int slash = name.indexOf('/');
+        String first = slash < 0 ? "" : name.substring(0, slash);
+        boolean registry = first.contains(".") || first.contains(":") || first.equals("localhost");
+        String host = registry ? first : "docker.io";
+        String path = registry ? name.substring(slash + 1) : name;
+        if (host.equals("index.docker.io") || host.equals("registry-1.docker.io")) host = "docker.io";
+        if (host.equals("docker.io") && !path.contains("/")) path = "library/" + path;
+        return host + "/" + path;
+    }
+
+    /** DockerImageName and the containers in a source file, and in Testcontainers code the APIs the reviews forbid. */
+    void checkImageCode(Path file, String text) {
+        for (Matcher m = PARSE_CALL.matcher(text); m.find(); ) {
+            Matcher literal = ONE_LITERAL.matcher(text).region(m.end(), text.length());
+            if (!literal.lookingAt()) {
+                add("images", "%s: DockerImageName.parse takes something other than one string literal"
+                        .formatted(at(file, text, m.start())));
+            } else if (!literal.group(1).contains(DIGEST)) {
+                add("images", "%s: %s is not pinned by digest".formatted(at(file, text, m.start()), safe(literal.group(1))));
+            }
+        }
+        find(file, text, PARSE_REFERENCE, "DockerImageName::parse makes image names from values this check cannot read");
+        find(file, text, PARSE_IMPORT, "a static import of DockerImageName hides the calls this check reads");
+        find(file, text, NEW_IMAGE_NAME, "new DockerImageName builds an image name that this check cannot read");
+        find(file, text, DEPRECATED_CONTAINER, "org.testcontainers.containers.PostgreSQLContainer is the deprecated "
+                + "container; the review approves org.testcontainers.postgresql.PostgreSQLContainer");
+        if (!text.contains("org.testcontainers") && !text.contains("com.github.dockerjava")) return;
+        Set<String> parsedHere = new TreeSet<>();
+        for (Matcher m = IMAGE_DECLARATION.matcher(text); m.find(); ) parsedHere.add(m.group(1));
+        for (Matcher m = NEW_CONTAINER.matcher(text); m.find(); ) {
+            String where = at(file, text, m.start());
+            if (!REVIEWED_CONTAINER.equals(m.group(1))) {
+                add("images", "%s: %s is not the reviewed org.testcontainers.postgresql.PostgreSQLContainer"
+                        .formatted(where, safe(m.group(1))));
+                continue;
+            }
+            int close = closing(text, m.end() - 1);
+            String argument = close < 0 ? "" : text.substring(m.end(), close).strip();
+            boolean parsed = PARSE_CALL.matcher(argument).lookingAt()
+                    || argument.startsWith("org.testcontainers.utility.") && PARSE_CALL.matcher(argument).find();
+            boolean declared = IDENTIFIER.matcher(argument).matches() && parsedHere.contains(argument);
+            if (!parsed && !declared) {
+                add("images", "%s: PostgreSQLContainer is made from something other than DockerImageName.parse, or a "
+                        .formatted(where) + "DockerImageName this file parses");
+            } else if (close >= 0 && text.substring(close + 1).stripLeading().startsWith("{")) {
+                add("images", "%s: an anonymous subclass of PostgreSQLContainer".formatted(where));
+            }
+        }
+        for (Matcher m = CONTAINER_REFERENCE.matcher(text); m.find(); ) {
+            add("images", "%s: %s::new makes containers from values this check cannot read"
+                    .formatted(at(file, text, m.start()), safe(m.group(1))));
+        }
+        for (Matcher m = EXTENDS_CONTAINER.matcher(text); m.find(); ) {
+            add("images", "%s: extends %s; a test may not subclass a container".formatted(at(file, text, m.start()),
+                    safe(m.group(1))));
+        }
+        for (Matcher m = FORBIDDEN_API.matcher(text); m.find(); ) {
+            add("images", "%s: %s is forbidden by the Testcontainers and runner reviews".formatted(
+                    at(file, text, m.start()), m.group(1)));
+        }
+    }
+
+    /** The docker commands of a workflow or a shell script, line by line, without comments. */
+    void checkDockerCommands(Path file, String text, boolean workflow) {
+        List<String> lines = text.lines().toList();
+        for (int n = 0; n < lines.size(); n++) {
+            String line = withoutComment(lines.get(n));
+            String where = "%s:%d".formatted(relative(file), n + 1);
+            if (workflow && JOB_CONTAINER.matcher(line).find()) {
+                add("images", where + ": a job or service container; the runner review allows Testcontainers only");
+            }
+            for (Matcher m = OTHER_RUNTIME.matcher(line); m.find(); ) {
+                add("images", "%s: %s is not the reviewed engine".formatted(where, m.group(1)));
+            }
+            for (Matcher m = DOCKER_COMMAND.matcher(line); m.find(); ) {
+                List<String> words = List.of(line.substring(m.start(1)).trim().split("[ \\t]+"));
+                String command = commandOf(words);
+                if (command.equals("pull") || command.equals("image pull")) {
+                    if (!pullsOneDigest(words.subList(command.split(" ").length, words.size()))) {
+                        add("images", where + ": docker pull of something other than one image by digest");
+                    }
+                } else if (!DOCKER_READS.contains(command)) {
+                    add("images", "%s: docker %s is not an allowed use of the reviewed engine (allowed: pull by "
+                            .formatted(where, safe(command.isEmpty() ? words.getFirst() : command))
+                            + "digest, and reads and removals)");
+                }
+            }
+        }
+    }
+
+    /** The command a docker invocation names: its first word, or two for a management command; "" when unreadable. */
+    static String commandOf(List<String> words) {
+        String first = words.getFirst();
+        if (!COMMAND_WORD.matcher(first).matches()) return "";
+        if (!DOCKER_GROUPS.contains(first)) return first;
+        return words.size() > 1 && COMMAND_WORD.matcher(words.get(1)).matches() ? first + " " + words.get(1) : "";
+    }
+
+    /** The arguments of a pull, up to the end of its command: only --quiet and --platform, then one digest reference. */
+    static boolean pullsOneDigest(List<String> arguments) {
+        List<String> positional = new ArrayList<>();
+        for (int i = 0; i < arguments.size(); i++) {
+            String word = arguments.get(i);
+            if (Set.of("&&", "||", "|", ";", "\\").contains(word)) break;
+            if (word.equals("--platform")) {
+                i++;
+            } else if (word.startsWith("--platform=") || word.equals("--quiet") || word.equals("-q")) {
+                continue;
+            } else if (word.startsWith("-")) {
+                return false;
+            } else {
+                positional.add(word);
+            }
+        }
+        return positional.size() == 1 && positional.getFirst().contains(DIGEST);
+    }
+
+    /** A line of a workflow or a script without its comment: from an unquoted # at its start or after whitespace. */
+    static String withoutComment(String line) {
+        boolean single = false;
+        boolean dbl = false;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '\'' && !dbl) single = !single;
+            else if (c == '"' && !single) dbl = !dbl;
+            else if (c == '#' && !single && !dbl && (i == 0 || Character.isWhitespace(line.charAt(i - 1)))) {
+                return line.substring(0, i);
+            }
+        }
+        return line;
+    }
+
+    /** The index of the parenthesis that closes the one at open, skipping string and character literals; -1 if none. */
+    static int closing(String text, int open) {
+        int depth = 0;
+        for (int i = open; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '"' || c == '\'') {
+                for (i++; i < text.length() && text.charAt(i) != c; i++) {
+                    if (text.charAt(i) == '\\') i++;
+                }
+            } else if (c == '(') {
+                depth++;
+            } else if (c == ')' && --depth == 0) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    void find(Path file, String text, Pattern pattern, String problem) {
+        for (Matcher m = pattern.matcher(text); m.find(); ) add("images", at(file, text, m.start()) + ": " + problem);
+    }
+
+    /** A place in a file for a message: its path and line number. */
+    String at(Path file, String text, int offset) {
+        return relative(file) + ":" + location(text, offset).substring(0, location(text, offset).indexOf(':'));
     }
 
     // ---- shared ----
