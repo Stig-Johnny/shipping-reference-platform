@@ -273,11 +273,11 @@ class DemoPagesTest {
         String index = body(site.text("demos/index.html"));
 
         String feature = "<div class=\"register-feature\">\n<p class=\"card-title\"><span class=\"register-code\">X-D01"
-                + "</span> <a href=\"deck-milestone.html\" hreflang=\"nb\">Milestone deck · Norwegian</a> <span "
-                + "class=\"badge badge-neutral\">Presentation</span></p>\n<p>A sample deck in Norwegian: what is built, "
-                + "what is planned and one change the gate rejects.</p>\n<p class=\"card-meta\">Milestone <time "
-                + "datetime=\"2026-11-10\">2026-11-10</time> · Updated <time datetime=\"2026-11-07\">2026-11-07</time> · "
-                + "Speaker notes <a href=\"deck-milestone-notes.html\">X-N01</a></p>\n</div>\n";
+                + "</span> <a href=\"deck-milestone.html\">Milestone deck</a> <span class=\"badge badge-neutral\">"
+                + "Presentation</span></p>\n<p>A sample deck: what is built, what is planned and one change the gate "
+                + "rejects.</p>\n<p class=\"card-meta\">Milestone <time datetime=\"2026-11-10\">2026-11-10</time> · "
+                + "Updated <time datetime=\"2026-11-07\">2026-11-07</time> · Speaker notes <a href=\""
+                + "deck-milestone-notes.html\">X-N01</a></p>\n</div>\n";
         assertThat(index).contains(feature);
         assertThat(index.indexOf(feature)).isLessThan(index.indexOf("<table"));
         assertThat(index.substring(0, index.indexOf("<table"))).doesNotContain("badge-shipped", "badge-approved",
@@ -287,7 +287,7 @@ class DemoPagesTest {
         assertThat(List.of(nav.indexOf(">X-GUIDE<"), nav.indexOf(">X-D01<"), nav.indexOf(">X-N01<"),
                 nav.indexOf(">X-42<"))).doesNotContain(-1).isSorted();
         assertThat(nav).contains("<span class=\"register-code\">X-D01</span> <span class=\"register-title\">Milestone "
-                + "deck · Norwegian <span class=\"badge badge-neutral\">Presentation</span></span>",
+                + "deck <span class=\"badge badge-neutral\">Presentation</span></span>",
                 "<span class=\"register-code\">X-N01</span> <span class=\"register-title\">Milestone deck · speaker "
                         + "notes</span>");
     }
@@ -298,34 +298,34 @@ class DemoPagesTest {
 
         String deck = build().text(DECK);
 
-        assertThat(deck).startsWith("<!DOCTYPE html>\n<html lang=\"nb\" class=\"deck\">")
-                .contains("<title>Milepæl: et eksempel · Shipping reference platform</title>",
-                        "<span class=\"visually-hidden\">Sheet </span>X-D01</p>\n<h1 lang=\"nb\">Milepæl: et eksempel</h1>",
-                        "<p class=\"page-summary\">A sample deck in Norwegian: what is built, what is planned and one "
-                                + "change the gate rejects.</p>",
+        assertThat(deck).startsWith("<!DOCTYPE html>\n<html lang=\"en\" class=\"deck\">")
+                .contains("<title>Milestone: an example · Shipping reference platform</title>",
+                        "<span class=\"visually-hidden\">Sheet </span>X-D01</p>\n<h1>Milestone: an example</h1>",
+                        "<p class=\"page-summary\">A sample deck: what is built, what is planned and one change the gate "
+                                + "rejects.</p>",
                         // The milestone, the source's update date and the build's revision, each on its own.
-                        "<p class=\"page-facts\">Presentation · Norwegian · Milestone <time datetime=\"2026-11-10\">"
-                                + "2026-11-10</time> · 3 slides and 1 appendix slide · Speaker notes <a "
-                                + "href=\"deck-milestone-notes.html\">X-N01</a></p>",
+                        "<p class=\"page-facts\">Presentation · Milestone <time datetime=\"2026-11-10\">2026-11-10"
+                                + "</time> · 3 slides and 1 appendix slide · Speaker notes <a href=\""
+                                + "deck-milestone-notes.html\">X-N01</a></p>",
                         "<p class=\"page-facts\">The milestone is the meeting the deck is made for, Updated is the date "
                                 + "of its source, and Revision is the commit this site was built from.</p>",
-                        "<p class=\"deck-start-line\"><a class=\"deck-start\" href=\"#hva-som-er-bygget\" lang=\"nb\">"
-                                + "Start lysbildene</a></p>",
+                        "<p class=\"deck-start-line\"><a class=\"deck-start\" href=\"#what-is-built\">Start slides</a>"
+                                + "</p>",
                         "<div><dt>Revision</dt><dd><code>01234567</code></dd></div>",
                         "<div><dt>Updated</dt><dd>2026-11-07</dd></div>");
         assertThat(ledgerRow(deck, "Verified evidence")).startsWith("<span class=\"badge badge-neutral\">Presentation"
                 + "</span> ");
         String index = "<nav class=\"deck-index\" id=\"site-deck-index\" aria-labelledby=\"site-deck-index-title\">\n"
-                + "<h2 id=\"site-deck-index-title\">Oversikt</h2>\n<ol class=\"deck-index-list\">\n"
-                + "<li><a href=\"#hva-som-er-bygget\"><span class=\"register-code\" aria-hidden=\"true\">01/03</span> "
-                + "<span class=\"register-title\">Hva som er bygget</span></a></li>\n"
-                + "<li><a href=\"#status-i-dag\"><span class=\"register-code\" aria-hidden=\"true\">02/03</span> "
-                + "<span class=\"register-title\">Status i dag</span></a></li>\n"
-                + "<li><a href=\"#én-endring-porten-avviser\"><span class=\"register-code\" aria-hidden=\"true\">03/03"
-                + "</span> <span class=\"register-title\">Én endring porten avviser</span></a></li>\n</ol>\n"
-                + "<h3 id=\"site-deck-appendix-title\">Vedlegg</h3>\n<ol class=\"deck-index-list\">\n"
-                + "<li><a href=\"#vedlegg-verktøy\"><span class=\"register-code\" aria-hidden=\"true\">A1/1</span> "
-                + "<span class=\"register-title\">Vedlegg: verktøy</span></a></li>\n</ol>\n</nav>\n";
+                + "<h2 id=\"site-deck-index-title\">Overview</h2>\n<ol class=\"deck-index-list\">\n"
+                + "<li><a href=\"#what-is-built\"><span class=\"register-code\" aria-hidden=\"true\">01/03</span> "
+                + "<span class=\"register-title\">What is built</span></a></li>\n"
+                + "<li><a href=\"#state-today\"><span class=\"register-code\" aria-hidden=\"true\">02/03</span> "
+                + "<span class=\"register-title\">State today</span></a></li>\n"
+                + "<li><a href=\"#one-change-the-gate-rejects\"><span class=\"register-code\" aria-hidden=\"true\">03/03"
+                + "</span> <span class=\"register-title\">One change the gate rejects</span></a></li>\n</ol>\n"
+                + "<h3 id=\"site-deck-appendix-title\">Appendix</h3>\n<ol class=\"deck-index-list\">\n"
+                + "<li><a href=\"#appendix-tools\"><span class=\"register-code\" aria-hidden=\"true\">A1/1</span> "
+                + "<span class=\"register-title\">Appendix: tools</span></a></li>\n</ol>\n</nav>\n";
         assertThat(deck).contains(index);
         assertThat(List.of(deck.indexOf("<header class=\"site-header\""), deck.indexOf("<header class=\"sheet-header\""),
                 deck.indexOf("class=\"status-panel\""), deck.indexOf(index), deck.indexOf("<section class=\"slide\"")))
@@ -341,36 +341,36 @@ class DemoPagesTest {
         String deck = build().text(DECK);
 
         assertThat(deck).contains("""
-                <section class="slide" id="hva-som-er-bygget" aria-labelledby="site-slide-1">
+                <section class="slide" id="what-is-built" aria-labelledby="site-slide-1">
                 <p class="slide-code">X-D01<span aria-hidden="true"> · 01/03</span><span class="visually-hidden">, \
-                lysbilde 1 av 3</span></p>
-                <h2 id="site-slide-1">Hva som er bygget</h2>
+                slide 1 of 3</span></p>
+                <h2 id="site-slide-1">What is built</h2>
                 <div class="slide-body">
-                <p>Sjekkeren kjører i hvert bygg.</p>
+                <p>The checker runs in every build.</p>
                 <ul>
-                <li>Modellen styrer strukturen</li>
-                <li>Porten stopper uvurderte avhengigheter</li>
+                <li>The model governs the structure</li>
+                <li>The gate stops unreviewed dependencies</li>
                 </ul>
                 </div>
                 <footer class="slide-foot">
                 <ul class="slide-controls">
-                <li class="slide-previous"><a href="#site-deck-index">Forrige</a></li>
-                <li class="slide-overview"><a href="#site-deck-index">Oversikt</a></li>
-                <li class="slide-next"><a href="#status-i-dag">Neste</a></li>
+                <li class="slide-previous"><a href="#site-deck-index">Previous</a></li>
+                <li class="slide-overview"><a href="#site-deck-index">Overview</a></li>
+                <li class="slide-next"><a href="#state-today">Next</a></li>
                 </ul>
-                <p class="slide-source" lang="en">docs/demos/deck-milestone.md · Revision <code>01234567</code></p>
+                <p class="slide-source">docs/demos/deck-milestone.md · Revision <code>01234567</code></p>
                 </footer>
                 </section>
                 """);
-        assertThat(deck).contains("<section class=\"slide\" id=\"vedlegg-verktøy\" aria-labelledby=\"site-slide-4\">\n"
+        assertThat(deck).contains("<section class=\"slide\" id=\"appendix-tools\" aria-labelledby=\"site-slide-4\">\n"
                 + "<p class=\"slide-code\">X-D01<span aria-hidden=\"true\"> · A1/1</span><span class=\"visually-hidden\">, "
-                + "vedlegg 1 av 1</span></p>\n<h2 id=\"site-slide-4\">Vedlegg: verktøy</h2>",
-                "<li class=\"slide-previous\"><a href=\"#én-endring-porten-avviser\">Forrige</a></li>\n<li "
-                        + "class=\"slide-overview\"><a href=\"#site-deck-index\">Oversikt</a></li>\n<li "
-                        + "class=\"slide-next\"><a href=\"#site-deck-index\">Neste</a></li>");
+                + "appendix slide 1 of 1</span></p>\n<h2 id=\"site-slide-4\">Appendix: tools</h2>",
+                "<li class=\"slide-previous\"><a href=\"#one-change-the-gate-rejects\">Previous</a></li>\n<li "
+                        + "class=\"slide-overview\"><a href=\"#site-deck-index\">Overview</a></li>\n<li "
+                        + "class=\"slide-next\"><a href=\"#site-deck-index\">Next</a></li>");
         assertThat(count(deck, "<section class=\"slide\"")).isEqualTo(4);
         assertThat(count(deck, "<ul class=\"slide-controls\">")).isEqualTo(4);
-        assertThat(count(deck, "<p class=\"slide-source\" lang=\"en\">")).isEqualTo(4);
+        assertThat(count(deck, "<p class=\"slide-source\">")).isEqualTo(4);
     }
 
     @Test
@@ -381,21 +381,21 @@ class DemoPagesTest {
         String deck = site.text(DECK);
         String notes = site.text(NOTES);
 
-        assertThat(deck).doesNotContain("Si først hva som ikke er bygget", "Tallene kommer fra kildene", "Notater</h3>",
-                "notater");
-        assertThat(notes).startsWith("<!DOCTYPE html>\n<html lang=\"nb\">")
-                .contains("<span class=\"visually-hidden\">Sheet </span>X-N01</p>\n<h1 lang=\"nb\">Milepæl: et eksempel "
-                        + "— notater</h1>",
-                        "<section class=\"deck-note\" id=\"hva-som-er-bygget\" aria-labelledby=\"site-note-1\">\n<h2 "
+        assertThat(deck).doesNotContain("Say first what is not built", "The numbers come from the sources",
+                ">Notes</h3>", "id=\"notes");
+        assertThat(notes).startsWith("<!DOCTYPE html>\n<html lang=\"en\">")
+                .contains("<span class=\"visually-hidden\">Sheet </span>X-N01</p>\n<h1>Milestone: an example — "
+                        + "notes</h1>",
+                        "<section class=\"deck-note\" id=\"what-is-built\" aria-labelledby=\"site-note-1\">\n<h2 "
                                 + "id=\"site-note-1\"><span class=\"register-code\" aria-hidden=\"true\">01/03</span> <span "
-                                + "class=\"visually-hidden\">Lysbilde 1 av 3: </span><a href=\"deck-milestone.html"
-                                + "#hva-som-er-bygget\">Hva som er bygget</a></h2>\n<ul>\n<li>Si først hva som ikke er "
-                                + "bygget</li>\n</ul>\n</section>",
-                        "<a href=\"deck-milestone.html#vedlegg-verktøy\">Vedlegg: verktøy</a></h2>\n<p "
-                                + "class=\"deck-note-none\">Ingen notater.</p>\n</section>",
-                        "<li lang=\"en\">Recorded output — not rerun by this site build. Recorded "
-                                + "2026-11-07T14:56:19Z on revision 44ef312:")
-                .doesNotContain("<section class=\"slide\"", "Forrige", "Neste");
+                                + "class=\"visually-hidden\">Slide 1 of 3: </span><a href=\"deck-milestone.html"
+                                + "#what-is-built\">What is built</a></h2>\n<ul>\n<li>Say first what is not built</li>\n"
+                                + "</ul>\n</section>",
+                        "<a href=\"deck-milestone.html#appendix-tools\">Appendix: tools</a></h2>\n<p "
+                                + "class=\"deck-note-none\">No notes.</p>\n</section>",
+                        "<li>Recorded output — not rerun by this site build. Recorded 2026-11-07T14:56:19Z on "
+                                + "revision 44ef312:")
+                .doesNotContain("<section class=\"slide\"", ">Previous</a>", ">Next</a>");
         assertThat(count(notes, "<section class=\"deck-note\"")).isEqualTo(4);
         assertThat(titleBlock(notes)).contains("<div><dt>Source</dt><dd>docs/demos/deck-milestone.md</dd></div>",
                 "<div><dt>Updated</dt><dd>2026-11-07</dd></div>");
@@ -406,10 +406,10 @@ class DemoPagesTest {
         fixture.write(Decks.PATH, Decks.SAMPLE);
 
         BuiltSite site = build();
-        String second = slide(site.text(DECK), "status-i-dag");
+        String second = slide(site.text(DECK), "state-today");
         String start = site.text("index.html");
 
-        assertThat(second).contains("<div class=\"slide-ledger\" lang=\"en\">\n<dl class=\"status-grid\">\n");
+        assertThat(second).contains("<div class=\"slide-ledger\">\n<dl class=\"status-grid\">\n");
         for (String term : List.of("Accepted design", "Planned implementation", "Verified evidence")) {
             // The same statements as the start sheet's, from the same sources.
             assertThat(ledgerRow(second, term)).as(term).startsWith(ledgerRow(start, term));
@@ -422,9 +422,8 @@ class DemoPagesTest {
         assertThat(evidence).startsWith("<span class=\"badge badge-shipped\">Tooling tests passing</span> ")
                 .contains("These tests verify repository tooling, not shipping behaviour.");
         assertThat(count(site.text(DECK), "badge-shipped")).isEqualTo(1);
-        assertThat(slide(site.text(DECK), "én-endring-porten-avviser")).doesNotContain("badge-shipped")
-                .contains("<p lang=\"en\">Recorded output — not rerun by this site build. Full record in the "
-                        + "notes.</p>");
+        assertThat(slide(site.text(DECK), "one-change-the-gate-rejects")).doesNotContain("badge-shipped")
+                .contains("<p>Recorded output — not rerun by this site build. Full record in the notes.</p>");
     }
 
     @Test
@@ -435,8 +434,8 @@ class DemoPagesTest {
         String paths = start.substring(start.indexOf("id=\"reading-paths\""), start.indexOf("id=\"sections\""));
 
         assertThat(paths).contains("</div>\n<p class=\"start-deck\"><span class=\"register-code\">X-D01</span> <a "
-                + "href=\"demos/deck-milestone.html\" hreflang=\"nb\">Milestone deck · Norwegian</a> <span class=\"badge "
-                + "badge-neutral\">Presentation</span></p>\n");
+                + "href=\"demos/deck-milestone.html\">Milestone deck</a> <span class=\"badge badge-neutral\">"
+                + "Presentation</span></p>\n");
         assertThat(count(start, "deck-milestone.html")).isEqualTo(1);
         assertThat(List.of(start.indexOf("<h1>"), start.indexOf("class=\"status-panel\""),
                 start.indexOf("class=\"start-drawing\""), start.indexOf("id=\"reading-paths\""),
@@ -455,13 +454,13 @@ class DemoPagesTest {
     @Test
     void aDemonstrationMaySendItsReaderToTheDeckAndToASlide() {
         fixture.write(Decks.PATH, Decks.SAMPLE).write(Demos.path("visual"), Demos.VISUAL.replace("Open [how the site is "
-                + "drawn](../ui/documentation-site.md)", "Open [the deck](deck-milestone.md#status-i-dag) and [its "
-                + "notes](" + SITE + "demos/deck-milestone-notes.html#status-i-dag)"));
+                + "drawn](../ui/documentation-site.md)", "Open [the deck](deck-milestone.md#state-today) and [its "
+                + "notes](" + SITE + "demos/deck-milestone-notes.html#state-today)"));
 
         String sheet = build().text("demos/43-visual.html");
 
-        assertThat(sheet).contains("<a rel=\"nofollow\" href=\"deck-milestone.html#status-i-dag\">the deck</a>",
-                "<a rel=\"nofollow\" href=\"deck-milestone-notes.html#status-i-dag\">its notes</a>");
+        assertThat(sheet).contains("<a rel=\"nofollow\" href=\"deck-milestone.html#state-today\">the deck</a>",
+                "<a rel=\"nofollow\" href=\"deck-milestone-notes.html#state-today\">its notes</a>");
     }
 
     @Test
@@ -476,8 +475,8 @@ class DemoPagesTest {
                 + "</span>", "<span aria-hidden=\"true\"> · A1/4</span>", "<span aria-hidden=\"true\"> · A4/4</span>");
         long planned = Sources.read(fixture.root(), List.of(fixture.reports())).capabilities().capabilities().stream()
                 .filter(c -> c.status() == Capability.Status.PLANNED).count();
-        assertThat(slide(deck, "løftene-og-hva-dere-kan-sjekke-i-dag")).contains(planned + " av ")
-                .contains("<div class=\"slide-ledger\" lang=\"en\">");
+        assertThat(slide(deck, "the-promises-and-what-you-can-check-today")).contains(planned + " of ")
+                .contains("<div class=\"slide-ledger\">");
         assertThat(count(site.text(NOTES), "<section class=\"deck-note\"")).isEqualTo(14);
     }
 

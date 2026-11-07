@@ -493,7 +493,7 @@ class DemoCheckTest {
     // Milestone decks: docs/demos/deck-<slug>.md, checked by their own rules; a deck is not a demonstration.
 
     private static final String DECK = Decks.PATH + ": ";
-    private static final String SLIDE_3 = "slide 3 'Én endring porten avviser'";
+    private static final String SLIDE_3 = "slide 3 'One change the gate rejects'";
 
     @Test
     void aDeckIsValidBesideTheDemonstrationsAndIsNoDemonstration() {
@@ -510,11 +510,11 @@ class DemoCheckTest {
     @Test
     void theRepositoryCheckRunsTheDeckCheck(@TempDir Path copy) {
         Fixture fixture = Fixture.copy(copy).passingEvidence().withoutDemos().write(Decks.PATH,
-                Decks.with("lang: nb", "lang: en"));
+                Decks.with("lang: en", "lang: nb"));
 
         assertThatThrownBy(() -> Consistency.check(Sources.read(fixture.root(), List.of(fixture.reports()))))
-                .isInstanceOf(DocsException.class).hasMessageContaining(DECK + "lang 'en' is not nb; a deck is "
-                        + "written in Norwegian Bokmål (nb), the language of its slide controls");
+                .isInstanceOf(DocsException.class).hasMessageContaining(DECK + "lang 'nb' is not en; a deck is "
+                        + "written in English, the language of the site and of its slide controls");
     }
 
     @Test
@@ -531,9 +531,11 @@ class DemoCheckTest {
                 Arguments.of("kind: deck", "kind: gate", "kind 'gate' is not deck; a file named "
                         + "docs/demos/deck-<slug>.md is a deck"),
                 Arguments.of("kind: deck\n", "", "frontmatter missing key 'kind'"),
-                Arguments.of("lang: nb", "lang: en", "lang 'en' is not nb; a deck is written in Norwegian Bokmål (nb), "
-                        + "the language of its slide controls"),
-                Arguments.of("lang: nb\n", "", "frontmatter missing key 'lang'"),
+                Arguments.of("lang: en", "lang: nb", "lang 'nb' is not en; a deck is written in English, the language "
+                        + "of the site and of its slide controls"),
+                Arguments.of("lang: en", "lang: en-GB", "lang 'en-GB' is not en; a deck is written in English, the "
+                        + "language of the site and of its slide controls"),
+                Arguments.of("lang: en\n", "", "frontmatter missing key 'lang'"),
                 Arguments.of("milestone: 2026-11-10", "milestone: 10 November", "milestone '10 November' is not an "
                         + "ISO date (YYYY-MM-DD)"),
                 Arguments.of("milestone: 2026-11-10", "milestone: 2026-02-30", "milestone '2026-02-30' is not an ISO "
@@ -575,20 +577,20 @@ class DemoCheckTest {
                 .containsExactly(DECK + "mainSlides is 6, but the deck has 3 main slides");
         assertThat(problems(Decks.PATH, Decks.with("appendixSlides: 1", "appendixSlides: 0")))
                 .containsExactly(DECK + "appendixSlides is 0, but the deck has 1 appendix slide (a title that starts "
-                        + "with 'Vedlegg:')");
-        assertThat(problems(Decks.PATH, Decks.with("## Vedlegg: verktøy", "## Verktøy")))
+                        + "with 'Appendix:')");
+        assertThat(problems(Decks.PATH, Decks.with("## Appendix: tools", "## Tools")))
                 .containsExactly(DECK + "appendixSlides is 1, but the deck has 0 appendix slides (a title that starts "
-                        + "with 'Vedlegg:')", DECK + "mainSlides is 3, but the deck has 4 main slides");
+                        + "with 'Appendix:')", DECK + "mainSlides is 3, but the deck has 4 main slides");
     }
 
     @Test
     void theAppendixComesLastAndADeckHasTwoMainSlidesAtLeast() {
-        String moved = Decks.with("## Status i dag", "## Vedlegg: status i dag");
+        String moved = Decks.with("## State today", "## Appendix: state today");
 
         assertThat(problems(Decks.PATH, moved.replace("mainSlides: 3", "mainSlides: 2")
-                .replace("appendixSlides: 1", "appendixSlides: 2"))).containsExactly(DECK + "the main slide 'Én "
-                        + "endring porten avviser' comes after an appendix slide; the appendix comes last");
-        String one = Decks.SAMPLE.substring(0, Decks.SAMPLE.indexOf("## Status i dag")).replace("mainSlides: 3",
+                .replace("appendixSlides: 1", "appendixSlides: 2"))).containsExactly(DECK + "the main slide 'One "
+                        + "change the gate rejects' comes after an appendix slide; the appendix comes last");
+        String one = Decks.SAMPLE.substring(0, Decks.SAMPLE.indexOf("## State today")).replace("mainSlides: 3",
                 "mainSlides: 1").replace("appendixSlides: 1", "appendixSlides: 0");
         assertThat(problems(Decks.PATH, one)).containsExactly(DECK + "a deck has at least two main slides; slide 02 "
                 + "carries the repository's ledger");
@@ -596,97 +598,98 @@ class DemoCheckTest {
 
     @Test
     void aDeckHasOneTitleItsOwnAndNothingBeforeItsFirstSlide() {
-        assertThat(problems(Decks.PATH, Decks.with("# Milepæl: et eksempel\n", "")))
+        assertThat(problems(Decks.PATH, Decks.with("# Milestone: an example\n", "")))
                 .containsExactly(DECK + "the deck has no level-1 heading; it starts with # and its title");
-        assertThat(problems(Decks.PATH, Decks.with("# Milepæl: et eksempel\n", "# Milepæl\n")))
-                .containsExactly(DECK + "the level-1 heading 'Milepæl' is not the title 'Milepæl: et eksempel'");
-        assertThat(problems(Decks.PATH, Decks.with("# Milepæl: et eksempel\n", "# Milepæl: et eksempel\n\nIntro.\n")))
+        assertThat(problems(Decks.PATH, Decks.with("# Milestone: an example\n", "# Milestone\n")))
+                .containsExactly(DECK + "the level-1 heading 'Milestone' is not the title 'Milestone: an example'");
+        assertThat(problems(Decks.PATH, Decks.with("# Milestone: an example\n", "# Milestone: an example\n\nIntro.\n")))
                 .containsExactly(DECK + "text stands before the first slide; everything stands under a slide's "
                         + "level-2 heading");
-        assertThat(problems(Decks.PATH, Decks.with("Java 25 og strenge bygg.", "Java 25.\n\n# Slutt")))
-                .containsExactly(DECK + "a second level-1 heading, 'Slutt'; a deck has one title");
+        assertThat(problems(Decks.PATH, Decks.with("Java 25 and strict builds.", "Java 25.\n\n# The end")))
+                .containsExactly(DECK + "a second level-1 heading, 'The end'; a deck has one title");
     }
 
     @Test
     void aSlideHasATitleAndContentAndNoHeadingButItsNotesHeading() {
-        assertThat(problems(Decks.PATH, Decks.with("Java 25 og strenge bygg.\n", "")))
-                .containsExactly(DECK + "slide 4 'Vedlegg: verktøy' is empty");
-        assertThat(problems(Decks.PATH, Decks.with("## Status i dag", "##")))
+        assertThat(problems(Decks.PATH, Decks.with("Java 25 and strict builds.\n", "")))
+                .containsExactly(DECK + "slide 4 'Appendix: tools' is empty");
+        assertThat(problems(Decks.PATH, Decks.with("## State today", "##")))
                 .containsExactly(DECK + "slide 2 has no title");
-        assertThat(problems(Decks.PATH, Decks.with("Sjekkeren kjører i hvert bygg.", "### Bygget\n\nSjekkeren.")))
-                .containsExactly(DECK + "slide 1 'Hva som er bygget' has the heading 'Bygget'; below its title a slide "
-                        + "has only ### Notater, which starts its notes");
+        assertThat(problems(Decks.PATH, Decks.with("The checker runs in every build.", "### Built\n\nThe checker.")))
+                .containsExactly(DECK + "slide 1 'What is built' has the heading 'Built'; below its title a slide has "
+                        + "only ### Notes, which starts its notes");
         // A mistyped notes heading would put the notes on the projected slide.
-        assertThat(problems(Decks.PATH, Decks.with("### Notater\n\n- Tallene", "### Notes\n\n- Tallene")))
-                .containsExactly(DECK + "slide 2 'Status i dag' has the heading 'Notes'; below its title a slide has "
-                        + "only ### Notater, which starts its notes");
-        assertThat(problems(Decks.PATH, Decks.with("- Tallene kommer fra kildene\n", "")))
-                .containsExactly(DECK + "the notes of slide 2 'Status i dag' are empty");
-        assertThat(problems(Decks.PATH, Decks.with("- Tallene kommer fra kildene\n", """
-                - Tallene
+        assertThat(problems(Decks.PATH, Decks.with("### Notes\n\n- The numbers", "### Speaker notes\n\n- The numbers")))
+                .containsExactly(DECK + "slide 2 'State today' has the heading 'Speaker notes'; below its title a slide "
+                        + "has only ### Notes, which starts its notes");
+        assertThat(problems(Decks.PATH, Decks.with("- The numbers come from the sources\n", "")))
+                .containsExactly(DECK + "the notes of slide 2 'State today' are empty");
+        assertThat(problems(Decks.PATH, Decks.with("- The numbers come from the sources\n", """
+                - The numbers
 
-                ### Notater
+                ### Notes
 
-                - Igjen
+                - Again
                 """)))
-                .containsExactly(DECK + "the notes of slide 2 'Status i dag' have the heading 'Notater'; notes have no "
+                .containsExactly(DECK + "the notes of slide 2 'State today' have the heading 'Notes'; notes have no "
                         + "headings");
     }
 
     @Test
     void eachSlideHasAnAnchorOfItsOwnAndInPageLinksNameASlide() {
-        assertThat(problems(Decks.PATH, Decks.with("## Status i dag", "## Hva som er bygget")))
-                .containsExactly(DECK + "slide 2 'Hva som er bygget' has the anchor #hva-som-er-bygget, which slide 1 "
-                        + "also has; each slide needs a title of its own");
-        assertThat(problems(Decks.PATH, Decks.with("## Status i dag", "## Milepæl: et eksempel")))
-                .containsExactly(DECK + "slide 2 'Milepæl: et eksempel' has the anchor #milepæl-et-eksempel, which the "
-                        + "deck's title has; each slide needs a title of its own");
-        assertThat(problems(Decks.PATH, Decks.with("## Status i dag", "## Notater")))
-                .containsExactly(DECK + "slide 2 'Notater' has the anchor #notater, which the notes headings have; each "
+        assertThat(problems(Decks.PATH, Decks.with("## State today", "## What is built")))
+                .containsExactly(DECK + "slide 2 'What is built' has the anchor #what-is-built, which slide 1 also has; "
+                        + "each slide needs a title of its own");
+        assertThat(problems(Decks.PATH, Decks.with("## State today", "## Milestone: an example")))
+                .containsExactly(DECK + "slide 2 'Milestone: an example' has the anchor #milestone-an-example, which "
+                        + "the deck's title has; each slide needs a title of its own");
+        assertThat(problems(Decks.PATH, Decks.with("## State today", "## Notes")))
+                .containsExactly(DECK + "slide 2 'Notes' has the anchor #notes, which the notes headings have; each "
                         + "slide needs a title of its own");
-        assertThat(problems(Decks.PATH, Decks.with("Java 25 og strenge bygg.", "Se [status](#status-i-dag).")))
+        assertThat(problems(Decks.PATH, Decks.with("Java 25 and strict builds.", "See [the state](#state-today).")))
                 .isEmpty();
-        assertThat(problems(Decks.PATH, Decks.with("Java 25 og strenge bygg.", "Se [notatene](#notater).")))
-                .containsExactly(DECK + "slide 4 'Vedlegg: verktøy' links #notater, which is no slide of this deck");
-        assertThat(problems(Decks.PATH, Decks.with("- Tallene kommer fra kildene", "- Se [status](#status)")))
-                .containsExactly(DECK + "the notes of slide 2 'Status i dag' link #status, which is no slide of this "
+        assertThat(problems(Decks.PATH, Decks.with("Java 25 and strict builds.", "See [the notes](#notes).")))
+                .containsExactly(DECK + "slide 4 'Appendix: tools' links #notes, which is no slide of this deck");
+        assertThat(problems(Decks.PATH, Decks.with("- The numbers come from the sources", "- See [the state](#state)")))
+                .containsExactly(DECK + "the notes of slide 2 'State today' link #state, which is no slide of this "
                         + "deck");
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"![skjermbilde](bilde.png)", "<img src=\"bilde.png\" alt=\"skjermbilde\">",
-        "<script>alert(1)</script>", "<iframe src=\"https://example.com/\"></iframe>", "En <b>fet</b> påstand.",
-        "[opptaket](opptak.mp4)", "[en skjerm](https://example.com/skjerm.gif)"})
+    @ValueSource(strings = {"![screenshot](shot.png)", "<img src=\"shot.png\" alt=\"screenshot\">",
+        "<script>alert(1)</script>", "<iframe src=\"https://example.com/\"></iframe>", "A <b>bold</b> claim.",
+        "[the recording](recording.mp4)", "[a screen](https://example.com/screen.gif)"})
     void aDeckIsTextOnlyWithoutActiveContent(String markdown) {
-        List<String> problems = problems(Decks.PATH, Decks.with("Sjekkeren kjører i hvert bygg.",
-                "Sjekkeren kjører i hvert bygg. " + markdown));
+        List<String> problems = problems(Decks.PATH, Decks.with("The checker runs in every build.",
+                "The checker runs in every build. " + markdown));
 
-        assertThat(problems).singleElement().asString().startsWith(DECK + "slide 1 'Hva som er bygget' ")
+        assertThat(problems).singleElement().asString().startsWith(DECK + "slide 1 'What is built' ")
                 .contains("a deck is text only");
     }
 
     @Test
     void aDeckShowsRecordedOutputInTextFencesOnly() {
-        assertThat(problems(Decks.PATH, Decks.with("Java 25 og strenge bygg.", "```sh\n./gradlew check\n```")))
-                .containsExactly(DECK + "slide 4 'Vedlegg: verktøy' has a ```sh fence; a deck shows recorded output in "
+        assertThat(problems(Decks.PATH, Decks.with("Java 25 and strict builds.", "```sh\n./gradlew check\n```")))
+                .containsExactly(DECK + "slide 4 'Appendix: tools' has a ```sh fence; a deck shows recorded output in "
                         + "```text fences and nothing else");
-        assertThat(problems(Decks.PATH, Decks.with("Java 25 og strenge bygg.", "```\nJava 25\n```")))
-                .containsExactly(DECK + "slide 4 'Vedlegg: verktøy' has a fence without ```text; a deck shows recorded "
+        assertThat(problems(Decks.PATH, Decks.with("Java 25 and strict builds.", "```\nJava 25\n```")))
+                .containsExactly(DECK + "slide 4 'Appendix: tools' has a fence without ```text; a deck shows recorded "
                         + "output in ```text fences and nothing else");
-        assertThat(problems(Decks.PATH, Decks.with("Java 25 og strenge bygg.", "Java 25.\n\n    java -version")))
-                .containsExactly(DECK + "slide 4 'Vedlegg: verktøy' has an indented code block; recorded output goes "
-                        + "in a ```text fence");
-        assertThat(problems(Decks.PATH, Decks.with("- Modellen styrer strukturen", "- Modellen:\n\n  ```text\n  x\n"
-                + "  ```")))
-                .containsExactly(DECK + "slide 1 'Hva som er bygget' has a code block inside a list or a quote; fences "
+        assertThat(problems(Decks.PATH, Decks.with("Java 25 and strict builds.", "Java 25.\n\n    java -version")))
+                .containsExactly(DECK + "slide 4 'Appendix: tools' has an indented code block; recorded output goes in "
+                        + "a ```text fence");
+        assertThat(problems(Decks.PATH, Decks.with("- The model governs the structure", "- The model:\n\n  ```text\n"
+                + "  x\n  ```")))
+                .containsExactly(DECK + "slide 1 'What is built' has a code block inside a list or a quote; fences "
                         + "stand on their own");
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"TODO", "Tekst kommer (TBD).", "todo: tall", "<sett inn tall>", "<...>", "Dato YYYY-MM-DD."})
+    @ValueSource(strings = {"TODO", "Text to come (TBD).", "todo: numbers", "<insert the numbers>", "<...>",
+        "Dated YYYY-MM-DD."})
     void aPlaceholderFails(String text) {
-        List<String> problems = problems(Decks.PATH, Decks.with("Java 25 og strenge bygg.", "Java 25 og strenge bygg. "
-                + text));
+        List<String> problems = problems(Decks.PATH, Decks.with("Java 25 and strict builds.", "Java 25 and strict "
+                + "builds. " + text));
 
         assertThat(problems).singleElement().asString().startsWith(DECK).containsAnyOf("placeholder",
                 "YYYY-MM-DD is left from a template");
@@ -694,11 +697,11 @@ class DemoCheckTest {
 
     @Test
     void aPlaceholderInTheTitleTheDescriptionOrTheNotesFails() {
-        assertThat(problems(Decks.PATH, Decks.with("title: \"Milepæl: et eksempel\"", "title: \"<tittel>\"")
-                .replace("# Milepæl: et eksempel", "# <tittel>"))).contains(DECK + "title holds '<tittel>', an "
+        assertThat(problems(Decks.PATH, Decks.with("title: \"Milestone: an example\"", "title: \"<title>\"")
+                .replace("# Milestone: an example", "# <title>"))).contains(DECK + "title holds '<title>', an "
                         + "unfilled placeholder");
-        assertThat(problems(Decks.PATH, Decks.with("- Si først hva som ikke er bygget", "- TBD")))
-                .containsExactly(DECK + "the notes of slide 1 'Hva som er bygget' hold 'TBD', a placeholder");
+        assertThat(problems(Decks.PATH, Decks.with("- Say first what is not built", "- TBD")))
+                .containsExactly(DECK + "the notes of slide 1 'What is built' hold 'TBD', a placeholder");
     }
 
     @Test
@@ -722,8 +725,8 @@ class DemoCheckTest {
                     .containsExactly(DECK + "the notes of " + SLIDE_3 + " do not name the command that recorded it, an "
                             + "approved command of docs/demos/how-to.md in a code span");
         }
-        assertThat(problems(Decks.PATH, Decks.SAMPLE.substring(0, Decks.SAMPLE.indexOf("### Notater\n\n- Recorded"))
-                + "## Vedlegg: verktøy\n\nJava 25 og strenge bygg.\n"))
+        assertThat(problems(Decks.PATH, Decks.SAMPLE.substring(0, Decks.SAMPLE.indexOf("### Notes\n\n- Recorded"))
+                + "## Appendix: tools\n\nJava 25 and strict builds.\n"))
                 .containsExactly(DECK + SLIDE_3 + " shows recorded output, but has no notes that record its date, "
                         + "revision, command and exit status");
     }
@@ -732,17 +735,17 @@ class DemoCheckTest {
     void aCountOfCapabilitiesOnASlideIsTheSourcesCount() {
         List<Capability> product = sources.capabilities().capabilities();
         long planned = product.stream().filter(c -> c.status() == Capability.Status.PLANNED).count();
-        String slide = "Kontrollene er bygget; produktet er planlagt.";
+        String slide = "The controls are built; the product is planned.";
 
-        assertThat(problems(Decks.PATH, Decks.with(slide, "Planlagt: " + planned + " av " + product.size()
-                + " funksjoner."))).isEmpty();
-        assertThat(problems(Decks.PATH, Decks.with(slide, "Planlagt: " + (planned - 1) + " av\n" + product.size()
-                + " funksjoner."))).containsExactly(DECK + "slide 2 'Status i dag' says '" + (planned - 1) + " av "
-                        + product.size() + " funksjoner', but docs/capabilities/capabilities.yaml has " + planned + " of "
-                        + product.size() + " product capabilities planned");
-        assertThat(problems(Decks.PATH, Decks.with("| Sjekkeren | Bygget og testet |", "| Produktet | "
-                + planned + " av " + (product.size() + 1) + " funksjoner |"))).containsExactly(DECK + "slide 2 'Status "
-                        + "i dag' says '" + planned + " av " + (product.size() + 1) + " funksjoner', but "
+        assertThat(problems(Decks.PATH, Decks.with(slide, "Planned: " + planned + " of " + product.size()
+                + " capabilities."))).isEmpty();
+        assertThat(problems(Decks.PATH, Decks.with(slide, "Planned: " + (planned - 1) + " of\n" + product.size()
+                + " capabilities."))).containsExactly(DECK + "slide 2 'State today' says '" + (planned - 1) + " of "
+                        + product.size() + " capabilities', but docs/capabilities/capabilities.yaml has " + planned
+                        + " of " + product.size() + " product capabilities planned");
+        assertThat(problems(Decks.PATH, Decks.with("| The checker | Built and tested |", "| The product | "
+                + planned + " of " + (product.size() + 1) + " capabilities |"))).containsExactly(DECK + "slide 2 "
+                        + "'State today' says '" + planned + " of " + (product.size() + 1) + " capabilities', but "
                         + "docs/capabilities/capabilities.yaml has " + planned + " of " + product.size() + " product "
                         + "capabilities planned");
     }

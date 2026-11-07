@@ -1,56 +1,54 @@
 ---
-title: "Milepæl: fra lysbilder til kode"
-description: "The milestone deck, in Norwegian: what is built and checked, what is still planned, one change the gate rejects, who approves what, and a proposed first 30 days with a new team."
+title: "Milestone: from slides to code"
+description: "The milestone deck: what is built and checked, what is still planned, one change the gate rejects, who approves what, and a proposed first 30 days with a new team."
 status: accepted
 updated: 2026-11-07
 kind: deck
-lang: nb
+lang: en
 milestone: 2026-11-10
 mainSlides: 10
 appendixSlides: 4
 ---
 
-# Milepæl: fra lysbilder til kode
+# Milestone: from slides to code
 
-## AI-assistert levering, ansvarlige beslutninger
+## AI-assisted delivery, accountable decisions
 
-Målet er flere nyttige endringer, med tydelig ansvar for hver av dem.
+The aim is to deliver more useful changes, with clear responsibility for each change and the decisions behind it.
 
-- Agentene skriver koden og testene
-- Påkrevde sjekker må være grønne før sammenslåing
-- Et menneske eier beslutningene som ikke kan angres
+- Agents write the code and the tests
+- Required checks must be green before merging
+- A person owns the decisions that cannot be undone
 
-### Notater
+### Notes
 
-- Dette møtet: det jeg lovet sist, vist i et offentlig repo dere kan åpne selv
-- Alle domenedata er syntetiske; fraktappen er et tenkt eksempel
-- Hensikten er levering, ikke verktøy for verktøyets skyld
+- This meeting: what I promised last time, shown in a public repository you can open yourselves
+- All domain data is synthetic; the shipping app is an invented example
+- The aim is delivery, not tooling for its own sake
 
-## Løftene, og hva dere kan sjekke i dag
+## The promises, and what you can check today
 
-Sjekkeren og avhengighetsporten kjører; fraktappen er planlagt.
+The checker and the dependency gate run; the shipping app is planned.
 
-| Løfte | I dag |
+| Promise | Today |
 |---|---|
-| Modellen styrer strukturen | Bygget og testet: sjekkeren |
-| Porten stopper uvurderte avhengigheter | Deklarerte avhengigheter kontrolleres i det godkjente CI-løpet |
-| Selve fraktappen | Planlagt: 27 av 27 funksjoner |
+| The model governs the structure | Built and tested: the checker |
+| The gate stops unreviewed dependencies | Declared dependencies are checked in the approved CI run |
+| The shipping app itself | Planned: 27 of 27 capabilities |
 
-### Notater
+### Notes
 
-- Si det tidlig: applikasjonen er ikke skrevet ennå
-- Det som finnes, er kontrollene som skal dømme den
-- Dette beviser en del av metoden; levering av produkt er neste bevis jeg skylder
+- Say it early: the application is not written yet
+- What exists are the controls that will judge it
+- This proves part of the method; delivering product is the next evidence I owe
 
-## Én endring porten avviser
+## One change the gate rejects
 
-Vi fjerner én pil fra sjekkerens egen modell og lar sjekkeren dømme koden.
+We remove one arrow from the checker's own model.
 
-- Uten pilen: sjekkeren finner to kall i koden som modellen ikke tillater
-- Bygget feiler og viser fil og linje
-- Pilen tilbake: grønt igjen
-
-Utdrag:
+- The checker finds two calls the model no longer allows.
+- The build fails, identifying the file and line.
+- Restore the arrow: green again.
 
 ```text
 ### DIVERGENCE: report -> model
@@ -58,12 +56,12 @@ Utdrag:
 
 Recorded output — not rerun by this site build. Full record in the notes.
 
-### Notater
+### Notes
 
-- Demoen kjøres i en egen kopi av repoet, så ingenting deles ved et uhell
-- Først forretningsbetydningen: en avtalt regel om hvem som får bruke hvem
-- Så feilmeldingen: hvilke klasser, hvilke kall, hvilken linje
-- Går noe galt med nettet: bytt straks til opptaket
+- The demo runs in a separate copy of the repository, so nothing is shared by accident
+- First the business meaning: an agreed rule about which part may use which
+- Then the error message: which classes, which calls, which line
+- If the network fails: switch to the recording at once
 - Recorded output — not rerun by this site build. Recorded 2026-11-07T14:56:19Z on revision 44ef312, macOS with Temurin 25.0.5+8: `./gradlew :libs:c4-contract-kit:test --rerun --tests '*SelfConformanceTest'` exited 1 with the relationship `report -> model` removed from `libs/c4-contract-kit/architecture/self.dsl`, and 0 before and after. Excerpt from the checker's report; the report's other headings are left out:
 
 ```text
@@ -72,144 +70,144 @@ Recorded output — not rerun by this site build. Full record in the notes.
 report depends on model, but the model declares no relationship report -> model.
 ```
 
-## Hva et grønt bygg beviser
+## What a green build proves
 
-Hver påstand trenger riktig type bevis.
+Each claim needs the right kind of evidence.
 
-- Koden kompilerer, byggets tester består, og bibliotekets registrerte, direkte statiske avhengigheter følger egen modell
-- En påkrevd pil bevises av én direkte referanse; et ubrukt felt holder
-- At en pris eller booking er riktig, krever egne tester
+- The code compiles, the build's tests pass, and the library's recorded direct static dependencies follow its own model
+- A required arrow is proven by one direct reference; an unused field is enough
+- Correct prices and bookings need their own tests.
 
-### Notater
+### Notes
 
-- Sjekkeren ser kompilert kode, ikke hva som skjer når den kjører
-- En pil som berører en planlagt modul, vurderes ikke ennå
-- Derfor: arkitektursjekk, tester og menneskelig vurdering hver for seg
+- The checker sees compiled code, not what happens when it runs
+- An arrow that touches a planned module is not evaluated yet
+- So: the architecture check, tests and human judgement, each on its own
 
-## Hvem godkjenner hver endring
+## Who approves each change
 
-Alle nivåer krever grønne sjekker og dokumentert AI-godkjenning.
+Every level requires green checks and a documented AI approval.
 
-- 0: dokumenttekst. 1: utseende og prototyper uten følsom funksjonalitet, avslått som standard.
-- 2: vanlig funksjonalitet.
-- 3: følsomme endringer og kontrollene; eieren må også godkjenne nøyaktig versjon manuelt før sammenslåing.
+- 0: document text. 1: appearance, and prototypes without sensitive functionality, off by default.
+- 2: ordinary functionality.
+- 3: sensitive changes and the controls; the owner must also approve the exact version by hand before merging.
 
-### Notater
+### Notes
 
-- Nivå 3 omfatter penger, booking, persondata, innlogging, skillet mellom nettbutikkenes data, databasestruktur, tredjepartskode og kontrollene
-- Automatisk håndheving av AI- og eiergodkjenning er planlagt
-- Endringer i SQL-kode, migreringer og behandling av persondata er nivå 3
-- Hos dere foreslår jeg at et menneske også sjekker hensikten på nivå 2, slik jeg lovet sist
+- Level 3 covers money, booking, personal data, sign-in, the separation of the webshops' data, the database structure, third-party code and the controls
+- Automatic enforcement of the AI and owner approvals is planned
+- Changes to SQL code, migrations and the processing of personal data are level 3
+- At your company I propose that a person also checks the intent at level 2, as I promised last time
 
-## En arbeidsflyt teamet deres eier
+## A workflow your team owns
 
-Sak, tester, endring, gjennomgang, demo: hver gang.
+Issue, tests, change, review, demo: every time.
 
-- Brain: et generert sammendrag som agentene skal lese først; bygget feiler hvis det er utdatert
-- Vi demonstrerer hver leveranse for dere
-- Sjekkene er åpne; README beskriver oppsett og begrensninger
+- Brain: a generated summary that the agents are to read first; the build fails when it is out of date
+- We demonstrate every delivery to you
+- The checks are open; the README describes the setup and the limits
 
-### Notater
+### Notes
 
-- Metoden skal kunne overleveres: tydelig hvem som vedlikeholder sjekker, gjennomganger og innstillinger
-- Brain er et sammendrag av kildene, ikke en erstatning for dem
+- The method must be transferable: clear who maintains the checks, the reviews and the settings
+- Brain is a summary of the sources, not a replacement for them
 
-## Sammen med Java-lederen deres
+## Working with your Java lead
 
-Jeg eier leveransen og de tekniske beslutningene; Java-lederen utfordrer de teknologispesifikke valgene.
+I own the delivery and the technical decisions; the Java lead challenges the technology-specific choices.
 
-- Jeg lærte Java under studiene og har 17 års erfaring med C# og .NET
-- Usikkerhet gjør jeg synlig, ikke skjult
-- Repoets vedtatte valg er Spring Data JDBC; applikasjonskoden er ikke skrevet. Eventuelle JPA-valg tar vi sammen.
+- I learned Java at university and have 17 years of experience with C# and .NET
+- I make uncertainty explicit.
+- This repository specifies Spring Data JDBC; application code is still planned. We will make any JPA decisions together.
 
-### Notater
+### Notes
 
-- Si Java-bakgrunnen én gang, så videre til ansvar og samarbeid
-- Verktøyene i repoet er reelle: strenge bygg, statisk analyse, mutasjonstesting i CI
+- State the Java background once, then move on to responsibility and collaboration
+- The tooling in the repository is real: strict builds, static analysis, mutation testing in CI
 
-## Forslag til de første 30 dagene
+## A proposal for the first 30 days
 
-Vi blir enige om én skive, en avgrenset funksjon fra ende til ende, med akseptkriterier og tilbakerulling.
+We agree on one slice, a bounded feature from end to end, with acceptance criteria and a rollback plan.
 
-1. Forstå plattformen, verktøyene og prototypene
-2. Porten i deres repo, først bare rapporterende
-3. Én skive bak et flagg; dere tar beslutningen om utrulling
+1. Understand the platform, the tools and the prototypes
+2. The gate in your repository, reporting only at first
+3. One slice behind a flag; you decide whether to roll it out
 
-### Notater
+### Notes
 
-- Ingen datoer før jeg kjenner plattformen
-- Ingen løfter om produksjon før dere har sett skiven virke
+- No dates before I know the platform
+- No promise of production before you have seen the slice work
 
-## Bevis hver fredag
+## Evidence every Friday
 
-Dere ser programvare som virker, ikke aktivitet.
+Every Friday, you see working software and the evidence needed to judge our progress.
 
-- Én side: levert, forsinket, hva porten stoppet, hvilke beslutninger jeg trenger
-- En demo av det som kjører
-- Vi måler ledetid, omarbeiding og feil som slapp gjennom
+- One page: delivered, delayed, what the gate stopped, which decisions I need
+- A demo of what runs
+- We measure lead time, rework and defects that got through
 
-### Notater
+### Notes
 
-- Eksempler i det offentlige repoet er syntetiske; deres egne tall holdes internt
+- Examples in the public repository are synthetic; your own numbers stay internal
 
-## Beslutningen
+## The decision
 
-Bli enige om første skive og hvordan dere vurderer bidraget mitt.
+Agree on the first slice, how you will judge my contribution, and when we will review the result together.
 
-- Første skive og akseptkriteriene
-- Tidsbruk og hvem som eier hva
-- Når vi ser på resultatet sammen
+- The first slice and its acceptance criteria
+- The time it takes and who owns what
+- When we look at the result together
 
-### Notater
+### Notes
 
-- Spør om prioriteringene deres før detaljene
-- Avslutt med en dato for neste vurdering
+- Ask about your priorities before the details
+- End with a date for the next review
 
-## Vedlegg: avhengighetsporten
+## Appendix: the dependency gate
 
-Deklarerte avhengigheter i det godkjente CI-løpet sjekkes mot registrerte vurderinger før bygget starter.
+Declared dependencies in the approved CI run are checked against recorded reviews before the build starts.
 
-- Sjekken kjøres fra hovedgrenen mot endringens filer, som data
-- 308 vurderte oppføringer: 293 godkjente, 15 avviste
-- En vurdering kan ta feil; betingelser håndheves ikke overalt
+- The check runs from the main branch against the change's files, as data
+- 308 reviewed entries: 293 approved, 15 rejected
+- A review can be wrong; conditions are not enforced everywhere
 
-### Notater
+### Notes
 
-- Detaljene står på Trust-sidene i nettstedet
+- The details are on the site's Trust pages
 
-## Vedlegg: bevis på at portene feiler
+## Appendix: evidence that the gates fail
 
-To endringer ble laget for å feile, og ble aldri slått sammen.
+Two changes were made to fail, and were never merged.
 
-- Pull request #16: en uvurdert avhengighet; sjekken avsluttet med kode 1
-- Pull request #17: en liste som ikke kunne leses; sjekken avsluttet med kode 2
-- Manglende `pipefail` skjulte feilstatusen fra avhengighetssjekken; dette ble rettet i #15
+- Pull request #16: an unreviewed dependency; the check exited with code 1
+- Pull request #17: a malformed allowlist; the check exited with code 2.
+- A missing `pipefail` hid the failure status of the dependency check; this was fixed in #15
 
-### Notater
+### Notes
 
-- Hele historikken står i security/README.md
+- The full history is in security/README.md
 
-## Vedlegg: hvordan en agent fortsatt kan svekke kontrollene
+## Appendix: how an agent could still weaken the controls
 
-Dette sier jeg før dere spør.
+I say this before you ask.
 
-- Utvide modellen, eller svekke tester og arbeidsflyter i sin egen endring
-- Regne ut kontrollsummen for det vurderte settet på nytt
-- Avhengighetssjekken kjøres fra hovedgrenen; nivå 3 krever manuell eiergodkjenning, som ennå ikke håndheves automatisk
+- Broaden the model, or weaken tests and workflows in its own change
+- Recompute the checksum of the reviewed set
+- The dependency check runs from the main branch; level 3 needs the owner's approval by hand, which is not yet enforced automatically
 
-### Notater
+### Notes
 
-- Håndhevet godkjenning og en egen AI-gjennomgangssjekk er planlagt
-- Kontrollene er ikke en sertifisering
+- Enforced approval and a separate AI-review check are planned
+- The controls are not a certification
 
-## Vedlegg: verktøy og versjoner
+## Appendix: tools and versions
 
-Java 25, strenge bygg og statisk analyse.
+Java 25, strict builds and static analysis.
 
-- Temurin 25.0.5+8, Gradle med låste og verifiserte avhengigheter
-- Error Prone og NullAway; sjekkeren bruker ArchUnit og Structurizr DSL
-- Mutasjonstesting av sjekkeren i CI: terskel 90 %, uten krav om grønt resultat før sammenslåing
+- Temurin 25.0.5+8, Gradle with locked and verified dependencies
+- Error Prone and NullAway; the checker uses ArchUnit and Structurizr DSL
+- Mutation testing of the checker runs in CI with a 90% threshold; passing is not required before merging.
 
-### Notater
+### Notes
 
-- Spring Boot-avhengighetene er deklarert; kjørende app og database er planlagt
+- The Spring Boot dependencies are declared; a running app and a database are planned

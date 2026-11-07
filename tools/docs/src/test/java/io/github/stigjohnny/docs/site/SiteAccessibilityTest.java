@@ -9,7 +9,6 @@ import io.github.stigjohnny.docs.testing.Demos;
 import io.github.stigjohnny.docs.testing.Fixture;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeAll;
@@ -21,8 +20,7 @@ import org.junit.jupiter.api.io.TempDir;
  * landmarks, one heading per page, labelled controls and regions, active navigation in words and aria-current, and the
  * page template in its order. Contrast, focus, reduced motion and reflow are in the stylesheet (SiteAssetsTest). The copy
  * has two demonstrations and a milestone deck, so that every rule covers their sheets, the register of the Demos
- * section, the deck's slides and its notes too. The site is English; the deck and its notes are Norwegian Bokmål, with
- * the site's English regions marked as English.
+ * section, the deck's slides and its notes too. Every page is English, the deck's included.
  */
 class SiteAccessibilityTest {
 
@@ -41,54 +39,40 @@ class SiteAccessibilityTest {
         site = BuiltSite.read(dir.resolve("site"));
     }
 
-    /** The pages that are not English: the deck and its notes, in Norwegian Bokmål. Every other page is English. */
-    private static final Map<String, String> LANGUAGES = Map.of("demos/deck-milestone.html", "nb",
-            "demos/deck-milestone-notes.html", "nb");
+    /** The deck's page, whose root also names its layout, so that the stylesheet puts the register above the slides. */
+    private static final String DECK = "demos/deck-milestone.html";
 
     @Test
-    void everyPageStatesItsLanguageWithASkipLinkFirstAndTheLandmarks() {
-        assertThat(site.pages()).containsAll(LANGUAGES.keySet());
+    void everyPageIsEnglishWithASkipLinkFirstAndTheLandmarks() {
+        assertThat(site.pages()).contains(DECK, "demos/deck-milestone-notes.html");
         for (String page : site.pages()) {
             String html = site.text(page);
-            String language = LANGUAGES.getOrDefault(page, "en");
-            // On a page in another language, the site's English regions say that they are English.
-            String english = language.equals("en") ? "" : " lang=\"en\"";
-            assertThat(html).as(page).startsWith("<!DOCTYPE html>\n<html lang=\"" + language + "\"");
+            assertThat(html).as(page).startsWith("<!DOCTYPE html>\n<html lang=\"en\""
+                    + (page.equals(DECK) ? " class=\"deck\">" : ">"));
             String body = html.substring(html.indexOf("<body"));
             assertThat(body.indexOf("<a ")).as(page).isEqualTo(body.indexOf("<a class=\"skip-link\" href=\"#site-main\""));
-            assertThat(html).as(page).contains("<header class=\"site-header\"" + english + ">",
-                    "<nav class=\"site-nav\" aria-label=\"Site\">",
-                    "<main id=\"site-main\" class=\"site-main\" tabindex=\"-1\">",
-                    "<footer class=\"site-footer\"" + english + ">");
+            assertThat(html).as(page).contains("<header class=\"site-header\">", "<nav class=\"site-nav\" aria-label=\"Site\">",
+                    "<main id=\"site-main\" class=\"site-main\" tabindex=\"-1\">", "<footer class=\"site-footer\">");
             assertThat(count(html, "<h1")).as(page).isEqualTo(1);
             assertThat(html).as(page).contains("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
         }
     }
 
     @Test
-    void theDeckAndItsNotesAreNorwegianAndMarkEachEnglishRegion() {
-        for (String page : LANGUAGES.keySet()) {
+    void theDeckAndItsNotesAreEnglishThroughoutWithEnglishControls() {
+        for (String page : List.of(DECK, "demos/deck-milestone-notes.html")) {
             String html = site.text(page);
-            assertThat(html).as(page).contains("<a class=\"skip-link\" href=\"#site-main\" lang=\"en\">Skip to main "
-                    + "content</a>", "<header class=\"site-header\" lang=\"en\">",
-                    "<header class=\"sheet-header\" lang=\"en\">",
-                    "<section class=\"status-panel\" aria-labelledby=\"site-status-title\" lang=\"en\">",
-                    "<p class=\"page-source\" lang=\"en\">", "<footer class=\"site-footer\" lang=\"en\">")
-                    // The title is the deck's own, in its language; the body inherits the page's.
-                    .containsPattern("<h1 lang=\"nb\">[^<]+</h1>")
-                    .contains("<div class=\"page-body\">\n");
+            // One language for the whole page, stated once: no region needs a language of its own.
+            assertThat(count(html, " lang=\"")).as(page).isEqualTo(1);
+            assertThat(html).as(page).doesNotContain("hreflang", "lang=\"nb\"").containsPattern("<h1>[^<]+</h1>");
         }
-        String deck = site.text("demos/deck-milestone.html");
-        // The slide controls are Norwegian words; each slide's provenance line and the ledger on slide 02 are English.
-        assertThat(deck).contains(">Forrige</a>", ">Oversikt</a>", ">Neste</a>", ">Start lysbildene</a>",
-                "<p class=\"slide-source\" lang=\"en\">", "<div class=\"slide-ledger\" lang=\"en\">",
-                "<p lang=\"en\">Recorded output \u2014 not rerun by this site build.")
-                .doesNotContain(">Previous<", ">Next<", ">Index<");
+        assertThat(site.text(DECK)).contains(">Previous</a>", ">Overview</a>", ">Next</a>", ">Start slides</a>",
+                "<h2 id=\"site-deck-index-title\">Overview</h2>");
     }
 
     @Test
     void eachSlideIsASectionLabelledByItsTitleAndTheSlideIndexIsANamedNavigation() {
-        String deck = site.text("demos/deck-milestone.html");
+        String deck = site.text(DECK);
         Matcher slide = Pattern.compile("<section class=\"slide\" id=\"([^\"]+)\" aria-labelledby=\"(site-slide-[0-9]+)\">")
                 .matcher(deck);
         int slides = 0;
@@ -99,10 +83,10 @@ class SiteAccessibilityTest {
         }
         assertThat(slides).isEqualTo(4);
         assertThat(deck).contains("<nav class=\"deck-index\" id=\"site-deck-index\" aria-labelledby=\""
-                + "site-deck-index-title\">\n<h2 id=\"site-deck-index-title\">Oversikt</h2>");
+                + "site-deck-index-title\">\n<h2 id=\"site-deck-index-title\">Overview</h2>");
         // The slide number reads as words, never as a date: 01/03 is hidden from assistive technology.
         assertThat(deck).contains("<span aria-hidden=\"true\"> · 01/03</span><span class=\"visually-hidden\">, "
-                + "lysbilde 1 av 3</span>");
+                + "slide 1 of 3</span>");
         String notes = site.text("demos/deck-milestone-notes.html");
         assertThat(count(notes, "<section class=\"deck-note\"")).isEqualTo(4);
         assertThat(notes).contains("aria-labelledby=\"site-note-1\">\n<h2 id=\"site-note-1\">");

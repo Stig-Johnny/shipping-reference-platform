@@ -148,10 +148,10 @@ class SiteBuilderTest {
         first.files().forEach((path, bytes) -> assertThat(second.files().get(path)).as(path).isEqualTo(bytes));
         assertEveryLinkResolves(first);
         // Every slide's anchor is linked from the slide index, and every note links back to its slide.
-        assertThat(first.urls("demos/deck-milestone.html")).contains("#hva-som-er-bygget", "#status-i-dag",
-                "#én-endring-porten-avviser", "#vedlegg-verktøy", "#site-deck-index", "deck-milestone-notes.html");
-        assertThat(first.urls("demos/deck-milestone-notes.html")).contains("deck-milestone.html#hva-som-er-bygget",
-                "deck-milestone.html#vedlegg-verktøy");
+        assertThat(first.urls("demos/deck-milestone.html")).contains("#what-is-built", "#state-today",
+                "#one-change-the-gate-rejects", "#appendix-tools", "#site-deck-index", "deck-milestone-notes.html");
+        assertThat(first.urls("demos/deck-milestone-notes.html")).contains("deck-milestone.html#what-is-built",
+                "deck-milestone.html#appendix-tools");
         Pattern inlineScript = Pattern.compile("<script(?![^>]*\\ssrc=)[^>]*>");
         for (String page : List.of("demos/deck-milestone.html", "demos/deck-milestone-notes.html")) {
             String html = first.text(page);
@@ -167,10 +167,10 @@ class SiteBuilderTest {
     @Test
     void aBrokenAnchorIntoTheDeckFailsTheBuild() {
         fixture.write(Decks.PATH, Decks.SAMPLE)
-                .edit("docs/risk-levels.md", text -> text + "\nSee [the notes](demos/deck-milestone.md#notater).\n");
+                .edit("docs/risk-levels.md", text -> text + "\nSee [the notes](demos/deck-milestone.md#notes).\n");
 
         // The notes heading has an ID on GitHub, but the deck's pages have only the slides' anchors.
-        assertThatThrownBy(() -> build("site")).isInstanceOf(DocsException.class).hasMessageContaining("#notater");
+        assertThatThrownBy(() -> build("site")).isInstanceOf(DocsException.class).hasMessageContaining("#notes");
     }
 
     private static void assertEveryLinkResolves(BuiltSite site) {

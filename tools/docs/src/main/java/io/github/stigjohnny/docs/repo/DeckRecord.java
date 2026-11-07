@@ -12,17 +12,19 @@ import java.util.regex.Pattern;
 
 /**
  * A milestone deck: the repository's state presented as slides for a meeting (docs/ui/documentation-site.md, "Decks").
- * It is not a demonstration: no pull request is its own. Its file is {@code docs/demos/deck-<slug>.md}, in Norwegian
- * Bokmål; each level-2 heading is a slide, those whose titles start with {@value #APPENDIX} form the appendix, and a
- * slide's notes stand under the reserved level-3 heading {@value #NOTES}. The check of its form is DemoCheck's
- * (DeckCheck); this record only reads it.
+ * It is not a demonstration: no pull request is its own. Its file is {@code docs/demos/deck-<slug>.md}, in English like
+ * the rest of the site; each level-2 heading is a slide, those whose titles start with {@value #APPENDIX} form the
+ * appendix, and a slide's notes stand under the reserved level-3 heading {@value #NOTES}. The check of its form is
+ * DemoCheck's (DeckCheck); this record only reads it.
  *
  * @param slug the file name after {@code deck-}, which names the deck's pages
+ * @param lang the language the deck declares, which its pages state: {@value #LANGUAGE}
  * @param milestone the ISO date of the meeting the deck is made for
  * @param mainSlides the declared number of main slides
  * @param appendixSlides the declared number of appendix slides
  */
-public record DeckRecord(DocFile doc, String slug, String milestone, int mainSlides, int appendixSlides) {
+public record DeckRecord(DocFile doc, String slug, String lang, String milestone, int mainSlides,
+        int appendixSlides) {
 
     /** Every file under docs/demos/ whose name starts with this is a deck, and is checked as one. */
     public static final String PREFIX = DemoRecord.DIRECTORY + "deck-";
@@ -30,12 +32,12 @@ public record DeckRecord(DocFile doc, String slug, String milestone, int mainSli
     public static final List<String> KEYS = List.of("title", "description", "status", "updated", "kind", "lang",
             "milestone", "mainSlides", "appendixSlides");
     public static final String KIND = "deck";
-    /** The language of every deck: its slide controls are written in Norwegian Bokmål. */
-    public static final String LANGUAGE = "nb";
+    /** The language of every deck: the site's, in which its slide controls are written. */
+    public static final String LANGUAGE = "en";
     /** The reserved level-3 heading under which a slide's notes stand, never shown on the slide. */
-    public static final String NOTES = "Notater";
+    public static final String NOTES = "Notes";
     /** How an appendix slide's title starts. */
-    public static final String APPENDIX = "Vedlegg:";
+    public static final String APPENDIX = "Appendix:";
 
     private static final Pattern FILE = Pattern.compile("docs/demos/deck-([a-z0-9]+(?:-[a-z0-9]+)*)\\.md");
     private static final Pattern COUNT = Pattern.compile("0|[1-9][0-9]{0,3}");
@@ -70,8 +72,7 @@ public record DeckRecord(DocFile doc, String slug, String milestone, int mainSli
         String slug = slugOf(doc.path()).orElseThrow(() -> new DocsException(doc.path() + ": a deck is named "
                 + "docs/demos/deck-<slug>.md"));
         kindOf(doc);
-        languageOf(doc);
-        return new DeckRecord(doc, slug, milestoneOf(doc), mainSlidesOf(doc), appendixSlidesOf(doc));
+        return new DeckRecord(doc, slug, languageOf(doc), milestoneOf(doc), mainSlidesOf(doc), appendixSlidesOf(doc));
     }
 
     /** Every deck of the sources, in the order of their files. */
@@ -90,12 +91,12 @@ public record DeckRecord(DocFile doc, String slug, String milestone, int mainSli
         return value;
     }
 
-    /** {@code lang}: nb, the language of the slide controls. */
+    /** {@code lang}: en, the language of the site and of the slide controls. */
     public static String languageOf(DocFile doc) {
         String value = doc.text("lang");
         if (!LANGUAGE.equals(value)) {
-            throw new DocsException(doc.path() + ": lang '" + value + "' is not nb; a deck is written in Norwegian "
-                    + "Bokmål (nb), the language of its slide controls");
+            throw new DocsException(doc.path() + ": lang '" + value + "' is not en; a deck is written in English, the "
+                    + "language of the site and of its slide controls");
         }
         return value;
     }
@@ -129,15 +130,10 @@ public record DeckRecord(DocFile doc, String slug, String milestone, int mainSli
         return outline(doc);
     }
 
-    /** The deck's name in the English register: its slug in words, then "deck", such as "Milestone deck". */
+    /** The deck's name in the register: its slug in words, then "deck", such as "Milestone deck". */
     public String name() {
         String words = slug.replace('-', ' ');
         return Character.toUpperCase(words.charAt(0)) + words.substring(1) + " deck";
-    }
-
-    /** The deck's language in English words. */
-    public String language() {
-        return "Norwegian";
     }
 
     private static int count(DocFile doc, String key, String what) {

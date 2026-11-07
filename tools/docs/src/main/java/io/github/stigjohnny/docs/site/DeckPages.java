@@ -4,11 +4,9 @@ import io.github.stigjohnny.docs.Html;
 import io.github.stigjohnny.docs.markdown.LinkResolver;
 import io.github.stigjohnny.docs.markdown.MarkdownRenderer;
 import io.github.stigjohnny.docs.markdown.RenderedSlide;
-import io.github.stigjohnny.docs.markdown.TableLabel;
 import io.github.stigjohnny.docs.repo.Capabilities;
 import io.github.stigjohnny.docs.repo.Capability;
 import io.github.stigjohnny.docs.repo.DeckRecord;
-import io.github.stigjohnny.docs.repo.DemoRecord;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.Sources;
 import java.util.ArrayList;
@@ -17,17 +15,17 @@ import java.util.Locale;
 import java.util.function.Function;
 
 /**
- * A milestone deck's two pages in the Demos section (docs/ui/documentation-site.md, "Decks"), both in Norwegian Bokmål
- * with the site's English regions marked as English: its slides, sheet X-Dnn, and its speaker notes, sheet X-Nnn.
+ * A milestone deck's two pages in the Demos section (docs/ui/documentation-site.md, "Decks"), in the language the deck
+ * declares, English like the rest of the site: its slides, sheet X-Dnn, and its speaker notes, sheet X-Nnn.
  *
  * <ul>
  *   <li>The slides' page puts the register, the overview (the sheet header with the milestone, the source's update
  *       date and the build's revision, each on its own, and the ledger) and the slide index before the slides, so that
- *       none of them takes a slide's width; «Start lysbildene» leads to slide one.
+ *       none of them takes a slide's width; "Start slides" leads to slide one.
  *   <li>Each slide is a section labelled by its title, with a stable anchor, its title's slug: the deck's code and the
  *       slide's number ({@code 01/10}, {@code A1/4} in the appendix, read out in words), the title, the content, the
- *       links «Forrige», «Oversikt» and «Neste», which are the slides' controls, and the source and revision it was
- *       built from. From the first slide «Forrige», and from the last «Neste», lead back to the index.
+ *       links "Previous", "Overview" and "Next", which are the slides' controls, and the source and revision it was
+ *       built from. From the first slide "Previous", and from the last "Next", lead back to the index.
  *   <li>Slide 02 carries the repository's ledger from the sources, as the start sheet has it, and says what is still
  *       done by hand.
  *   <li>Notes never stand on a slide: the notes page has each slide's, under its number and title, which link back to
@@ -40,8 +38,6 @@ final class DeckPages {
     static final String PRESENTATION = "Presentation";
     private static final String INDEX_ID = "site-deck-index";
     private static final String RISK_CONTROL = "control.risk-classification";
-    private static final TableLabel TABLES = (number, slide) -> "Tabell " + number + " i «" + slide
-            + "», kan rulles sideveis";
 
     /**
      * A slide with its place: its position in the deck, its number among the main slides (0 in the appendix), and its
@@ -60,16 +56,15 @@ final class DeckPages {
                 .orElseThrow(() -> SiteContext.missing("a page for " + doc.path()));
         String notesPage = DeckRecord.notesPage(page);
         List<Numbered> slides = numbered(MarkdownRenderer.renderDeck(doc.body(), doc.path(), links.apply(page),
-                DeckRecord.NOTES, TABLES).slides());
+                DeckRecord.NOTES).slides());
         List<Numbered> notes = numbered(MarkdownRenderer.renderDeck(doc.body(), doc.path(), links.apply(notesPage),
-                DeckRecord.NOTES, TABLES).slides());
+                DeckRecord.NOTES).slides());
         return List.of(slides(context, deck, page, notesPage, slides), notes(context, deck, page, notesPage, notes));
     }
 
-    /** A link to a deck from an English page: its name and language, to a page in Norwegian. */
+    /** A link to a deck, by its name. */
     static String link(String from, String page, DeckRecord deck) {
-        return "<a href=\"" + Html.escape(Urls.relative(from, page)) + "\" hreflang=\"" + DeckRecord.LANGUAGE + "\">"
-                + Html.escape(label(deck)) + "</a>";
+        return SiteContext.link(from, page, deck.name());
     }
 
     /** A deck in the register of demonstrations, above them: a presentation, with its dates and its notes. */
@@ -82,10 +77,6 @@ final class DeckPages {
                 + " · Speaker notes " + SiteContext.link(from, notes, Sheets.code(notes)) + "</p>\n</div>\n";
     }
 
-    private static String label(DeckRecord deck) {
-        return deck.name() + " · " + deck.language();
-    }
-
     private static SitePage slides(SiteContext context, DeckRecord deck, String page, String notesPage,
             List<Numbered> slides) {
         DocFile doc = deck.doc();
@@ -94,17 +85,16 @@ final class DeckPages {
         long appendix = slides.size() - main;
         String counted = main + (main == 1 ? " slide" : " slides") + (appendix == 0 ? ""
                 : " and " + appendix + (appendix == 1 ? " appendix slide" : " appendix slides"));
-        String facts = "<p class=\"page-facts\">" + Html.escape(PRESENTATION + " · " + deck.language() + " · Milestone ")
+        String facts = "<p class=\"page-facts\">" + Html.escape(PRESENTATION + " · Milestone ")
                 + DemoPages.time(deck.milestone()) + Html.escape(" · " + counted + " · Speaker notes ")
                 + SiteContext.link(page, notesPage, Sheets.code(notesPage)) + "</p>\n"
                 + "<p class=\"page-facts\">The milestone is the meeting the deck is made for, Updated is the date of its "
                 + "source, and Revision is the commit this site was built from.</p>\n"
                 + "<p class=\"deck-start-line\"><a class=\"deck-start\" href=\"#"
-                + Html.escape(slides.getFirst().slide().id()) + "\" lang=\"" + DeckRecord.LANGUAGE + "\">Start "
-                + "lysbildene</a></p>\n";
+                + Html.escape(slides.getFirst().slide().id()) + "\">Start slides</a></p>\n";
         StringBuilder body = new StringBuilder(index(slides));
         body.append("<div class=\"deck-slides\">\n");
-        String ledger = "<div class=\"slide-ledger\" lang=\"en\">\n" + ledger(context.sources()).grid() + "</div>\n";
+        String ledger = "<div class=\"slide-ledger\">\n" + ledger(context.sources()).grid() + "</div>\n";
         for (int i = 0; i < slides.size(); i++) {
             Numbered slide = slides.get(i);
             String previous = i == 0 ? INDEX_ID : slides.get(i - 1).slide().id();
@@ -119,20 +109,19 @@ final class DeckPages {
                 Badge.NEUTRAL.html(PRESENTATION) + " " + Html.escape("A deck is not evidence of this build: the "
                         + "recorded output it shows was not rerun, and only the ledger on slide 02 counts the tests "
                         + "that passed in it."));
-        return new SitePage(page, doc.title(), label(deck), SiteSection.DEMOS, doc.description(), status, List.of(),
-                body.toString(), List.of(), doc.path(), false, PRESENTATION, facts, DeckRecord.LANGUAGE,
-                SitePage.Layout.DECK);
+        return new SitePage(page, doc.title(), deck.name(), SiteSection.DEMOS, doc.description(), status, List.of(),
+                body.toString(), List.of(), doc.path(), false, PRESENTATION, facts, deck.lang(), SitePage.Layout.DECK);
     }
 
-    /** The slide index, «Oversikt»: a register of the slides, the main ones and then the appendix. */
+    /** The slide index, "Overview": a register of the slides, the main ones and then the appendix. */
     private static String index(List<Numbered> slides) {
         StringBuilder out = new StringBuilder("<nav class=\"deck-index\" id=\"" + INDEX_ID + "\" aria-labelledby=\""
-                + INDEX_ID + "-title\">\n<h2 id=\"" + INDEX_ID + "-title\">Oversikt</h2>\n");
+                + INDEX_ID + "-title\">\n<h2 id=\"" + INDEX_ID + "-title\">Overview</h2>\n");
         List<Numbered> main = slides.stream().filter(s -> !DeckRecord.appendix(s.slide().title())).toList();
         List<Numbered> appendix = slides.stream().filter(s -> DeckRecord.appendix(s.slide().title())).toList();
         out.append(list(main));
         if (!appendix.isEmpty()) {
-            out.append("<h3 id=\"site-deck-appendix-title\">Vedlegg</h3>\n").append(list(appendix));
+            out.append("<h3 id=\"site-deck-appendix-title\">Appendix</h3>\n").append(list(appendix));
         }
         return out.append("</nav>\n").toString();
     }
@@ -156,12 +145,12 @@ final class DeckPages {
                 + "<p class=\"slide-code\">" + code + "<span aria-hidden=\"true\"> · " + numbered.number()
                 + "</span><span class=\"visually-hidden\">, " + numbered.words() + "</span></p>\n"
                 + "<h2 id=\"" + title + "\">" + slide.titleHtml() + "</h2>\n"
-                + "<div class=\"slide-body\">\n" + english(slide.html()) + ledger + "</div>\n"
+                + "<div class=\"slide-body\">\n" + slide.html() + ledger + "</div>\n"
                 + "<footer class=\"slide-foot\">\n<ul class=\"slide-controls\">\n"
-                + "<li class=\"slide-previous\"><a href=\"#" + Html.escape(previous) + "\">Forrige</a></li>\n"
-                + "<li class=\"slide-overview\"><a href=\"#" + INDEX_ID + "\">Oversikt</a></li>\n"
-                + "<li class=\"slide-next\"><a href=\"#" + Html.escape(next) + "\">Neste</a></li>\n</ul>\n"
-                + "<p class=\"slide-source\" lang=\"en\">" + Html.escape(source) + " · Revision <code>"
+                + "<li class=\"slide-previous\"><a href=\"#" + Html.escape(previous) + "\">Previous</a></li>\n"
+                + "<li class=\"slide-overview\"><a href=\"#" + INDEX_ID + "\">Overview</a></li>\n"
+                + "<li class=\"slide-next\"><a href=\"#" + Html.escape(next) + "\">Next</a></li>\n</ul>\n"
+                + "<p class=\"slide-source\">" + Html.escape(source) + " · Revision <code>"
                 + Html.escape(revision.substring(0, 8)) + "</code></p>\n</footer>\n</section>\n";
     }
 
@@ -195,21 +184,21 @@ final class DeckPages {
                     .append(numbered.words().substring(0, 1).toUpperCase(Locale.ROOT))
                     .append(numbered.words().substring(1)).append(": </span>")
                     .append(SiteContext.link(notesPage, page + "#" + slide.id(), slide.title())).append("</h2>\n")
-                    .append(slide.hasNotes() && !slide.notesHtml().isBlank() ? english(slide.notesHtml())
-                            : "<p class=\"deck-note-none\">Ingen notater.</p>\n")
+                    .append(slide.hasNotes() && !slide.notesHtml().isBlank() ? slide.notesHtml()
+                            : "<p class=\"deck-note-none\">No notes.</p>\n")
                     .append("</section>\n");
         }
-        String facts = "<p class=\"page-facts\">" + Html.escape("Speaker notes · " + deck.language() + " · Milestone ")
+        String facts = "<p class=\"page-facts\">" + Html.escape("Speaker notes · Milestone ")
                 + DemoPages.time(deck.milestone()) + " · Slides " + SiteContext.link(notesPage, page, Sheets.code(page))
                 + "</p>\n";
         StatusPanel status = new StatusPanel(Statuses.design(doc), Badge.NEUTRAL.html("Not applicable") + " "
                 + Html.escape("Speaker notes specify no capability."), Badge.NEUTRAL.html("Not applicable") + " "
                 + Html.escape("Notes are not evidence: the recorded output they quote was not rerun by this build."));
-        return new SitePage(notesPage, doc.title() + " — notater", deck.name() + " · speaker notes",
-                SiteSection.DEMOS, "The speaker notes of the " + deck.name().toLowerCase(Locale.ROOT) + ", in "
-                        + deck.language() + ": each slide's notes, linked back to the slide, which never shows them.",
-                status, List.of(), body.toString(), context.mentioned(doc.body(), notesPage), doc.path(), false, null,
-                facts, DeckRecord.LANGUAGE, SitePage.Layout.SHEET);
+        return new SitePage(notesPage, doc.title() + " \u2014 notes", deck.name() + " · speaker notes",
+                SiteSection.DEMOS, "The speaker notes of the " + deck.name().toLowerCase(Locale.ROOT) + ": each slide's "
+                        + "notes, linked back to the slide, which never shows them.", status, List.of(), body.toString(),
+                context.mentioned(doc.body(), notesPage), doc.path(), false, null, facts, deck.lang(),
+                SitePage.Layout.SHEET);
     }
 
     /** The slides with their numbers: 01/10 to 10/10 for the main ones, then A1/4 to A4/4 for the appendix. */
@@ -223,11 +212,11 @@ final class DeckPages {
             if (DeckRecord.appendix(slide.title())) {
                 appendices++;
                 numbered.add(new Numbered(slide, numbered.size() + 1, 0, "A" + appendices + "/" + appendix,
-                        "vedlegg " + appendices + " av " + appendix));
+                        "appendix slide " + appendices + " of " + appendix));
             } else {
                 mains++;
                 numbered.add(new Numbered(slide, numbered.size() + 1, mains, number(mains, main),
-                        "lysbilde " + mains + " av " + main));
+                        "slide " + mains + " of " + main));
             }
         }
         return numbered;
@@ -235,14 +224,5 @@ final class DeckPages {
 
     private static String number(int slide, int of) {
         return String.format(Locale.ROOT, "%02d/%02d", slide, of);
-    }
-
-    /**
-     * The recorded output's line and the record it starts are English: the paragraph or list item that begins with it
-     * says so, so that it is read as English on a Norwegian page.
-     */
-    private static String english(String html) {
-        String line = Html.escape(DemoRecord.RECORDED_OUTPUT);
-        return html.replace("<p>" + line, "<p lang=\"en\">" + line).replace("<li>" + line, "<li lang=\"en\">" + line);
     }
 }

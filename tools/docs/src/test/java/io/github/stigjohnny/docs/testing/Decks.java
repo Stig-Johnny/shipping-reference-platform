@@ -13,45 +13,43 @@ public final class Decks {
 
     public static final String SAMPLE = """
             ---
-            title: "Milepæl: et eksempel"
-            description: "A sample deck in Norwegian: what is built, what is planned and one change the gate rejects."
+            title: "Milestone: an example"
+            description: "A sample deck: what is built, what is planned and one change the gate rejects."
             status: accepted
             updated: 2026-11-07
             kind: deck
-            lang: nb
+            lang: en
             milestone: 2026-11-10
             mainSlides: 3
             appendixSlides: 1
             ---
 
-            # Milepæl: et eksempel
+            # Milestone: an example
 
-            ## Hva som er bygget
+            ## What is built
 
-            Sjekkeren kjører i hvert bygg.
+            The checker runs in every build.
 
-            - Modellen styrer strukturen
-            - Porten stopper uvurderte avhengigheter
+            - The model governs the structure
+            - The gate stops unreviewed dependencies
 
-            ### Notater
+            ### Notes
 
-            - Si først hva som ikke er bygget
+            - Say first what is not built
 
-            ## Status i dag
+            ## State today
 
-            Kontrollene er bygget; produktet er planlagt.
+            The controls are built; the product is planned.
 
-            | Løfte | I dag |
+            | Promise | Today |
             |---|---|
-            | Sjekkeren | Bygget og testet |
+            | The checker | Built and tested |
 
-            ### Notater
+            ### Notes
 
-            - Tallene kommer fra kildene
+            - The numbers come from the sources
 
-            ## Én endring porten avviser
-
-            Utdrag:
+            ## One change the gate rejects
 
             ```text
             ### DIVERGENCE: report -> model
@@ -59,14 +57,14 @@ public final class Decks {
 
             Recorded output — not rerun by this site build. Full record in the notes.
 
-            ### Notater
+            ### Notes
 
             - Recorded output — not rerun by this site build. Recorded 2026-11-07T14:56:19Z on revision 44ef312: \
             `./gradlew :libs:c4-contract-kit:test --rerun --tests '*SelfConformanceTest'` exited 1, and 0 before and after.
 
-            ## Vedlegg: verktøy
+            ## Appendix: tools
 
-            Java 25 og strenge bygg.
+            Java 25 and strict builds.
             """;
 
     private Decks() {

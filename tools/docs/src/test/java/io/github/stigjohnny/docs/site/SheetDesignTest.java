@@ -121,8 +121,8 @@ class SheetDesignTest {
         assertThat(deck).contains("Milestone <time datetime=\"2026-11-10\">2026-11-10</time>");
         // Each slide is drawn as a sheet of the set: the deck's code with the slide's number, and the revision.
         assertThat(count(deck, "<p class=\"slide-code\">X-D01<span aria-hidden=\"true\"> · ")).isEqualTo(4);
-        assertThat(count(deck, "<p class=\"slide-source\" lang=\"en\">docs/demos/deck-milestone.md · Revision "
-                + "<code>01234567</code></p>")).isEqualTo(4);
+        assertThat(count(deck, "<p class=\"slide-source\">docs/demos/deck-milestone.md · Revision <code>01234567</code>"
+                + "</p>")).isEqualTo(4);
         // A slide's number is never a sheet code: one code per sheet.
         assertThat(SHEET_CODE.matcher(deck).results().map(m -> m.group(1)).toList()).containsExactly("X-D01");
     }

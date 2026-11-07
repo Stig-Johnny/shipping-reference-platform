@@ -319,9 +319,9 @@ class PublicationScannerTest {
         assertThat(scanBuiltSite(fixture, exceptions).findings()).isEmpty();
 
         // A slide and a note are published as written, so the scan is what keeps a leaked value off both pages.
-        fixture.edit(Decks.PATH, text -> text.replace("Java 25 og strenge bygg.", "Java 25 på "
-                + sample("PRIVATE_IP") + ".").replace("- Tallene kommer fra kildene", "- Tallene fra "
-                + sample("DICTIONARY") + " i " + sample("LOCAL_PATH")));
+        fixture.edit(Decks.PATH, text -> text.replace("Java 25 and strict builds.", "Java 25 on "
+                + sample("PRIVATE_IP") + ".").replace("- The numbers come from the sources", "- The numbers from "
+                + sample("DICTIONARY") + " in " + sample("LOCAL_PATH")));
 
         assertThat(scanBuiltSite(fixture, exceptions).findings()).containsExactly(
                 new Finding("DICTIONARY", "demos/deck-milestone-notes.html"),

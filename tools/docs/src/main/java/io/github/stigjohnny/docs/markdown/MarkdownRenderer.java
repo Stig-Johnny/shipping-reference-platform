@@ -87,9 +87,6 @@ public final class MarkdownRenderer {
             .sanitizeUrls(true).urlSanitizer(new SiteUrlSanitizer()).build();
     private static final SiteUrlSanitizer SANITIZER = new SiteUrlSanitizer();
     private static final String RESERVED_PREFIX = "site-";
-    /** A document's tables, in the site's language: "Table 2 in Steps, scrolls sideways". */
-    private static final TableLabel TABLES = (number, section) -> "Table " + number
-            + (section.isEmpty() ? "" : " in " + section) + ", scrolls sideways";
 
     /** A deck's parsed top-level blocks: what stands before its first slide, and its slides. */
     private record DeckNodes(List<Node> front, List<SlideNodes> slides) {
@@ -135,7 +132,7 @@ public final class MarkdownRenderer {
                     shown.add(entry);
                     section = entry.text();
                 }
-                String label = block instanceof TableBlock ? TABLES.of(tables.next(), section) : "";
+                String label = block instanceof TableBlock ? tableLabel(tables.next(), section) : "";
                 html.append(block(block, headings, label, source));
             }
             return new RenderedMarkdown(html.toString(), shown);
@@ -175,11 +172,10 @@ public final class MarkdownRenderer {
      * Renders a deck's slides and, apart, their notes, under the conditions of {@link #render}: raw HTML escaped, URLs
      * sanitised, links resolved on the parsed nodes, images failing the build. The deck's title and anything else before
      * its first slide are left out, and so are the notes headings. A deck's pages have no anchor but its slides', so an
-     * in-page link must name a slide. Tables are numbered on each page, the slides' and the notes', and named by
-     * {@code label} with the slide's title.
+     * in-page link must name a slide. Tables are numbered on each page, the slides' and the notes', and named as a
+     * document's are, with the slide's title as their section.
      */
-    public static RenderedDeck renderDeck(String markdown, String source, LinkResolver links, String notesHeading,
-            TableLabel label) {
+    public static RenderedDeck renderDeck(String markdown, String source, LinkResolver links, String notesHeading) {
         try {
             Node document = parse(markdown, source);
             List<Node> blocks = children(document);
@@ -200,8 +196,8 @@ public final class MarkdownRenderer {
                     titleHtml.append(RENDERER.render(child));
                 }
                 slides.add(new RenderedSlide(slug(title), title, titleHtml.toString(),
-                        html(slide.content(), headings, title, label, slideTables, source),
-                        slide.notesHeading() != null, html(slide.notes(), headings, title, label, noteTables, source)));
+                        html(slide.content(), headings, title, slideTables, source), slide.notesHeading() != null,
+                        html(slide.notes(), headings, title, noteTables, source)));
             }
             return new RenderedDeck(slides);
         } catch (DocsException e) {
@@ -248,14 +244,19 @@ public final class MarkdownRenderer {
     }
 
     /** One slide's or its notes' blocks as HTML; each table is named by its number on the page and the slide. */
-    private static String html(List<Node> blocks, Map<Node, Section> headings, String slide, TableLabel label,
-            Tables tables, String source) {
+    private static String html(List<Node> blocks, Map<Node, Section> headings, String slide, Tables tables,
+            String source) {
         StringBuilder html = new StringBuilder();
         for (Node block : blocks) {
-            html.append(block(block, headings, block instanceof TableBlock ? label.of(tables.next(), slide) : "",
+            html.append(block(block, headings, block instanceof TableBlock ? tableLabel(tables.next(), slide) : "",
                     source));
         }
         return html.toString();
+    }
+
+    /** A table's region in words: "Table 2 in Steps, scrolls sideways". */
+    private static String tableLabel(int number, String section) {
+        return "Table " + number + (section.isEmpty() ? "" : " in " + section) + ", scrolls sideways";
     }
 
     /**

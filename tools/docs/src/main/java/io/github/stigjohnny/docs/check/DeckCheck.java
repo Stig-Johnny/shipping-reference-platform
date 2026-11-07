@@ -31,19 +31,19 @@ import java.util.stream.Stream;
  *
  * <ul>
  *   <li>is {@code docs/demos/deck-<slug>.md}, and its notes page is no other deck's page;
- *   <li>has the documents' frontmatter and its own, nothing else: {@code kind} deck, {@code lang} nb, an ISO
+ *   <li>has the documents' frontmatter and its own, nothing else: {@code kind} deck, {@code lang} en, an ISO
  *       {@code milestone}, and {@code mainSlides} and {@code appendixSlides}, the numbers of its slides;
  *   <li>has one title, its level-1 heading, which is the frontmatter's, and nothing else before its first slide;
  *   <li>has its slides as level-2 headings, each with a title, an anchor of its own and content; the appendix slides,
- *       whose titles start with "Vedlegg:", last; at least two main slides, because slide 02 carries the repository's
- *       ledger; and, below a slide's title, no heading but {@code ### Notater}, which starts its notes. Notes are never
+ *       whose titles start with "Appendix:", last; at least two main slides, because slide 02 carries the repository's
+ *       ledger; and, below a slide's title, no heading but {@code ### Notes}, which starts its notes. Notes are never
  *       counted as slides;
  *   <li>is text only: no image, raw HTML, media link or code but recorded output in {@code ```text} fences, no
  *       placeholder (TODO, TBD, {@code <...>} or YYYY-MM-DD), and in-page links that name its slides;
  *   <li>shows the line "Recorded output — not rerun by this site build." wherever it shows recorded output, and the
  *       slide's notes say when it was recorded, on which revision, with which approved command and with which exit
  *       status;
- *   <li>counts capabilities, "N av M funksjoner", only as docs/capabilities/capabilities.yaml does: N planned of M
+ *   <li>counts capabilities, "N of M capabilities", only as docs/capabilities/capabilities.yaml does: N planned of M
  *       product capabilities.
  * </ul>
  *
@@ -60,7 +60,7 @@ final class DeckCheck {
     private static final Pattern PLACEHOLDER_LINE = Pattern.compile("<[A-Za-z][^<>]*\\s[^<>]*>");
     private static final Pattern PLACEHOLDER_WORD = Pattern.compile("(?i)\\b(?:TODO|TBD)\\b");
     private static final Pattern TEMPLATE_DATE = Pattern.compile("(?i)YYYY-MM-DD");
-    private static final Pattern CAPABILITIES = Pattern.compile("(?<![0-9])([0-9]+) av ([0-9]+) funksjoner\\b");
+    private static final Pattern CAPABILITIES = Pattern.compile("(?<![0-9])([0-9]+) of ([0-9]+) capabilities\\b");
     private static final Pattern RUN_DATE = Pattern.compile("(?<![0-9])([0-9]{4}-[0-9]{2}-[0-9]{2})(?![0-9])");
     private static final Pattern REVISION = Pattern.compile("\\brevision [0-9a-f]{7,40}\\b");
     private static final Pattern EXIT = Pattern.compile("\\bexited [0-9]+\\b");
@@ -364,7 +364,7 @@ final class DeckCheck {
                 .map(String::strip).anyMatch(line -> line.startsWith(DemoRecord.RECORDED_OUTPUT));
     }
 
-    /** A count of capabilities, "N av M funksjoner", on a slide or in its notes, is the sources' own. */
+    /** A count of capabilities, "N of M capabilities", on a slide or in its notes, is the sources' own. */
     private static void counts(SlideOutline slide, Where where, Where notes, Capabilities capabilities,
             List<String> found) {
         List<Capability> product = capabilities.capabilities();
@@ -387,7 +387,7 @@ final class DeckCheck {
         }
     }
 
-    /** The first unfilled placeholder of a text, such as {@code <sett inn tall>} or {@code <...>}. */
+    /** The first unfilled placeholder of a text, such as {@code <insert the numbers>} or {@code <...>}. */
     private static Optional<String> placeholder(String text) {
         Matcher left = PLACEHOLDER.matcher(text);
         return left.find() ? Optional.of(left.group()) : Optional.empty();
