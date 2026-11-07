@@ -25,13 +25,29 @@
   // Navigation: a labelled disclosure below 720px, always open from 720px up. When the breakpoint changes, focus stays
   // usable, whether or not the disclosure was already open: a focused navigation that collapses hands focus to its
   // summary, and a focused summary that disappears at desktop width hands it to the current page's link, or the first.
+  // The browser can move focus to <body> as soon as the focused element is hidden, before the media query's change
+  // event runs, so the script remembers where focus was last; a pointer press outside the navigation forgets it.
   var disclosure = document.querySelector('.site-nav-disclosure');
   if (disclosure && window.matchMedia) {
     var wide = window.matchMedia('(min-width: 720px)');
     var summary = disclosure.querySelector('summary');
+    var lastInside = false;
+    var lastSummary = false;
+    document.addEventListener('focusin', function (event) {
+      lastInside = disclosure.contains(event.target);
+      lastSummary = summary !== null && event.target === summary;
+    });
+    document.addEventListener('pointerdown', function (event) {
+      if (!disclosure.contains(event.target)) {
+        lastInside = false;
+        lastSummary = false;
+      }
+    });
     var syncNavigation = function () {
-      var focusInside = disclosure.contains(document.activeElement);
-      var summaryFocused = summary !== null && document.activeElement === summary;
+      var active = document.activeElement;
+      var lost = !active || active === document.body;
+      var focusInside = disclosure.contains(active) || (lost && lastInside);
+      var summaryFocused = (summary !== null && active === summary) || (lost && lastSummary);
       var opening = wide.matches;
       disclosure.open = opening;
       if (!opening && focusInside && summary) {

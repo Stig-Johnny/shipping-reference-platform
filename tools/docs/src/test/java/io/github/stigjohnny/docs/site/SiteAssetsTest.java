@@ -133,11 +133,15 @@ class SiteAssetsTest {
     void theMainRegionShowsItsFocusAndTheNavigationKeepsFocusWhenItOpensOrCloses() {
         assertThat(css).contains(".site-main:focus {\n  outline: 2px solid var(--action);\n  outline-offset: -2px;\n}")
                 .doesNotContain("outline: none");
-        assertThat(js).contains("disclosure.contains(document.activeElement)", "summary.focus()",
+        assertThat(js).contains("disclosure.contains(active)", "summary.focus()",
                 "a[aria-current=\"page\"]");
         // The focus transfer runs on every change, also when the disclosure was already open or closed: an open mobile
         // disclosure whose focused summary disappears at desktop width hands focus on too.
         assertThat(js).doesNotContain("if (disclosure.open === opening)");
+        // Chrome's focus fixup can move focus to <body> before the media query's change event runs, so the script
+        // remembers where focus was last, and a pointer press outside the navigation forgets it.
+        assertThat(js).contains("document.addEventListener('focusin'", "document.addEventListener('pointerdown'",
+                "active === document.body", "lost && lastInside", "lost && lastSummary");
     }
 
     @Test
