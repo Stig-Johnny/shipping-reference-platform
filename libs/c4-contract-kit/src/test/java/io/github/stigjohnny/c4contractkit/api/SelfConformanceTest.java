@@ -29,7 +29,7 @@ class SelfConformanceTest {
 
         ConformanceAssertions.assertConforms(report, RepositoryFiles.library().resolve("build/reports/c4-contract-self"));
         assertThat(report.components()).extracting(ComponentResult::id)
-                .containsExactly("api", "bytecode", "model", "report", "rules");
+                .containsExactly("api", "bytecode", "model", "report", "rules", "sources");
         assertThat(report.components()).allSatisfy(component -> {
             assertThat(component.status()).isEqualTo(ComponentStatus.BUILT);
             assertThat(component.classCount()).isPositive();

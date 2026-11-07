@@ -9,9 +9,12 @@ as evidence: class, member, kind, and the source file and line when the class fi
 components, planned components with code and unmapped classes have no reference to show; they name the components
 and classes concerned.
 
+Its package `sources` reads a web app's TypeScript sources as data, with a deliberately restricted import grammar and
+the JDK alone, for a web import check that is not built yet ([`AGENTS.md`](AGENTS.md), "Web imports").
+
 The library is built and tested, and the shipping API is its first user: `ArchitectureConformanceTest` in
 `:apps:shipping-api` checks the API's classes with it. `SelfConformanceTest` checks the
-library's own five packages against its self-model, [`architecture/self.dsl`](architecture/self.dsl), and the negative
+library's own six packages against its self-model, [`architecture/self.dsl`](architecture/self.dsl), and the negative
 fixtures of `ConformanceDivergenceTest` and `ConformanceAbsenceTest` show both directions failing. The commands to run
 them, how long they took, and how to watch the self-check fail are under [Try it](../../README.md#try-it) in the
 repository's README.
@@ -105,7 +108,7 @@ calls into `model`, its member and its source line.
 
 ## Structure and checks
 
-The library's five packages and the only dependencies allowed between them are in its self-model,
+The library's six packages and the only dependencies allowed between them are in its self-model,
 [`architecture/self.dsl`](architecture/self.dsl). `SelfConformanceTest` checks the library against it with the library
 itself; `ReviewConditionsTest` checks the conditions of the ArchUnit and Structurizr reviews on the library's class
 files (no `reflect()`, file-path imports only, one parser factory, no URL or feature re-enabled, and more). A rule on

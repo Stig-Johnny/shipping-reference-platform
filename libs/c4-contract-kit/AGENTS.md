@@ -10,6 +10,10 @@ reports class-level evidence. It fails on dependencies the model does not declar
 relationships without any static reference (absences). It reports PERMITTED relationships without references as
 "no static evidence", never as "unused".
 
+Its package `sources` reads a web app's TypeScript sources as data, with a restricted import grammar, and resolves
+each import to a file or a package (section "Web imports"). The web import check that is to hold them to the web
+container of the same model is not built yet.
+
 ## Boundaries
 
 - Package `io.github.stigjohnny.c4contractkit` with exactly these sub-packages:
@@ -17,14 +21,17 @@ relationships without any static reference (absences). It reports PERMITTED rela
     `ModelException`.
   - `model`: restricted DSL parsing and validation into an immutable `ContractModel`.
   - `bytecode`: class import with ArchUnit and evidence extraction.
+  - `sources`: a web root read as data with the restricted import grammar, and each import resolved; the JDK only.
   - `rules`: comparison and violation rules.
   - `report`: deterministic JSON and Markdown writers.
 - Allowed internal dependencies: `api -> model, bytecode, rules, report`; `rules -> model, bytecode`;
-  `report -> rules, model`. No other edges; no cycles. The self-model `libs/c4-contract-kit/architecture/self.dsl`
+  `report -> rules, model`. `sources` depends on no other package, and no package uses it yet. No other edges; no
+  cycles. The self-model `libs/c4-contract-kit/architecture/self.dsl`
   (slice 4) states these edges and `SelfConformanceTest` checks the library against it.
 - Third-party code: `com.structurizr:structurizr-dsl:6.2.4` (in `model` only) and `com.tngtech.archunit:archunit:1.5.1`
   (in `bytecode` only). No Spring, no logging framework, no other runtime dependency. Tests: JUnit and AssertJ 3.27.7.
-- It never loads or initialises the analysed classes; it reads class files only.
+- It never loads or initialises the analysed classes; it reads class files only. It never runs, compiles or installs
+  the analysed web sources; it reads them as text.
 
 ## Public API
 
@@ -103,6 +110,28 @@ Validation (each is a `ModelException` entry with element identifiers):
 - `report.md`: the verdict first, then violations with evidence, then an edge table with every status. The words for
   a PERMITTED relationship without references are exactly "no static evidence".
 - Identical inputs produce identical bytes, whatever the order of class roots or model elements.
+
+## Web imports
+
+Reading the sources (`sources`): every regular file under a web root, by name: `.ts`, `.tsx` and `.d.ts` are code and
+are scanned; `*.test.ts` and `*.test.tsx` are tests, owned but not scanned; `.css` is searched for `@import`, which is
+refused; images and fonts are assets; any other file is unsupported. Names that start with a dot are left out, and a
+symbolic link anywhere is an error. Files must be UTF-8. No configuration file is read.
+
+The restricted import grammar reads, with the line of the specifier: `import ... from 'x'`, `import 'x'`,
+`import type`, `export * from`, `export { a } from`, their type-only forms, and `import('x')` with one plain string
+literal anywhere, types included. It refuses: `import()` with anything else, `require`, `import.meta` other than
+`import.meta.env`, import-equals declarations, import attributes, `declare module 'x'`, triple-slash directives, JSX
+pragmas and a backslash escape in a specifier. Strings, comments, templates, regular expressions and JSX text never
+yield code; template substitutions and JSX expressions do. Whatever the lexer cannot read with certainty stops the
+scan of that file with a refusal: unterminated literals or comments, a backslash in code, U+2028 and U+2029, and JSX
+it does not cover, including a `.tsx` generic arrow function that starts with `<`.
+
+Resolution: a relative specifier without an extension names `p.ts`, `p.tsx`, `p.d.ts` or the `index` file of the
+directory `p` and must match exactly one existing file, by exact name; one with a style, image or font extension names
+that file; one with a code or JSON extension is unsupported; one that leaves the web root is unresolved. A bare
+specifier names a package (scoped or not; a subpath may follow). Absolute specifiers, schemes (`node:`, `https:`,
+`virtual:`), queries and fragments are unsupported.
 
 ## Ten TDD slices
 

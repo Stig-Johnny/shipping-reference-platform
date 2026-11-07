@@ -1,9 +1,10 @@
 // c4-contract-kit: the library's own structure, in Structurizr DSL, checked with the library itself.
 //
 // libs/c4-contract-kit/AGENTS.md ("Boundaries") allows exactly these internal dependencies:
-// api -> model, bytecode, rules, report; rules -> model, bytecode; report -> rules, model. Every allowed edge is
-// used, so each is REQUIRED: deleting one fails SelfConformanceTest with an absence, and any other edge, for example
-// report -> api or model -> bytecode, fails it with a divergence. The component relationship graph has no cycle.
+// api -> model, bytecode, rules, report; rules -> model, bytecode; report -> rules, model. sources depends on no
+// other package, and no package uses it yet. Every allowed edge is used, so each is REQUIRED: deleting one fails
+// SelfConformanceTest with an absence, and any other edge, for example report -> api, model -> bytecode or
+// sources -> model, fails it with a divergence. The component relationship graph has no cycle.
 //
 // The contract properties are those of architecture/workspace.dsl (see its header), and so are the restrictions:
 // no !include, !script, !plugin, !docs or !adrs, no environment variables and no themes; no constants or variables,
@@ -43,6 +44,14 @@ workspace "c4-contract-kit" "The internal structure of the library that checks c
                     properties {
                         "contract.id" "bytecode"
                         "contract.packages" "io.github.stigjohnny.c4contractkit.bytecode"
+                        "contract.status" "built"
+                    }
+                }
+
+                sourcesPackage = component "sources" "TypeScript and TSX read as data with a restricted import grammar, and each import resolved to a file or a package." "Java package" {
+                    properties {
+                        "contract.id" "sources"
+                        "contract.packages" "io.github.stigjohnny.c4contractkit.sources"
                         "contract.status" "built"
                     }
                 }
@@ -108,7 +117,7 @@ workspace "c4-contract-kit" "The internal structure of the library that checks c
     }
 
     views {
-        component library "Packages" "The five packages of the library and the only dependencies allowed between them." {
+        component library "Packages" "The six packages of the library and the only dependencies allowed between them." {
             include *
             autoLayout lr
         }
