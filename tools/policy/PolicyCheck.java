@@ -441,7 +441,7 @@ public final class PolicyCheck {
      *     digest, as a method reference or by a static import; a Testcontainers JDBC URL (jdbc:tc:), which names an
      *     image by tag; every API that derives, builds or resolves an image name, pulls or builds an image, runs
      *     another container, copies into one, binds the host, reaches the host, or changes how a container is created
-     *     (FORBIDDEN_API: the conditions of the Testcontainers and runner reviews), wherever it is called; a container
+     *     (FORBIDDEN_API: the conditions of the Testcontainers and runner reviews), in every file it reads as code; a container
      *     runtime named in code or in a string, which is how a build script or a test would run one as a command;
      *   - in the harness: any container but org.testcontainers.postgresql.PostgreSQLContainer (the deprecated one in
      *     .containers included), one made from anything but DockerImageName.parse or a DockerImageName that the
@@ -662,7 +662,7 @@ public final class PolicyCheck {
 
     /**
      * A source or build script, in its text and its code without comments: image names, the forbidden APIs and
-     * container runtimes anywhere, Testcontainers and docker-java nowhere but in the harness, and in the harness the
+     * container runtimes in all of it, Testcontainers and docker-java nowhere but in the harness, and in the harness the
      * container it makes. Its string literals, decoded, are read as shell words for a container runtime.
      */
     void checkImageCode(Path file, String text, SourceViews views, Language language, boolean harness) {

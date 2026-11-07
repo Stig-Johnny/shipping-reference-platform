@@ -156,10 +156,13 @@ closes it.
 
 - **The container image check rejects what it recognizes.** The checker rejects recognized container declarations.
   The harness validates its PostgreSQL instance, and CI checks subsequent engine activity. These controls do not
-  isolate arbitrary build code. Check 8 matches spellings, in the files it reads (sources, resources, build scripts,
-  workflows and scripts): a value it cannot read is refused, but a call through reflection or a method handle, a
-  library that starts a container of its own, shell indirection such as a command built from variables, or a file it
-  does not read (documents, review records, binary resources) is outside it. At run time CI sees which images
+  isolate arbitrary build code. Check 8 normalises the syntax it supports (shell words after quotes, escapes and
+  substitutions; Java, Kotlin and Groovy without comments, with the string forms it parses decoded) and then matches,
+  in the files it reads (sources, resources, Java, Kotlin and Groovy files, build scripts, workflows and scripts).
+  Text assembled at run time is outside it: a command or a name built from variables, expressions, `printf` output or
+  other programs, a call through reflection or a method handle, a library that starts a container of its own, and a
+  file it does not read (documents, review records, binary resources, and its own directory, `tools/policy/`, whose
+  tests hold every refused spelling as data; a change there is reviewed as the checker). At run time CI sees which images
   appeared and which images containers were made from, and whether anything was copied into one; it does not see how
   another container was configured, its privileges, mounts or networks. Only the harness's own container is checked
   for those.

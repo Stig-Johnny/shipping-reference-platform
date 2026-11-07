@@ -146,17 +146,26 @@ What is built, and where it differs from the decision above. The decision stands
   transcript. Nothing binds an approval to a head SHA.
 - **Container images: recognized declarations as text before the build, the engine around the tests.** The checker
   rejects recognized container declarations. The harness validates its PostgreSQL instance, and CI checks subsequent
-  engine activity. These controls do not isolate arbitrary build code. Check 8 reads, as text, the sources and
-  resources of every project (Java after its Unicode escapes), the build scripts, the workflows and the shell scripts,
-  those without the `.sh` extension by their `#!` line. It rejects a digest that no approved `container-image` entry
-  has, a tag in place of or next to a digest, an image name built in code, Testcontainers or docker-java anywhere but
-  in the harness `ReviewedPostgres`, any container there but the reviewed PostgreSQL one, the Testcontainers features
-  the reviews forbid wherever they are called (Compose, host binds, copies into a container, host access, privileged
-  mode, reuse, a network mode and create-command modifiers), a container runtime named in a string, Testcontainers
-  configuration files and image settings, and in workflows and scripts docker, by any path and quoted or not, with
-  anything but a pull by digest, reads and removals, as well as job and service containers in any YAML spelling. The
-  `java` job runs the candidate's copy of the checker as well, after the base branch's and before any other code of
-  the candidate, so that a rule a pull request adds applies to that pull request. At run time,
+  engine activity. These controls do not isolate arbitrary build code. Check 8 reads the sources and resources of
+  every project, every Java, Kotlin and Groovy file outside the checker's own directory (the build scripts included),
+  the workflows and the shell scripts, those without the `.sh` extension by their `#!` line. It normalises the syntax
+  it supports before it matches: Java after its Unicode escapes; Java, Kotlin and Groovy without comments and with the
+  string literals it parses (plain and character literals, Java text blocks, Kotlin raw strings, Groovy single, double
+  and triple quotes) decoded; shell text as bash splits it into words, with quotes, backslash escapes, line
+  continuations and adjacent parts joined, and the words of command substitutions, `${...}` values, heredocs and
+  `bash -c` or `eval` strings read too. Within that syntax it rejects a digest that no approved `container-image` entry
+  has, a tag in place of or next to a digest, an image name built in code, any reference it reads to Testcontainers or
+  docker-java outside the harness `ReviewedPostgres`, any container there but the reviewed PostgreSQL one, the
+  Testcontainers features the reviews forbid (Compose, host binds, copies into a container, host access, privileged
+  mode, reuse, a network mode and create-command modifiers) in every file it reads as code, a container runtime named
+  in code, a string or a resource, Testcontainers configuration files and image settings, and in workflows and scripts
+  docker as a command word with anything but a pull by digest, reads and removals, docker in a word it cannot read as
+  a command, a command that a command substitution names, `$'...'` quoting, escaped YAML strings, GitHub expressions
+  that build text, and job and service containers written as plain, quoted, flow, escaped or explicit YAML keys. What
+  it does not parse stays outside it: text assembled at run time from variables or expressions, reflection, a library
+  that starts a container of its own, and Groovy slashy strings, for which it reads Groovy files with their comments
+  too. The `java` job runs the candidate's copy of the checker as well, after the base branch's and before any other
+  code of the candidate, so that a rule a pull request adds applies to that pull request. At run time,
   `tools/ci/container-engine.sh` checks the runner, the engine and runc versions against the runner review, makes the
   daemon publish on 127.0.0.1 only, stages the image by digest, and afterwards checks that no other image appeared,
   that every container created came from the reviewed image and that nothing was copied into one, every engine query

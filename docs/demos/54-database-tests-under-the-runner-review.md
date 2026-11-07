@@ -75,9 +75,9 @@ from the reviewed image. The test classes named above check the harness and the 
 
 ## Limits
 
-- The checker rejects recognized container declarations, as text. An image that a library names itself, a call made
-  through reflection or a command assembled from shell variables is outside it. These controls do not isolate
-  arbitrary build code.
+- The checker rejects recognized container declarations, after normalising the shell, Java, Kotlin, Groovy and YAML
+  syntax it supports. An image that a library names itself, a call made through reflection or a command assembled at
+  run time from variables or other programs is outside it. These controls do not isolate arbitrary build code.
 - At run time CI sees which images appeared, which images containers were made from and whether anything was copied
   into one. It does not see how another container was configured; only the harness's own container is checked for
   privileges, mounts, networks and published ports.
