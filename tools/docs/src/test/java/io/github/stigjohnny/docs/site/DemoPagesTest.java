@@ -204,6 +204,15 @@ class DemoPagesTest {
     }
 
     @Test
+    void aLinkInTheSeeItHeadingIsHeldToTheSameRule() {
+        fixture.write(Demos.path("visual"), Demos.VISUAL.replace("## See it", "## [See it](https://example.com/)"));
+
+        assertThatThrownBy(this::build).isInstanceOf(DocsException.class).hasMessageContaining(
+                "docs/demos/43-visual.md: See it: 'https://example.com/' is another site; See it links pages of this "
+                        + "site");
+    }
+
+    @Test
     void theEvidenceOfAVisualChangeLinksThePageItInspected() {
         fixture.write(Demos.path("visual"), Demos.VISUAL.replace("[the design sheet](../ui/documentation-site.md)",
                 "the design sheet"));

@@ -40,6 +40,8 @@ import java.util.regex.Pattern;
  *       {@code docs/demos/} holds nothing but Markdown, because the repository is public as well.
  * </ul>
  *
+ * <p>Every block is held to these checks, the section headings and anything before the first section included.
+ *
  * <p>No command is ever run. Whether See it reaches pages of the site is checked where the pages are known, when the
  * site is built (DemoPages).
  */
@@ -66,6 +68,7 @@ final class DemoCheck {
     private static final String TRY_IT = "Try it";
     private static final String SEE_IT = "See it";
     private static final String EVIDENCE = "Evidence";
+    private static final String BEFORE_THE_SECTIONS = "the text before the first section";
     private static final String SH = "sh";
     private static final String TEXT = "text";
     private static final String SHELL = "; a command is approved whole, without shell syntax";
@@ -159,13 +162,25 @@ final class DemoCheck {
 
     private static void body(DocFile doc, Optional<DemoRecord.Kind> kind, Optional<String> recorded,
             Set<String> checkerTests, List<String> found) {
-        List<DemoRecord.Part> parts = DemoRecord.parts(doc);
-        for (DemoRecord.Part part : parts) {
-            if (part.blocks().stream().anyMatch(b -> b.kind() == MarkdownBlock.Kind.HEADING && b.level() == 1)) {
+        List<MarkdownBlock> outline = DemoRecord.outline(doc);
+        // Every block first, before the sections are told apart: the section headings and what stands before the first
+        // section are held to the same checks as the text under a heading.
+        String under = BEFORE_THE_SECTIONS;
+        for (MarkdownBlock block : outline) {
+            if (block.kind() == MarkdownBlock.Kind.HEADING && block.level() == 2) {
+                under = block.text();
+                block("the heading '" + under + "'", block, checkerTests, found);
+                continue;
+            }
+            if (block.kind() == MarkdownBlock.Kind.HEADING && block.level() == 1) {
                 found.add("a level-1 heading; a demonstration's title is its frontmatter title");
             }
+            block(under, block, checkerTests, found);
         }
-        if (parts.getFirst().blocks().stream().anyMatch(MarkdownBlock::hasContent)) {
+        List<DemoRecord.Part> parts = DemoRecord.parts(outline);
+        boolean before = parts.getFirst().blocks().stream()
+                .anyMatch(b -> b.kind() != MarkdownBlock.Kind.HEADING || b.level() != 1);
+        if (before) {
             found.add("text stands before the first section; everything is under What changed, See it, Try it, "
                     + "Evidence or Limits");
         }
@@ -187,9 +202,6 @@ final class DemoCheck {
             if (part.blocks().stream().noneMatch(MarkdownBlock::hasContent)) {
                 found.add("the section '" + section + "' is empty");
             }
-            for (MarkdownBlock block : part.blocks()) {
-                block(section, block, checkerTests, found);
-            }
         }
         kind.ifPresent(k -> required(k, seen, found));
         parts.stream().filter(p -> p.heading().equals(TRY_IT)).findFirst().ifPresent(tryIt -> {
@@ -203,7 +215,7 @@ final class DemoCheck {
                 .ifPresent(evidence -> evidence(evidence.blocks(), kind, recorded, found));
     }
 
-    /** One block of a section: its fences, commands, placeholders and media. */
+    /** One block, wherever it stands, a section's heading included: its fences, commands, placeholders and media. */
     private static void block(String section, MarkdownBlock block, Set<String> checkerTests, List<String> found) {
         switch (block.kind()) {
             case FENCED_CODE -> {

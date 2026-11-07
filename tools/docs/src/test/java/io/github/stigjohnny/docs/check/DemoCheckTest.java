@@ -208,6 +208,31 @@ class DemoCheckTest {
     }
 
     @Test
+    void everyBlockIsCheckedTheSectionHeadingsAndTheTextBeforeThemIncluded() {
+        assertThat(problems("docs/demos/42-gate.md", replace(GATE, "## Limits", "## <b>Limits</b>")))
+                .containsExactly("docs/demos/42-gate.md: the heading 'Limits' holds '<b>': raw HTML or an unfilled "
+                        + "template placeholder; a demonstration is text only");
+        assertThat(problems("docs/demos/42-gate.md", replace(GATE, "## Limits",
+                "## [Limits](https://example.com/shot.png)")))
+                .containsExactly("docs/demos/42-gate.md: the heading 'Limits' links the media file "
+                        + "'https://example.com/shot.png'; a demonstration is text only until the reviewed media gate "
+                        + "exists");
+        assertThat(problems("docs/demos/42-gate.md", replace(GATE, "## What changed",
+                "<img src=\"shot.png\" alt=\"\">\n\n## What changed")))
+                .containsExactly("docs/demos/42-gate.md: text stands before the first section; everything is under "
+                        + "What changed, See it, Try it, Evidence or Limits",
+                        "docs/demos/42-gate.md: the text before the first section holds '<img src=\"shot.png\" "
+                                + "alt=\"\">': raw HTML or an unfilled template placeholder; a demonstration is text "
+                                + "only");
+        assertThat(problems("docs/demos/42-gate.md", replace(GATE, "## What changed", "![](shot.png)\n\n## What "
+                + "changed")))
+                .containsExactly("docs/demos/42-gate.md: text stands before the first section; everything is under "
+                        + "What changed, See it, Try it, Evidence or Limits",
+                        "docs/demos/42-gate.md: the text before the first section shows the image 'shot.png'; a "
+                                + "demonstration is text only until the reviewed media gate exists");
+    }
+
+    @Test
     void aSectionNamedInsideAFenceIsNotASection() {
         String gate = GATE.replace("## Dependency allowlist: clean", "## Limits");
 

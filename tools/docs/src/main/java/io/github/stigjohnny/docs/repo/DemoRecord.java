@@ -73,7 +73,10 @@ public record DemoRecord(DocFile doc, int pr, Kind kind, String recorded, List<S
         }
     }
 
-    /** One part of a demonstration's body: a level-2 section with its heading, or, under "", what stands before one. */
+    /**
+     * One part of a demonstration's body: a level-2 section, named by its heading, whose blocks start with the heading's
+     * own block; or, under "", what stands before the first section.
+     */
     public record Part(String heading, List<MarkdownBlock> blocks) {
 
         public Part {
@@ -177,19 +180,28 @@ public record DemoRecord(DocFile doc, int pr, Kind kind, String recorded, List<S
         return tests;
     }
 
+    /** Every top-level block of a demonstration's body, in order, its section headings included. */
+    public static List<MarkdownBlock> outline(DocFile doc) {
+        return MarkdownRenderer.outline(doc.body(), doc.path());
+    }
+
     /** The parts of a demonstration's body, in order: first what stands before its first level-2 heading. */
     public static List<Part> parts(DocFile doc) {
+        return parts(outline(doc));
+    }
+
+    /** The parts of an outline: each level-2 heading starts a section, and its block is the section's first. */
+    public static List<Part> parts(List<MarkdownBlock> outline) {
         List<Part> parts = new ArrayList<>();
         String heading = "";
         List<MarkdownBlock> blocks = new ArrayList<>();
-        for (MarkdownBlock block : MarkdownRenderer.outline(doc.body(), doc.path())) {
+        for (MarkdownBlock block : outline) {
             if (block.kind() == MarkdownBlock.Kind.HEADING && block.level() == 2) {
                 parts.add(new Part(heading, blocks));
                 heading = block.text();
                 blocks = new ArrayList<>();
-            } else {
-                blocks.add(block);
             }
+            blocks.add(block);
         }
         parts.add(new Part(heading, blocks));
         return parts;
