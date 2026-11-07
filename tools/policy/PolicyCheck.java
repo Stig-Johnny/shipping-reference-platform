@@ -403,7 +403,7 @@ public final class PolicyCheck {
         }
     }
 
-    /** A small JSON reader: the JDK has none, and this tool may depend on nothing but the JDK. */
+    /** A small, strict JSON reader (RFC 8259): the JDK has none, and this tool may depend on nothing but the JDK. */
     sealed interface Json {
         record JObject(Map<String, Json> members) implements Json {
             Json get(String key) {
@@ -483,6 +483,7 @@ public final class PolicyCheck {
         }
 
         final class Parser {
+            private static final Pattern HEX4 = Pattern.compile("[0-9a-fA-F]{4}");
             private final String s;
             private int pos;
 
@@ -543,6 +544,7 @@ public final class PolicyCheck {
                     if (c == '"') return out.toString();
                     if (c < 0x20) throw error("control character in string");
                     if (c != '\\') { out.append(c); continue; }
+                    if (pos >= s.length()) throw error("unterminated string");
                     char escape = s.charAt(pos++);
                     switch (escape) {
                         case '"', '\\', '/' -> out.append(escape);
@@ -552,7 +554,9 @@ public final class PolicyCheck {
                         case 'r' -> out.append('\r');
                         case 't' -> out.append('\t');
                         case 'u' -> {
-                            out.append((char) Integer.parseInt(s.substring(pos, pos + 4), 16));
+                            String hex = s.substring(pos, Math.min(pos + 4, s.length()));
+                            if (!HEX4.matcher(hex).matches()) throw error("bad escape \\u" + hex);
+                            out.append((char) Integer.parseInt(hex, 16));
                             pos += 4;
                         }
                         default -> throw error("bad escape \\" + escape);
@@ -560,11 +564,32 @@ public final class PolicyCheck {
                 }
             }
 
+            /** A number as RFC 8259 defines it, -?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][-+]?[0-9]+)?, kept as written. */
             Json number() {
                 int start = pos;
-                while (pos < s.length() && "+-0123456789.eE".indexOf(s.charAt(pos)) >= 0) pos++;
-                if (start == pos) throw error("unexpected character '" + s.charAt(pos) + "'");
+                if (peek('-')) pos++;
+                int integerStart = pos;
+                int integerDigits = digits();
+                if (integerDigits == 0 && pos == start) throw error("unexpected character '" + s.charAt(pos) + "'");
+                if (integerDigits == 0) throw error("malformed number");
+                if (integerDigits > 1 && s.charAt(integerStart) == '0') throw error("leading zero in number");
+                if (peek('.')) {
+                    pos++;
+                    if (digits() == 0) throw error("malformed number");
+                }
+                if (peek('e') || peek('E')) {
+                    pos++;
+                    if (peek('+') || peek('-')) pos++;
+                    if (digits() == 0) throw error("malformed number");
+                }
                 return new JNumber(s.substring(start, pos));
+            }
+
+            /** Skips ASCII digits and returns how many there were. */
+            int digits() {
+                int start = pos;
+                while (pos < s.length() && s.charAt(pos) >= '0' && s.charAt(pos) <= '9') pos++;
+                return pos - start;
             }
 
             Json literal(String word, Json value) {
@@ -573,7 +598,8 @@ public final class PolicyCheck {
                 return value;
             }
 
-            void skipWhitespace() { while (pos < s.length() && Character.isWhitespace(s.charAt(pos))) pos++; }
+            /** JSON's whitespace only: space, tab, line feed and carriage return. */
+            void skipWhitespace() { while (pos < s.length() && " \t\n\r".indexOf(s.charAt(pos)) >= 0) pos++; }
             boolean peek(char c) { return pos < s.length() && s.charAt(pos) == c; }
             void expect(char c) {
                 if (!peek(c)) throw error("expected '" + c + "'");

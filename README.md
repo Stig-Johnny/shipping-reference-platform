@@ -124,6 +124,7 @@ whose SHA-256 is in `security/verifications/2026-11-06-toolchain.md`: Gradle's t
 | Step | Command |
 |---|---|
 | Check every dependency against the allowlist (the JDK alone; nothing from the repository runs) | `java tools/policy/PolicyCheck.java .` |
+| Test the allowlist checker (the JDK alone) | `java tools/policy/PolicyCheckTest.java` |
 | Run all Java checks (compile with Error Prone and NullAway, tests) | `./gradlew check` |
 | Run mutation tests (CI only, the `mutation` job: PIT's control socket accepts unauthenticated connections) | `./gradlew :libs:c4-contract-kit:pitest` |
 | Check docs and the brain; regenerate them | `./gradlew :tools:docs:check`; `./gradlew :tools:docs:generate` |

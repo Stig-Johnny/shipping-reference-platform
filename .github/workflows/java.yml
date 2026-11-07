@@ -61,6 +61,13 @@ jobs:
         # 1 = findings and 2 = the check could not complete both fail the job (pipefail).
         run: java base/tools/policy/PolicyCheck.java candidate | tee -a "$GITHUB_STEP_SUMMARY"
 
+      - name: Test the candidate's allowlist checker (the JDK alone)
+        # The candidate's tests of its own tools/policy/PolicyCheck.java, which may run now that the base branch's
+        # checker has passed the candidate. They build their repositories in temporary directories; a failed case
+        # fails the job.
+        working-directory: candidate
+        run: java tools/policy/PolicyCheckTest.java
+
       - name: Verify the Gradle wrapper before running it
         working-directory: candidate
         run: echo "3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  gradle/wrapper/gradle-wrapper.jar" | sha256sum --check --strict

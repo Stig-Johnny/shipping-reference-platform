@@ -2,7 +2,7 @@
 title: "The dependency allowlist"
 description: "How third-party code gets into this repository: a recorded security review per component, an allowlist the build enforces before anything runs, and the owner's acceptance."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 ---
 
 # The dependency allowlist
@@ -52,7 +52,9 @@ acceptance recorded in `allowlist.json`.
 
 Run the checker yourself with the JDK alone: `java tools/policy/PolicyCheck.java .` (exit 0 = clean, 1 = findings,
 2 = it could not complete). `--report-only` prints the findings and exits 0. `--print-digest` prints the digest that an
-acceptance must record (see [Acceptance](#acceptance)).
+acceptance must record (see [Acceptance](#acceptance)). Its regression tests need only the JDK too:
+`java tools/policy/PolicyCheckTest.java`. The `java` job runs them on every pull request, after the checker has passed
+it.
 
 ## Adding a dependency
 
