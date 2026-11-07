@@ -57,7 +57,8 @@ exited 0; excerpt of the checker's report:
 | shipments | tenants | REQUIRED | convergence | 13 |
 ```
 
-The test classes named above check the API against the model in every build. Reviewed in pull request #67.
+ArchitectureConformanceTest checks the model, ModularityTest checks module boundaries, and BookShipmentTest checks
+booking behaviour in every build. Reviewed in pull request #67.
 
 ## Limits
 
