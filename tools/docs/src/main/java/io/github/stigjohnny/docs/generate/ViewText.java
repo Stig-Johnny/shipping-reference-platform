@@ -129,8 +129,8 @@ public final class ViewText {
             case COMPONENT -> {
                 limits.add("Arrows between modules are static code dependencies, not runtime data flow: an event "
                         + "listener's arrow points to the module whose event type it uses.");
-                limits.add("A REQUIRED arrow specifies an obligation; a future passing conformance check would "
-                        + "establish a static reference, not runtime behaviour.");
+                limits.add("A REQUIRED arrow specifies an obligation; where both modules are built, a passing "
+                        + "conformance check establishes a static reference, not runtime behaviour.");
             }
             case DYNAMIC -> limits.add("Each numbered step is a relationship of the model, in the order of the flow. "
                     + "Where a listener handles another module's event, its arrow shows the code dependency, not the "

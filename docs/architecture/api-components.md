@@ -26,8 +26,8 @@ flowchart LR
         style 5 fill:#ffffff,stroke:#475569,color:#475569
         subgraph 7 ["API"]
             style 7 fill:#ffffff,stroke:#475569,color:#475569
-            10["Tenants [Component] (planned)"]
-            style 10 fill:#f1f5f9,stroke:#64748b,color:#334155
+            10["Tenants [Component] (built)"]
+            style 10 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
             11["Audit [Component] (planned)"]
             style 11 fill:#f1f5f9,stroke:#64748b,color:#334155
             12["Orders [Component] (planned)"]
@@ -36,15 +36,15 @@ flowchart LR
             style 13 fill:#f1f5f9,stroke:#64748b,color:#334155
             14["Returns [Component] (planned)"]
             style 14 fill:#f1f5f9,stroke:#64748b,color:#334155
-            8["Quotes [Component] (planned)"]
-            style 8 fill:#f1f5f9,stroke:#64748b,color:#334155
+            8["Quotes [Component] (built)"]
+            style 8 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
             9["Shipments [Component] (planned)"]
             style 9 fill:#f1f5f9,stroke:#64748b,color:#334155
         end
         15[("Database [Container] (planned)")]
-        style 15 fill:#115e59,stroke:#475569,color:#ffffff
+        style 15 fill:#f1f5f9,stroke:#64748b,color:#334155
         6["Web app [Container] (planned)"]
-        style 6 fill:#115e59,stroke:#475569,color:#ffffff
+        style 6 fill:#f1f5f9,stroke:#64748b,color:#334155
     end
     6 -->|"1"| 10
     6 -->|"2"| 8
@@ -90,9 +90,9 @@ The same definition is in [api-components.mmd](api-components.mmd).
 | 3 | Webshop | Software System |  | external | A merchant's online shop (simulated). Source of the orders that need shipping. |
 | 4 | Carrier (simulated) | Software System |  | external, simulated | A fictional parcel carrier. v0.1 simulates its tariff, tracking numbers and labels inside the API; no network calls. |
 | 6 | Web app | Container | React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
-| 8 | Quotes | Component | Spring Modulith module | planned | Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes. |
+| 8 | Quotes | Component | Spring Modulith module | built | Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes. |
 | 9 | Shipments | Component | Spring Modulith module | planned | Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled. |
-| 10 | Tenants | Component | Spring Modulith module | planned | Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags. |
+| 10 | Tenants | Component | Spring Modulith module | built | Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags. |
 | 11 | Audit | Component | Spring Modulith module | planned | Appends one tenant-scoped audit entry per shipment event, deduplicated by event ID; replayed from the publication registry after failures. |
 | 12 | Orders | Component | Spring Modulith module | planned | Planned: imports webshop orders and turns them into quote and booking requests. |
 | 13 | Tracking | Component | Spring Modulith module | planned | Planned: receives carrier tracking events and moves shipments through transit states. |
@@ -129,4 +129,4 @@ The same definition is in [api-components.mmd](api-components.mmd).
 
 - A diagram shows the model, not the code. Only the API's modules are checked against the code (docs/gaps.md, section 1).
 - Arrows between modules are static code dependencies, not runtime data flow: an event listener's arrow points to the module whose event type it uses.
-- A REQUIRED arrow specifies an obligation; a future passing conformance check would establish a static reference, not runtime behaviour.
+- A REQUIRED arrow specifies an obligation; where both modules are built, a passing conformance check establishes a static reference, not runtime behaviour.

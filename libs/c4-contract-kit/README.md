@@ -9,7 +9,8 @@ as evidence: class, member, kind, and the source file and line when the class fi
 components, planned components with code and unmapped classes have no reference to show; they name the components
 and classes concerned.
 
-The library is built and tested; the shipping API, its first user, is planned. `SelfConformanceTest` checks the
+The library is built and tested, and the shipping API is its first user: `ArchitectureConformanceTest` in
+`:apps:shipping-api` checks the API's classes with it. `SelfConformanceTest` checks the
 library's own five packages against its self-model, [`architecture/self.dsl`](architecture/self.dsl), and the negative
 fixtures of `ConformanceDivergenceTest` and `ConformanceAbsenceTest` show both directions failing. The commands to run
 them, how long they took, and how to watch the self-check fail are under [Try it](../../README.md#try-it) in the
@@ -21,8 +22,8 @@ The specification is [`AGENTS.md`](AGENTS.md); the decision behind it is
 
 ## Use
 
-From a test of the project whose classes are checked, such as the planned `ArchitectureConformanceTest` in
-`:apps:shipping-api` (`SelfConformanceTest` does the same for the library today):
+From a test of the project whose classes are checked, such as `ArchitectureConformanceTest` in `:apps:shipping-api`,
+which passes every main class-output directory of the API (`SelfConformanceTest` does the same for the library):
 
 ```java
 @Test

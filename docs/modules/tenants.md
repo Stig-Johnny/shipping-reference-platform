@@ -2,16 +2,28 @@
 title: "Module: tenants"
 description: "Demo authentication for synthetic users, tenant derivation from membership, tenant binding for row-level security, and tenant-scoped prototype flags."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 module: tenants
-moduleStatus: planned
+moduleStatus: built
 riskLevel: 3
 ---
 
 # Module: tenants
 
-Package `io.github.stigjohnny.shipping.tenants`. C4 component `tenants` (`contract.status planned`). Risk level 3:
+Package `io.github.stigjohnny.shipping.tenants`. C4 component `tenants` (`contract.status built`). Risk level 3:
 authentication and tenant isolation. A minimal supporting slice: just enough identity to prove isolation.
+
+## Implementation state
+
+Built: `TenantId`, `CurrentTenant` and `MissingTenantContextException` in `tenants.api`, and `ThreadTenantContext` in
+`internal.application`. It binds a tenant to the current thread for one unit of work with a `ScopedValue`, so the
+binding ends when the work returns or throws and the previous one applies again, and independently started threads do
+not inherit the binding (`ThreadTenantContextTest`); child tasks forked through `StructuredTaskScope` can inherit it.
+The quotes module takes its tenant from `CurrentTenant`.
+
+Planned: everything else on this page, demo authentication, the HTTP filter that binds the tenant, `TenantScope`,
+`UserId`, the transaction manager that sets `app.tenant_id`, prototype flags, `GET /api/v1/me` and the schema. Every
+capability of the module is planned.
 
 ## Responsibilities
 

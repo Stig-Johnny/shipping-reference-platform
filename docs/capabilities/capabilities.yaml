@@ -28,9 +28,11 @@
 # A pull request that adds passing acceptance tests moves their names into `evidence` and changes the status in the
 # same commit; `:tools:docs:checkGenerated` rejects a shipped or partial status whose evidence does not exist or did
 # not pass, and never shows a planned capability as available because its package exists. The docs tool's own
-# controls are shipped. The controls of libs/c4-contract-kit carry evidence; divergence and absence are partial:
-# their ArchitectureConformanceTest in :apps:shipping-api does not exist yet. Every other status is planned and its
-# evidence is "none yet".
+# controls are shipped, and so are the controls of libs/c4-contract-kit, divergence and absence included now that
+# ArchitectureConformanceTest checks :apps:shipping-api, and the two module checks of the API. Of the product, the
+# quotes module's domain and application tests pass: the synthetic tariff and quote expiry are shipped, creating a
+# quote and the offer lookup are partial, since their HTTP and database tests are planned. Every other status is
+# planned and its evidence is "none yet".
 
 schemaVersion: 1
 
@@ -39,17 +41,17 @@ capabilities:
   - id: quotes.synthetic-tariff
     module: quotes
     title: Price a parcel by zone, billable weight band, service level and fuel surcharge, rounded half-up to cents.
-    status: planned
+    status: shipped
     target: v0.1
-    evidence: none yet
+    evidence: [SyntheticTariffTest, SyntheticTariffPropertiesTest, MoneyTest, ParcelTest]
     acceptanceTests: [SyntheticTariffTest, SyntheticTariffPropertiesTest, MoneyTest, ParcelTest]
     docs: docs/modules/quotes.md
   - id: quotes.create-quote
     module: quotes
     title: Issue a tenant-scoped quote with one offer per available service level, or a reasoned refusal.
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [RatingTest, CreateQuoteTest]
     acceptanceTests: [RatingTest, CreateQuoteTest, QuotesHttpContractTest]
     docs: docs/modules/quotes.md
   - id: quotes.get-quote
@@ -63,17 +65,17 @@ capabilities:
   - id: quotes.quote-expiry
     module: quotes
     title: Offers expire 30 minutes after issue, decided by the injected clock.
-    status: planned
+    status: shipped
     target: v0.1
-    evidence: none yet
+    evidence: [QuoteExpiryTest]
     acceptanceTests: [QuoteExpiryTest]
     docs: docs/modules/quotes.md
   - id: quotes.offer-lookup
     module: quotes
     title: Tell shipments whether an offer exists for a tenant and is bookable at an instant (QuoteOffers).
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [QuoteExpiryTest]
     acceptanceTests: [QuotesModuleIntegrationTest, QuoteExpiryTest]
     docs: docs/modules/quotes.md
 
@@ -269,21 +271,21 @@ controls:
     title: A dependency between modules that the C4 model does not declare fails the build.
     where: libs/c4-contract-kit, apps/shipping-api
     check: java
-    status: partial
+    status: shipped
     target: v0.1
-    evidence: [ConformanceDivergenceTest]
+    evidence: [ConformanceDivergenceTest, ArchitectureConformanceTest]
     acceptanceTests: [ConformanceDivergenceTest, ArchitectureConformanceTest]
-    negativeFixture: A quotes class referencing shipments.api.ShipmentId (demo pull request "undeclared dependency").
+    negativeFixture: The fixtures of ConformanceDivergenceTest; on the API's own classes, the model without quotes -> tenants (ArchitectureConformanceTest). Planned, the demo pull request "undeclared dependency", a quotes class referencing shipments.api.ShipmentId.
     docs: docs/adr/0002-c4-model-is-the-structural-authority.md
   - id: control.c4-absence
     title: A REQUIRED relationship without any static reference fails the build.
     where: libs/c4-contract-kit, apps/shipping-api
     check: java
-    status: partial
+    status: shipped
     target: v0.1
-    evidence: [ConformanceAbsenceTest]
+    evidence: [ConformanceAbsenceTest, ArchitectureConformanceTest]
     acceptanceTests: [ConformanceAbsenceTest, ArchitectureConformanceTest]
-    negativeFixture: Removing ShipmentAuditListener's dependency on shipments.api (demo pull request "missing required edge").
+    negativeFixture: The fixtures of ConformanceAbsenceTest, and the repository's model without the API's classes, in which quotes -> tenants is absent (RepositoryWorkspaceTest). Planned, the demo pull request "missing required edge", which removes ShipmentAuditListener's dependency on shipments.api.
     docs: docs/adr/0002-c4-model-is-the-structural-authority.md
   - id: control.no-static-evidence-report
     title: A PERMITTED relationship without references is reported as "no static evidence", never as unused, and does not fail.
@@ -329,21 +331,21 @@ controls:
     title: No access to another module's internal packages and no module cycles.
     where: apps/shipping-api
     check: java
-    status: planned
+    status: shipped
     target: v0.1
-    evidence: none yet
+    evidence: [ModularityTest]
     acceptanceTests: [ModularityTest]
-    negativeFixture: A shipments class importing quotes.internal.domain.Quote.
+    negativeFixture: A shipments class importing quotes.internal.domain.Quote, and two modules that use each other (fixtures of ModularityTest).
     docs: docs/adr/0003-modular-monolith-with-spring-modulith-and-hexagonal-modules.md
   - id: control.hexagonal-layering
     title: Domain code free of Spring, Jakarta, JDBC and adapters; only the five allowed packages per module; @NullMarked everywhere.
     where: apps/shipping-api
     check: java
-    status: planned
+    status: shipped
     target: v0.1
-    evidence: none yet
+    evidence: [HexagonalLayeringTest]
     acceptanceTests: [HexagonalLayeringTest]
-    negativeFixture: A domain class annotated with a Spring stereotype.
+    negativeFixture: A domain class annotated with a Spring stereotype; one fixture for each other rule (fixtures of HexagonalLayeringTest).
     docs: docs/adr/0003-modular-monolith-with-spring-modulith-and-hexagonal-modules.md
   - id: control.table-ownership
     title: Each module maps only tables in its own schema.

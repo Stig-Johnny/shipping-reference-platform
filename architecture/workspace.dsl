@@ -67,7 +67,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
 
         platform = softwareSystem "Shipping reference platform" "Quotes, books and labels parcels for webshop tenants." {
 
-            web = container "Web app" "Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer." "React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client" "WebApp"
+            web = container "Web app" "Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer." "React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client" "WebApp,Planned"
 
             api = container "API" "Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals." "Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring Data JDBC" {
                 properties {
@@ -75,11 +75,11 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
                     "contract.isolated" "io.github.stigjohnny.shipping.ShippingApplication,io.github.stigjohnny.shipping.CorrelationIdFilter,io.github.stigjohnny.shipping.FallbackProblemHandler"
                 }
 
-                quotes = component "Quotes" "Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes." "Spring Modulith module" "Planned" {
+                quotes = component "Quotes" "Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes." "Spring Modulith module" {
                     properties {
                         "contract.id" "quotes"
                         "contract.packages" "io.github.stigjohnny.shipping.quotes"
-                        "contract.status" "planned"
+                        "contract.status" "built"
                     }
                 }
 
@@ -91,11 +91,11 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
                     }
                 }
 
-                tenants = component "Tenants" "Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags." "Spring Modulith module" "Planned" {
+                tenants = component "Tenants" "Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags." "Spring Modulith module" {
                     properties {
                         "contract.id" "tenants"
                         "contract.packages" "io.github.stigjohnny.shipping.tenants"
-                        "contract.status" "planned"
+                        "contract.status" "built"
                     }
                 }
 
@@ -132,7 +132,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
                 }
             }
 
-            db = container "Database" "One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data." "PostgreSQL 18.6" "Database"
+            db = container "Database" "One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data." "PostgreSQL 18.6" "Database,Planned"
         }
 
         // System context relationships.

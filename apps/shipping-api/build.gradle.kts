@@ -70,3 +70,16 @@ tasks.withType<Test>().configureEach {
     // Ryuk (Testcontainers' cleanup container) is rejected: it needs a privileged container holding the Docker socket.
     environment("TESTCONTAINERS_RYUK_DISABLED", "true")
 }
+
+// The architecture tests read the model and the compiled classes as files. ArchitectureConformanceTest checks every
+// main class-output directory against architecture/workspace.dsl, and HexagonalLayeringTest imports the same
+// directories, which reach them as the system property shipping.mainClassDirectories. Declared as an input, a change
+// to the model reruns the tests instead of reusing their earlier result, as in libs/c4-contract-kit.
+tasks.test {
+    inputs.files(rootDir.resolve("architecture/workspace.dsl")).withPathSensitivity(PathSensitivity.RELATIVE)
+        .withPropertyName("model")
+    val mainClassDirectories: FileCollection = sourceSets.main.get().output.classesDirs
+    jvmArgumentProviders.add(CommandLineArgumentProvider {
+        listOf("-Dshipping.mainClassDirectories=" + mainClassDirectories.files.joinToString(File.pathSeparator))
+    })
+}

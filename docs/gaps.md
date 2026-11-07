@@ -18,13 +18,21 @@ closes it.
   `tools/docs`, exists: it generates the C4 view pages, `BRAIN.md` and the module brains, and builds the
   documentation site, which `.github/workflows/pages.yml` publishes from `main` after the publication scan. Its own
   controls, `control.brain-check` and `control.publication-scan`, are shipped with their tests as evidence. The
-  library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. No
-  application code exists yet. Every other capability in `docs/capabilities/capabilities.yaml` is `planned` with no
-  evidence, and every test class named for them is still to be written (red first).
+  library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. The first
+  application code exists: the domain and application layers of the `quotes` module and the tenant context of the
+  `tenants` module, checked by `ArchitectureConformanceTest`, `ModularityTest` and `HexagonalLayeringTest`. Four
+  capabilities of the quotes module have passing tests: two are shipped and two partial. Every other capability in
+  `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for them is still to
+  be written (red first).
+- **The quotes module runs in its tests only.** No class of it is a Spring bean, and no endpoint, database or running
+  application exists. `CreateQuote`'s `@Transactional` has no effect yet, and that `QuoteIssued` is published inside
+  the quote's transaction is unproven until `QuotesModuleIntegrationTest` exists. The store its tests use is in
+  memory, so nothing yet shows that another tenant's quote is not found in the database.
 - The versions in the ADRs were checked against their sources on 2026-11-06. Their combination (JDK 25, Gradle
   9.8.2, Spring Boot 4.1.2, Spring Modulith 2.1.2, Error Prone 2.51.0, NullAway 0.14.3, JUnit 6.0.3 (property
-  tests as `@ParameterizedTest` in the normal test task), PIT 1.30.2 with its JUnit 5 plugin 1.2.3) has not been
-  built together yet. In particular,
+  tests as `@ParameterizedTest` in the normal test task), PIT 1.30.2 with its JUnit 5 plugin 1.2.3) now compiles the
+  API and runs its tests, and Spring Modulith 2.1.2's verification passes on ArchUnit 1.5.1; no Spring application
+  context has been started yet. In particular,
   PIT's JUnit 5 plugin with JUnit 6 is unverified; the fallback is running PIT against a JUnit 5.14.4 test task.
   The library runs PIT with JUnit 5.14.4, and that combination works.
 
@@ -157,7 +165,12 @@ closes it.
   documented operation and status code is exercised, and OpenAPI style linting.
 - Mutation testing runs for `libs/c4-contract-kit` only, in CI (the `mutation` job), over all its production classes,
   at a 90 % threshold. The planned measure per change (80 % of mutants on changed lines, 90 % for pricing and checker
-  code) is not built yet, and equivalent-mutant exclusions are reviewed by hand.
+  code) is not built yet, and equivalent-mutant exclusions are reviewed by hand. So the pricing code of the `quotes`
+  module is not mutation-tested yet: PIT is not reviewed for `:apps:shipping-api`.
+- `ModularityTest` sees the modules as Spring Modulith finds them, from the class path without the test classes;
+  `ArchitectureConformanceTest` and `HexagonalLayeringTest` read the API's main class-output directories only.
+- Mockito is on the API's test class path, but no test uses it, so nothing loads it or attaches an agent. The
+  `-javaagent` wiring that its review requires for every test task arrives with the first test that uses it.
 - PIT runs only on disposable CI workers. Its parent JVM listens on all network interfaces and accepts its workers'
   first connection without authentication, so its review forbids developer machines whose firewall lets inbound
   connections reach `java`. On 2026-11-06 the library's development ran PIT on such a machine (firewall off) before

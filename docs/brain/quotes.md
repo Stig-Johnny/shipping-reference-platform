@@ -12,7 +12,7 @@ updated: 2026-11-07
 
 Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes.
 
-- **Status in the model:** planned (`contract.status`). No production class may exist in its packages until the status is built.
+- **Status in the model:** built (`contract.status`).
 - **Packages:** `io.github.stigjohnny.shipping.quotes`
 - **Risk level:** 3
 - **Specification:** [docs/modules/quotes.md](../modules/quotes.md)
@@ -40,11 +40,11 @@ Prices parcels with the synthetic tariff and issues quotes whose offers expire a
 
 | Capability | Status | Acceptance tests | Evidence |
 |---|---|---|---|
-| `quotes.synthetic-tariff` | planned | SyntheticTariffTest, SyntheticTariffPropertiesTest, MoneyTest, ParcelTest | none yet |
-| `quotes.create-quote` | planned | RatingTest, CreateQuoteTest, QuotesHttpContractTest | none yet |
+| `quotes.synthetic-tariff` | shipped | SyntheticTariffTest, SyntheticTariffPropertiesTest, MoneyTest, ParcelTest | SyntheticTariffTest, SyntheticTariffPropertiesTest, MoneyTest, ParcelTest |
+| `quotes.create-quote` | partial | RatingTest, CreateQuoteTest, QuotesHttpContractTest | RatingTest, CreateQuoteTest |
 | `quotes.get-quote` | planned | QuotesModuleIntegrationTest, QuotesHttpContractTest | none yet |
-| `quotes.quote-expiry` | planned | QuoteExpiryTest | none yet |
-| `quotes.offer-lookup` | planned | QuotesModuleIntegrationTest, QuoteExpiryTest | none yet |
+| `quotes.quote-expiry` | shipped | QuoteExpiryTest | QuoteExpiryTest |
+| `quotes.offer-lookup` | partial | QuotesModuleIntegrationTest, QuoteExpiryTest | QuoteExpiryTest |
 
 ## Decisions its specification names
 
@@ -57,4 +57,6 @@ Prices parcels with the synthetic tariff and issues quotes whose offers expire a
 
 ## Gaps that name it
 
-No module-specific gaps are recorded here. See the project-wide known gaps in [docs/gaps.md](../gaps.md).
+- 0. State of this commit: The specification, the reviewed toolchain and the dependency allowlist with its enforcement are in place, and so are the reviewed dependencies of the docs generator and of the shipping API. The docs generator itself, `tools/docs`, exists: it generates the C4 view pages, `BRAIN.md` and the module brains, and builds the documentation site, which `.github/workflows/pages.yml` publishes from `main` after the publication scan. Its own controls, `control.brain-check` and `control.publication-scan`, are shipped with their tests as evidence. The library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. The first application code exists: the domain and application layers of the `quotes` module and the tenant context of the `tenants` module, checked by `ArchitectureConformanceTest`, `ModularityTest` and `HexagonalLayeringTest`. Four capabilities of the quotes module have passing tests: two are shipped and two partial. Every other capability in `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for them is still to be written (red first).
+- 0. State of this commit: **The quotes module runs in its tests only.** No class of it is a Spring bean, and no endpoint, database or running application exists. `CreateQuote`'s `@Transactional` has no effect yet, and that `QuoteIssued` is published inside the quote's transaction is unproven until `QuotesModuleIntegrationTest` exists. The store its tests use is in memory, so nothing yet shows that another tenant's quote is not found in the database.
+- 6. Tests and quality gates: Mutation testing runs for `libs/c4-contract-kit` only, in CI (the `mutation` job), over all its production classes, at a 90 % threshold. The planned measure per change (80 % of mutants on changed lines, 90 % for pricing and checker code) is not built yet, and equivalent-mutant exclusions are reviewed by hand. So the pricing code of the `quotes` module is not mutation-tested yet: PIT is not reviewed for `:apps:shipping-api`.

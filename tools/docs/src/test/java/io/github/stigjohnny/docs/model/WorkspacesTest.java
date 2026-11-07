@@ -27,13 +27,20 @@ class WorkspacesTest {
     void theSevenModulesCarryTheirContractProperties() {
         List<ModelElement> modules = WORKSPACE.model().modules();
 
-        assertThat(modules).extracting(m -> m.contractId().orElseThrow())
-                .containsExactly("quotes", "shipments", "tenants", "audit", "orders", "tracking", "returns");
-        assertThat(modules).allSatisfy(m -> {
-            assertThat(m.contractStatus()).contains("planned");
-            assertThat(m.planned()).isTrue();
-            assertThat(m.contractPackages()).containsExactly("io.github.stigjohnny.shipping." + m.contractId().get());
-        });
+        assertThat(modules).extracting(m -> m.contractId().orElseThrow() + ": " + m.contractStatus().orElseThrow()
+                + (m.planned() ? ", tagged Planned" : "")).containsExactly("quotes: built",
+                "shipments: planned, tagged Planned", "tenants: built", "audit: planned, tagged Planned",
+                "orders: planned, tagged Planned", "tracking: planned, tagged Planned", "returns: planned, tagged Planned");
+        assertThat(modules).allSatisfy(m -> assertThat(m.contractPackages())
+                .containsExactly("io.github.stigjohnny.shipping." + m.contractId().get()));
+    }
+
+    @Test
+    void theWebAppAndTheDatabaseAreTaggedPlannedAndTheApiIsNot() {
+        // Their planned label comes from the model, not from every capability being planned.
+        assertThat(WORKSPACE.model().elements()).filteredOn(e -> e.type().equals("Container"))
+                .extracting(e -> e.name() + (e.planned() ? ": planned" : ""))
+                .containsExactlyInAnyOrder("Web app: planned", "API", "Database: planned");
     }
 
     @Test

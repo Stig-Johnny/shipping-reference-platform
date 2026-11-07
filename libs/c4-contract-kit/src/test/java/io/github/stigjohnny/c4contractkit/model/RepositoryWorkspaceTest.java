@@ -1,15 +1,25 @@
 package io.github.stigjohnny.c4contractkit.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
+import io.github.stigjohnny.c4contractkit.api.ComponentResult;
 import io.github.stigjohnny.c4contractkit.api.Conformance;
+import io.github.stigjohnny.c4contractkit.api.EdgeResult;
 import io.github.stigjohnny.c4contractkit.api.EdgeStatus;
+import io.github.stigjohnny.c4contractkit.api.Mode;
 import io.github.stigjohnny.c4contractkit.api.Report;
+import io.github.stigjohnny.c4contractkit.api.Violation;
+import io.github.stigjohnny.c4contractkit.api.ViolationType;
 import io.github.stigjohnny.c4contractkit.testing.RepositoryFiles;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** The repository's real model, architecture/workspace.dsl, parses and validates. Every component is still planned. */
+/**
+ * The repository's real model, architecture/workspace.dsl, parses and validates. Two components are built, quotes and
+ * tenants, and the other five are planned; ArchitectureConformanceTest in :apps:shipping-api checks the model against
+ * the API's classes.
+ */
 class RepositoryWorkspaceTest {
 
     @Test
@@ -24,10 +34,13 @@ class RepositoryWorkspaceTest {
                 "io.github.stigjohnny.shipping.ShippingApplication");
         assertThat(model.components()).extracting(ContractComponent::id)
                 .containsExactly("audit", "orders", "quotes", "returns", "shipments", "tenants", "tracking");
-        assertThat(model.components()).allSatisfy(component -> {
-            assertThat(component.status()).isEqualTo(ComponentStatus.PLANNED);
-            assertThat(component.packages()).containsExactly("io.github.stigjohnny.shipping." + component.id());
-        });
+        assertThat(model.components()).extracting(ContractComponent::id, ContractComponent::status).containsExactly(
+                tuple("audit", ComponentStatus.PLANNED), tuple("orders", ComponentStatus.PLANNED),
+                tuple("quotes", ComponentStatus.BUILT), tuple("returns", ComponentStatus.PLANNED),
+                tuple("shipments", ComponentStatus.PLANNED), tuple("tenants", ComponentStatus.BUILT),
+                tuple("tracking", ComponentStatus.PLANNED));
+        assertThat(model.components()).allSatisfy(component -> assertThat(component.packages())
+                .containsExactly("io.github.stigjohnny.shipping." + component.id()));
         assertThat(model.relationships()).containsExactly(
                 new ContractRelationship("audit", "quotes", RelationshipMode.PERMITTED),
                 new ContractRelationship("audit", "shipments", RelationshipMode.REQUIRED),
@@ -42,18 +55,33 @@ class RepositoryWorkspaceTest {
     }
 
     @Test
-    void theRepositoryModelPassesWithoutCodeBecauseEveryComponentIsPlanned() {
+    void withoutClassesTheBuiltComponentsAreEmptyAndTheirRequiredEdgeIsAbsent() {
+        // The model now asks for code: a check without classes fails for quotes and tenants, and only for them.
         Report report = Conformance.check(RepositoryFiles.root().resolve("architecture/workspace.dsl"), List.of());
 
-        assertThat(report.passed()).isTrue();
+        assertThat(report.passed()).isFalse();
         assertThat(report.modelPath()).isEqualTo("../../architecture/workspace.dsl");
-        assertThat(report.components()).hasSize(7).allSatisfy(component -> {
-            assertThat(component.status()).isEqualTo(io.github.stigjohnny.c4contractkit.api.ComponentStatus.PLANNED);
-            assertThat(component.classCount()).isZero();
-        });
-        assertThat(report.edges()).hasSize(10).allSatisfy(edge -> {
-            assertThat(edge.status()).isEqualTo(EdgeStatus.NOT_EVALUATED);
-            assertThat(edge.evidence()).isEmpty();
-        });
+        assertThat(report.violations()).extracting(Violation::type, Violation::identifiers).containsExactly(
+                tuple(ViolationType.ABSENCE, List.of("quotes", "tenants")),
+                tuple(ViolationType.BUILT_COMPONENT_EMPTY, List.of("quotes")),
+                tuple(ViolationType.BUILT_COMPONENT_EMPTY, List.of("tenants")));
+        assertThat(report.components()).hasSize(7).allSatisfy(component ->
+                assertThat(component.classCount()).as(component.id()).isZero());
+        assertThat(report.components()).filteredOn(component -> component.status()
+                == io.github.stigjohnny.c4contractkit.api.ComponentStatus.BUILT)
+                .extracting(ComponentResult::id).containsExactly("quotes", "tenants");
+        assertThat(report.edges()).extracting(EdgeResult::source, EdgeResult::target, EdgeResult::mode,
+                EdgeResult::status).containsExactly(
+                tuple("audit", "quotes", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED),
+                tuple("audit", "shipments", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
+                tuple("audit", "tenants", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
+                tuple("orders", "quotes", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED),
+                tuple("orders", "shipments", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED),
+                tuple("quotes", "tenants", Mode.REQUIRED, EdgeStatus.ABSENCE),
+                tuple("returns", "shipments", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED),
+                tuple("shipments", "quotes", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
+                tuple("shipments", "tenants", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
+                tuple("tracking", "shipments", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED));
+        assertThat(report.edges()).allSatisfy(edge -> assertThat(edge.evidence()).isEmpty());
     }
 }
