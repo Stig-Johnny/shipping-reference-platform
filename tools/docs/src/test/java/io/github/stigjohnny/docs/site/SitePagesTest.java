@@ -63,10 +63,14 @@ class SitePagesTest {
                     "Verified evidence");
         }
         assertThat(site.text("brain/index.html")).contains("BrainGeneratorTest", "BrainCheckTest");
-        // quotes has passing tests for four of its five capabilities; tenants is built, but none of its own has one.
+        // quotes has passing tests for four of its five capabilities and shipments for two of its six; tenants is
+        // built, but none of its own has one.
         assertThat(site.text("modules/quotes.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
                 + "</span> 2 capabilities shipped, 2 capabilities partial, 1 capability planned.",
                 "<span class=\"badge badge-shipped\">Passing</span> 7 evidence test classes passed");
+        assertThat(site.text("modules/shipments.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
+                + "</span> 2 capabilities partial, 4 capabilities planned.",
+                "<span class=\"badge badge-shipped\">Passing</span> 3 evidence test classes passed");
         assertThat(site.text("modules/tenants.html")).contains("<span class=\"badge badge-planned\">Planned</span> 6 "
                 + "capabilities planned.", "<span class=\"badge badge-none\">None yet</span>");
     }
@@ -170,8 +174,9 @@ class SitePagesTest {
     void plannedElementsAreLabelledNotFaded() {
         String page = site.text("model/api-components.html");
 
-        assertThat(page).contains("Shipments [Component] (planned)", "Quotes [Component] (built)",
-                "Web app [Container] (planned)", "Database [Container] (planned)", "Planned");
+        assertThat(page).contains("Audit [Component] (planned)", "Shipments [Component] (built)",
+                "Quotes [Component] (built)", "Web app [Container] (planned)", "Database [Container] (planned)",
+                "Planned");
         assertThat(site.text("model/containers.html")).contains("Web app [Container] (planned)",
                 "Database [Container] (planned)").doesNotContain("API [Container] (planned)");
         for (String path : site.pages()) {
@@ -375,8 +380,9 @@ class SitePagesTest {
         String repository = site.text("start/repository.html");
 
         assertThat(repository).contains("<th>Implementation state</th>", "The planned v0.1 behaviour is: a shipping "
-                + "clerk", "<td>Planned for v0.1; no code yet</td>",
-                "<td>Minimal implementation planned for v0.1; no code yet</td>",
+                + "clerk", "<td>Minimal implementation planned for v0.1; no code yet</td>",
+                "<td>Built in part: booking from an offer, idempotent per tenant and key, without HTTP or a "
+                        + "database</td>",
                 "<td>Built in part: tariff, rating, quote creation and offer lookup, without HTTP or a database</td>",
                 "<td>Built in part: the tenant's identity and the tenant bound to the current thread; the rest of the "
                         + "minimal implementation is planned</td>")
@@ -396,10 +402,10 @@ class SitePagesTest {
             assertThat(site.text(page)).as(page).contains(evidence).doesNotContain(">Passing</span>",
                     "It is not implemented yet", "The planned conformance check", "the planned check");
         }
-        // The flow page keeps its own evidence: the quotes module's tests that pass.
+        // The flow page keeps its own evidence: the quotes and shipments modules' tests that pass.
         assertThat(site.text("model/flow-quote-book-label.html"))
-                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> 7 evidence "
-                        + "test classes passed")
+                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> 10 "
+                        + "evidence test classes passed")
                 .doesNotContain("Checker tests passing", "Conformance tests passing");
         String index = site.text("model/index.html");
         assertThat(index).contains("The checker in <code>libs/c4-contract-kit</code> is implemented and its own "

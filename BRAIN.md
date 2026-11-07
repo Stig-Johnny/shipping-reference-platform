@@ -10,9 +10,9 @@ updated: 2026-11-07
 
 # Brain: shipping-reference-platform
 
-A reference monorepo that shows how a Java and TypeScript product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. The application's first code exists: the pricing and quotes of the API's quotes module and the tenant context they need, without HTTP or a database; most of the application is still planned. The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions, a dependency allowlist check and a documentation tool.
+A reference monorepo that shows how a Java and TypeScript product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. The application's first code exists, without HTTP or a database: the pricing and quotes of the API's quotes module, booking in its shipments module, and the tenant context both need; most of the application is still planned. The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions, a dependency allowlist check and a documentation tool.
 
-**State at this commit.** 27 capabilities: 2 shipped, 2 partial, 23 planned; 17 controls: 10 shipped, 7 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
+**State at this commit.** 27 capabilities: 2 shipped, 4 partial, 21 planned; 17 controls: 10 shipped, 7 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
 
 ## Read first
 
@@ -28,7 +28,7 @@ From `architecture/workspace.dsl`. Arrows in the model point from the module who
 | Module | Status | Risk | Depends on | Brain | Specification |
 |---|---|---|---|---|---|
 | `quotes` | built | 3 | tenants (REQUIRED) | [quotes](docs/brain/quotes.md) | [docs/modules/quotes.md](docs/modules/quotes.md) |
-| `shipments` | planned | 3 | tenants (REQUIRED), quotes (REQUIRED) | [shipments](docs/brain/shipments.md) | [docs/modules/shipments.md](docs/modules/shipments.md) |
+| `shipments` | built | 3 | tenants (REQUIRED), quotes (REQUIRED) | [shipments](docs/brain/shipments.md) | [docs/modules/shipments.md](docs/modules/shipments.md) |
 | `tenants` | built | 3 | nothing | [tenants](docs/brain/tenants.md) | [docs/modules/tenants.md](docs/modules/tenants.md) |
 | `audit` | planned | 2 | shipments (REQUIRED), tenants (REQUIRED), quotes (PERMITTED) | [audit](docs/brain/audit.md) | [docs/modules/audit.md](docs/modules/audit.md) |
 | `orders` | planned | 3 | quotes (PERMITTED, planned), shipments (PERMITTED, planned) | [orders](docs/brain/orders.md) | [docs/modules/orders.md](docs/modules/orders.md) |

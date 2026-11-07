@@ -10,9 +10,10 @@ import java.util.Optional;
 
 /**
  * The {@link QuoteStore} port in memory, for tests: quotes by tenant and ID, as the planned table keys them, and a
- * second insert of the same key fails as its primary key would.
+ * second insert of the same key fails as its primary key would. Public, so that the shipments tests book against real
+ * quotes through QuoteOffers.
  */
-final class InMemoryQuoteStore implements QuoteStore {
+public final class InMemoryQuoteStore implements QuoteStore {
 
     private record Key(TenantId tenant, QuoteId quote) {
     }

@@ -11,8 +11,8 @@ modules: [tenants, quotes, shipments, audit]
 The structural version of this flow is the dynamic view `QuoteBookLabel` in `architecture/workspace.dsl`. This
 document adds order, alternatives and failures, and names the acceptance tests for each step and their status. A named
 test becomes evidence only once it exists, passes and asserts the step; each row says what it must assert. Rating and
-expiry logic have passing Java tests; quote storage and publication are tested in memory. The complete HTTP/database
-flow remains planned.
+expiry logic have passing Java tests; quote storage and publication, and booking with its replay, are tested in memory.
+The complete HTTP/database flow remains planned.
 
 Actors: a shipping clerk of Tenant Alpha signed in as the synthetic user `clerk-alpha`. All data is synthetic.
 
@@ -77,9 +77,9 @@ sequenceDiagram
 | 7: rating | Prices equal the golden table; bands, ordering, rounding and availability rules hold. | Passing: `SyntheticTariffTest`, `SyntheticTariffPropertiesTest`, `RatingTest` |
 | 8 to 9: store and publish | Only offered quotes are stored, under the caller's tenant; `QuoteIssued` is published once. | Passing, in memory: `CreateQuoteTest`. Planned: `QuotesModuleIntegrationTest` |
 | 10: quote response | `201` with `Location`, offers in level order and `expiresAt = issuedAt + 30 min`, conforming to the contract. | Planned: `QuotesHttpContractTest`, `QuoteCardList.test.tsx` |
-| 11 to 14: book | Checks run in the documented order; the offer must be unexpired and the recipient must match the destination. | Passing, quotes' side: `QuoteExpiryTest`, `QuoteOffersServiceTest` (the offer lookup's order and expiry). Planned: `BookShipmentTest`, `BookingForm.test.tsx` |
-| 15 to 17: store, publish, respond | Shipment, key and `ShipmentBooked` publication commit together; `201` conforms to the contract. | Planned: `ShipmentEventsIntegrationTest`, `ShipmentsHttpContractTest` |
-| 18 to 21: retry with the same key | Same key and body return the same shipment with `200`; concurrent duplicates create one row; a different body gives `422 idempotency-key-reused`. | Planned: `BookingIdempotencyIntegrationTest`, `RequestFingerprintTest` |
+| 11 to 14: book | Checks run in the documented order; the offer must be unexpired and the recipient must match the destination. | Passing, in memory: `BookShipmentTest` (the order of the checks and their rejections, the expiry through `QuoteOffers`, the recipient's country and postcode), `RecipientTest`; quotes' side: `QuoteExpiryTest`, `QuoteOffersServiceTest`. Planned: `BookingForm.test.tsx` |
+| 15 to 17: store, publish, respond | Shipment, key and `ShipmentBooked` publication commit together; `201` conforms to the contract. | Passing, in memory: `BookShipmentTest` (the shipment is stored with its key and fingerprint, and `ShipmentBooked` is published once, not for a replay or a rejection). Planned: `ShipmentEventsIntegrationTest` (in one transaction), `ShipmentsHttpContractTest` |
+| 18 to 21: retry with the same key | Same key and body return the same shipment with `200`; concurrent duplicates create one row; a different body gives `422 idempotency-key-reused`. | Passing, in memory: `RequestFingerprintTest`, `BookShipmentTest` (the same key and body replay the shipment; another body is refused). Planned: `BookingIdempotencyIntegrationTest` (the `200`, the `422` and concurrent duplicates) |
 | 22 to 25: audit after commit | One entry per event under the event's tenant; redelivery has no second effect; a failed write is replayed after restart. | Planned: `ShipmentAuditIntegrationTest`, `AuditDeduplicationTest`, `AuditReplayIntegrationTest` |
 | 26 to 29: label | Byte-identical, escaped, marked SVG with the documented headers; the drawer offers the download. | Planned: `SvgLabelRendererTest`, `ShipmentsHttpContractTest`, `ShipmentDrawer.test.tsx` |
 | Whole flow in a browser | Steps 1 to 29 through the UI against the real API, including the double booking and the download; axe finds no violations on each screen. | Planned: `quote-book-label.spec.ts`, `accessibility.spec.ts` |
@@ -89,13 +89,13 @@ sequenceDiagram
 | Situation | Expected result | Acceptance tests and status |
 |---|---|---|
 | Route not served, parcel too heavy, EXPRESS above 10000 g | `422 no-offer-available` with `reason`; no quote stored; the UI explains the reason. | Passing: `RatingTest` (the reason), `CreateQuoteTest` (nothing stored). Planned: `QuotesHttpContractTest`, `ProblemAlert.test.tsx` |
-| Offer expired before booking | `422 quote-expired`; the UI shows the expired state and offers a fresh quote. | Passing, quotes' side: `QuoteExpiryTest` (the offer lookup says Expired). Planned: ShipmentsHttpContractTest asserts server rejection with 422; BookingForm.test.tsx asserts the rejection transition; expired-quote.spec.ts verifies the initially expired screen only. |
-| Same quote booked with a different key | `409 quote-already-booked`. | Planned: `BookingIdempotencyIntegrationTest` |
-| Recipient postcode differs from the quote's destination | `422 recipient-does-not-match-quote`. | Planned: `BookShipmentTest` |
-| Tenant Beta uses Tenant Alpha's quote or shipment ID | `404` exactly as for an unknown ID, for read, book, cancel and label. | Passing, quotes' side: `QuoteOffersServiceTest` (another tenant's quote is not found). Planned: `CrossTenantAccessTest`, `tenant-denial.spec.ts` |
+| Offer expired before booking | `422 quote-expired`; the UI shows the expired state and offers a fresh quote. | Passing: `QuoteExpiryTest` (the offer lookup says Expired), `BookShipmentTest` (the booking is refused from the expiry instant on, in memory). Planned: ShipmentsHttpContractTest asserts server rejection with 422; BookingForm.test.tsx asserts the rejection transition; expired-quote.spec.ts verifies the initially expired screen only. |
+| Same quote booked with a different key | `409 quote-already-booked`. | Passing, in memory: `BookShipmentTest` (the second key is refused). Planned: `BookingIdempotencyIntegrationTest` (the `409`, and two keys at once) |
+| Recipient postcode differs from the quote's destination | `422 recipient-does-not-match-quote`. | Passing, in memory: `BookShipmentTest` (the booking is refused). Planned: `ShipmentsHttpContractTest` (the `422`) |
+| Tenant Beta uses Tenant Alpha's quote or shipment ID | `404` exactly as for an unknown ID, for read, book, cancel and label. | Passing, in memory: `QuoteOffersServiceTest` (another tenant's quote is not found), `BookShipmentTest` (Tenant Beta cannot book Tenant Alpha's quote). Planned: `CrossTenantAccessTest`, `tenant-denial.spec.ts` |
 | Shipment cancelled, then label requested | `409 shipment-cancelled`. | Planned: `ShipmentsHttpContractTest` |
 | Audit write fails | Booking stays committed; the publication stays incomplete and is replayed. | Planned: `AuditReplayIntegrationTest` |
-| Audit listener deleted | `ArchitectureConformanceTest` fails: absence of REQUIRED `audit -> shipments`. | `ArchitectureConformanceTest` runs in every build; it evaluates this arrow once audit and shipments are built. |
+| Audit listener deleted | `ArchitectureConformanceTest` fails: absence of REQUIRED `audit -> shipments`. | `ArchitectureConformanceTest` runs in every build; shipments is built, and it evaluates this arrow once audit is built too. |
 | Audit listener present but writes nothing | Architecture check passes (its documented limit); the integration test fails. | Planned: `ShipmentAuditIntegrationTest` |
 
 ## What this flow does not show
