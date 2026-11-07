@@ -39,7 +39,7 @@ class SheetDesignTest {
 
     @BeforeAll
     static void buildTheSite() {
-        Fixture fixture = Fixture.copy(dir).passingEvidence().write(Demos.path("gate"), Demos.GATE)
+        Fixture fixture = Fixture.copy(dir).passingEvidence().withoutDemos().write(Demos.path("gate"), Demos.GATE)
                 .write(Demos.path("build"), Demos.BUILD);
         sources = Sources.read(fixture.root(), List.of(fixture.reports()));
         SiteBuilder.build(sources, dir.resolve("site"), REVISION);

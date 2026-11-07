@@ -36,7 +36,7 @@ class DemoCheckTest {
 
     @BeforeAll
     static void readTheSources() {
-        Fixture fixture = Fixture.copy(dir.resolve("copy")).passingEvidence()
+        Fixture fixture = Fixture.copy(dir.resolve("copy")).passingEvidence().withoutDemos()
                 .write("libs/one/src/test/java/io/example/one/TwinTest.java", "class TwinTest {}\n")
                 .write("libs/two/src/test/java/io/example/two/TwinTest.java", "class TwinTest {}\n");
         sources = Sources.read(fixture.root(), List.of(fixture.reports()));
@@ -55,7 +55,7 @@ class DemoCheckTest {
 
     @Test
     void theRepositoryCheckRunsTheDemonstrationsCheck(@TempDir Path copy) {
-        Fixture fixture = Fixture.copy(copy).passingEvidence().write("docs/demos/42-a-gate.md",
+        Fixture fixture = Fixture.copy(copy).passingEvidence().withoutDemos().write("docs/demos/42-a-gate.md",
                 GATE.replace("kind: gate", "kind: video"));
 
         assertThatThrownBy(() -> Consistency.check(Sources.read(fixture.root(), List.of(fixture.reports()))))
@@ -67,7 +67,7 @@ class DemoCheckTest {
     @ParameterizedTest
     @ValueSource(strings = {"docs/demos/42-gate.png", "docs/demos/clip.mp4", "docs/demos/42/notes.txt"})
     void aFileUnderDocsDemosThatIsNotMarkdownFailsBecauseTheRepositoryIsPublicToo(String file, @TempDir Path copy) {
-        Fixture fixture = Fixture.copy(copy).passingEvidence().write(file, "not text\n");
+        Fixture fixture = Fixture.copy(copy).passingEvidence().withoutDemos().write(file, "not text\n");
 
         assertThatThrownBy(() -> Consistency.check(Sources.read(fixture.root(), List.of(fixture.reports()))))
                 .isInstanceOf(DocsException.class).hasMessageContaining(file + ": docs/demos/ holds demonstrations "

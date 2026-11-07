@@ -289,7 +289,7 @@ class PublicationScannerTest {
 
     @Test
     void theScanCoversTheDemonstrationsPagesAsBuilt() {
-        Fixture fixture = Fixture.copy(dir.resolve("copy")).passingEvidence();
+        Fixture fixture = Fixture.copy(dir.resolve("copy")).passingEvidence().withoutDemos();
         for (String kind : List.of("gate", "visual", "docs", "build", "feature")) {
             fixture.write(Demos.path(kind), Demos.text(kind));
         }

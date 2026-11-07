@@ -38,7 +38,7 @@ class DemoPagesTest {
 
     @BeforeEach
     void copyTheRepository() {
-        fixture = Fixture.copy(dir).passingEvidence();
+        fixture = Fixture.copy(dir).passingEvidence().withoutDemos();
     }
 
     @Test

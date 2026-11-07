@@ -31,7 +31,7 @@ class SiteAccessibilityTest {
 
     @BeforeAll
     static void buildTheSite() {
-        Fixture fixture = Fixture.copy(dir).passingEvidence().write(Demos.path("gate"), Demos.GATE)
+        Fixture fixture = Fixture.copy(dir).passingEvidence().withoutDemos().write(Demos.path("gate"), Demos.GATE)
                 .write(Demos.path("visual"), Demos.VISUAL);
         SiteBuilder.build(Sources.read(fixture.root(), List.of(fixture.reports())), dir.resolve("site"), "0123456789abcdef0123456789abcdef01234567");
         site = BuiltSite.read(dir.resolve("site"));
