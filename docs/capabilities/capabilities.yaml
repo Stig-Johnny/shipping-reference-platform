@@ -25,10 +25,10 @@
 #   evidenceLabel    Optional, for a capability or control with evidence: what its tests are called in a sentence
 #                    ("the documentation-tool tests"), so that a decision's page can name them in a few words.
 #   actors           For a capability, required: the people and external systems of the model that take part in it,
-#                    by their identifiers in architecture/workspace.dsl (clerk, admin, webshop, carrier), or [] when
-#                    none does: behaviour the system performs on its own, such as publishing or deduplicating events.
-#                    tools/docs fails unless the model relates each to the capability's module, directly or through
-#                    an element it uses. The site's use case overview draws them. Controls name none.
+#                    by their identifiers in architecture/workspace.dsl (clerk, admin, webshop, carrier), or [] to
+#                    declare none; an empty list does not establish how the capability is triggered. tools/docs fails
+#                    unless the model relates each actor to the capability's module, directly or through an element
+#                    it uses. The site's use case overview draws them. Controls name none.
 #
 # A pull request that adds passing acceptance tests moves their names into `evidence` and changes the status in the
 # same commit; `:tools:docs:checkGenerated` rejects a shipped or partial status whose evidence does not exist or did

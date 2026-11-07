@@ -26,8 +26,10 @@ import org.xml.sax.SAXException;
  * one test with no failure, error or skip. Test names that are not Java classes (TypeScript files) have no reports
  * here yet, so they never count as passing. A simple name that more than one test class carries, among the sources or
  * the reports, is ambiguous and never evidence: it would not say which class passed. Modules may share such a name as
- * long as no evidence uses it. The reader also records which report directories it read, each as the Gradle task that
- * writes it, and which TypeScript and JavaScript test files exist, so that a page can say a test was not read.
+ * long as no evidence uses it. A suite that more than one report covers, as when two producers each run part of one
+ * class, counts as its worst report: it passes only when every report of it passed, whichever producer is read first.
+ * The reader also records which report directories it read, each as the Gradle task that writes it, and which
+ * TypeScript and JavaScript test files exist, so that a page can say a test was not read.
  */
 public final class TestEvidence {
 
@@ -36,6 +38,17 @@ public final class TestEvidence {
 
         public boolean passed() {
             return tests > 0 && skipped == 0 && failures == 0 && errors == 0;
+        }
+
+        /** How far the report is from passing: a failure or error, then a skip, then no test run, then none. */
+        int shortfall() {
+            if (failures > 0 || errors > 0) {
+                return 3;
+            }
+            if (skipped > 0) {
+                return 2;
+            }
+            return tests == 0 ? 1 : 0;
         }
     }
 
@@ -111,6 +124,10 @@ public final class TestEvidence {
                     if (previous != null && !previous.suite().equals(result.suite())) {
                         // Two modules may name a test class alike; the name is only unusable as evidence.
                         ambiguous.add(simpleName);
+                    } else if (previous != null && result.shortfall() > previous.shortfall()) {
+                        // The same suite again, from another producer: its worst report counts, so a passing report
+                        // never hides one that failed, was skipped or ran nothing.
+                        results.put(simpleName, result);
                     }
                 }
             } catch (IOException e) {

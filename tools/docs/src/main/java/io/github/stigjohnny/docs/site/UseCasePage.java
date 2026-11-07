@@ -21,26 +21,30 @@ import java.util.Set;
 
 /**
  * The use case overview, sheet M-07 of the Model section (docs/ui/documentation-site.md, "The use case overview"):
- * every product capability of docs/capabilities/capabilities.yaml as a use case in its module, drawn with the actors
- * that the registry names for it; then a register table with each use case's status in the registry and the stamp of
- * what the build that generated the site observed of its acceptance tests ({@link UseCaseStamp}); the actors; and what
- * a stamp means and which test reports this build read. An arrow leads from an actor that starts a use case, and to an
- * external system that a use case relies on, as the model relates them ({@link C4Model#participation}). Arrows are
- * declared, not traced: a stamp says which named tests passed, never that a use case ran as drawn.
+ * first a register table of every product capability of docs/capabilities/capabilities.yaml as a use case, with its
+ * status in the registry and the stamp of what the build that generated the site observed of its acceptance tests
+ * ({@link UseCaseStamp}); then the actor map, which the introduction links, drawing each module's use cases with the
+ * actors that the registry names for them in a bounded region; the actors; and what a stamp means and which test
+ * reports this build read. An arrow leads from an actor that starts a use case, and to an external system that a use
+ * case relies on, as the model relates them ({@link C4Model#participation}). Arrows are declared, not traced: a stamp
+ * says which named tests passed, never that a use case ran as drawn.
  */
 final class UseCasePage {
 
     static final String PAGE = "model/use-cases.html";
     private static final String SLUG = "use-cases";
+    /** The actor map's heading, which the introduction's jump link leads to. */
+    private static final String MAP = "actor-map";
     private static final String TITLE = "Use cases";
-    private static final String TABLE = "The table below lists every use case with its status, its test evidence and "
+    private static final String TABLE = "The table above lists every use case with its status, its test evidence and "
             + "its actors.";
     private static final String LEGEND = "A box is an actor: a person or an external system of the model, with its C4 "
             + "type in brackets. A rounded box is a use case, a capability of the registry with its status there in "
             + "parentheses, inside its module. An arrow from an actor: it starts the use case. An arrow to an external "
-            + "system: the use case relies on it. A use case without an arrow has no actor: the system does it on its "
-            + "own. Arrows are what the registry and the model declare; no test traced them. A stamp in the table says "
-            + "that named tests passed in this build, not that the use case ran as drawn.";
+            + "system: the use case relies on it. A use case without an arrow names no actor in the registry; this "
+            + "does not establish how it is triggered. Arrows are what the registry and the model declare; no test "
+            + "traced them. A stamp in the table says that named tests passed in this build, not that the use case ran "
+            + "as drawn.";
 
     private UseCasePage() {
     }
@@ -58,20 +62,23 @@ final class UseCasePage {
         product.forEach(c -> modules.computeIfAbsent(c.module(), m -> new ArrayList<>()).add(c));
         Map<String, UseCaseStamp> stamps = new LinkedHashMap<>();
         product.forEach(c -> stamps.put(c.id(), UseCaseStamp.of(c.acceptanceTests(), sources.evidence())));
-        StringBuilder body = new StringBuilder("<p class=\"prose\">The drawing shows who takes part in which use case, "
-                + "as the registry and the model declare it. The table stamps each use case with what the build that "
-                + "generated this site observed of its acceptance tests: which named tests passed, not that the use "
-                + "case ran as drawn.</p>\n");
-        body.append(draws(sources)
-                ? ModelPages.figure(SLUG, Sheets.code(PAGE), TITLE, definition(modules, model, sources.elementStatus()),
-                        LEGEND, TABLE)
-                : "<p class=\"prose\">The registry has no product capability yet, so there is nothing to draw.</p>\n");
+        StringBuilder body = new StringBuilder("<p class=\"prose\">The table stamps each use case with what the build "
+                + "that generated this site observed of its acceptance tests: which named tests passed, not that the "
+                + "use case ran as drawn. The actor map after it draws who takes part in which use case. <a href=\"#"
+                + MAP + "\">Jump to the actor map</a>.</p>\n");
         body.append("<h2 id=\"use-cases\">Use cases and their evidence</h2>\n")
                 .append(useCases(modules, model, sources, stamps))
-                .append("<h2 id=\"actors\">Actors</h2>\n").append(actors(product, model))
+                .append("<h2 id=\"" + MAP + "\">Actor map</h2>\n");
+        body.append(draws(sources)
+                ? "<p class=\"prose\">Who takes part in which use case, as the registry and the model declare it. "
+                        + "Enlarge the diagram and scroll to read its labels.</p>\n"
+                        + ModelPages.figure(SLUG, Sheets.code(PAGE), TITLE, definition(modules, model,
+                                sources.elementStatus()), LEGEND, TABLE, "Scrolls; enlarge it to read its labels.")
+                : "<p class=\"prose\">The registry has no product capability yet, so there is nothing to draw.</p>\n");
+        body.append("<h2 id=\"actors\">Actors</h2>\n").append(actors(product, model))
                 .append("<h2 id=\"stamps\">What a stamp means</h2>\n").append(meanings(sources.evidence()));
-        for (String id : draws(sources) ? List.of("figure-" + SLUG, "use-cases", "actors", "stamps")
-                : List.of("use-cases", "actors", "stamps")) {
+        for (String id : draws(sources) ? List.of("use-cases", MAP, "figure-" + SLUG, "actors", "stamps")
+                : List.of("use-cases", MAP, "actors", "stamps")) {
             context.map().anchor(PAGE, id);
         }
         return new SitePage(PAGE, TITLE, TITLE, SiteSection.MODEL, "Every product capability as a use case, grouped "
@@ -81,7 +88,7 @@ final class UseCasePage {
                         + "people and external systems of " + Sources.WORKSPACE + "."),
                         Statuses.implementation(product), evidence(product, stamps, sources.evidence())),
                 List.of(new SitePage.Contents("use-cases", "Use cases and their evidence"),
-                        new SitePage.Contents("actors", "Actors"),
+                        new SitePage.Contents(MAP, "Actor map"), new SitePage.Contents("actors", "Actors"),
                         new SitePage.Contents("stamps", "What a stamp means")),
                 body.toString(), context.mentioned(Capabilities.PATH + " " + Sources.WORKSPACE + " docs/gaps.md", PAGE),
                 Capabilities.PATH + ", " + Sources.WORKSPACE + " and this build's test reports", draws(sources));
@@ -192,7 +199,7 @@ final class UseCasePage {
 
     private static String actorsOf(Capability capability, C4Model model, ModelElement part) {
         if (capability.actors().isEmpty()) {
-            return "No actor: system behaviour";
+            return "No actor declared";
         }
         StringBuilder out = new StringBuilder("<ul class=\"use-case-actors\">");
         for (String identifier : capability.actors()) {

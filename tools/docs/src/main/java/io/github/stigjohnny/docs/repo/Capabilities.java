@@ -79,7 +79,7 @@ public record Capabilities(List<Capability> capabilities, List<Capability> contr
         return out;
     }
 
-    /** A capability's actors, which it always states, [] included; a control names none. */
+    /** A capability's actors, which it always declares, [] for none; a control names none. */
     private static List<String> actors(YMap entry, boolean control, String where) {
         Optional<YamlValue> value = entry.find(ACTORS);
         if (control) {
@@ -90,11 +90,11 @@ public record Capabilities(List<Capability> capabilities, List<Capability> contr
         }
         if (value.isEmpty()) {
             throw new DocsException(where + ": actors is missing; name the model's people or external systems that "
-                    + "take part, or write [] for system behaviour");
+                    + "take part, or write [] to declare none");
         }
         if (!(value.get() instanceof YamlValue.YList list)) {
             throw new DocsException(where + ": actors is a list of the model's identifiers, such as [clerk], or [] "
-                    + "for system behaviour");
+                    + "to declare none");
         }
         List<String> actors = new ArrayList<>();
         for (YamlValue item : list.items()) {

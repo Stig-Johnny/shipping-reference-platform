@@ -15,7 +15,7 @@ import java.util.List;
  * @param plannedRemainder for a control not yet shipped, the part that is still planned, in one sentence; may be empty
  * @param evidenceLabel what its evidence tests are called in a sentence, such as "documentation-tool"; may be empty
  * @param actors for a capability, the identifiers in the model of the people and external systems that take part in
- *     it; empty for system behaviour, and always for controls
+ *     it; empty when it declares none, which does not establish how it is triggered, and always for controls
  */
 public record Capability(String id, boolean control, String module, String where, String check, String title,
         Status status, String target, List<String> evidence, List<String> acceptanceTests, String docs,

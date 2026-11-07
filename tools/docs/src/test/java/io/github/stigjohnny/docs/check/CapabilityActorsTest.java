@@ -62,13 +62,13 @@ class CapabilityActorsTest {
     }
 
     @Test
-    void aCapabilityWithoutActorsFailsAndSaysHowToWriteSystemBehaviour() {
+    void aCapabilityWithoutActorsFailsAndSaysHowToDeclareNone() {
         fixture.edit(Capabilities.PATH, text -> text.replaceFirst("(id: quotes.quote-expiry\n(?:    .*\n){7})"
                 + "    actors: \\[]\n", "$1"));
 
         assertThatThrownBy(this::sources).isInstanceOf(DocsException.class).hasMessageContaining(
                 "quotes.quote-expiry: actors is missing; name the model's people or external systems that take part, "
-                        + "or write [] for system behaviour");
+                        + "or write [] to declare none");
     }
 
     @Test

@@ -941,6 +941,12 @@ tr.group th {
   visibility: hidden;
 }
 
+/* The use case overview's actor map is tall, so its region is bounded and scrolls, as it does when enlarged; the
+   evidence stands above it. */
+#figure-use-cases .diagram-scroll {
+  max-height: 36rem;
+}
+
 /* Enlarged: the natural width or one and a half times the region, whichever is wider, within the same bounds. */
 .diagram.is-enlarged .diagram-scroll svg {
   width: max(var(--diagram-width, 100%), 150%);

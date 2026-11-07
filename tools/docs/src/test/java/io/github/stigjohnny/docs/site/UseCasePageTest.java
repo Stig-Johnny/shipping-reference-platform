@@ -121,8 +121,8 @@ class UseCasePageTest {
                 "    actor_webshop --> uc_orders_import_webshop_orders\n",
                 "    uc_shipments_simulated_label --> actor_carrier\n",
                 "    uc_quotes_synthetic_tariff --> actor_carrier\n");
-        // System behaviour has no actor, so its use case is drawn without an arrow; a person that no capability names
-        // is not drawn, and its row says so.
+        // A use case that names no actor is drawn without an arrow; a person that no capability names is not drawn,
+        // and its row says so.
         assertThat(count(definition, "uc_audit_idempotent_consumer")).isEqualTo(1);
         assertThat(count(definition, "uc_tenants_row_level_security")).isEqualTo(1);
         assertThat(definition).doesNotContain("actor_admin", "style ", "classDef", "==>", "-.->");
@@ -159,7 +159,7 @@ class UseCasePageTest {
         assertThat(row("use-cases", "tenants.fixture-unreported")).contains(
                 "<span class=\"badge badge-none\">Not run or missing</span> 0 of 1 named tests passed in this build; 1 "
                         + "not run in this build.", "ThreadTenantContextTest: no report in this build",
-                "No actor: system behaviour").doesNotContain("badge-shipped");
+                "<td>No actor declared</td>").doesNotContain("badge-shipped");
     }
 
     @Test
@@ -186,14 +186,46 @@ class UseCasePageTest {
 
     @Test
     void theLegendSaysWhatAStampMeansAndThatTheArrowsWereNotTraced() {
-        assertThat(page).contains("Arrows are what the registry and the model declare; no test traced them. A stamp "
-                        + "in the table says that named tests passed in this build, not that the use case ran as drawn.",
+        assertThat(page).contains("A use case without an arrow names no actor in the registry; this does not "
+                        + "establish how it is triggered. Arrows are what the registry and the model declare; no test "
+                        + "traced them. A stamp in the table says that named tests passed in this build, not that the "
+                        + "use case ran as drawn.",
                 "A stamp says which named tests passed in the build that generated this site. It is not a runtime "
                         + "trace of the use case",
                 "This build read the JUnit reports of ",
                 "A named test that none of them ran shows as not run, never as passed.");
-        assertThat(page).contains("<h2 id=\"use-cases\">", "<h2 id=\"actors\">", "<h2 id=\"stamps\">",
-                "<li><a href=\"#use-cases\">", "<li><a href=\"#actors\">", "<li><a href=\"#stamps\">");
+        assertThat(page).doesNotContain("system behaviour", "on its own");
+    }
+
+    @Test
+    void theEvidenceComesFirstAndTheActorMapFollowsInABoundedRegionWithAVisibleJumpLinkAndHowToReadIt() {
+        int introduction = page.indexOf("<a href=\"#actor-map\">", page.indexOf("<div class=\"page-body\">"));
+        int evidence = page.indexOf("<h2 id=\"use-cases\">");
+        int map = page.indexOf("<h2 id=\"actor-map\">");
+        int instruction = page.indexOf("Enlarge the diagram and scroll to read its labels.");
+        int figure = page.indexOf("<figure class=\"diagram\" id=\"figure-use-cases\">");
+        int actors = page.indexOf("<h2 id=\"actors\">");
+        int stamps = page.indexOf("<h2 id=\"stamps\">");
+        assertThat(List.of(introduction, evidence, map, instruction, figure, actors, stamps)).doesNotContain(-1)
+                .isSorted();
+        // The jump link and the instruction are prose that every reader sees, not hidden text.
+        for (int at : List.of(introduction, instruction)) {
+            assertThat(page.substring(page.lastIndexOf("<p", at), at)).startsWith("<p class=\"prose\">");
+        }
+        assertThat(page).contains("""
+                <summary id="site-contents-title">On this sheet (4)</summary>
+                <ol>
+                <li><a href="#use-cases">Use cases and their evidence</a></li>
+                <li><a href="#actor-map">Actor map</a></li>
+                <li><a href="#actors">Actors</a></li>
+                <li><a href="#stamps">What a stamp means</a></li>""");
+        // The figure points up to the table, keeps its enlargement and its keyboard-scrollable region, and is bounded.
+        String drawing = page.substring(figure, page.indexOf("</figure>", figure));
+        assertThat(drawing).contains("The table above lists every use case", "data-enlarge=\"figure-use-cases\"",
+                "<div class=\"diagram-scroll\" role=\"region\" tabindex=\"0\" aria-label=\"Diagram: Use cases. "
+                        + "Scrolls; enlarge it to read its labels.\">").doesNotContain("table below");
+        assertThat(site.text("assets/site.css"))
+                .contains("#figure-use-cases .diagram-scroll {\n  max-height: 36rem;\n}");
     }
 
     @Test

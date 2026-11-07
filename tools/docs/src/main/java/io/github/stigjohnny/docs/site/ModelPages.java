@@ -168,15 +168,16 @@ final class ModelPages {
      */
     static String figure(C4View view, MermaidDiagram diagram, String definition, C4Model model, String captionTail) {
         return figure(ViewNames.slug(view), Sheets.code(viewPage(view)), ViewNames.title(view), definition,
-                String.join(" ", ViewText.legend(diagram, model)), captionTail);
+                String.join(" ", ViewText.legend(diagram, model)), captionTail, "Scrolls when enlarged.");
     }
 
     /**
      * The diagram template for any validated definition: {@code code} is the sheet code in its title, {@code slug}
-     * names the figure and the drawing, and {@code legend} is plain text.
+     * names the figure and the drawing, {@code legend} is plain text, and {@code scrolling} completes the drawing
+     * region's accessible name with when and how it scrolls.
      */
     static String figure(String slug, String code, String title, String definition, String legend,
-            String captionTail) {
+            String captionTail, String scrolling) {
         String figure = "figure-" + slug;
         return "<figure class=\"diagram\" id=\"" + figure + "\">\n"
                 + "<div class=\"diagram-toolbar\"><p class=\"diagram-title\">" + code + " · "
@@ -187,7 +188,7 @@ final class ModelPages {
                 + "<p class=\"diagram-note diagram-failed\" hidden>The diagram could not be drawn here; its source is "
                 + "shown instead. " + captionTail + "</p>\n"
                 + "<div class=\"diagram-scroll\" role=\"region\" tabindex=\"0\" aria-label=\""
-                + Html.escape("Diagram: " + title + ". Scrolls when enlarged.") + "\">\n"
+                + Html.escape("Diagram: " + title + ". " + scrolling) + "\">\n"
                 + "<pre class=\"diagram-source\" data-diagram=\"" + slug + "\">" + Html.escape(definition)
                 + "</pre>\n</div>\n"
                 + "<figcaption class=\"diagram-caption\">\n<p><strong>Legend.</strong> "
