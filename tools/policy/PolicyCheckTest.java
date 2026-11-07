@@ -588,6 +588,20 @@ public final class PolicyCheckTest {
                 expectRefused(repo, "refused: the review record of org.example:lib 1.0.0 is outside the checked tree");
             }
         });
+        test("tree: a review record is probed and read at its normalized path, not as it is spelled", () -> {
+            // Spelled to leave the tree and come back: <outside>/probe/../../<tree>/security/reviews/<record>.
+            List<List<String>> findings = new ArrayList<>();
+            for (boolean probe : List.of(false, true)) {
+                Repo repo = Repo.clean();
+                Path outside = temporaryDirectory().toRealPath();
+                if (probe) Files.createDirectory(outside.resolve("probe"));
+                String record = (String) repo.lib().get("reviewRecord");
+                repo.lib().put("reviewRecord",
+                        outside + "/probe/../../" + repo.root.toRealPath().getFileName() + "/" + record);
+                findings.add(repo.findings());
+            }
+            expectEquals(List.of(List.of(), List.of()), findings);
+        });
         test("tree: a directory the walk cannot read stops the check", () -> {
             Repo repo = Repo.clean().save();
             Path locked = Files.createDirectories(repo.root.resolve("locked"));

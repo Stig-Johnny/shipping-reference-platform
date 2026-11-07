@@ -37,6 +37,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -82,6 +83,8 @@ public final class PolicyCheck {
     private final List<Json.JObject> rawEntries;
     private final List<Entry> entries;
     private final Json.JObject allowlist;
+    /** Every review record as the allowlist writes it, and its normalized path inside the tree. */
+    private final Map<String, Path> reviews = new HashMap<>();
     private final Set<Finding> findings = new TreeSet<>();
 
     PolicyCheck(Path repo, LocalDate today) throws IOException {
@@ -90,11 +93,15 @@ public final class PolicyCheck {
         this.allowlist = Json.parse(readText(this.repo.resolve("security/allowlist.json"))).asObject();
         this.rawEntries = allowlist.get("entries").asArray().stream().map(Json::asObject).toList();
         this.entries = rawEntries.stream().map(PolicyCheck::toEntry).toList();
+        // Each review record is normalized and checked once, before any file is touched; every later probe and read
+        // uses that same path, so nothing outside the tree, on the way a path is spelled, can change a result.
         for (Entry e : entries) {
-            if (!this.repo.resolve(e.reviewRecord()).normalize().startsWith(this.repo)) {
+            Path review = this.repo.resolve(e.reviewRecord()).normalize();
+            if (!review.startsWith(this.repo)) {
                 throw new IOException("refused: the review record of %s %s is outside the checked tree"
                         .formatted(e.coordinate(), e.version()));
             }
+            reviews.put(e.reviewRecord(), review);
         }
     }
 
@@ -140,7 +147,7 @@ public final class PolicyCheck {
             if (!APPROVED.contains(e.verdict()) && !"REJECT".equals(e.verdict())) {
                 add("allowlist", "%s %s has an unknown verdict '%s'".formatted(e.coordinate(), e.version(), e.verdict()));
             }
-            Path review = repo.resolve(e.reviewRecord());
+            Path review = reviews.get(e.reviewRecord());
             if (e.reviewRecord().isBlank() || !Files.isRegularFile(review, LinkOption.NOFOLLOW_LINKS)) {
                 add("allowlist", "%s %s: review record '%s' does not exist".formatted(e.coordinate(), e.version(), e.reviewRecord()));
             }
@@ -184,7 +191,7 @@ public final class PolicyCheck {
     String entriesDigest() throws IOException {
         List<String> lines = new ArrayList<>();
         for (Json.JObject entry : rawEntries) {
-            Path review = repo.resolve(entry.text("reviewRecord"));
+            Path review = reviews.get(entry.text("reviewRecord"));
             boolean present = !entry.text("reviewRecord").isBlank() && Files.isRegularFile(review, LinkOption.NOFOLLOW_LINKS);
             String reviewSha = present ? sha256(read(review)) : "";
             lines.add(Json.canonical(entry) + "|" + reviewSha);
@@ -411,14 +418,16 @@ public final class PolicyCheck {
 
     /** A regular file whose real path is inside the checked tree, opened without following a link; else it stops. */
     byte[] read(Path file) throws IOException {
+        if (!file.normalize().startsWith(repo)) throw notInTree(file); // before the file system is asked anything
         Path real = file.toRealPath();
-        if (!real.startsWith(repo) || !Files.isRegularFile(real, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IOException("refused: %s is not a regular file inside the checked tree"
-                    .formatted(relative(file)));
-        }
+        if (!real.startsWith(repo) || !Files.isRegularFile(real, LinkOption.NOFOLLOW_LINKS)) throw notInTree(file);
         try (InputStream in = Files.newInputStream(real, LinkOption.NOFOLLOW_LINKS)) {
             return in.readAllBytes();
         }
+    }
+
+    IOException notInTree(Path file) {
+        return new IOException("refused: %s is not a regular file inside the checked tree".formatted(relative(file)));
     }
 
     /** A file's text, as strict UTF-8 the way Files.readString reads it. */
