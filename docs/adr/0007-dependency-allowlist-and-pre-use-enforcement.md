@@ -11,7 +11,7 @@ enforcedBy:
   - "tools/ci/stage-temurin.sh: SHA-256 check of the reviewed JDK archive before actions/setup-java installs it"
   - "GitHub Actions setting: selected actions only, SHA pinning required, six allowed patterns"
   - "acceptance: PolicyCheck recomputes acceptance.reviewedSetSha256 on every run"
-  - "preflight and java (required checks): the checker's check 8 refuses, before anything is pulled, a container image that no approved entry names by digest and the Testcontainers forms the reviews forbid"
+  - "preflight and java (required checks): the checker's check 8. The checker rejects recognized container declarations. The harness validates its PostgreSQL instance, and CI checks subsequent engine activity. These controls do not isolate arbitrary build code."
   - "tools/ci/container-engine.sh: the runner review's conditions around the database tests in java and pages, with the test harness's own checks"
 plannedEnforcement:
   - "allowlist schema: security/allowlist.schema.json with the fields named in the decision"
@@ -144,18 +144,24 @@ What is built, and where it differs from the decision above. The decision stands
   a human accepted it: the owner and the AI agents use the same GitHub account, and the agent that records the
   acceptance also computes the digest. The record quotes the owner's words and their timestamp from the chat
   transcript. Nothing binds an approval to a head SHA.
-- **Container images are checked twice: as text before the build, and on the engine around the tests.** The
-  checker's check 8 reads every file that can name an image for Testcontainers or for the engine: the sources and
-  resources of every project, the build scripts, the workflows and the shell scripts. It refuses a digest that no
-  approved `container-image` entry has, a tag in place of or next to a digest, an image name built in code, any
-  container but the reviewed PostgreSQL one, the Testcontainers features the reviews forbid (Compose, host binds,
-  copies into a container, host access, privileged mode, reuse, a network mode and create-command modifiers),
-  Testcontainers configuration files and image settings, and in workflows and scripts every docker command but a pull
-  by digest, reads and removals. The `java` job runs the candidate's copy of the checker as well, after the base
-  branch's, so that a rule a pull request adds applies to that pull request. At run time,
+- **Container images: recognized declarations as text before the build, the engine around the tests.** The checker
+  rejects recognized container declarations. The harness validates its PostgreSQL instance, and CI checks subsequent
+  engine activity. These controls do not isolate arbitrary build code. Check 8 reads, as text, the sources and
+  resources of every project (Java after its Unicode escapes), the build scripts, the workflows and the shell scripts,
+  those without the `.sh` extension by their `#!` line. It rejects a digest that no approved `container-image` entry
+  has, a tag in place of or next to a digest, an image name built in code, Testcontainers or docker-java anywhere but
+  in the harness `ReviewedPostgres`, any container there but the reviewed PostgreSQL one, the Testcontainers features
+  the reviews forbid wherever they are called (Compose, host binds, copies into a container, host access, privileged
+  mode, reuse, a network mode and create-command modifiers), a container runtime named in a string, Testcontainers
+  configuration files and image settings, and in workflows and scripts docker, by any path and quoted or not, with
+  anything but a pull by digest, reads and removals, as well as job and service containers in any YAML spelling. The
+  `java` job runs the candidate's copy of the checker as well, after the base branch's and before any other code of
+  the candidate, so that a rule a pull request adds applies to that pull request. At run time,
   `tools/ci/container-engine.sh` checks the runner, the engine and runc versions against the runner review, makes the
-  daemon publish on 127.0.0.1 only, stages the image by digest, and afterwards checks that no other image appeared or
-  ran and that nothing was copied into a container; the test harness checks the rest from inside the test JVM.
+  daemon publish on 127.0.0.1 only, stages the image by digest, and afterwards checks that no other image appeared,
+  that every container created came from the reviewed image and that nothing was copied into one, every engine query
+  checked on its own; it does not see how another container was configured. The harness checks its own container
+  from inside the test JVM and hands a test only a `Database` handle, never the container.
 - **No base-dispatched verification workflow.** `preflight` dispatches nothing, and no trusted job publishes check
   results. `java` is an ordinary `pull_request` workflow. It checks out the base branch next to the candidate, stages
   the JDK with the base branch's script and runs the base branch's checker on the candidate before any candidate code

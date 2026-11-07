@@ -154,12 +154,15 @@ closes it.
   parsing assembles for an empty group (for example with a `$` group separator) stays in the parser's own table:
   no element carries it, so it is not checked and cannot reach a report.
 
-- **The container image check reads text, not code.** The allowlist checker's check 8 finds image references and
-  the Testcontainers calls the reviews forbid by how they are spelled, in sources, resources, build scripts,
-  workflows and shell scripts. It refuses what it cannot read, such as a computed reference or a container made from
-  a value it cannot trace in the same file. A call through reflection, a library that names an image of its own, or
-  a file it does not read (documents, review records, binary resources) is outside it; the harness's checks and the
-  workflow's image-set check are the second line, at run time.
+- **The container image check rejects what it recognizes.** The checker rejects recognized container declarations.
+  The harness validates its PostgreSQL instance, and CI checks subsequent engine activity. These controls do not
+  isolate arbitrary build code. Check 8 matches spellings, in the files it reads (sources, resources, build scripts,
+  workflows and scripts): a value it cannot read is refused, but a call through reflection or a method handle, a
+  library that starts a container of its own, shell indirection such as a command built from variables, or a file it
+  does not read (documents, review records, binary resources) is outside it. At run time CI sees which images
+  appeared and which images containers were made from, and whether anything was copied into one; it does not see how
+  another container was configured, its privileges, mounts or networks. Only the harness's own container is checked
+  for those.
 - **The platform image is inferred, not read back.** The runner's engine keeps an image's index digest, not the
   digest of the platform manifest it pulled. That the tests ran the linux/amd64 image `sha256:e923a22a…` follows
   from the pinned index, whose platforms the review lists, and from the image's reported platform; nothing compares
@@ -192,18 +195,19 @@ closes it.
   first connection without authentication, so its review forbids developer machines whose firewall lets inbound
   connections reach `java`. On 2026-11-06 the library's development ran PIT on such a machine (firewall off) before
   that condition was checked; the exposure was one listening socket per run, for the length of the run.
-- **Database tests run only where a reviewed engine is prepared.** That is the `java` job and the `pages`
-  workflow's `test` job, on GitHub-hosted ubuntu-24.04 with Docker Engine 28.0.4, prepared by
-  `tools/ci/container-engine.sh`. Anywhere else `ReviewedPostgres` refuses to start PostgreSQL and the test fails, so
-  `./gradlew check` fails on a machine without that engine; the other checks run with `-x :apps:shipping-api:test`.
-  The two colima hosts that a review approves are not engines of the harness yet.
+- **Database tests run only where a reviewed engine is prepared.** `./gradlew check` runs checks requiring only the
+  reviewed JDK. Database tests run through `:apps:shipping-api:databaseTest` and are mandatory in Java CI and Pages
+  testing. Missing engine prerequisites fail that task; tests are never conditionally skipped. The engine is
+  GitHub-hosted ubuntu-24.04 with Docker Engine 28.0.4, prepared by `tools/ci/container-engine.sh`; anywhere else
+  `ReviewedPostgres` refuses to start PostgreSQL. A local `./gradlew check` therefore shows no database evidence, which
+  only CI's builds read and require. The two colima hosts that a review approves are not engines of the harness yet.
 - **The event check sees the engine's last 256 events.** After the tests, the workflow reads their window from the
   engine's event buffer to show that every container came from the reviewed image and nothing was copied into one.
   It fails when the window holds 256 events or more, because it could no longer show that it saw them all.
 - **The site's evidence passes between jobs as a job output.** The publishing job builds the site from the test job's
-  JUnit reports, which travel as a job output of at most 100,000 characters (they arrive as an environment variable,
-  which Linux limits to 128 KiB). Reports that outgrow it fail the handover, and another transport, such as an
-  artifact download, needs its own review first.
+  JUnit reports, the database tests' included, which travel as a job output of at most 100,000 characters (they
+  arrive as an environment variable, which Linux limits to 128 KiB). Reports that outgrow it fail the handover, and
+  another transport, such as an artifact download, needs its own review first.
 - axe-core finds a subset of accessibility problems; manual keyboard and screen reader checks are required and
   recorded by hand.
 - The web app's static checks cover import boundaries and cycles only. dependency-cruiser and required frontend

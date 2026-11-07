@@ -70,19 +70,24 @@ Adds to the root `AGENTS.md`. Decisions: ADR 0003 (modules), 0004 (contract), 00
 
 - Set `TESTCONTAINERS_RYUK_DISABLED=true` and `TESTCONTAINERS_CHECKS_DISABLE=true` for local and CI Testcontainers
   runs (every `Test` task here sets both). Ryuk is rejected; the test harness and runner own container cleanup.
-- Start PostgreSQL only through `ReviewedPostgres.start()` (test package `io.github.stigjohnny.shipping.database`). It
-  uses the reviewed image by digest and refuses to start on an engine that no review approves, so database tests run
-  in CI; locally, run the other checks with `-x :apps:shipping-api:test`. Never construct another container, name
-  another image or add Testcontainers configuration: the allowlist check (check 8) refuses them before anything is
-  pulled.
+- `./gradlew check` runs checks requiring only the reviewed JDK. Database tests run through
+  `:apps:shipping-api:databaseTest` and are mandatory in Java CI and Pages testing. Missing engine prerequisites fail
+  that task; tests are never conditionally skipped.
+- A database test class carries `@Tag("database")`, which moves it from `test` to `databaseTest`, and starts PostgreSQL
+  only through `ReviewedPostgres.start()` (test package `io.github.stigjohnny.shipping.database`). It uses the reviewed
+  image by digest, refuses to start on an engine that no review approves, and returns a `Database` handle: the JDBC
+  URL, the user, the password and `close()`, never the container. Only `ReviewedPostgres` may use Testcontainers or
+  docker-java; never construct a container, name another image or add Testcontainers configuration. The checker
+  rejects recognized container declarations. The harness validates its PostgreSQL instance, and CI checks subsequent
+  engine activity. These controls do not isolate arbitrary build code.
 - Mockito's inline mock maker runs as an explicit `-javaagent` on every Gradle `Test` task, which is Mockito's recipe
   for Java 21 and later. Never set `-XX:+EnableDynamicAgentLoading` or `jdk.attach.allowAttachSelf`
   (`security/reviews/maven--test-libraries--mockito-5.23.0-byte-buddy-1.18.15-and-assertion-libs.md`).
 
 | Suffix | Kind | Runs in |
 |---|---|---|
-| `*Test` | Unit or slice by default; RowLevelSecurityCatalogTest, CrossTenantAccessTest and TableOwnershipTest use PostgreSQL where their assertions require it | `java` |
-| `*IntegrationTest` | Testcontainers PostgreSQL 18.6 (pinned digest); never H2 | `java` |
+| `*Test` | Unit or slice by default; RowLevelSecurityCatalogTest, CrossTenantAccessTest and TableOwnershipTest use PostgreSQL where their assertions require it, and are then tagged `database` | `java` |
+| `*IntegrationTest` | Testcontainers PostgreSQL 18.6 (pinned digest), through `ReviewedPostgres`, tagged `database`; never H2 | `java` (`databaseTest`) |
 | `*HttpContractTest` | HTTP tests that validate responses against the contract | `java` |
 | `*PropertiesTest` | Parameterized property tests (JUnit Jupiter `@ParameterizedTest` with a `@MethodSource` of boundary cases and a fixed-seed `java.util.random.RandomGenerator` sample), in the normal `java` check | `java` |
 

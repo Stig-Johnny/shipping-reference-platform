@@ -231,7 +231,9 @@ docs/                            Markdown with frontmatter: adr/, modules/, flow
 policy/                          risk.json (risk levels)
 security/                        allowlist.json, reviews/ and verifications/, explained in README.md
 tools/policy/                    PolicyCheck.java, the dependency allowlist check, and PolicyCheckTest.java, its tests
-tools/ci/                        stage-temurin.sh: downloads the CI JDK and checks its SHA-256
+tools/ci/                        stage-temurin.sh: downloads the CI JDK and checks its SHA-256; container-engine.sh:
+                                 the container engine's review conditions around the database tests; site-handover.sh:
+                                 the Pages jobs' handover of test reports; their tests, with a fake engine
 tools/docs/                      Gradle project :tools:docs: docs, brain and site generator, publication scan
 build-logic/                     Gradle convention plugins: compiler settings, Error Prone and NullAway, locking, PIT
 gradle/                          wrapper, version catalog (libs.versions.toml), verification metadata
@@ -254,14 +256,17 @@ off.
 | Check every dependency against the allowlist (the JDK alone; runs the repository's policy checker without invoking the build) | `java tools/policy/PolicyCheck.java .` |
 | Test the allowlist checker (the JDK alone) | `java tools/policy/PolicyCheckTest.java` |
 | Run all Java checks (compile with Error Prone and NullAway, tests) | `./gradlew check` |
+| Run the database tests (CI only: they need the reviewed container engine, which the `java` job prepares) | `./gradlew :apps:shipping-api:databaseTest` |
+| Test the CI scripts (bash and GNU tar, as on the runner; no container engine) | `bash tools/ci/container-engine-test.sh`; `bash tools/ci/site-handover-test.sh` |
 | Run mutation tests (CI only, the `mutation` job: PIT's control socket accepts unauthenticated connections) | `./gradlew :libs:c4-contract-kit:pitest` |
 | Check docs and the brain; regenerate them | `./gradlew :tools:docs:check`; `./gradlew :tools:docs:generate` |
 | Build the documentation site into `tools/docs/build/site/` (open its `index.html`) | `./gradlew :tools:docs:site` |
 
-`./gradlew check` includes the shipping API's database tests. They start the reviewed PostgreSQL 18.6 image through
-Testcontainers only on a container engine that a review approves: today the GitHub-hosted ubuntu-24.04 runner of the
-`java` check and of the `pages` workflow, prepared by `tools/ci/container-engine.sh`. Anywhere else they refuse to
-start PostgreSQL and fail, by design; run the other checks with `./gradlew check -x :apps:shipping-api:test`.
+`./gradlew check` runs checks requiring only the reviewed JDK. Database tests run through
+`:apps:shipping-api:databaseTest` and are mandatory in Java CI and Pages testing. Missing engine prerequisites fail
+that task; tests are never conditionally skipped. They start the reviewed PostgreSQL 18.6 image through Testcontainers
+only on a container engine that a review approves: today the GitHub-hosted ubuntu-24.04 runner, prepared by
+`tools/ci/container-engine.sh`.
 
 Not built yet; their commands arrive with their code: a developer toolchain bootstrap script, PostgreSQL 18.6 with
 the two roles, the API with the `demo` profile, the workbench, web checks, and contract and end-to-end tests.

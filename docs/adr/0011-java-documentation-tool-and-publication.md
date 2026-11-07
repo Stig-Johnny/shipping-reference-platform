@@ -87,6 +87,11 @@ SnakeYAML Engine 3.2.
   it; modules may otherwise share test class names.
 - `./gradlew :tools:docs:generate` rewrites the generated files. Both tasks run after the tests of every project with
   test sources and read all their reports; the tool's own are the evidence of its control, `control.brain-check`.
+  The shipping API's database tests run in a task of their own, `:apps:shipping-api:databaseTest`, which `check` does
+  not run, so that `check` needs only the reviewed JDK. With `-PdatabaseEvidence=true`, as CI's `java` check and the
+  Pages test job build, the docs tasks also run it, read its reports and fail unless they show at least one test run
+  and none failed, errored or skipped (`--required-results`); without it they never read those reports, so a database
+  report left over from an earlier run cannot count as evidence.
 - `:tools:docs:site`, also part of `check`, builds the documentation site into `tools/docs/build/site/` from the
   same sources, after the same checks. It is static HTML with one stylesheet and one script of the tool's own, and
   relative links, so it works under any base path. Its sections are Start, Demos, Model, Modules, Decisions, API,
@@ -144,11 +149,13 @@ SnakeYAML Engine 3.2.
   runs the allowlist check, its trusted bootstrap, on a commit that is already on `main`, then verifies the Gradle
   wrapper. The test job has no environment and no secret, may only read the repository, and runs on GitHub-hosted
   ubuntu-24.04 under the container engine's review, because the database tests start PostgreSQL: it runs
-  `:tools:docs:check` and `:tools:docs:site`, and with them every project's tests, then hands this run's JUnit
-  reports and the site's digest to the build job as job outputs. The build job runs in the `github-pages`
-  environment, whose secret is the dictionary, and may only read the repository. It unpacks those reports, builds the
-  site again from the same commit with `:tools:docs:site -x test`, and fails unless the site is byte for byte the one
-  the test job built, so the evidence it publishes is this run's and never a stale report. It then runs
+  `:apps:shipping-api:databaseTest`, `:tools:docs:check` and `:tools:docs:site` with `-PdatabaseEvidence=true`, and
+  with them every project's tests, then hands this run's JUnit reports, the database tests' among them, and the
+  site's digest to the build job as job outputs. The build job runs in the `github-pages` environment, whose secret is
+  the dictionary, and may only read the repository. It unpacks those reports, refusing a wrong digest, a path outside
+  the report directories, anything but regular files and an overwrite, builds the site again from the same commit
+  with `:tools:docs:site -x test -x databaseTest -PdatabaseEvidence=true`, and fails unless the site is byte for byte
+  the one the test job built, so the evidence it publishes is this run's and never a stale report. It then runs
   `:tools:docs:scanSite` in a step of its own, the only one that receives the dictionary, re-checks Mermaid's SHA-256
   in the site, refuses symbolic links, hard links and hidden files there, and only then uploads the site directory.
   The deploy job has one step,

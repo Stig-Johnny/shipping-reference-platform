@@ -1,6 +1,6 @@
 ---
 title: "Database tests start only the reviewed PostgreSQL image, on the reviewed engine"
-description: "A test can no longer pull or run a container image that nobody reviewed: the allowlist check refuses it before anything is pulled, and CI starts the database only under the conditions of the engine's review."
+description: "The database tests use the one reviewed PostgreSQL image, only on the container engine its review approves: the checker rejects other container declarations it recognizes, and CI checks what the engine did."
 status: accepted
 updated: 2026-11-07
 pr: 54
@@ -12,11 +12,13 @@ tests: [PostgresHarnessIntegrationTest, ReviewedPostgresTest, PagesWorkflowTest]
 ## What changed
 
 Before, the reviews allowed PostgreSQL in tests only under conditions that no check applied, so no test used a
-database. Now the allowlist check also reads every place that can name a container image, and refuses an image that
-no approved entry names by its digest, before anything is pulled. In CI, the runner's container engine is checked
-against its review (versions, a loopback-only daemon, no registry credentials) before the database tests start, and
-afterwards CI checks that no other image appeared or ran. The test harness itself refuses to start PostgreSQL
-anywhere else. The site's publishing workflow runs these tests in a job with no publication privilege.
+database. Now the checker rejects recognized container declarations. The harness validates its PostgreSQL instance,
+and CI checks subsequent engine activity. These controls do not isolate arbitrary build code. In CI, the runner's
+container engine is checked against its review (versions, a loopback-only daemon, no registry credentials) before the
+database tests start, and afterwards CI checks which images appeared and which images containers were made from. The
+database tests run in their own task, `:apps:shipping-api:databaseTest`, which CI's java check and the site's
+publishing workflow run; `./gradlew check` needs only the reviewed JDK. The publishing workflow runs the tests in a
+job with no publication privilege.
 
 ## See it
 
@@ -42,8 +44,8 @@ java tools/policy/PolicyCheck.java .
 
 Recorded output — not rerun by this site build.
 
-Recorded 2026-11-07 on macOS 26 with Temurin 25.0.5+8, on the branch of pull request #54. With the fixture, the
-command exited 1:
+Recorded 2026-11-07 on macOS 26 with Temurin 25.0.5+8, on the branch of pull request #54 after the review's rework.
+With the fixture, the command exited 1:
 
 ```text
 ## Dependency allowlist: 1 finding(s)
@@ -63,18 +65,22 @@ Without it, the same command exited 0:
 Checked against `security/allowlist.json` (308 entries) on 2026-11-07.
 ```
 
-In the pull request's CI, the java check failed while the harness came without the engine's preparation (run
-42410083958: the harness refused to start PostgreSQL), and passed once it was there (run 42410533646). That run's
-job summary records the runner image 20261101.360.1 on Ubuntu 24.04.5, Docker Engine 28.0.4, containerd v2.4.2 and
-runc 1.5.2, and its last step found 14 engine events and one container, made from the reviewed image. The test
-classes named above check the harness and the publishing workflow in every build.
+In the pull request's CI, each rework of a control first failed on its new tests and then passed: the checker's
+tests failed on 30 spellings that got through it (run 42415471627) and passed once it read them (run 42415698147);
+the tests of the CI scripts failed where a failed engine query read as an empty answer and where a prerelease of runc
+1.3.3 passed (run 42416220034). The runs before the rework show the harness failing closed without the engine's
+preparation (run 42410083958) and passing with it (run 42410533646), whose job summary records the runner image
+20261101.360.1 on Ubuntu 24.04.5, Docker Engine 28.0.4, containerd v2.4.2 and runc 1.5.2, and one container, made
+from the reviewed image. The test classes named above check the harness and the publishing workflow in every build.
 
 ## Limits
 
-- The check reads text. An image that a library names itself, or a call made through reflection, is caught only at
-  run time, by the harness and by the workflow's checks of the image set and the engine's events.
-- The database tests run only on GitHub-hosted ubuntu-24.04 runners. Elsewhere they refuse to start, so
-  `./gradlew check` fails on a machine without that engine, by design.
-- The engine review asks for the first run's containerd and runc versions to be added to it; that waits for the
-  owner.
+- The checker rejects recognized container declarations, as text. An image that a library names itself, a call made
+  through reflection or a command assembled from shell variables is outside it. These controls do not isolate
+  arbitrary build code.
+- At run time CI sees which images appeared, which images containers were made from and whether anything was copied
+  into one. It does not see how another container was configured; only the harness's own container is checked for
+  privileges, mounts, networks and published ports.
+- The database tests run only on GitHub-hosted ubuntu-24.04 runners. Elsewhere `databaseTest` fails, by design, and a
+  local `./gradlew check` shows no database evidence.
 - Text only until a media gate is reviewed.

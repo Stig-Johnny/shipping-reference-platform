@@ -78,9 +78,11 @@ Chosen option 1.
 
 - Built: the test database. `ReviewedPostgres` starts PostgreSQL for the tests: the reviewed 18.6 image by its
   digest, already staged, on an engine that a review approves, with a random password and its port on 127.0.0.1,
-  and it refuses to start on any mismatch. `PostgresHarnessIntegrationTest` starts it in CI and queries
-  it; `ReviewedPostgresTest` shows that each of its conditions refuses on its own. The allowlist checker refuses any
-  other image reference before anything is pulled (ADR 0007).
+  and it refuses to start on any mismatch; a test gets the JDBC URL, the user and the password, never the
+  container. `PostgresHarnessIntegrationTest` starts it in CI, in the `databaseTest` task, and queries it;
+  `ReviewedPostgresTest` shows that each of its conditions refuses on its own. The checker rejects recognized container
+  declarations. The harness validates its PostgreSQL instance, and CI checks subsequent engine activity. These
+  controls do not isolate arbitrary build code (ADR 0007).
 - `RowLevelSecurityCatalogTest` queries `pg_class`, `pg_policy` and `pg_roles`: every table with a `tenant_id`
   column has RLS enabled and forced and at least one policy, except the four identity tables, on which `shipping_app`
   has no privileges; `shipping_app` is not superuser, lacks `BYPASSRLS` and owns nothing.

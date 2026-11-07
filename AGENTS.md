@@ -114,7 +114,8 @@ The commands that exist today. The others arrive with their code; until then, sa
 | Purpose | Command |
 |---|---|
 | Dependency allowlist (the JDK alone) | `java tools/policy/PolicyCheck.java .` |
-| All Java checks | `./gradlew check` |
+| All Java checks (the reviewed JDK alone) | `./gradlew check` |
+| Database tests (mandatory in Java CI and Pages testing; they fail without the reviewed container engine, never skip) | `./gradlew :apps:shipping-api:databaseTest` |
 | Web checks | not built yet |
 | Contract and end-to-end tests | not built yet |
 | Mutation tests (CI only: the `mutation` job; never run `pitest` on a machine whose firewall lets inbound connections reach `java`) | `./gradlew :libs:c4-contract-kit:pitest` |
