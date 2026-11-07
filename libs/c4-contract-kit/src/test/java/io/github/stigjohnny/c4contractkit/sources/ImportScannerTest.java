@@ -214,6 +214,32 @@ class ImportScannerTest {
     }
 
     @Test
+    void workersStringTimersAndConstructorCallsAreRefusedBecauseTheyLoadCodeTheCheckNeverReads() {
+        String worker = "a worker (Worker, SharedWorker, importScripts, serviceWorker) is not supported: it loads a "
+                + "script from a URL at run time";
+        String constructor = "a call of a constructor property (x.constructor(...)) is not supported: it can reach the "
+                + "Function constructor";
+        String timer = "setTimeout and setInterval with a string are not supported: the string is code the check "
+                + "never reads";
+        ImportScanner.Scan scan = ts("""
+                const w = new Worker(new URL('./worker.ts', location.href), { type: 'module' });
+                const s = new SharedWorker('./shared.js');
+                importScripts('./more.js');
+                navigator.serviceWorker.register('./sw.js');
+                const run = (() => undefined).constructor("return import('./hidden.ts')");
+                setTimeout("import('./hidden.ts')", 0);
+                setInterval(`import('./hidden.ts')`, 10);
+                setTimeout(() => undefined, 0);
+                class A { constructor(x: number) {} }
+                """);
+
+        assertThat(scan.imports()).isEmpty();
+        assertThat(scan.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(
+                tuple(1, worker), tuple(2, worker), tuple(3, worker), tuple(4, worker), tuple(5, constructor),
+                tuple(6, timer), tuple(7, timer));
+    }
+
+    @Test
     void tripleSlashDirectivesAndJsxPragmasAreRefusedBecauseTheyAddDependenciesInComments() {
         ImportScanner.Scan scan = tsx("""
                 /// <reference types="vite/client" />

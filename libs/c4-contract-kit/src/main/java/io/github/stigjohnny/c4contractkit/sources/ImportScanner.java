@@ -5,6 +5,7 @@ import io.github.stigjohnny.c4contractkit.sources.SourceLexer.TokenType;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
@@ -18,8 +19,10 @@ import org.jspecify.annotations.Nullable;
  * {@code export { a } from}, their type-only forms) and {@code import('x')} with one plain string literal, anywhere,
  * types included. Refused: {@code import()} with anything else, {@code require}, {@code import.meta} other than
  * {@code import.meta.env}, import-equals declarations, import attributes, a module declaration with a module name
- * ({@code module 'x'}, with or without {@code declare}), {@code eval} and the {@code Function} constructor, triple-slash
- * directives and JSX pragmas, a backslash escape in a specifier, and whatever the lexer cannot read with certainty.
+ * ({@code module 'x'}, with or without {@code declare}), {@code eval}, the {@code Function} constructor and calls of a
+ * {@code constructor} property, workers ({@code Worker}, {@code SharedWorker}, {@code importScripts},
+ * {@code serviceWorker}), {@code setTimeout} and {@code setInterval} with a string, triple-slash directives and JSX
+ * pragmas, a backslash escape in a specifier, and whatever the lexer cannot read with certainty.
  * Words inside strings, comments, templates, regular expressions and JSX text are never read as code, and neither are
  * property names ({@code a.import}, <code>{ require: 1 }</code>).
  */
@@ -37,6 +40,16 @@ final class ImportScanner {
     static final String EVAL = "eval is not supported: the code it runs could load modules that the check never sees";
     static final String FUNCTION = "the Function constructor is not supported: the code it builds could load modules "
             + "that the check never sees";
+    static final String WORKER = "a worker (Worker, SharedWorker, importScripts, serviceWorker) is not supported: it "
+            + "loads a script from a URL at run time";
+    static final String CONSTRUCTOR_CALL = "a call of a constructor property (x.constructor(...)) is not supported: it "
+            + "can reach the Function constructor";
+    static final String STRING_TIMER = "setTimeout and setInterval with a string are not supported: the string is "
+            + "code the check never reads";
+
+    /** Names that load a script from a URL at run time, refused wherever they appear. */
+    private static final Set<String> WORKERS = Set.of("Worker", "SharedWorker", "importScripts",
+            "serviceWorker");
     static final String IMPORT_CLAUSE =
             "unsupported import declaration: expected from and a string after the import clause";
     static final String EXPORT_STAR = "unsupported export declaration: expected from and a string after export *";
@@ -127,6 +140,20 @@ final class ImportScanner {
             }
             if (token.text().equals("Function") && punctuator(i + 1, "(")) {
                 refuse(token, FUNCTION);
+                continue;
+            }
+            if (WORKERS.contains(token.text())
+                    && (punctuator(i + 1, "(") || token.text().equals("serviceWorker"))) {
+                refuse(token, WORKER);
+                continue;
+            }
+            if (token.text().equals("constructor") && punctuator(i - 1, ".") && punctuator(i + 1, "(")) {
+                refuse(token, CONSTRUCTOR_CALL);
+                continue;
+            }
+            if ((token.text().equals("setTimeout") || token.text().equals("setInterval")) && punctuator(i + 1, "(")
+                    && (type(i + 2, TokenType.STRING) || type(i + 2, TokenType.TEMPLATE))) {
+                refuse(token, STRING_TIMER);
                 continue;
             }
             if (isPropertyName(i)) {
