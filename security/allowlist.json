@@ -7383,7 +7383,7 @@
       "kind": "runner-image",
       "coordinate": "github-hosted ubuntu-24.04 (actions/runner-images) / Docker Engine docker-ce",
       "version": "28.0.4",
-      "artifact": "docker-ce 28.0.4 from download.docker.com, as installed in runner image ubuntu24/20261101.360 (Image Version 20261101.360.1); the first CI run (run 42410533646, 2026-11-07) recorded containerd v2.4.2 and runc 1.5.2 (the review's amendment of 2026-11-07)",
+      "artifact": "docker-ce 28.0.4 from download.docker.com, as installed in runner image ubuntu24/20261101.360 (Image Version 20261101.360.1); containerd.io and runc versions to be recorded by the first run",
       "sha256": null,
       "project": ":example-app",
       "configuration": [
@@ -7394,7 +7394,7 @@
       "conditions": [
         "Fail closed in code: abort unless Engine ServerVersion is exactly 28.0.4 and runc >= 1.3.3 (1.2.x rejected); log ServerVersion, ApiVersion, containerd and runc versions and commits, KernelVersion, OperatingSystem",
         "runs-on: ubuntu-24.04 exactly; keep the Set up job > Runner Image version with the run",
-        "First CI run's containerd and runc versions appended to the review (amendment of 2026-11-07: containerd v2.4.2, runc 1.5.2, run 42410533646); java was already a required check, so the owner's acceptance of the amendment precedes merging the database harness",
+        "First CI run's containerd and runc versions appended to the review as an amendment before the job becomes a required check",
         "TESTCONTAINERS_RYUK_DISABLED=true; no privileged container",
         "Only the reviewed PostgreSQL 18.6 image by index digest; image-set diff before/after fails the job on any other new image",
         "TESTCONTAINERS_CHECKS_DISABLE=true; no bind mounts, no copy-to-container (archive API), no exposeHostPorts/withAccessToHost, image builds, host networking or create-command modifiers",
