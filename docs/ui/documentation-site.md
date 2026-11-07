@@ -66,13 +66,14 @@ definitions, and a drawing must read the same wherever it is shown.
    ruled list of the source, the revision (its first eight characters; the full SHA is at the foot of the sheet) and,
    for a sheet that renders one document, that document's update date. A sheet made from several sources shows no
    date rather than an invented one. Codes are assigned page by page in `Sheets.java`, or come from a decision
-   record's number, never from a page's position.
+   record's number or a demonstration's pull request number, never from a page's position.
 2. **Status ledger.** One ruled list with three named rows: accepted design, planned implementation, verified
    evidence. Each row has a state in words and its scope. Passing evidence is a count and what it does not prove; the
    test names are in a disclosure, never in the first line.
-3. **Drawing register.** The navigation: each row is the sheet code in a fixed column and the title beside it, with a
-   state word where a sheet has one. The current row has a 3 px link-coloured rule and `aria-current`. The theme
-   choice stays three native radio buttons in a labelled group.
+3. **Drawing register.** The navigation: each row is the sheet code in a fixed column, 56 px wide so that seven
+   characters such as `X-GUIDE` fit, and the title beside it, with a state word where a sheet has one. The current
+   row has a 3 px link-coloured rule and `aria-current`. The theme choice stays three native radio buttons in a
+   labelled group.
 4. **Drawing panel.** The view's title, the enlarge button, the drawing on the light sheet, the legend, and a link to
    the text equivalent. The drawing is fitted to its complete bounds before it is shown. "On this sheet" lists a
    page's sections in a disclosure; the start sheet has none.
@@ -83,8 +84,34 @@ definitions, and a drawing must read the same wherever it is shown.
 ## The start sheet
 
 At 1280 × 900 the first screen shows the title, the purpose, the title block and the status ledger, then the system
-context drawn, then the two reading paths. The counts in the ledger come from `docs/capabilities/capabilities.yaml`.
-The explanations of the data and of what the site publishes follow below.
+context drawn, then the two reading paths; the COO's ends with the Demos section. The counts in the ledger come from
+`docs/capabilities/capabilities.yaml`. The explanations of the data and of what the site publishes follow below.
+
+## The Demos section
+
+Demos is the second section of the register, after Start. It shows a reader who does not read code what each pull
+request changed, from `docs/demos/` (the recipe for writing one is `docs/demos/how-to.md`).
+
+- **Codes.** `X-00` is the register of demonstrations, `X-GUIDE` the how-to, and each demonstration is `X-` and its
+  pull request's number (`X-42`), from the record's own `pr`, never from its position. The how-to stands first in the
+  section, outside the chronological list.
+- **Register (X-00).** A register table: the outcome, the record's title linked to its sheet with its description, the
+  one sentence on why it matters, below it; the pull request as plain text (`#42`), never a link; the kind in words;
+  the recorded date. Newest recording first, then the higher pull request; an edit (`updated`) never reorders it.
+  Without demonstrations, it says so in a sentence. On a narrow screen the table keeps a minimum width of 40rem and
+  scrolls inside its labelled, focusable region with the hint "Scroll horizontally for all columns.", hidden once the
+  region is 40rem wide; up to 600 px wide its layout is fixed and the outcome's column is 16rem.
+- **Sheet (X-42).** The sheet header with the pull request, the kind and the recorded date beside the description,
+  and a note that the revision in the title block is the commit the site was built from, not the recording's. The
+  title block's date is the record's `updated` date. Then the status ledger, "On this sheet", and the sections in a
+  fixed order: What changed, See it, Try it, Evidence, Limits. A command and recorded output are labelled in words
+  above their blocks ("Command", "Recorded output").
+- **Ledger.** It keeps its meanings. Accepted design is the record's status. Planned implementation is "Not
+  applicable": a demonstration specifies no capability. Verified evidence counts only the test classes the record
+  names under `tests` that passed in the build that made the site, with the double rule; a missing, ambiguous,
+  failed or skipped test is never counted, and recorded output never gets the double rule. The ledger names no merge:
+  there is no trustworthy merge record yet.
+- **Text only.** No image, video, embed or raw HTML until a reviewed media gate exists.
 
 ## Diagrams
 

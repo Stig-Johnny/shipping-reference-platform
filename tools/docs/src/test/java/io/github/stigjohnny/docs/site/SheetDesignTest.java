@@ -8,6 +8,7 @@ import io.github.stigjohnny.docs.repo.Capability;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.testing.BuiltSite;
+import io.github.stigjohnny.docs.testing.Demos;
 import io.github.stigjohnny.docs.testing.Fixture;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -21,7 +22,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The drawing set of docs/ui/documentation-site.md: each sheet's code, its title block, the status ledger's evidence
- * line, the register, and the start sheet's drawing.
+ * line, the register, and the start sheet's drawing. The copy has two demonstrations, so that their sheets are part of
+ * the set: pull request 45 was recorded before pull request 42.
  */
 class SheetDesignTest {
 
@@ -37,7 +39,8 @@ class SheetDesignTest {
 
     @BeforeAll
     static void buildTheSite() {
-        Fixture fixture = Fixture.copy(dir).passingEvidence();
+        Fixture fixture = Fixture.copy(dir).passingEvidence().withoutDemos().write(Demos.path("gate"), Demos.GATE)
+                .write(Demos.path("build"), Demos.BUILD);
         sources = Sources.read(fixture.root(), List.of(fixture.reports()));
         SiteBuilder.build(sources, dir.resolve("site"), REVISION);
         site = BuiltSite.read(dir.resolve("site"));
@@ -63,6 +66,42 @@ class SheetDesignTest {
         assertThat(Sheets.code("decisions/0011-java-documentation-tool-and-publication.html")).isEqualTo("D-11");
         assertThatThrownBy(() -> Sheets.code("modules/billing.html")).isInstanceOf(DocsException.class)
                 .hasMessageContaining("modules/billing.html has no sheet code");
+    }
+
+    @Test
+    void demonstrationsTakeTheirCodeFromTheirPullRequestNeverFromTheirPosition() {
+        assertThat(Sheets.code("demos/index.html")).isEqualTo("X-00");
+        assertThat(Sheets.code("demos/how-to.html")).isEqualTo("X-GUIDE");
+        assertThat(Sheets.code("demos/42-gate.html")).isEqualTo("X-42");
+        assertThat(Sheets.code("demos/7-a-change.html")).isEqualTo("X-07");
+        assertThat(Sheets.code("demos/1234-a-change.html")).isEqualTo("X-1234");
+        assertThatThrownBy(() -> Sheets.code("demos/0-a-change.html")).isInstanceOf(DocsException.class)
+                .hasMessageContaining("has no sheet code");
+        assertThatThrownBy(() -> Sheets.code("demos/notes.html")).isInstanceOf(DocsException.class)
+                .hasMessageContaining("has no sheet code");
+        // The register lists pull request 42 first, because it was recorded last; each sheet keeps its own number.
+        String nav = navigation(site.text("demos/45-build.html"));
+        assertThat(List.of(nav.indexOf(">X-00<"), nav.indexOf(">X-GUIDE<"), nav.indexOf(">X-42<"),
+                nav.indexOf(">X-45<"))).doesNotContain(-1).isSorted();
+        assertThat(SHEET_CODE.matcher(site.text("demos/45-build.html")).results().map(m -> m.group(1)).toList())
+                .containsExactly("X-45");
+    }
+
+    @Test
+    void aDemonstrationsTitleBlockHasItsRecordsDateAndTheRegisterNone() {
+        assertThat(titleBlock("demos/42-gate.html")).contains(
+                "<div><dt>Source</dt><dd>docs/demos/42-gate.md</dd></div>",
+                "<div><dt>Revision</dt><dd><code>01234567</code></dd></div>",
+                "<div><dt>Updated</dt><dd>2026-11-07</dd></div>");
+        assertThat(titleBlock("demos/how-to.html")).contains("<dt>Updated</dt>");
+        assertThat(titleBlock("demos/index.html")).contains("<dt>Revision</dt>").doesNotContain("<dt>Updated</dt>");
+    }
+
+    @Test
+    void theRegistersCodeColumnFitsSevenCharactersSuchAsXGuide() {
+        // A code is 12 px monospace with 0.06em tracking, about 7.9 px a character: X-GUIDE needs 56 px.
+        assertThat(site.text("assets/site.css")).contains(".site-nav a {\n  display: grid;\n  min-height: 24px;\n"
+                + "  grid-template-columns: 56px minmax(0, 1fr);");
     }
 
     @Test

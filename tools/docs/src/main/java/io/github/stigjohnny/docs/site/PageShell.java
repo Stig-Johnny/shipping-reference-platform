@@ -62,6 +62,10 @@ final class PageShell {
         }
         out.append("<h1>").append(Html.escape(page.title())).append("</h1>\n")
                 .append("<p class=\"page-summary\">").append(Html.escape(page.summary())).append("</p>\n");
+        String facts = page.facts();
+        if (facts != null) {
+            out.append(facts);
+        }
         if (status != null) {
             out.append(sheetMeta(page, revision, updated));
         }

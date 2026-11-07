@@ -10,6 +10,7 @@ import io.github.stigjohnny.docs.model.ViewNames;
 import io.github.stigjohnny.docs.repo.Allowlist;
 import io.github.stigjohnny.docs.repo.ApiContract;
 import io.github.stigjohnny.docs.repo.Capabilities;
+import io.github.stigjohnny.docs.repo.DemoRecord;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.RiskPolicy;
 import io.github.stigjohnny.docs.repo.Sources;
@@ -77,6 +78,9 @@ final class SiteMap {
         }
         if (docPath.startsWith("docs/flows/")) {
             return "model/flow-" + html(docPath.substring("docs/flows/".length()));
+        }
+        if (docPath.startsWith(DemoRecord.DIRECTORY)) {
+            return "demos/" + html(docPath.substring(DemoRecord.DIRECTORY.length()));
         }
         return switch (docPath) {
             case "docs/ui/workbench.md" -> "modules/web-workbench.html";

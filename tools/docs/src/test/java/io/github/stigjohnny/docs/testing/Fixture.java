@@ -120,6 +120,21 @@ public final class Fixture {
         return this;
     }
 
+    /**
+     * Removes the repository's own demonstrations, keeping the how-to, so that a test's sample demonstrations
+     * (pull requests 42 to 46) stand alone and never meet a real one with the same number.
+     */
+    public Fixture withoutDemos() {
+        try (Stream<Path> files = Files.list(root.resolve("docs/demos"))) {
+            for (Path file : files.filter(f -> !f.getFileName().toString().equals("how-to.md")).toList()) {
+                Files.delete(file);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return this;
+    }
+
     public Fixture move(String from, String to) {
         try {
             Files.move(root.resolve(from), root.resolve(to));

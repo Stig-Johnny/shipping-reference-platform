@@ -6,8 +6,8 @@ updated: 2026-11-07
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
-  - "java: :tools:docs:checkGenerated, part of check (BrainGeneratorTest, BrainCheckTest)"
-  - "java: :tools:docs:site, part of check (SiteBuilderTest, SitePagesTest, SiteAccessibilityTest, SiteAssetsTest)"
+  - "java: :tools:docs:checkGenerated, part of check (BrainGeneratorTest, BrainCheckTest, DemoCheckTest)"
+  - "java: :tools:docs:site, part of check (SiteBuilderTest, SitePagesTest, SiteAccessibilityTest, SiteAssetsTest, DemoPagesTest)"
   - "pages: the build job of .github/workflows/pages.yml scans the site before every upload (PublicationScannerTest, ScannedNamesTest, DocsToolTest, PagesWorkflowTest)"
 plannedEnforcement:
   - "a check that a pull request changing a module's code or tests also changes a document that names the module"
@@ -89,16 +89,24 @@ SnakeYAML Engine 3.2.
   test sources and read all their reports; the tool's own are the evidence of its control, `control.brain-check`.
 - `:tools:docs:site`, also part of `check`, builds the documentation site into `tools/docs/build/site/` from the
   same sources, after the same checks. It is static HTML with one stylesheet and one script of the tool's own, and
-  relative links, so it works under any base path. Its sections are Start, Model, Modules, Decisions, API, Trust and
-  Brain, with a reading path for a COO and one for a Java lead. Every page states three things apart: the accepted
-  design, the planned implementation and the verified evidence; a test counts as evidence only when its report
-  passed in the build that made the site. Its visual design is bound by `docs/ui/documentation-site.md`: a drawing
-  set, in which every page is a sheet with a code and a title block, and the navigation is the register of
+  relative links, so it works under any base path. Its sections are Start, Demos, Model, Modules, Decisions, API,
+  Trust and Brain, with a reading path for a COO and one for a Java lead. Every page states three things apart: the
+  accepted design, the planned implementation and the verified evidence; a test counts as evidence only when its
+  report passed in the build that made the site. Its visual design is bound by `docs/ui/documentation-site.md`: a
+  drawing set, in which every page is a sheet with a code and a title block, and the navigation is the register of
   sheets. The API pages come from `contracts/shipping.openapi.yaml`, which is
   offered for download, and the Trust section shows the allowlist with every entry, rejected ones included, below
   the current acceptance and its reviewed-set digest, which the build recomputes and must match. The Trust section
   also publishes the repository's LICENSE and NOTICE, complete and unchanged, beside the third-party notices, as the
   Apache License 2.0 asks of a redistribution.
+- The Demos section publishes demonstration pages: one text-only sheet per pull request from
+  `docs/demos/<pr>-<slug>.md` (sheet X- and its number), their register (X-00), newest recording first, and the
+  recipe for writing one, `docs/demos/how-to.md` (X-GUIDE). The tool checks each before it is published: its
+  metadata (`pr`, `kind`, `recorded`, `tests`), its sections, that every command it shows is one of the approved
+  commands, whole and with exactly its arguments, that it holds no image, embed, raw HTML or unfilled placeholder,
+  that recorded output follows the line "Recorded output — not rerun by this site build.", and that its See it links
+  open pages of the site. It never runs a command a demonstration shows; only the named tests that passed in the
+  build that made the site count as evidence on its sheet, and recorded output never does.
 - A link in a document to a file the site does not publish becomes plain text, and a link to the repository on
   GitHub is not published. A link to a missing file or anchor fails the build. Every page names the full commit SHA
   it was built from, GITHUB_SHA in CI and the checked-out commit locally, and the build fails without one. Two builds
@@ -182,10 +190,15 @@ SnakeYAML Engine 3.2.
   `SiteAssetsTest` (the design tokens in both themes, the layout, focus and motion rules, and the Mermaid
   conditions on the script) and `SheetDesignTest` (one sheet code per page and no shared code, the title block's
   date only where one document gives it, passing evidence as a count with its limits, the register and the start
-  sheet's drawing).
+  sheet's drawing). `DemoCheckTest` (malformed metadata, missing, repeated and empty sections, placeholders left from
+  the template, recorded output before its line, command bypasses, media and raw HTML, the approved commands as the
+  README documents them) and `DemoPagesTest` (the register and its order, the sheet with its facts, the ledger's
+  evidence that counts only tests that passed, a recording without the double rule, See it links that reach pages,
+  the empty register).
 - `PublicationScannerTest` (a negative fixture for every rule, the dictionary through entities, NFKC, tags and
   zero-width characters, failing closed without a dictionary or with a malformed one, exact and stale exceptions,
-  links and unreadable files, the digest and the revision in the summary, and no value or term in any output),
+  links and unreadable files, the digest and the revision in the summary, no value or term in any output, and the
+  demonstration pages as built),
   `ScannedNamesTest` (terms and token shapes in file and directory names, withheld from every output) and
   `DocsToolTest` (the scan command end to end, and exit codes for errors, `StackOverflowError` included, and for
   timeouts).

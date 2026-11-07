@@ -8,6 +8,7 @@ import io.github.stigjohnny.docs.generate.Brains;
 import io.github.stigjohnny.docs.repo.Allowlist;
 import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.testing.BuiltSite;
+import io.github.stigjohnny.docs.testing.Demos;
 import io.github.stigjohnny.docs.testing.Fixture;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -46,7 +47,7 @@ class SiteBuilderTest {
 
     @BeforeEach
     void copyTheRepository() {
-        fixture = Fixture.copy(dir).passingEvidence();
+        fixture = Fixture.copy(dir).passingEvidence().withoutDemos();
     }
 
     @Test
@@ -69,7 +70,8 @@ class SiteBuilderTest {
                 "api/createQuote.html", "api/schemas.html", "trust/index.html", "trust/allowlist.html",
                 "trust/risk-levels.html", "trust/gaps.html", "trust/license.html", "trust/notice.html",
                 "trust/third-party-notices.html", "brain/index.html",
-                "model/flow-quote-book-label.html", "start/repository.html").containsAll(DIAGRAM_PAGES);
+                "model/flow-quote-book-label.html", "start/repository.html", "demos/index.html",
+                "demos/how-to.html").containsAll(DIAGRAM_PAGES);
         assertThat(site.files()).containsKeys("assets/site.css", "assets/site.js", SiteBuilder.MERMAID,
                 "downloads/BRAIN.md", "downloads/shipping.openapi.yaml");
     }
@@ -115,8 +117,25 @@ class SiteBuilderTest {
 
     @Test
     void everyLinkIsRelativeAndResolvesToAFileAndAnAnchor() {
-        BuiltSite site = build("site");
+        assertEveryLinkResolves(build("site"));
+    }
 
+    @Test
+    void aSiteWithDemonstrationsIsByteIdenticalAndEveryLinkResolves() {
+        for (String kind : List.of("gate", "visual", "docs", "build", "feature")) {
+            fixture.write(Demos.path(kind), Demos.text(kind));
+        }
+
+        BuiltSite first = build("first");
+        BuiltSite second = build("second");
+
+        assertThat(first.pages()).contains("demos/index.html", "demos/how-to.html", "demos/42-gate.html",
+                "demos/43-visual.html", "demos/44-docs.html", "demos/45-build.html", "demos/46-feature.html");
+        first.files().forEach((path, bytes) -> assertThat(second.files().get(path)).as(path).isEqualTo(bytes));
+        assertEveryLinkResolves(first);
+    }
+
+    private static void assertEveryLinkResolves(BuiltSite site) {
         for (String page : site.pages()) {
             if (page.equals("404.html")) {
                 continue;

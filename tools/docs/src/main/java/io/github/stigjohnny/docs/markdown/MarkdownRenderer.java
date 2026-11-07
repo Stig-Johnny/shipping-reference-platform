@@ -18,11 +18,16 @@ import java.util.Set;
 import org.commonmark.Extension;
 import org.commonmark.ext.gfm.tables.TableBlock;
 import org.commonmark.ext.gfm.tables.TablesExtension;
+import org.commonmark.node.Block;
 import org.commonmark.node.Code;
+import org.commonmark.node.CustomNode;
 import org.commonmark.node.FencedCodeBlock;
 import org.commonmark.node.HardLineBreak;
 import org.commonmark.node.Heading;
+import org.commonmark.node.HtmlBlock;
+import org.commonmark.node.HtmlInline;
 import org.commonmark.node.Image;
+import org.commonmark.node.IndentedCodeBlock;
 import org.commonmark.node.Link;
 import org.commonmark.node.Node;
 import org.commonmark.node.SoftLineBreak;
@@ -50,6 +55,8 @@ import org.jspecify.annotations.Nullable;
  *       as source, because only the generator's validated diagrams are ever rendered.
  *   <li>CommonMark 0.29.0 has no nesting limits, so the tree is measured before rendering and anything deeper than
  *       {@link #MAX_DEPTH} fails; any exception or error, {@link StackOverflowError} included, fails the build.
+ *   <li>{@link #outline} reads the same parsed tree as data, for checks of a document's structure such as a
+ *       demonstration's sections; it renders nothing.
  * </ul>
  */
 public final class MarkdownRenderer {
@@ -145,6 +152,86 @@ public final class MarkdownRenderer {
         } catch (StackOverflowError e) {
             throw new DocsException(source + ": the document is nested too deeply to read", e);
         }
+    }
+
+    /**
+     * The top-level blocks of a document as data, without rendering it: what a heading is only when the parser reads
+     * one (a {@code ##} line inside a fence is text), each code block's info string and text, and every other block's
+     * text, links, images, raw HTML and nested code blocks.
+     */
+    public static List<MarkdownBlock> outline(String markdown, String source) {
+        try {
+            List<MarkdownBlock> blocks = new ArrayList<>();
+            for (Node block : children(parse(markdown, source))) {
+                blocks.add(switch (block) {
+                    case FencedCodeBlock code -> new MarkdownBlock(MarkdownBlock.Kind.FENCED_CODE, 0,
+                            code.getInfo().strip(), code.getLiteral(), "", List.of(), List.of(), List.of(), List.of());
+                    case IndentedCodeBlock code -> new MarkdownBlock(MarkdownBlock.Kind.INDENTED_CODE, 0, "",
+                            code.getLiteral(), "", List.of(), List.of(), List.of(), List.of());
+                    default -> walk(block);
+                });
+            }
+            return List.copyOf(blocks);
+        } catch (StackOverflowError e) {
+            throw new DocsException(source + ": the document is nested too deeply to read", e);
+        }
+    }
+
+    /** A heading or another block, read in document order without recursion. */
+    private static MarkdownBlock walk(Node block) {
+        StringBuilder text = new StringBuilder();
+        StringBuilder prose = new StringBuilder();
+        List<String> links = new ArrayList<>();
+        List<String> images = new ArrayList<>();
+        List<String> html = new ArrayList<>();
+        List<String> code = new ArrayList<>();
+        if (block instanceof HtmlBlock raw) {
+            html.add(raw.getLiteral().strip());
+        }
+        Deque<Node> pending = new ArrayDeque<>();
+        pushChildren(pending, block);
+        while (!pending.isEmpty()) {
+            Node node = pending.pop();
+            switch (node) {
+                case Text literal -> {
+                    text.append(literal.getLiteral());
+                    prose.append(literal.getLiteral());
+                }
+                case Code span -> text.append(span.getLiteral());
+                case SoftLineBreak ignored -> newLine(text, prose);
+                case HardLineBreak ignored -> newLine(text, prose);
+                case HtmlInline inline -> html.add(inline.getLiteral());
+                case HtmlBlock raw -> html.add(raw.getLiteral().strip());
+                case FencedCodeBlock nested -> code.add(nested.getLiteral());
+                case IndentedCodeBlock nested -> code.add(nested.getLiteral());
+                case Link link -> links.add(link.getDestination());
+                case Image image -> images.add(image.getDestination());
+                case Block ignored -> newLine(text, prose);
+                case CustomNode ignored -> newLine(text, prose);
+                default -> {
+                    // Inline containers such as emphasis carry their children only.
+                }
+            }
+            pushChildren(pending, node);
+        }
+        return block instanceof Heading heading
+                ? new MarkdownBlock(MarkdownBlock.Kind.HEADING, heading.getLevel(), "", text.toString().strip(),
+                        prose.toString().strip(), links, images, html, code)
+                : new MarkdownBlock(MarkdownBlock.Kind.OTHER, 0, "", text.toString().strip(), prose.toString().strip(),
+                        links, images, html, code);
+    }
+
+    /** Pushes a node's children so that they are taken in document order. */
+    private static void pushChildren(Deque<Node> pending, Node node) {
+        List<Node> children = children(node);
+        for (int i = children.size() - 1; i >= 0; i--) {
+            pending.push(children.get(i));
+        }
+    }
+
+    private static void newLine(StringBuilder text, StringBuilder prose) {
+        text.append('\n');
+        prose.append('\n');
     }
 
     private static Node parse(String markdown, String source) {

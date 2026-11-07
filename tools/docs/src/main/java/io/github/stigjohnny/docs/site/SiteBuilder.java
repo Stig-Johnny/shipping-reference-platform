@@ -52,12 +52,16 @@ public final class SiteBuilder {
         SiteContext context = new SiteContext(sources, map, Diagrams.of(sources.workspace(), sources.elementStatus()));
         List<SitePage> pages = new ArrayList<>();
         pages.addAll(StartPages.of(context));
+        int start = pages.size();
         pages.addAll(ModelPages.of(context));
         pages.addAll(ModulePages.of(context));
         pages.addAll(DecisionPages.of(context));
         pages.addAll(ApiPages.of(context));
         pages.addAll(TrustPages.of(context));
         pages.add(BrainPage.of(context));
+        // The Demos section comes second in the register, but is built last, so that its links are checked against
+        // every other page as built.
+        pages.addAll(start, DemoPages.of(context, pages));
         SitePage notFound = NotFoundPage.of();
         Map<String, String> updated = new TreeMap<>();
         for (DocFile doc : sources.docs()) {

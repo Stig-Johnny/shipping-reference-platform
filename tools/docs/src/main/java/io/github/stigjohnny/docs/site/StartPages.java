@@ -12,8 +12,8 @@ import io.github.stigjohnny.docs.repo.Sources;
 import java.util.List;
 
 /**
- * The start sheet: purpose, state, the system context drawn, the two reading paths, the sections and the
- * synthetic-data statement; the README; and how the site itself is drawn.
+ * The start sheet: purpose, state, the system context drawn, the two reading paths (the COO's ends with the
+ * demonstrations), the sections and the synthetic-data statement; the README; and how the site itself is drawn.
  */
 final class StartPages {
 
@@ -54,7 +54,8 @@ final class StartPages {
                         step(INDEX, INDEX, "Start: what this is and its state"),
                         step(INDEX, flowPage(context), "The main flow: quote, book and download a label"),
                         step(INDEX, "trust/risk-levels.html", "Risk levels: who must approve a change"),
-                        step(INDEX, "trust/gaps.html", "Known gaps: what a green build does not prove"))));
+                        step(INDEX, "trust/gaps.html", "Known gaps: what a green build does not prove"),
+                        step(INDEX, DemoPages.INDEX, "Demos: what each change did, with its evidence"))));
         body.append(path("path-java", "Reading path for a Java lead", "How the structure is written down and "
                 + "checked, from the model to the dependencies.", List.of(
                         step(INDEX, componentView(context), "The API's components and their dependencies"),

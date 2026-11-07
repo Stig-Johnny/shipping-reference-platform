@@ -185,6 +185,16 @@ closes it.
   that is not in its dictionary, or what a sentence means; nor a secret whose shape it does not know. A person
   still reads every public page that changes. The dictionary lives outside the repository, so whether it is
   complete is not checked here.
+- **A demonstration's recorded output is not rerun.** The docs tool checks a demonstration's form: its metadata, its
+  sections, its commands against the approved list, that it is text only, and that See it opens pages of the site.
+  It never runs a command a demonstration shows and never compares recorded output with anything, so recorded output
+  can be stale, edited or wrong; only a reviewer can tell. Only the named tests that passed in the build that made the
+  site count as its evidence. That `recorded` never changes after the first recording is a rule, not a check: the
+  tool does not read history. Whether a pull request that needs a demonstration has one is a rule for agents
+  (`AGENTS.md`); no check requires it yet.
+- **Media waits for a gate.** Screenshots, recordings and other media are not published: until a reviewed media gate
+  exists, demonstrations are text only, and the screenshots of a visible change go to the owner with the review
+  request, outside the repository.
 
 ## 8. Not in scope for v0.1
 

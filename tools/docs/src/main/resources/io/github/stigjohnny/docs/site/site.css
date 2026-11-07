@@ -189,7 +189,8 @@ a:hover {
 .diagram-title,
 caption,
 thead th,
-.card-meta {
+.card-meta,
+.fence-label {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   letter-spacing: 0.06em;
 }
@@ -243,7 +244,8 @@ thead th,
   cursor: pointer;
 }
 
-/* The register: each row is a sheet code in a fixed column and a title that wraps beside it. */
+/* The register: each row is a sheet code in a fixed column, wide enough for seven characters such as X-GUIDE, and a
+   title that wraps beside it. */
 .site-nav ul {
   margin: 0;
   padding: 0;
@@ -265,7 +267,7 @@ thead th,
 .site-nav a {
   display: grid;
   min-height: 24px;
-  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-columns: 56px minmax(0, 1fr);
   column-gap: 8px;
   align-items: baseline;
   padding: 6px 8px 6px 9px;
@@ -419,6 +421,19 @@ thead th,
   margin-bottom: 20px;
   font-size: 17px;
   line-height: 26px;
+}
+
+/* A demonstration's facts beside its description: its pull request, kind and recording, and what the revision is. */
+.page-facts {
+  max-width: 72ch;
+  margin: -12px 0 20px;
+  color: var(--ink-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.page-facts + .page-facts {
+  margin-top: -16px;
 }
 
 .sheet-meta {
@@ -699,6 +714,33 @@ table {
   }
 }
 
+/* The register of demonstrations: an outcome and why it matters need a readable measure, so on a narrow screen the
+   table keeps 40rem and scrolls inside its region with the same hint, and up to 600 px wide its first column is a fixed
+   16rem. */
+.table-wide-demos {
+  container-type: inline-size;
+}
+
+.table-wide-demos table {
+  min-width: 40rem;
+}
+
+@container (min-width: 40rem) {
+  .table-wide-demos .table-hint {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .table-wide-demos table {
+    table-layout: fixed;
+  }
+
+  .table-wide-demos th:first-child {
+    width: 16rem;
+  }
+}
+
 caption {
   padding: 12px 0;
   color: var(--ink-muted);
@@ -741,6 +783,13 @@ tr.group th {
 
 .group-title {
   font-weight: 600;
+}
+
+/* In the register of demonstrations, why an outcome matters stands below its title. */
+.register-why {
+  display: block;
+  margin-top: 4px;
+  font-weight: 400;
 }
 
 .group-record,
@@ -924,6 +973,15 @@ details[open] > summary {
 .module-body h3 {
   margin-top: 16px;
   font-size: 20px;
+}
+
+/* A demonstration's commands and recorded output, each labelled in words above its block. */
+.fence-label {
+  margin: 0 0 4px;
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 20px;
+  text-transform: uppercase;
 }
 
 /* Legal texts: the repository's files as they are, readable and reflowing. */
