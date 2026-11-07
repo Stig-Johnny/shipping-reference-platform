@@ -121,8 +121,9 @@ symbolic link anywhere is an error. Files must be UTF-8. No configuration file i
 The restricted import grammar reads, with the line of the specifier: `import ... from 'x'`, `import 'x'`,
 `import type`, `export * from`, `export { a } from`, their type-only forms, and `import('x')` with one plain string
 literal anywhere, types included. It refuses: `import()` with anything else, `require`, `import.meta` other than
-`import.meta.env`, import-equals declarations, import attributes, `declare module 'x'`, triple-slash directives, JSX
-pragmas and a backslash escape in a specifier. Strings, comments, templates, regular expressions and JSX text never
+`import.meta.env`, import-equals declarations, import attributes, a module declaration with a module name
+(`module 'x'`, with or without `declare`), `eval` and the `Function` constructor (even as properties, such as
+`globalThis.eval`), triple-slash directives, JSX pragmas and a backslash escape in a specifier. Strings, comments, templates, regular expressions and JSX text never
 yield code; template substitutions and JSX expressions do.
 
 The lexer fails closed: where it cannot decide with certainty, it refuses the file with the line, and never guesses.

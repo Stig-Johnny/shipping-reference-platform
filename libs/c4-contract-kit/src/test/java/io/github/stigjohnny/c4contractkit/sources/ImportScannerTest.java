@@ -176,10 +176,41 @@ class ImportScannerTest {
                 tuple(3, "import ... = (an import-equals declaration) is not supported"),
                 tuple(4, "import attributes (with or assert) are not supported"),
                 tuple(5, "import attributes (with or assert) are not supported"),
-                tuple(6, "declare module with a module name is not supported: it declares a module that no file "
-                        + "of the web root is"));
+                tuple(6, "a module declaration with a module name (module 'x') is not supported: it declares a "
+                        + "module that no file of the web root is"));
         assertThat(scan.imports()).extracting(SourceImport::specifier)
                 .containsExactly("./data.json", "./legacy.json");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"module 'hidden' { export const n: number; }",
+        "export module 'hidden' { export const n: number; }",
+        "declare namespace N { module 'hidden' { export const n: number; } }",
+        "declare\nmodule \"hidden\" { }"})
+    void aModuleDeclarationWithAModuleNameIsRefusedWithOrWithoutDeclare(String text) {
+        ImportScanner.Scan scan = ts(text + "\n");
+
+        assertThat(scan.refusals()).extracting(Refusal::reason).containsExactly("a module declaration with a module "
+                + "name (module 'x') is not supported: it declares a module that no file of the web root is");
+    }
+
+    @Test
+    void evalAndTheFunctionConstructorAreRefusedBecauseTheCodeTheyRunCouldImportAnything() {
+        String eval = "eval is not supported: the code it runs could load modules that the check never sees";
+        String function = "the Function constructor is not supported: the code it builds could load modules that the "
+                + "check never sees";
+        ImportScanner.Scan scan = ts("""
+                eval("import('./hidden.ts')");
+                const run = new Function("return import('./hidden.ts')");
+                const also = Function('return 1')();
+                const viaGlobal = globalThis.eval('1');
+                const callback: Function = () => undefined;
+                const name = Function.prototype.name;
+                """);
+
+        assertThat(scan.imports()).isEmpty();
+        assertThat(scan.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(
+                tuple(1, eval), tuple(2, function), tuple(3, function), tuple(4, eval));
     }
 
     @Test

@@ -17,7 +17,8 @@ import org.jspecify.annotations.Nullable;
  * from 'x'}, {@code import * as a from 'x'}, {@code import 'x'}), type-only imports, re-exports ({@code export * from},
  * {@code export { a } from}, their type-only forms) and {@code import('x')} with one plain string literal, anywhere,
  * types included. Refused: {@code import()} with anything else, {@code require}, {@code import.meta} other than
- * {@code import.meta.env}, import-equals declarations, import attributes, {@code declare module 'x'}, triple-slash
+ * {@code import.meta.env}, import-equals declarations, import attributes, a module declaration with a module name
+ * ({@code module 'x'}, with or without {@code declare}), {@code eval} and the {@code Function} constructor, triple-slash
  * directives and JSX pragmas, a backslash escape in a specifier, and whatever the lexer cannot read with certainty.
  * Words inside strings, comments, templates, regular expressions and JSX text are never read as code, and neither are
  * property names ({@code a.import}, <code>{ require: 1 }</code>).
@@ -31,8 +32,11 @@ final class ImportScanner {
             + "import.meta.url and import.meta.resolve locate modules or files at run time";
     static final String IMPORT_EQUALS = "import ... = (an import-equals declaration) is not supported";
     static final String ATTRIBUTES = "import attributes (with or assert) are not supported";
-    static final String DECLARE_MODULE = "declare module with a module name is not supported: it declares a module "
-            + "that no file of the web root is";
+    static final String DECLARE_MODULE = "a module declaration with a module name (module 'x') is not supported: it "
+            + "declares a module that no file of the web root is";
+    static final String EVAL = "eval is not supported: the code it runs could load modules that the check never sees";
+    static final String FUNCTION = "the Function constructor is not supported: the code it builds could load modules "
+            + "that the check never sees";
     static final String IMPORT_CLAUSE =
             "unsupported import declaration: expected from and a string after the import clause";
     static final String EXPORT_STAR = "unsupported export declaration: expected from and a string after export *";
@@ -108,7 +112,19 @@ final class ImportScanner {
     private void read() {
         for (int i = 0; i < tokens.size(); i++) {
             Token token = tokens.get(i);
-            if (token.type() != TokenType.IDENTIFIER || isPropertyName(i)) {
+            if (token.type() != TokenType.IDENTIFIER) {
+                continue;
+            }
+            // Refused even as properties (globalThis.eval, window.Function(...)): what they run is never read.
+            if (token.text().equals("eval")) {
+                refuse(token, EVAL);
+                continue;
+            }
+            if (token.text().equals("Function") && punctuator(i + 1, "(")) {
+                refuse(token, FUNCTION);
+                continue;
+            }
+            if (isPropertyName(i)) {
                 continue;
             }
             switch (token.text()) {
@@ -116,7 +132,7 @@ final class ImportScanner {
                 case "export" -> exportAt(i);
                 case "require" -> refuse(token, REQUIRE);
                 case "module" -> {
-                    if (identifier(i - 1, "declare") && type(i + 1, TokenType.STRING)) {
+                    if (type(i + 1, TokenType.STRING)) {
                         refuse(token, DECLARE_MODULE);
                     }
                 }
