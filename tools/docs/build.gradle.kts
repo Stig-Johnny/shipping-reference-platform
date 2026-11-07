@@ -49,17 +49,22 @@ tasks.test {
 // The docs tool runs as a plain JavaExec on its own runtime classpath: no new configuration, nothing else resolved.
 // Each run has a timeout (the tool also stops itself after ten minutes), and any exception or error fails the task.
 val repositoryRoot: String = rootDir.absolutePath
-val testReports: String = layout.buildDirectory.dir("test-results/test").get().asFile.absolutePath
+
+// Evidence is the JUnit reports of this build (docs/capabilities/capabilities.yaml): those of every project with test
+// sources, the docs tool's own and, for example, the contract kit's. Their test tasks run first, so that no report is
+// left over from an earlier build.
+val testedProjects: List<Pair<String, String>> = rootProject.subprojects
+    .filter { it.projectDir.resolve("src/test/java").isDirectory }
+    .map { it.path to it.layout.buildDirectory.dir("test-results/test").get().asFile.absolutePath }
 
 fun JavaExec.docsTool(command: String) {
     group = "documentation"
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass = "io.github.stigjohnny.docs.DocsTool"
     timeout = Duration.ofMinutes(15)
-    // The tool's tests are evidence for the capabilities it reports (docs/capabilities/capabilities.yaml), so their
-    // JUnit reports must be from this build.
-    dependsOn(tasks.test)
-    args(command, "--repo", repositoryRoot, "--test-results", testReports)
+    dependsOn(testedProjects.map { (path, _) -> "$path:test" })
+    args(command, "--repo", repositoryRoot)
+    testedProjects.forEach { (_, reports) -> args("--test-results", reports) }
 }
 
 tasks.register<JavaExec>("generate") {
