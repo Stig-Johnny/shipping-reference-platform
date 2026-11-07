@@ -98,6 +98,26 @@ class BrainGeneratorTest {
     }
 
     @Test
+    void theLegendsSayWhatTheImplementedCheckerCoversAndThatItLeavesOutPlannedModules() {
+        Map<String, String> files = GeneratedFiles.generate(sources());
+        String components = file(files, "docs/architecture/api-components.md");
+
+        assertThat(components).contains("- A thick line is a REQUIRED dependency between modules. Where both modules "
+                + "are built, the checker in libs/c4-contract-kit fails when the compiled classes have no static "
+                + "reference for it.\n", "- A dotted line labelled PERMITTED is a dependency between modules that the "
+                + "code may have; the checker requires no reference for it and reports one without any as \"no static "
+                + "evidence\".\n", "- The checker does not evaluate a line that touches a planned module until both "
+                + "modules are built.\n");
+        assertThat(file(files, "docs/architecture/quote-book-label.md")).contains("Where both modules are built, "
+                + "the checker in libs/c4-contract-kit fails", "The checker does not evaluate a line that touches a "
+                + "planned module");
+        // A view without a line between two modules says nothing about the checker.
+        assertThat(file(files, "docs/architecture/system-context.md")).doesNotContain("checker");
+        files.forEach((path, text) -> assertThat(text).as(path).doesNotContain("It is not implemented yet",
+                "The planned conformance check", "the planned check"));
+    }
+
+    @Test
     void aPlannedCapabilityIsNeverShownAsShipped() {
         Map<String, String> files = GeneratedFiles.generate(sources());
 

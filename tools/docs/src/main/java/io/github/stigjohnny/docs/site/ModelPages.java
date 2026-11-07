@@ -12,6 +12,7 @@ import io.github.stigjohnny.docs.model.ViewNames;
 import io.github.stigjohnny.docs.repo.Capability;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.Sources;
+import io.github.stigjohnny.docs.repo.TestEvidence;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -200,11 +201,17 @@ final class ModelPages {
             body.append("<li>").append(SiteContext.link(INDEX, context.map().site(flow.path()).orElseThrow(),
                     flow.title())).append(": ").append(Html.escape(flow.description())).append("</li>\n");
         }
+        boolean allPlanned = modules(sources).stream().allMatch(ModelElement::planned);
         body.append("</ul>\n<h2 id=\"checking\">How the model is checked</h2>\n<p class=\"prose\">The model is the "
-                + "structural authority (ADR 0002). The contract kit in <code>libs/c4-contract-kit</code> is to compare "
-                + "it with the compiled classes in both directions: a dependency the model does not allow fails the "
-                + "build, and so does a REQUIRED dependency the code lacks. That check is planned, so these views are "
-                + "the accepted design, not verified structure.</p>\n");
+                + "structural authority (ADR 0002). The checker in <code>libs/c4-contract-kit</code> is implemented "
+                + "and its own tests pass. It compares the direct static references in compiled classes with the model "
+                + "in both directions: a dependency between two modules that the model does not declare fails the "
+                + "check, and so does a REQUIRED relationship without any static reference; a PERMITTED relationship "
+                + "without one is reported as \"no static evidence\". It does not evaluate a relationship that touches "
+                + "a planned module. " + (allPlanned ? "Every module of the API is planned and has no code yet, so "
+                        + "these views are the accepted design, not verified structure." : "Where a relationship "
+                        + "touches a planned module, the views show the accepted design, not verified structure.")
+                + "</p>\n");
         return new SitePage(INDEX, "Model", "Overview", SiteSection.MODEL, "The C4 model in architecture/workspace.dsl, "
                 + "from the context to the API's modules and one flow through them. Each view has its own page with "
                 + "its text equivalent.", status(context, modules(sources)), List.of(
@@ -283,7 +290,25 @@ final class ModelPages {
         List<Capability> conformance = context.sources().capabilities().controls().stream()
                 .filter(c -> c.id().startsWith("control.c4-")).toList();
         return new StatusPanel(Statuses.design("accepted", "The structural authority (ADR 0002), in "
-                + Sources.WORKSPACE + "."), implementation, Statuses.evidence(conformance, context.sources().evidence()));
+                + Sources.WORKSPACE + "."), implementation,
+                checkerEvidence(conformance, context.sources().evidence(), allPlanned));
+    }
+
+    /**
+     * The model pages' evidence: the conformance controls' passing tests, by name, under a badge that says they are the
+     * checker's tests, since they verify the checker and not the shipping modules. Without a passing test it is the
+     * evidence of any page.
+     */
+    static String checkerEvidence(List<Capability> conformance, TestEvidence evidence, boolean modulesPlanned) {
+        List<String> passing = conformance.stream().flatMap(c -> c.evidence().stream()).filter(evidence::passed)
+                .distinct().toList();
+        if (passing.isEmpty()) {
+            return Statuses.evidence(conformance, evidence);
+        }
+        return Badge.SHIPPED.html("Checker tests passing") + " " + Html.escape(String.join(", ", passing)
+                + " passed in the build that generated this site. " + (modulesPlanned
+                        ? "These tests verify the checker; the shipping modules remain planned."
+                        : "These tests verify the checker, not the shipping modules."));
     }
 
     private static String statusWords(String status) {

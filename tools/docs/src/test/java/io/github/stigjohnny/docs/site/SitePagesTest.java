@@ -8,11 +8,14 @@ import io.github.stigjohnny.docs.repo.Allowlist;
 import io.github.stigjohnny.docs.repo.AllowlistEntry;
 import io.github.stigjohnny.docs.repo.Capability;
 import io.github.stigjohnny.docs.repo.Sources;
+import io.github.stigjohnny.docs.repo.TestEvidence;
 import io.github.stigjohnny.docs.testing.BuiltSite;
 import io.github.stigjohnny.docs.testing.Fixture;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeAll;
@@ -143,9 +146,11 @@ class SitePagesTest {
 
         assertThat(containers).contains("<td>Planned; not covered by module conformance</td>",
                 "<td>Role; implementation status not applicable</td>");
-        assertThat(components).contains("The planned conformance check will require a static reference for REQUIRED "
-                + "relationships. It is not implemented yet.", "A REQUIRED arrow specifies an obligation; a future "
-                + "passing conformance check would establish a static reference, not runtime behaviour.");
+        assertThat(components).contains("Where both modules are built, the checker in libs/c4-contract-kit fails when "
+                + "the compiled classes have no static reference for it.", "The checker does not evaluate a line "
+                + "that touches a planned module until both modules are built.", "A REQUIRED arrow specifies an "
+                + "obligation; a future passing conformance check would establish a static reference, not runtime "
+                + "behaviour.");
         for (String page : List.of(containers, components, site.text("model/system-context.html"),
                 site.text("model/quote-book-label.html"), flow)) {
             assertThat(page).doesNotContain("the build fails when it does not", "proves that a reference exists",
@@ -362,6 +367,42 @@ class SitePagesTest {
                 + "clerk", "<td>Planned for v0.1; no code yet</td>",
                 "<td>Minimal implementation planned for v0.1; no code yet</td>")
                 .doesNotContain("<td>built</td>", "<td>built (minimal)</td>", "v0.1 target, not implemented");
+    }
+
+    @Test
+    void theModelPagesQualifyTheCheckersEvidenceAndSayWhatItCovers() {
+        String evidence = "<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Checker tests "
+                + "passing</span> ConformanceDivergenceTest, ConformanceAbsenceTest passed in the build that generated "
+                + "this site. These tests verify the checker; the shipping modules remain planned.</dd>";
+        for (String page : List.of("model/index.html", "model/system-context.html", "model/containers.html",
+                "model/api-components.html", "model/quote-book-label.html")) {
+            assertThat(site.text(page)).as(page).contains(evidence).doesNotContain(">Passing</span>",
+                    "It is not implemented yet", "The planned conformance check", "the planned check");
+        }
+        // The flow page keeps its own evidence: no test of its capabilities passes yet.
+        assertThat(site.text("model/flow-quote-book-label.html"))
+                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-none\">None yet</span>")
+                .doesNotContain("Checker tests passing");
+        String index = site.text("model/index.html");
+        assertThat(index).contains("The checker in <code>libs/c4-contract-kit</code> is implemented and its own "
+                + "tests pass. It compares the direct static references in compiled classes with the model in both "
+                + "directions: a dependency between two modules that the model does not declare fails the check, and "
+                + "so does a REQUIRED relationship without any static reference; a PERMITTED relationship without one "
+                + "is reported as \"no static evidence\". It does not evaluate a relationship that touches a planned "
+                + "module. Every module of the API is planned and has no code yet, so these views are the accepted "
+                + "design, not verified structure.").doesNotContain("That check is planned", "is to compare");
+    }
+
+    @Test
+    void theCheckersEvidenceNamesNoPlannedModulesOnceSomeAreBuilt() {
+        List<Capability> conformance = sources.capabilities().controls().stream()
+                .filter(c -> c.id().startsWith("control.c4-")).toList();
+
+        assertThat(ModelPages.checkerEvidence(conformance, sources.evidence(), false))
+                .endsWith("passed in the build that generated this site. These tests verify the checker, not the "
+                        + "shipping modules.");
+        assertThat(ModelPages.checkerEvidence(conformance, new TestEvidence(Set.of(), Map.of()), true))
+                .contains(">None yet</span>");
     }
 
     @Test

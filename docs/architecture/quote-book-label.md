@@ -62,7 +62,8 @@ The same definition is in [quote-book-label.mmd](quote-book-label.mmd).
 - Each box is an element of the model: its name, its C4 type in brackets and, in parentheses, its implementation status.
 - "(planned)" marks an element that has no code yet.
 - Each line is labelled with its number in the view's relationships table and, where it has one, its mode.
-- A thick line is a REQUIRED dependency between modules. The planned conformance check will require a static reference for REQUIRED relationships. It is not implemented yet.
+- A thick line is a REQUIRED dependency between modules. Where both modules are built, the checker in libs/c4-contract-kit fails when the compiled classes have no static reference for it.
+- The checker does not evaluate a line that touches a planned module until both modules are built.
 - A solid thin line is a relationship of people, systems or containers, which module conformance does not cover.
 - Arrows point from the element that depends on the other.
 

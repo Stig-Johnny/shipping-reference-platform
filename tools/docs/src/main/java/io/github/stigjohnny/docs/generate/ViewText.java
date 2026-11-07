@@ -71,7 +71,10 @@ public final class ViewText {
         };
     }
 
-    /** The legend: one sentence per element marking and line pattern the diagram actually uses. */
+    /**
+     * The legend: one sentence per element marking and line pattern the diagram actually uses, and what the checker in
+     * libs/c4-contract-kit does with the lines between modules.
+     */
     public static List<String> legend(MermaidDiagram diagram, C4Model model) {
         Set<Arrow> arrows = EnumSet.noneOf(Arrow.class);
         diagram.edges().forEach(e -> arrows.add(e.arrow()));
@@ -79,6 +82,9 @@ public final class ViewText {
                 .anyMatch(e -> "PERMITTED".equals(model.relationship(e.relationshipId()).mode().orElse("")));
         boolean planned = diagram.edges().stream().anyMatch(e -> e.arrow() == Arrow.DOTTED
                 && model.relationship(e.relationshipId()).mode().isEmpty());
+        boolean plannedModules = diagram.edges().stream().map(e -> model.relationship(e.relationshipId()))
+                .anyMatch(r -> r.mode().isPresent() && (model.element(r.sourceId()).planned()
+                        || model.element(r.destinationId()).planned()));
         List<String> legend = new ArrayList<>();
         legend.add("Each box is an element of the model: its name, its C4 type in brackets and, in parentheses, its "
                 + "implementation status.");
@@ -88,12 +94,17 @@ public final class ViewText {
         legend.add("Each line is labelled with its number in the view's relationships table and, where it has one, its "
                 + "mode.");
         if (arrows.contains(Arrow.REQUIRED)) {
-            legend.add("A thick line is a REQUIRED dependency between modules. The planned conformance check will "
-                    + "require a static reference for REQUIRED relationships. It is not implemented yet.");
+            legend.add("A thick line is a REQUIRED dependency between modules. Where both modules are built, the "
+                    + "checker in libs/c4-contract-kit fails when the compiled classes have no static reference for "
+                    + "it.");
         }
         if (permitted) {
             legend.add("A dotted line labelled PERMITTED is a dependency between modules that the code may have; the "
-                    + "planned check will not require a reference for it.");
+                    + "checker requires no reference for it and reports one without any as \"no static evidence\".");
+        }
+        if (plannedModules) {
+            legend.add("The checker does not evaluate a line that touches a planned module until both modules are "
+                    + "built.");
         }
         if (planned) {
             legend.add("A dotted line labelled planned is a relationship that does not exist yet.");
