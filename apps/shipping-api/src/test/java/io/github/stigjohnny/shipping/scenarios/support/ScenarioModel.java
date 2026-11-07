@@ -77,6 +77,9 @@ public final class ScenarioModel {
     private static final Map<String, C4Type> TYPES = Map.of("person", C4Type.PERSON, "softwareSystem",
             C4Type.SOFTWARE_SYSTEM, "container", C4Type.CONTAINER, "component", C4Type.COMPONENT);
     private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z_][A-Za-z0-9_-]*");
+    /** The one autoLayout form the reader accepts: Structurizr's direction and separations, nothing else. */
+    private static final Pattern AUTO_LAYOUT =
+            Pattern.compile("autoLayout( (tb|bt|lr|rl)( [0-9]{1,4}( [0-9]{1,4})?)?)?");
     private static final String ROOT = "contract.root";
 
     private final String path;
@@ -229,18 +232,43 @@ public final class ScenarioModel {
             this.display = display;
         }
 
+        /**
+         * Reads the lines with Structurizr's comment rules where they are unambiguous and refuses every other form. A
+         * line comment is a line that starts with {@code //} or {@code #}. A block comment opens on a line that is
+         * exactly {@code /*} and closes on a line that is exactly {@code *}{@code /}; a line that is one block comment,
+         * {@code /*} text {@code *}{@code /}, is skipped as Structurizr skips it. Any other line that holds a
+         * comment marker is refused, also inside a block comment and inside a string: there Structurizr's lexer and a
+         * simpler one could disagree about where the comment ends.
+         */
         void read(List<String> lines) {
             boolean comment = false;
             for (int i = 0; i < lines.size(); i++) {
                 int number = i + 1;
                 String line = lines.get(i).strip();
+                boolean markers = line.contains("/*") || line.contains("*/");
                 if (comment) {
-                    comment = !line.contains("*/");
+                    if (line.equals("*/")) {
+                        comment = false;
+                    } else if (markers) {
+                        throw problem(number, "inside a block comment, only a line that is exactly '*/' may hold a "
+                                + "comment marker; the scenario reader refuses this line");
+                    }
                     continue;
                 }
-                if (line.startsWith("/*")) {
-                    comment = !line.contains("*/");
+                if (line.startsWith("//") || line.startsWith("#")) {
                     continue;
+                }
+                if (line.equals("/*")) {
+                    comment = true;
+                    continue;
+                }
+                if (markers) {
+                    String inner = line.length() >= 4 ? line.substring(2, line.length() - 2) : "";
+                    if (line.startsWith("/*") && line.endsWith("*/") && !inner.contains("/*") && !inner.contains("*/")) {
+                        continue;
+                    }
+                    throw problem(number, "a block comment marker shares this line with other text; the scenario "
+                            + "reader accepts only '/*' and '*/' on lines of their own, or a line that is one comment");
                 }
                 List<Token> tokens = tokens(line, number);
                 if (!tokens.isEmpty()) {
@@ -357,7 +385,8 @@ public final class ScenarioModel {
                 views.put(dynamic.key(), new View(dynamic.key(), dynamic.scope(), dynamic.description(),
                         dynamicSteps, dynamic.line()));
                 dynamic = null;
-            } else if (first.equals("autoLayout") && tokens.stream().noneMatch(Token::quoted)) {
+            } else if (AUTO_LAYOUT.matcher(String.join(" ", tokens.stream().map(Token::text).toList())).matches()
+                    && tokens.stream().noneMatch(Token::quoted)) {
                 return;
             } else if (tokens.size() >= 4 && tokens.size() <= 5 && tokens.get(1).text().equals("->")
                     && !tokens.get(0).quoted() && !tokens.get(2).quoted()
@@ -370,6 +399,11 @@ public final class ScenarioModel {
             }
         }
 
+        /**
+         * Splits a line into tokens: words separated by whitespace and strings in double quotes. A string must stand
+         * apart from its neighbours, close on its line and hold no backslash, and a {@code //} after other text is
+         * refused: Structurizr reads it as text, not as a comment.
+         */
         private List<Token> tokens(String line, int number) {
             List<Token> tokens = new ArrayList<>();
             int i = 0;
@@ -377,14 +411,17 @@ public final class ScenarioModel {
                 char c = line.charAt(i);
                 if (Character.isWhitespace(c)) {
                     i++;
-                } else if ((c == '#' && tokens.isEmpty()) || line.startsWith("//", i)) {
-                    break;
+                } else if (line.startsWith("//", i)) {
+                    throw problem(number, "'//' after other text is not a comment for Structurizr; the scenario "
+                            + "reader refuses it");
                 } else if (c == '"') {
                     int end = line.indexOf('"', i + 1);
                     String text = end < 0 ? "" : line.substring(i + 1, end);
-                    if (end < 0 || text.indexOf('\\') >= 0) {
-                        throw problem(number, "the scenario reader accepts only strings without backslashes that "
-                                + "close on their line");
+                    boolean apart = (i == 0 || Character.isWhitespace(line.charAt(i - 1)))
+                            && (end < 0 || end + 1 == line.length() || Character.isWhitespace(line.charAt(end + 1)));
+                    if (end < 0 || text.indexOf('\\') >= 0 || !apart) {
+                        throw problem(number, "the scenario reader accepts only strings that stand apart, close on "
+                                + "their line and hold no backslash");
                     }
                     tokens.add(new Token(text, true));
                     i = end + 1;

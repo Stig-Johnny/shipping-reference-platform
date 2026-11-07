@@ -14,7 +14,14 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -25,6 +32,9 @@ import org.junit.jupiter.api.io.TempDir;
 class ScenarioModelTest {
 
     private static final Path MODEL = Path.of("../../architecture/workspace.dsl");
+    private static final Path PAGES = Path.of("../../docs/architecture");
+    private static final Pattern SOURCE =
+            Pattern.compile("Source: `architecture/workspace.dsl`, view `([A-Za-z0-9]+)`");
     private static final String FIXTURE = """
             workspace "Fixture" {
                 !identifiers flat
@@ -59,6 +69,8 @@ class ScenarioModelTest {
 
     @TempDir
     Path dir;
+    /** How many fixture models this test wrote: each gets a file of its own. */
+    private int written;
 
     @Test
     void theRepositorysScenarioViewsAreReadStepByStepInFileOrder() {
@@ -74,6 +86,88 @@ class ScenarioModelTest {
         assertThat(model.moduleOf("io.github.stigjohnny.shipping.quotes.internal.application.CreateQuote"))
                 .contains("quotes");
         assertThat(model.element("db").orElseThrow().tags()).containsExactly("Database", "Planned");
+    }
+
+    /**
+     * The differential check: every dynamic view as this reader reads it, against the same view as Structurizr reads
+     * it. The docs tool renders Structurizr's reading into docs/architecture/, and :tools:docs:checkGenerated fails the
+     * same build when those pages differ from what Structurizr reads from the model now, so agreement with the pages is
+     * agreement with Structurizr: the same views, and in each the same steps, numbering, endpoints and descriptions.
+     */
+    @Test
+    void everyDynamicViewIsReadAsStructurizrReadsIt() throws IOException {
+        ScenarioModel model = ScenarioModel.read(MODEL, Conformance.check(MODEL, ClassDirectories.main()));
+        Map<String, List<List<String>>> structurizr = new TreeMap<>();
+        try (Stream<Path> pages = Files.list(PAGES)) {
+            for (Path page : pages.filter(p -> p.toString().endsWith(".md")).sorted().toList()) {
+                String text = Files.readString(page, StandardCharsets.UTF_8);
+                Matcher view = SOURCE.matcher(text);
+                if (text.contains("\ndescription: \"Dynamic view of") && view.find()) {
+                    structurizr.put(view.group(1), steps(text));
+                }
+            }
+        }
+
+        assertThat(structurizr.keySet()).isEqualTo(model.views().keySet());
+        for (ScenarioModel.View view : model.views().values()) {
+            List<List<String>> read = view.steps().stream().map(step -> List.of(Integer.toString(step.order()),
+                    model.element(step.from()).orElseThrow().name(), model.element(step.to()).orElseThrow().name(),
+                    step.description())).toList();
+            assertThat(read).as(view.key()).isEqualTo(structurizr.get(view.key()));
+        }
+    }
+
+    @Test
+    void codexsCommentThatStructurizrAndASimplerReaderSplitDifferentlyIsRefused() throws IOException {
+        Path model = write("""
+                /* note */ more text
+                        clerk -> quotes "Uses"
+                        autoLayout lr */""");
+
+        assertThatThrownBy(() -> ScenarioModel.read(model, KIT)).hasMessageContaining("a block comment marker shares "
+                + "this line with other text");
+    }
+
+    @Test
+    void everyOtherAmbiguousCommentFormIsRefused() throws IOException {
+        Path closesAfterText = write("/*\n        note */\n        clerk -> quotes \"Uses\"");
+        Path stepAfterOpener = write("/* note\n        clerk -> quotes \"Uses\"\n        */");
+        Path markerInAString = write("clerk -> quotes \"Uses /* this\"");
+        Path inlineSlashes = write("clerk -> quotes \"Uses\" // note");
+        Path loneLayoutText = write("clerk -> quotes \"Uses\"\n        autoLayout lr extra");
+
+        assertThatThrownBy(() -> ScenarioModel.read(closesAfterText, KIT)).hasMessageContaining("inside a block "
+                + "comment, only a line that is exactly '*/' may hold a comment marker");
+        assertThatThrownBy(() -> ScenarioModel.read(stepAfterOpener, KIT)).hasMessageContaining("a block comment "
+                + "marker shares this line with other text");
+        assertThatThrownBy(() -> ScenarioModel.read(markerInAString, KIT)).hasMessageContaining("a block comment "
+                + "marker shares this line with other text");
+        assertThatThrownBy(() -> ScenarioModel.read(inlineSlashes, KIT)).hasMessageContaining("'//' after other text "
+                + "is not a comment for Structurizr");
+        assertThatThrownBy(() -> ScenarioModel.read(loneLayoutText, KIT)).hasMessageContaining("may hold only "
+                + "'from -> to \"description\"' steps and autoLayout");
+    }
+
+    @Test
+    void theUnambiguousCommentFormsAreSkippedAsStructurizrSkipsThem() throws IOException {
+        Path model = write("/*\n        clerk -> quotes \"Hidden\"\n        */\n        /* one line */\n"
+                + "        // a line comment\n        # another\n        clerk -> quotes \"Uses\"");
+
+        assertThat(ScenarioModel.read(model, KIT).view("ScenarioFixture").orElseThrow().steps())
+                .extracting(ScenarioModel.ViewStep::order, ScenarioModel.ViewStep::description)
+                .containsExactly(tuple(1, "Uses"));
+    }
+
+    /** The rows of a generated page's relationships table: step, from, to and description. */
+    private static List<List<String>> steps(String page) {
+        String table = page.substring(page.indexOf("## Relationships"));
+        List<List<String>> rows = new ArrayList<>();
+        for (String line : table.lines().skip(4).takeWhile(l -> l.startsWith("| ")).toList()) {
+            List<String> cells = Arrays.stream(line.substring(2, line.length() - 2).split(" \\| ", -1))
+                    .map(c -> c.replace("\\|", "|")).toList();
+            rows.add(List.of(cells.get(0), cells.get(1), cells.get(2), cells.get(3)));
+        }
+        return rows;
     }
 
     @Test
@@ -126,6 +220,7 @@ class ScenarioModelTest {
         for (int i = 0; i < replacements.length; i += 2) {
             text = text.replace(replacements[i], replacements[i + 1]);
         }
-        return Files.writeString(dir.resolve("fixture.dsl"), text, StandardCharsets.UTF_8);
+        written++;
+        return Files.writeString(dir.resolve("fixture-" + written + ".dsl"), text, StandardCharsets.UTF_8);
     }
 }

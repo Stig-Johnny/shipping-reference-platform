@@ -89,6 +89,10 @@ tasks.test {
         .withPropertyName("model")
     inputs.dir(rootDir.resolve("architecture/scenarios")).withPathSensitivity(PathSensitivity.RELATIVE)
         .withPropertyName("scenarios")
+    // ScenarioModelTest compares the scenario reader with Structurizr's reading of the views, as the docs tool renders
+    // it into the generated pages that :tools:docs:checkGenerated holds to the model in the same build.
+    inputs.dir(rootDir.resolve("docs/architecture")).withPathSensitivity(PathSensitivity.RELATIVE)
+        .withPropertyName("viewPages")
     val mainClassDirectories: FileCollection = sourceSets.main.get().output.classesDirs
     val scenarioRevision = revision
     jvmArgumentProviders.add(CommandLineArgumentProvider {
