@@ -54,7 +54,7 @@ class ThreadTenantContextTest {
     }
 
     @Test
-    void anotherThreadDoesNotSeeTheBinding() throws InterruptedException {
+    void anIndependentlyStartedThreadDoesNotInheritTheBinding() throws InterruptedException {
         AtomicReference<Throwable> other = new AtomicReference<>();
 
         Thread thread = context.callAs(ALPHA, () -> Thread.ofPlatform().start(() -> {

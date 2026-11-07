@@ -17,8 +17,9 @@ authentication and tenant isolation. A minimal supporting slice: just enough ide
 
 Built: `TenantId`, `CurrentTenant` and `MissingTenantContextException` in `tenants.api`, and `ThreadTenantContext` in
 `internal.application`. It binds a tenant to the current thread for one unit of work with a `ScopedValue`, so the
-binding ends when the work returns or throws, the previous one applies again, and no other thread sees it
-(`ThreadTenantContextTest`). The quotes module takes its tenant from `CurrentTenant`.
+binding ends when the work returns or throws and the previous one applies again, and independently started threads do
+not inherit the binding (`ThreadTenantContextTest`); child tasks forked through `StructuredTaskScope` can inherit it.
+The quotes module takes its tenant from `CurrentTenant`.
 
 Planned: everything else on this page, demo authentication, the HTTP filter that binds the tenant, `TenantScope`,
 `UserId`, the transaction manager that sets `app.tenant_id`, prototype flags, `GET /api/v1/me` and the schema. Every

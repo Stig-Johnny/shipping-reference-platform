@@ -163,7 +163,7 @@ class SitePagesTest {
             assertThat(page).doesNotContain("the build fails when it does not", "proves that a reference exists",
                     "no status: not a checked module", "Asserted by", "the tests that assert them");
         }
-        assertThat(flow).contains(">Steps and planned acceptance tests</", "<th>Planned acceptance test</th>");
+        assertThat(flow).contains(">Steps and acceptance tests</", "<th>Acceptance tests and status</th>");
     }
 
     @Test
@@ -264,7 +264,7 @@ class SitePagesTest {
         int heading = flow.indexOf("<h2 id=\"dynamic-view\">Dynamic view</h2>");
         int figure = flow.indexOf("<pre class=\"diagram-source\" data-diagram=\"quote-book-label\">flowchart LR");
         int source = flow.indexOf("<summary>Sequence source");
-        int steps = flow.indexOf("<h2 id=\"steps-and-planned-acceptance-tests\">");
+        int steps = flow.indexOf("<h2 id=\"steps-and-acceptance-tests\">");
         assertThat(List.of(heading, figure, source, steps)).doesNotContain(-1).isSorted();
         assertThat(flow).contains("The step numbers in the tables below follow the sequence source",
                 "<th>Step (sequence numbers)</th>", "its number in the view&#39;s relationships table");
@@ -462,7 +462,7 @@ class SitePagesTest {
         }
         String flow = site.text("model/flow-quote-book-label.html");
         String flowRegion = "<div class=\"table-scroll table-wide-flow\" role=\"region\" tabindex=\"0\" aria-label=\"";
-        String steps = "Table 1 in Steps and planned acceptance tests, scrolls sideways";
+        String steps = "Table 1 in Steps and acceptance tests, scrolls sideways";
         assertThat(count(flow, flowRegion + steps + "\">\n" + hint)).isEqualTo(1);
         assertThat(count(flow, flowRegion + "Table 2 in Alternatives and failures, scrolls sideways\">\n" + hint))
                 .isEqualTo(1);

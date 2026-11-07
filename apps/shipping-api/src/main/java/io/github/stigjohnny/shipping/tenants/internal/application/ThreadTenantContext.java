@@ -9,8 +9,9 @@ import java.util.function.Supplier;
 /**
  * {@link CurrentTenant} from a binding to the current thread that lasts exactly as long as one unit of work. The
  * binding is a {@link ScopedValue} (final in Java 25), so it cannot outlive the work: when the work returns or throws,
- * the previous binding, or none, applies again, and no other thread sees it. The planned HTTP filter and
- * {@code TenantScope} (docs/modules/tenants.md) are to bind through it.
+ * the previous binding, or none, applies again. Independently started threads do not inherit the binding; child tasks
+ * forked through {@code StructuredTaskScope} can inherit it. The planned HTTP filter and {@code TenantScope}
+ * (docs/modules/tenants.md) are to bind through it.
  */
 public final class ThreadTenantContext implements CurrentTenant {
 
