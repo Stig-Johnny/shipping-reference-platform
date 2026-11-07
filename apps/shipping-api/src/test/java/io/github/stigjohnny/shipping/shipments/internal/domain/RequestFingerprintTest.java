@@ -21,9 +21,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * The request fingerprint (invariant S7): SHA-256, as lower-case hex, over the request's fields in the specification's
  * order, each written as its UTF-8 byte length in decimal, a colon and its value, and an absent optional field as
- * "0:". The two golden values were computed by hand from that encoding with {@code shasum -a 256}, not with this code.
- * Every field changes the fingerprint, an absent optional field differs from a present one, and values count exactly
- * as they are: no trimming and no case folding.
+ * "0:". The three golden values were computed by hand from that encoding with {@code shasum -a 256}, not with this
+ * code. Every field changes the fingerprint, an absent optional field differs from a present one, and values count
+ * exactly as they are: no trimming and no case folding. Text is encoded strictly, so no two values share an encoding.
  */
 class RequestFingerprintTest {
 
@@ -38,6 +38,8 @@ class RequestFingerprintTest {
             + "36:0e5b8a3c-7f0d-4b8e-8f3a-6c2d1e0f9a02" + "21:Synthetic Recipient 1" + "16:1 Example Street" + "0:"
             + "5:11122" + "9:Exampleby" + "2:SE" + "10:ORDER-1001";
     private static final String EXAMPLE_GOLDEN = "4811c2af57f81d7671dd467eeaa85f167cc99f0757a37cfb7f27d53353bd770c";
+    /** U+1D538: one code point, two Java chars, four UTF-8 bytes. */
+    private static final String WIDE = Character.toString(0x1D538);
 
     @Test
     void theContractsExampleHasTheFingerprintComputedByHand() {
@@ -58,6 +60,32 @@ class RequestFingerprintTest {
         assertThat(sha256(encoded)).isEqualTo(golden);
 
         assertThat(RequestFingerprint.of(command).value()).isEqualTo(golden);
+    }
+
+    @Test
+    void aCharacterBeyondUffffCountsItsFourUtf8Bytes() {
+        // The name is 21 code points, 22 Java chars and 24 UTF-8 bytes long.
+        BookingCommand command = new BookingCommand(QUOTE, OFFER, new Recipient("Synthetic Recipient " + WIDE,
+                RECIPIENT.addressLine1(), null, RECIPIENT.postcode(), RECIPIENT.city(), RECIPIENT.countryCode()), null);
+        String encoded = "36:5b0f6c3e-2a43-4c1e-9d55-0d6f3e1a7b21" + "36:0e5b8a3c-7f0d-4b8e-8f3a-6c2d1e0f9a02"
+                + "24:Synthetic Recipient " + WIDE + "16:1 Example Street" + "0:" + "5:11122" + "9:Exampleby" + "2:SE"
+                + "0:";
+        String golden = "7e5fd8cb77eb5411ac2d78c0a0a39a22c678a123eb5a488d154b113f41895aa2";
+        assertThat(sha256(encoded)).isEqualTo(golden);
+
+        assertThat(RequestFingerprint.of(command).value()).isEqualTo(golden);
+    }
+
+    @Test
+    void textIsEncodedStrictlySoALoneSurrogateIsNeverAQuestionMark() {
+        // A lenient encoder writes ? for a lone surrogate, which gave "Synthetic" with U+D800 after it the fingerprint
+        // of "Synthetic?". Recipient refuses such text; the fingerprint refuses it too, and never replaces a character.
+        assertThat(HexFormat.of().formatHex(RequestFingerprint.utf8("Synthetic?"))).isEqualTo("53796e7468657469633f");
+        assertThat(HexFormat.of().formatHex(RequestFingerprint.utf8(WIDE))).isEqualTo("f09d94b8");
+        for (String malformed : List.of("Synthetic\uD800", "\uDC00Synthetic", "Synthetic \uDD38\uD835")) {
+            assertThatThrownBy(() -> RequestFingerprint.utf8(malformed)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("A booking request's text is not well-formed Unicode, so it has no fingerprint.");
+        }
     }
 
     @ParameterizedTest(name = "{0}")

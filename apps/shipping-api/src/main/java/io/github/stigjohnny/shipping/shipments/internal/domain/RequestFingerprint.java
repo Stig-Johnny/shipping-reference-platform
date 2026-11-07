@@ -54,9 +54,14 @@ public record RequestFingerprint(String value) {
             sha256.update(ABSENT);
             return;
         }
-        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = utf8(value);
         sha256.update((bytes.length + ":").getBytes(StandardCharsets.US_ASCII));
         sha256.update(bytes);
+    }
+
+    /** The text's UTF-8 bytes. Package-private, so that its own test reaches it. */
+    static byte[] utf8(String value) {
+        return value.getBytes(StandardCharsets.UTF_8);
     }
 
     private static MessageDigest sha256() {
