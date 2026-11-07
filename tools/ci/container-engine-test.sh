@@ -84,6 +84,18 @@ fresh
 engine stage
 FAKE_LEFTOVER=9f8e engine verify
 check "a container left by the tests is swept and the verification passes" pass $?
+
+# The engine keeps its last 256 events: a window with that many cannot be shown complete, and no failure of the
+# count may read as a count of 0.
+many="$(for n in $(seq 1 300); do echo "container create c$n $image"; done)"
+fresh
+engine stage
+FAKE_EVENTS="$many" engine verify
+check "a window of 300 events fails the verification" fail $? "The tests produced 300 engine events"
+fresh
+engine stage
+FAKE_EVENTS="$many" FAKE_GREP_FAIL=1 engine verify
+check "a count that fails is no count of 0: 300 events still fail the verification" fail $? "300 engine events"
 fresh
 engine verify
 check "a verification without a staging fails" fail $? "nothing was staged"

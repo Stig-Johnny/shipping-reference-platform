@@ -45,6 +45,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HexFormat;
@@ -503,6 +504,17 @@ public final class PolicyCheck {
     /** A container runtime inside a normalised word: not a path component, a file name, a registry or another name. */
     static final Pattern BOUNDED_RUNTIME = Pattern.compile(
             "(?<![A-Za-z0-9_.-])(docker-compose|docker|podman|nerdctl|buildah)(?![A-Za-z0-9_./-])(?!://)");
+    /** In Groovy, whose slashy strings (/.../, $/.../$) this check does not parse: a runtime between any delimiters. */
+    static final Pattern GROOVY_RUNTIME = Pattern.compile(
+            "(?<![A-Za-z0-9_])(docker-compose|docker|podman|nerdctl|buildah)(?![A-Za-z0-9_])");
+    /** A Kotlin or Groovy string template whose expression holds a string literal: text assembled in the string. */
+    static final Pattern LITERAL_TEMPLATE = Pattern.compile("\\$\\{[^}\\n]*[\"']");
+    /** A GitHub expression function that builds text: the shell would run text that this check does not see. */
+    static final Pattern EXPRESSION_TEXT = Pattern.compile("\\$\\{\\{[^}]*\\b(format|join|toJSON|fromJSON)\\s*\\(");
+    static final Pattern ASSIGNMENT = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*\\+?=.*", Pattern.DOTALL);
+    /** Words after which the next word is still the command: assignments and the wrappers that run their arguments. */
+    static final Set<String> WRAPPERS = Set.of("sudo", "exec", "env", "command", "builtin", "nohup", "time", "nice",
+            "xargs", "eval", "then", "do", "else", "elif", "if", "while", "until", "!", "{");
     static final Pattern JOB_CONTAINER = Pattern.compile(
             "(?:^|[\\s{,\\[])(?:\"(?:services|container)\"|'(?:services|container)'|services|container)\\s*:");
     static final Pattern ESCAPED_KEY = Pattern.compile("\"[^\"\\n]*\\\\[^\"\\n]*\"\\s*:");
@@ -539,8 +551,16 @@ public final class PolicyCheck {
                 for (Literal literal : views.literals()) imageNames(file, text, literal.value(), literal.offset(), 1);
             }
             boolean workflow = rel.startsWith(".github/workflows/");
-            if (workflow || name.endsWith(".sh") || text.startsWith("#!")) checkShell(file, text, workflow);
+            boolean script = workflow || name.endsWith(".sh") || text.startsWith("#!");
+            if (script) checkShell(file, text, workflow);
             if (views != null) checkImageCode(file, text, views, language.orElseThrow(), rel.equals(HARNESS));
+            if (views == null && !script && ("/" + rel).contains("/src/")) {
+                // A resource is data that code can read and run: no container runtime in it either.
+                for (Matcher m = RUNTIME_WORD.matcher(text); m.find(); ) {
+                    add("images", "%s: names a container runtime (%s) in a resource, which code can read and run"
+                            .formatted(at(file, text, m.start()), m.group(1)));
+                }
+            }
         }
     }
 
@@ -655,6 +675,13 @@ public final class PolicyCheck {
         for (String view : runtimeViews) {
             for (Matcher m = RUNTIME_WORD.matcher(view); m.find(); ) runtime(file, lineOf(text, m.start()), m.group(1));
         }
+        if (language == Language.GROOVY) {
+            for (Matcher m = GROOVY_RUNTIME.matcher(text); m.find(); ) runtime(file, lineOf(text, m.start()), m.group(1));
+        }
+        if (language != Language.JAVA) {
+            find(file, text, text, LITERAL_TEMPLATE, "a string template that holds a string literal assembles text this "
+                    + "check cannot read; write the text plainly");
+        }
         for (Literal literal : views.literals()) {
             for (Shell.Word word : Shell.flatten(Shell.read(literal.value(), lineOf(text, literal.offset())), 0)) {
                 if (word.operator()) continue;
@@ -754,8 +781,12 @@ public final class PolicyCheck {
                             + "check reads what the runner runs");
                 }
             }
+            find(file, text, text, EXPRESSION_TEXT, "a GitHub expression that builds text the runner runs; write the text "
+                    + "plainly, so that this check reads it");
         }
-        List<Shell.Word> words = Shell.flatten(Shell.read(text, 1), 0);
+        List<Shell.Word> read = Shell.read(text, 1, workflow);
+        commandSubstitutions(file, read);
+        List<Shell.Word> words = Shell.flatten(read, 0);
         for (int k = 0; k < words.size(); k++) {
             Shell.Word word = words.get(k);
             String where = "%s:%d".formatted(relative(file), word.line());
@@ -793,6 +824,35 @@ public final class PolicyCheck {
                         .formatted(where, command.isEmpty() ? "without a command this check can read" : safe(command))
                         + "digest, and reads and removals)");
             }
+        }
+    }
+
+    /**
+     * A command that a command substitution names, as in $(printf ...) run: the shell runs text that this check cannot
+     * read. Within a substitution its own first word is a command; after it, the outer command goes on.
+     */
+    void commandSubstitutions(Path file, List<Shell.Word> words) {
+        ArrayDeque<Boolean> outer = new ArrayDeque<>();
+        boolean commandNext = true;
+        for (Shell.Word w : words) {
+            if (w.operator()) {
+                switch (w.text()) {
+                    case "$(", "(" -> {
+                        outer.push(commandNext);
+                        commandNext = true;
+                    }
+                    case ")" -> commandNext = outer.isEmpty() || outer.pop();
+                    default -> commandNext = true;
+                }
+                continue;
+            }
+            if (!commandNext) continue;
+            if (ASSIGNMENT.matcher(w.text()).matches() || WRAPPERS.contains(w.text())) continue;
+            if (w.text().startsWith("$()")) {
+                add("images", "%s:%d: a command that a command substitution names; this check cannot read what it runs"
+                        .formatted(relative(file), w.line()));
+            }
+            commandNext = false;
         }
     }
 
@@ -884,23 +944,30 @@ public final class PolicyCheck {
         private final String s;
         private final List<Word> words = new ArrayList<>();
         private final int depth;
+        /** A workflow: YAML strips a block's indentation, so a line continuation joins the next line's text. */
+        private final boolean yaml;
         private StringBuilder word;
         private int wordLine;
         private int line;
         private int i;
 
-        private Shell(String s, int line, int depth) {
+        private Shell(String s, int line, int depth, boolean yaml) {
             this.s = s;
             this.line = line;
             this.depth = depth;
+            this.yaml = yaml;
         }
 
         static List<Word> read(String text, int line) {
-            return read(text, line, 0);
+            return read(text, line, 0, false);
         }
 
-        private static List<Word> read(String text, int line, int depth) {
-            Shell shell = new Shell(text, line, depth);
+        static List<Word> read(String text, int line, boolean yaml) {
+            return read(text, line, 0, yaml);
+        }
+
+        private static List<Word> read(String text, int line, int depth, boolean yaml) {
+            Shell shell = new Shell(text, line, depth, yaml);
             if (depth > DEEPEST) {
                 shell.words.add(new Word(TOO_DEEP, line, true));
                 return shell.words;
@@ -936,6 +1003,9 @@ public final class PolicyCheck {
                 if (c == '\\') {
                     if (i + 1 < s.length() && s.charAt(i + 1) == '\n') {
                         line++;
+                        if (yaml) {
+                            while (i + 2 < s.length() && (s.charAt(i + 2) == ' ' || s.charAt(i + 2) == '\t')) i++;
+                        }
                     } else if (i + 1 < s.length()) {
                         append(s.charAt(i + 1));
                     }
@@ -1009,7 +1079,7 @@ public final class PolicyCheck {
             int close = matching(s, open);
             String inside = s.substring(open + 1, Math.min(close, s.length()));
             operator("$(");
-            words.addAll(read(inside, line, depth + 1));
+            words.addAll(read(inside, line, depth + 1, yaml));
             operator(")");
             line += (int) inside.chars().filter(c -> c == '\n').count();
             start();
@@ -1022,7 +1092,7 @@ public final class PolicyCheck {
             while (end < s.length() && s.charAt(end) != '`') end += s.charAt(end) == '\\' ? 2 : 1;
             String inside = s.substring(i + 1, Math.min(end, s.length()));
             operator("$(");
-            words.addAll(read(inside, line, depth + 1));
+            words.addAll(read(inside, line, depth + 1, yaml));
             operator(")");
             line += (int) inside.chars().filter(c -> c == '\n').count();
             start();
