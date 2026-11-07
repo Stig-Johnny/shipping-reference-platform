@@ -9,7 +9,7 @@ module: web
 # Shipping workbench: UI specification
 
 This specification is binding for visual design, behavior, states and accessibility. Changes require an explicit
-design decision recorded here. ADR 0009 defines the technical approach; the OpenAPI contract defines API behavior.
+design decision recorded here. ADR 0012 defines the technical approach; the OpenAPI contract defines API behavior.
 
 ## Amendment 2026-11-07: scope of the first runnable slice
 
@@ -25,7 +25,7 @@ An explicit design decision under the rule above. The rest of this specification
 - **Kept:** for everything in scope, every state in [States](#states) and every rule in
   [Keyboard and accessibility requirements](#keyboard-and-accessibility-requirements); and the no-storage rule:
   tokens, the theme override and the booking recovery are held in memory only.
-- **Technology:** the components are plain TypeScript, without a framework (ADR 0009, amendment 2026-11-07). Their
+- **Technology:** the components are plain TypeScript, without a framework (ADR 0012). Their
   names and responsibilities in [Components](#components) stay. The component tests named there are deferred with
   their tooling and stay acceptance targets; until they exist, logic tests under `node --test` and the end-to-end
   specs test the workbench.

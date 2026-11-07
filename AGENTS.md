@@ -24,7 +24,7 @@ as the code. An agent that makes a check pass by weakening it has failed the tas
    status, change `architecture/workspace.dsl` first, in the same pull request. Never add a relationship, widen a
    package mapping or switch `REQUIRED` to `PERMITTED` just to make a failing check pass; stop and report instead.
 3. **Contract first.** If the change touches the HTTP interface, change `contracts/shipping.openapi.yaml` first. No
-   client is generated in the first runnable slice; the web app's hand-written types follow the contract (ADR 0004).
+   client is generated in the first runnable slice; the web app's hand-written types follow the contract (ADR 0012).
 4. **Tests first.** Write the failing test, run it, keep the failing output, then make it pass. Behaviour changes
    need acceptance criteria in domain language and this red-green evidence in the pull request body. Test class
    names in `docs/capabilities/capabilities.yaml` are binding: use exactly those names.

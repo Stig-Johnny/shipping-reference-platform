@@ -1,7 +1,8 @@
 ---
 title: "ADR 0003: Modular monolith with Spring Modulith and hexagonal modules"
 description: "One deployable Spring Boot application; each business module is a top-level package with a public api package and hexagonal internals."
-status: accepted
+status: superseded
+supersededBy: "0012"
 updated: 2026-11-07
 date: 2026-11-06
 decision-makers: repository owner
@@ -13,8 +14,6 @@ enforcedBy:
 ---
 
 # ADR 0003: Modular monolith with Spring Modulith and hexagonal modules
-
-Amended on 2026-11-07: see [Amendment 2026-11-07](#amendment-2026-11-07-jdbc-adapters-use-spring-jdbc).
 
 ## Context and Problem Statement
 
@@ -86,17 +85,6 @@ Chosen option 1.
 - `java` runs `ArchitectureConformanceTest` (ADR 0002).
 - Compilation fails on Error Prone errors and NullAway findings; `@SuppressWarnings("NullAway")` is a level 3
   behaviour signal in `policy/risk.json`.
-
-## Amendment 2026-11-07: JDBC adapters use Spring JDBC
-
-- In v0.1, `internal.adapter.out.jdbc` holds adapters written with Spring JDBC's `JdbcClient` instead of the Spring
-  Data JDBC repositories named above. They implement the module's outbound ports with explicit SQL. `JdbcClient`
-  comes from `spring-jdbc` 7.0.10 through `spring-boot-starter-jdbc` 4.1.2, both reviewed and already in the API's
-  build. Spring Data JDBC is not in the build: adding it would need a dependency review and a maintenance lock pull
-  request (ADR 0007).
-- The persistence details, table ownership included, are in ADR 0005's amendment of the same date.
-- Nothing else changes: the packages a module may have, the dependencies allowed between them, and the checks that
-  confirm them.
 
 ## More Information
 

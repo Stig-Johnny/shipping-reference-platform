@@ -1,12 +1,12 @@
 # AGENTS.md: apps/shipping-web (npm workspace `@shipping-reference-platform/web`)
 
-Adds to the root `AGENTS.md`. Decision: ADR 0009 and its amendment of 2026-11-07. Screen specification:
+Adds to the root `AGENTS.md`. Decision: ADR 0012, which supersedes ADR 0009. Screen specification:
 `docs/ui/workbench.md` (binding for visual design, behaviour, states and accessibility; changes require an explicit
 design decision recorded there; its amendment of 2026-11-07 sets the scope of the first runnable slice).
 
 ## Stack
 
-A plain TypeScript single-page app with no UI framework (ADR 0009, amendment 2026-11-07).
+A plain TypeScript single-page app with no UI framework (ADR 0012).
 
 - TypeScript 5.9.3 (`tsc`) type-checks the sources and emits browser ES modules; there is no bundler. Its review is
   pending (issue #59): do not install it before its allowlist entry is approved. Node 26.13.0, npm 11.20.0.
@@ -46,8 +46,9 @@ in the `java` check (`WebArchitectureConformanceTest`); `tools/web-imports/check
 - `src/auth/` imports nothing from `features`.
 - No import cycles.
 
-The check claims import boundaries and cycles only. It claims no required edges between parts, and it does not see
-the HTTP calls to the API: only the end-to-end tests exercise those.
+The checker enforces import boundaries and cycles, and requires a direct import for each REQUIRED relationship whose
+endpoints are built. Relationships touching planned parts are not evaluated. The HTTP calls to the API stay outside
+the check; the end-to-end tests are their evidence.
 
 ## Rules
 

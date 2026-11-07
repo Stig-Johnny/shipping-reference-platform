@@ -171,8 +171,8 @@ identical input.
 
 - `internal.adapter.in.web`: `ShipmentsController` (all five operations), request and response records, mapping of
   outcomes to problems. Recipient data is never logged; request logging excludes bodies.
-- `internal.adapter.out.jdbc`: `JdbcShipmentStore` (Spring JDBC's `JdbcClient`, ADR 0005, amendment 2026-11-07;
-  optimistic locking by a check of the `version` column in each update), `JdbcTrackingNumbers` (sequence).
+- `internal.adapter.out.jdbc`: `JdbcShipmentStore` (Spring JDBC's `JdbcClient`, ADR 0012; optimistic locking by a
+  check of the `version` column in each update), `JdbcTrackingNumbers` (sequence).
 
 ## Data: schema `shipments` (migration `V3__shipments.sql`)
 
