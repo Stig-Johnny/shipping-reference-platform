@@ -135,6 +135,9 @@ class SiteAssetsTest {
                 .doesNotContain("outline: none");
         assertThat(js).contains("disclosure.contains(document.activeElement)", "summary.focus()",
                 "a[aria-current=\"page\"]");
+        // The focus transfer runs on every change, also when the disclosure was already open or closed: an open mobile
+        // disclosure whose focused summary disappears at desktop width hands focus on too.
+        assertThat(js).doesNotContain("if (disclosure.open === opening)");
     }
 
     @Test

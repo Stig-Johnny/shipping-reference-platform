@@ -23,8 +23,8 @@
   }
 
   // Navigation: a labelled disclosure below 720px, always open from 720px up. When the breakpoint changes, focus stays
-  // usable: a focused navigation that collapses hands focus to its summary, and a focused summary that disappears as
-  // the navigation opens hands it to the current page's link, or the first link.
+  // usable, whether or not the disclosure was already open: a focused navigation that collapses hands focus to its
+  // summary, and a focused summary that disappears at desktop width hands it to the current page's link, or the first.
   var disclosure = document.querySelector('.site-nav-disclosure');
   if (disclosure && window.matchMedia) {
     var wide = window.matchMedia('(min-width: 720px)');
@@ -33,9 +33,6 @@
       var focusInside = disclosure.contains(document.activeElement);
       var summaryFocused = summary !== null && document.activeElement === summary;
       var opening = wide.matches;
-      if (disclosure.open === opening) {
-        return;
-      }
       disclosure.open = opening;
       if (!opening && focusInside && summary) {
         summary.focus();
