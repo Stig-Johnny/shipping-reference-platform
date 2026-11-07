@@ -1,7 +1,8 @@
 ---
 title: "ADR 0009: React workbench with a generated API client"
 description: "One React SPA for clerks, calling the API only through a client generated from the OpenAPI contract; v0.1 checks import boundaries and cycles, not required frontend edges."
-status: accepted
+status: superseded
+supersededBy: "0012"
 updated: 2026-11-06
 date: 2026-11-06
 decision-makers: repository owner

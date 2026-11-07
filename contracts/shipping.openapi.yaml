@@ -5,10 +5,10 @@ info:
   version: 0.1.0
   summary: Quote, book and label parcels for one webshop tenant. Synthetic data and a simulated carrier only.
   description: |
-    Contract-first (ADR 0004): this file is the authority for the HTTP interface of the API container
+    Contract-first (ADR 0012): this file is the authority for the HTTP interface of the API container
     (`architecture/workspace.dsl`, container `api`). Java controllers are written against it by hand;
-    `*HttpContractTest` classes validate every response they exercise against it. The TypeScript client in
-    `packages/shipping-client` is generated from it, and CI fails when regeneration produces a diff.
+    `*HttpContractTest` classes validate every response they exercise against it. The web app's request and
+    response types are written by hand from it; generating a TypeScript client is deferred (ADR 0012).
     Changing this file is a risk level 3 change (`policy/risk.json`).
 
     Tags name the owning module (`quotes`, `shipments`, `tenants`); see `docs/modules/<tag>.md`.
@@ -69,7 +69,7 @@ info:
     name: Repository owner (see .github/CODEOWNERS)
 servers:
   - url: /api/v1
-    description: Same origin as the web app. Locally the Vite dev server proxies /api to the API on port 8080.
+    description: Same origin as the web app. For the first runnable slice, the Java application serves both the API and the emitted web assets on loopback (127.0.0.1).
 security:
   - demoBearer: []
 tags:

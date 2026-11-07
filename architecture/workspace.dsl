@@ -67,9 +67,9 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
 
         platform = softwareSystem "Shipping reference platform" "Quotes, books and labels parcels for webshop tenants." {
 
-            web = container "Web app" "Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer." "React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client" "WebApp,Planned"
+            web = container "Web app" "Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer." "Plain TypeScript SPA (no framework), TypeScript 5.9.3" "WebApp,Planned"
 
-            api = container "API" "Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals." "Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring Data JDBC" {
+            api = container "API" "Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals." "Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient)" {
                 properties {
                     "contract.root" "io.github.stigjohnny.shipping"
                     "contract.isolated" "io.github.stigjohnny.shipping.ShippingApplication,io.github.stigjohnny.shipping.CorrelationIdFilter,io.github.stigjohnny.shipping.FallbackProblemHandler"
@@ -146,7 +146,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
         clerk -> web "Prices parcels, books shipments and downloads labels in" "HTTPS, browser"
         admin -> web "Will manage tenants and memberships in (planned; no admin screens in v0.1)" "HTTPS, browser" "Planned"
         admin -> db "Provisions synthetic tenants and memberships through reviewed seed migrations run as the migration role" "Flyway"
-        web -> api "Calls the shipping API through the generated client" "JSON over HTTPS"
+        web -> api "Calls the shipping API through its hand-written typed HTTP adapter" "JSON over HTTPS"
         webshop -> api "Will submit orders to ship (planned)" "JSON over HTTPS" "Planned"
         api -> db "Reads and writes tenant-scoped data as the application role, which lacks BYPASSRLS" "JDBC"
         api -> carrier "Obtains rates, tracking numbers and labels (simulated in-process; no network call in v0.1)" "In-process simulation" "Simulated"
@@ -156,10 +156,10 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
         web -> quotes "Creates and reads quotes" "JSON over HTTPS"
         web -> shipments "Books, lists, reads and cancels shipments; downloads labels" "JSON over HTTPS"
         webshop -> orders "Will submit orders to ship" "JSON over HTTPS" "Planned"
-        quotes -> db "Stores quotes and offers in schema quotes" "Spring Data JDBC"
-        shipments -> db "Stores shipments and idempotency keys in schema shipments; writes event publications" "Spring Data JDBC"
+        quotes -> db "Stores quotes and offers in schema quotes" "Spring JDBC (JdbcClient)"
+        shipments -> db "Stores shipments and idempotency keys in schema shipments; writes event publications" "Spring JDBC (JdbcClient)"
         tenants -> db "Resolves demo tokens through a security-definer function, reads prototype flags, sets app.tenant_id in every transaction" "JDBC"
-        audit -> db "Appends audit entries in schema audit" "Spring Data JDBC"
+        audit -> db "Appends audit entries in schema audit" "Spring JDBC (JdbcClient)"
         quotes -> carrier "Prices each service level from the carrier's synthetic tariff (simulated in-process)" "In-process simulation" "Simulated"
         shipments -> carrier "Assigns simulated tracking numbers and renders simulated labels (in-process)" "In-process simulation" "Simulated"
         tracking -> carrier "Will receive tracking events" "HTTPS webhook" "Planned"
