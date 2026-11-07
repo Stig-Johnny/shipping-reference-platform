@@ -67,7 +67,9 @@ closes it.
   (`static final` primitives and strings) into the class that uses them, so using another module's constant leaves
   no reference. Casts, the types of local variables, explicit type arguments of method calls and array creation
   (`new T[n]`) are not reported either. A module that uses another only in these ways shows no divergence, and such
-  a use does not satisfy a REQUIRED edge. `BytecodeEvidenceTest` pins this list.
+  a use does not satisfy a REQUIRED edge. `BytecodeEvidenceTest` pins this list. Type patterns in a `switch`
+  (`case T t`, `case T _`) compile to an `invokedynamic` type switch whose bootstrap arguments hold the classes; they
+  are not reported either, and `BytecodeEvidenceTest` does not pin that yet (issue #69).
 - **Granularity.** Mapping is by package root. A class placed in the wrong module's package is attributed to that
   module. Encapsulation inside a module (which internal class may call which) is Spring Modulith's and ArchUnit's
   job, and both see the same static references only.
