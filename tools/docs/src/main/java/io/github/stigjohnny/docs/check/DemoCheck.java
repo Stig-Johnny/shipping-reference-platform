@@ -328,12 +328,19 @@ final class DemoCheck {
     /**
      * The problem of each command of a ```sh fence. A line that ends with a backslash continues on the next, as in the
      * shell: the backslash and the newline are removed and nothing takes their place, so {@code ./gradlew\} and
-     * {@code check} on the next line are {@code ./gradlewcheck}; whitespace that is written stays.
+     * {@code check} on the next line are {@code ./gradlewcheck}; whitespace that is written stays. Inside single
+     * quotes the shell keeps the backslash and the newline, so such a line is a problem, not a continuation.
      */
     private static List<String> commands(String fence, Set<String> checkerTests) {
         List<String> problems = new ArrayList<>();
         StringBuilder command = new StringBuilder();
         for (String line : fence.lines().toList()) {
+            if (line.endsWith("\\") && insideSingleQuotes(command + line.substring(0, line.length() - 1))) {
+                problems.add("'" + (command + line).strip() + "' continues a line inside single quotes, where the shell "
+                        + "keeps the backslash and the newline");
+                command.setLength(0);
+                continue;
+            }
             if (line.endsWith("\\")) {
                 command.append(line, 0, line.length() - 1);
                 continue;
@@ -350,6 +357,29 @@ final class DemoCheck {
                     + "line");
         }
         return problems;
+    }
+
+    /**
+     * Whether the shell is inside single quotes at the end of {@code text}. Inside them every character is literal;
+     * outside them a backslash takes the next character literally, and a single quote within double quotes opens
+     * nothing.
+     */
+    private static boolean insideSingleQuotes(String text) {
+        boolean single = false;
+        boolean doubled = false;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (single) {
+                single = c != '\'';
+            } else if (c == '\\') {
+                i++;
+            } else if (c == '"') {
+                doubled = !doubled;
+            } else if (c == '\'' && !doubled) {
+                single = true;
+            }
+        }
+        return single;
     }
 
     /** Why a command is not approved, or nothing: shell syntax first, then the command whole, with its arguments. */

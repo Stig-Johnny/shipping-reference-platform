@@ -364,6 +364,11 @@ class DemoCheckTest {
         assertThat(problems("docs/demos/42-gate.md", withCommand("./gradlew :libs:c4-contract-kit:test --rerun \\\n"
                 + "    --tests '*SelfConformanceTest' --tests '*ConformanceDivergenceTest'"))).isEmpty();
         assertThat(problems("docs/demos/42-gate.md", withCommand("./gradlew :tools:docs:\\\nsite"))).isEmpty();
+        // Inside single quotes the shell keeps the backslash and the newline, so the line does not continue: the test
+        // filter would be "*SelfConfor\<newline>manceTest", not the approved one.
+        assertThat(problems("docs/demos/42-gate.md", withCommand("./gradlew :libs:c4-contract-kit:test --rerun "
+                + "--tests '*SelfConfor\\\nmanceTest'")))
+                .anyMatch(problem -> problem.contains("continues a line inside single quotes"));
     }
 
     @Test
