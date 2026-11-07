@@ -76,7 +76,8 @@ Node, no TypeScript compiler and no parser library. It never runs, compiles or i
 cover fails the check with its file and line, never passes unseen: `require`, `import()` of a computed value,
 `import.meta` other than `import.meta.env`, path aliases, absolute and URL specifiers, `.js` and `.json` files,
 triple-slash directives, and JSX it cannot read with certainty. Strings, comments, templates, regular expressions and
-JSX text never count as code.
+JSX text never count as code. A relative import names a `.ts` file with its extension, as `./QuoteCard.ts`, which
+must exist with exactly that name, or a file or directory without one, which must match exactly one file.
 
 It fails on an import between two components without a relationship, on a REQUIRED relationship between built
 components without an import, on a file in no component or in a planned one, on a built component without code, on an

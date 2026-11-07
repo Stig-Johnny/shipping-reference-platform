@@ -207,6 +207,43 @@ class WebConformanceTest {
     }
 
     @Test
+    void dotTsSpecifiersAreHeldToTheRulesOfTheFilesTheyName() {
+        // tsc's rewriteRelativeImportExtensions has relative imports written with .ts: './QuoteCard.ts'.
+        Map<String, String> files = with("app/Shell.tsx", """
+                import { CartPage } from '../features/cart/index.ts';
+                import { CatalogPage } from '../features/catalog/index.ts';
+
+                export function Shell() {
+                    return <main><CatalogPage /><CartPage /></main>;
+                }
+                """);
+        files.put("features/catalog/CatalogPage.tsx", Objects.requireNonNull(files.get("features/catalog/CatalogPage.tsx"))
+                .replace("from '../cart';", "from '../cart/CartLine.ts';")
+                .replace("from '../../api/items';", "from '../../api/items.ts';"));
+        files.put("api/cart.ts", """
+                import { client } from '@shop/client';
+                import { base } from './base.ts';
+
+                export const loadCart = (): string[] => client.get(base + '/cart');
+                """);
+        WebReport report = check(files);
+
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::message, WebViolation::evidence)
+                .containsExactly(
+                        tuple(WebViolationType.ENTRY_POINT_BYPASSED, "catalog imports cart other than through its "
+                                + "web.entry web/src/features/cart/index.ts.", evidence(
+                                "web/src/features/catalog/CatalogPage.tsx", 1, "../cart/CartLine.ts", "import type",
+                                "web/src/features/cart/CartLine.ts")),
+                        tuple(WebViolationType.UNRESOLVED_IMPORT, "web/src/api/cart.ts:2: './base.ts' matches no file: "
+                                + "api/base.ts does not exist.", evidence("web/src/api/cart.ts", 2, "./base.ts",
+                                "import", "")));
+        assertThat(report.edges()).filteredOn(edge -> edge.source().equals("shell") && edge.target().equals("cart"))
+                .singleElement().extracting(WebEdgeResult::status, WebEdgeResult::evidence).containsExactly(
+                        EdgeStatus.CONVERGENCE, evidence("web/src/app/Shell.tsx", 1, "../features/cart/index.ts",
+                                "import", "web/src/features/cart/index.ts"));
+    }
+
+    @Test
     void aPackageThatTheComponentDoesNotListIsUndeclared() {
         WebReport report = check(with("ui/Button.tsx", """
                 import type { ReactNode } from 'react';
