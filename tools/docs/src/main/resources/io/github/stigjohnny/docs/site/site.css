@@ -569,11 +569,22 @@ tr.group th {
 
 .diagram-scroll svg {
   display: block;
+  max-width: 100%;
   height: auto;
   margin: 0 auto;
 }
 
+/* Until the script has fitted a drawing to its complete bounds (data-fitted="true"), the drawing is invisible, so no
+   frame shows it cut. Only the drawing: the caption and the tables stay, and without the script there is no drawing,
+   only its source. */
+.diagram:not([data-fitted="true"]) .diagram-scroll svg {
+  visibility: hidden;
+}
+
+/* Enlarged: the natural width or one and a half times the region, whichever is wider, within the same bounds. */
 .diagram.is-enlarged .diagram-scroll svg {
+  width: max(var(--diagram-width, 100%), 150%);
+  max-width: none;
   margin: 0;
 }
 
