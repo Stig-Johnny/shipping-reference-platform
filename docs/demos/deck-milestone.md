@@ -34,7 +34,7 @@ The checker and the dependency gate run; the shipping app is planned.
 |---|---|
 | The model governs the structure | Built and tested: the checker |
 | The gate stops unreviewed dependencies | Declared dependencies are checked in the approved CI run |
-| The shipping app itself | Planned: 26 of 27 capabilities; tenant isolation is partly built, in the database |
+| The shipping app itself | Planned: 26 of 27 capabilities |
 
 ### Notes
 

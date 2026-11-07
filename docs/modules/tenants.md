@@ -157,8 +157,8 @@ no privileges.
 | T1 | Requests without a valid token get `401`; a user without membership gets `403`; header/query tenant hints cannot override membership; tenantId body members are rejected. | `DemoTokenAuthenticationTest` |
 | T2 | Token format and hashing are exact. | `DemoTokenTest` |
 | T3 | `TenantScope` binds, restores after exceptions and refuses to switch tenants inside a transaction. | `TenantScopeTest` |
-| T4 | Every tenant-owned table has RLS enabled, forced and a policy; identity tables are unreadable by `shipping_app`; `shipping_app` lacks `BYPASSRLS`, superuser and ownership. | `RowLevelSecurityCatalogTest` (passes in CI for the tables of V1 and V2) |
-| T5 | With plain JDBC as `shipping_app`: a foreign tenant sees and changes nothing; no bound tenant sees nothing and cannot insert; a reused pooled connection (pool size 1) carries no tenant into the next transaction; an asynchronous listener writes only under the event's tenant. | `RowLevelSecurityIntegrationTest` (the database's half passes in CI: one reused connection stands in for the pool, and the owner role's queries obey the forced policies too; the listener and `TenantBindingTransactionManager` parts are planned) |
+| T4 | Every tenant-owned table has RLS enabled, forced and a policy; identity tables are unreadable by `shipping_app`; `shipping_app` lacks `BYPASSRLS`, superuser and ownership. | `RowLevelSecurityCatalogTest` |
+| T5 | With plain JDBC as `shipping_app`: a foreign tenant sees and changes nothing; no bound tenant sees nothing and cannot insert; a reused pooled connection (pool size 1) carries no tenant into the next transaction; an asynchronous listener writes only under the event's tenant. | `RowLevelSecurityIntegrationTest` |
 | T6 | Tenant Beta cannot read, book, cancel or download labels for Tenant Alpha's quotes and shipments over HTTP (always `404`). | `CrossTenantAccessTest` |
 | T7 | Flags are off by default, per tenant, off after expiry, and never change authorization. | `PrototypeFlagsTest` |
 | T8 | No flag definition is past its expiry date. | `PrototypeFlagExpiryTest` |

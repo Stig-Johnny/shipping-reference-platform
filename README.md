@@ -171,9 +171,9 @@ see each other's data, enforced in queries and by forced PostgreSQL row-level se
 
 | Module | Implementation state | Depends on (from the model) |
 |---|---|---|
-| `quotes` | Planned for v0.1; no Java code yet; its schema is migrated (V2) | `tenants` (REQUIRED) |
+| `quotes` | Planned for v0.1; no code yet | `tenants` (REQUIRED) |
 | `shipments` | Planned for v0.1; no code yet | `quotes`, `tenants` (REQUIRED) |
-| `tenants` | Minimal implementation planned for v0.1; no Java code yet; its schema is migrated (V1) | nothing |
+| `tenants` | Minimal implementation planned for v0.1; no code yet | nothing |
 | `audit` | Minimal implementation planned for v0.1; no code yet | `shipments`, `tenants` (REQUIRED); `quotes` (PERMITTED, not evaluated) |
 | `orders` | planned, no code | `quotes`, `shipments` (PERMITTED, not evaluated) |
 | `tracking` | planned, no code | `shipments` (PERMITTED, not evaluated) |

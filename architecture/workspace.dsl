@@ -67,8 +67,6 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
 
         platform = softwareSystem "Shipping reference platform" "Quotes, books and labels parcels for webshop tenants." {
 
-            // The tag Planned marks a container that has no code yet: the web app, and the API until its modules have
-            // classes. The database is built in part: the migrations of two of its schemas exist and are tested.
             web = container "Web app" "Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer." "React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client" "WebApp,Planned"
 
             api = container "API" "Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals." "Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring Data JDBC" "Planned" {
