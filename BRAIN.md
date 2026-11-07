@@ -80,7 +80,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 
 ## Third-party components
 
-308 entries in `security/allowlist.json` (293 approved, 15 rejected), each with its review record in `security/reviews/`. The owner accepted this reviewed set for pull request #10: `reviewedSetSha256 8c90c58c8ad9eabca89fd577a3bb3d3b74807f60b2f93ac19ed4f0f8f6dde857`. How it works and what it cannot stop: [security/README.md](security/README.md).
+519 entries in `security/allowlist.json` (504 approved, 15 rejected), each with its review record in `security/reviews/`. The owner accepted this reviewed set for pull request #73: `reviewedSetSha256 2f2f841a4832531d5ebfc114b623a36eb2dde366b969bb5407dad0ec67cfec22`. How it works and what it cannot stop: [security/README.md](security/README.md).
 
 ## Flows
 

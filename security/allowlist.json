@@ -2,8 +2,24 @@
   "schemaVersion": 1,
   "description": "Every third-party component this repository may use: build tools, JDKs, Maven and npm packages, GitHub Actions, container images and host tools. Each entry points at its security review. Anything absent, expired, or with a verdict other than APPROVE or APPROVE-WITH-CONDITIONS must not be used, and the preflight check fails the pull request that tries. See docs/adr/0007 and security/README.md.",
   "acceptance": {
-    "status": "pending",
-    "note": "PENDING: the owner has not accepted this reviewed set. reviewedSetSha256 below is its digest, printed by java tools/policy/PolicyCheck.java --print-digest . for the Tuesday-slice security reviews (issue #59); it becomes an acceptance only when the orchestrator records the owner's literal yes here (status, by, at, how), after recomputing the digest if anything changed since.",
+    "status": "accepted",
+    "by": "Stig-Johnny (repository owner and code owner)",
+    "at": "2026-11-07T23:45:39.135Z",
+    "how": "In chat to the orchestrator: \"accept #73 2f2f841a…ec22 as recommended, 9a\", in reply to a private review deck for pull request #73 (issue #59) showing the review records, the bundled-kind gate, the limits and exactly decisions 1-11 from the pull request body with their recommendations, and asking for \"accept #73 <full digest> as recommended, 9a\". The reply abbreviates the digest to its first 8 and last 4 hex digits, which match reviewedSetSha256 2f2f841a4832531d5ebfc114b623a36eb2dde366b969bb5407dad0ec67cfec22. \"As recommended\" accepts decisions 1-8, 10 and 11 as recommended; \"9a\" selects decision 9(a), with its rehearsal condition.",
+    "scope": "Exactly the reviewed set whose digest is reviewedSetSha256: every entry, field by field, and every review record, byte for byte. Changing, adding or removing an entry, or editing a review record, afterwards fails the checker until the owner accepts again.",
+    "decisions": [
+      "1. Accepted as recommended: npm 11.20.0, both bundled copies, under Artistic-2.0, as an unmodified build tool never distributed.",
+      "2. Accepted as recommended: Chrome Headless Shell 158.0.8127.18 under Google's Chrome for Testing terms, Chromium's BSD-3-Clause and its bundled licences, for CI only, never uploaded or redistributed.",
+      "3. Accepted as recommended: TypeScript 5.9.3 declaration files under the W3C Software and Document License, CC-BY-4.0, W3C Community Final Specification Agreement, Unicode data-files licence and Khronos MIT-style licence, for compiling only; none reaches emitted JavaScript.",
+      "4. Accepted as recommended: ISC for the 12 components inlined in Playwright, copied pixelmatch and 9 components inlined in axe-core, test tooling only, never distributed.",
+      "5. Accepted as recommended: BlueOak-1.0.0 for minimatch 10.2.5 inlined in Playwright, never distributed.",
+      "6. Accepted as recommended: CC-BY-4.0 for caniuse-lite 1.0.30001810 in Playwright's Babel bundle, never redistributed.",
+      "7. Accepted as recommended: confirm the PostgreSQL License for attended-demo use of postgres 18.6-trixie, accepted with its base record in #10; nothing is redistributed.",
+      "8. Accepted as recommended: prohibit uploading, publishing or attaching Playwright HTML report folders and traces, including as CI artifacts (condition 7); CI keeps text results and screenshots.",
+      "9. Selected (a): variant B, the Mac Mini rigbuild over SSH, including the SSH tunnel for the application's HTTP port; the live demo still requires a passed rehearsal under host review condition 12. If none passes by Monday 2026-11-09 noon, choose (c), CI evidence only (test results and real-application screenshots at the same revision, no local engine), or (d), defer the live demo.",
+      "10. Accepted as recommended: the new allowlist kind bundled, with npm 11.20.0 moved to it, so an inlined copy cannot approve a standalone package in a lockfile.",
+      "11. Accepted as recommended: the exact reviewed set identified by reviewedSetSha256, following decisions 1-10."
+    ],
     "reviewedSetSha256": "2f2f841a4832531d5ebfc114b623a36eb2dde366b969bb5407dad0ec67cfec22",
     "previous": [
       {

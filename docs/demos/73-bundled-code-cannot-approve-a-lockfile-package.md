@@ -24,7 +24,7 @@ never approve the standalone package. The same pull request adds:
 - the Node.js verification and the browser's pinned hash;
 - the attended-demo records.
 
-The owner's acceptance of the reviewed set is pending.
+The owner accepted the reviewed set on 2026-11-07 in this pull request (#73).
 
 ## Try it
 
@@ -38,8 +38,8 @@ as `JAVA_HOME`.
    `https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz`, and run it again. It passes.
 4. Delete the copy afterwards.
 
-This file is a fixture for the check only. Never use it as an input to `npm ci` or any other install. Until the owner's
-acceptance is recorded, the check also reports that it is pending.
+This file is a fixture for the check only. Never use it as an input to `npm ci` or any other install. The owner's
+acceptance, given on 2026-11-07, is recorded in this pull request.
 
 ```sh
 java tools/policy/PolicyCheck.java .
@@ -85,8 +85,9 @@ Checked against `security/allowlist.json` (519 entries) on 2026-11-07.
 
 ## Limits
 
-- **The owner's acceptance is pending.** The outputs above come from a copy where it was simulated. On the pull
-  request's own files the check also fails on the pending acceptance until the owner's yes is recorded.
+- **The recorded outputs used a simulated acceptance.** The owner accepted the reviewed set on 2026-11-07 in this
+  pull request, after those outputs were recorded. They remain recordings from that scratch copy; the site build
+  does not rerun them.
 - **The check does not compare integrity values.** It matches a lockfile entry by kind, name and version, checks the
   registry prefix and that an `sha512-` value is present. Comparing `integrity` with the reviewed value is a step of
   the lockfile pull request, done by hand.
