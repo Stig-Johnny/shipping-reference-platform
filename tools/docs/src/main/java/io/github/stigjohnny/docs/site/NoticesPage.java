@@ -54,12 +54,16 @@ final class NoticesPage {
                 SOURCE + " and " + mermaid.reviewRecord(), false);
     }
 
-    /** How many pages draw a diagram, in words: every view's page, and each flow with a dynamic view. */
+    /**
+     * How many pages draw a diagram, in words: every view's page, each flow with a dynamic view, and the start page,
+     * which draws the system context.
+     */
     private static String diagramPages(Sources sources) {
         List<C4View> views = sources.workspace().model().views();
         long flows = sources.docsUnder("docs/flows/").stream().filter(flow -> views.stream().anyMatch(view ->
                 view.kind() == C4View.Kind.DYNAMIC && view.description().contains(flow.path()))).count();
-        int count = views.size() + (int) flows;
+        long start = views.stream().filter(view -> view.kind() == C4View.Kind.SYSTEM_CONTEXT).limit(1).count();
+        int count = views.size() + (int) flows + (int) start;
         List<String> words = List.of("no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
                 "ten");
         return count < words.size() ? words.get(count) : Integer.toString(count);

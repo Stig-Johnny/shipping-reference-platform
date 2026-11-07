@@ -174,8 +174,8 @@ final class BrainPage {
             return Badge.NONE.html("None yet") + " No test passed as evidence in the build that generated this site.";
         }
         boolean documentationOnly = evidenced.stream().allMatch(c -> c.control() && c.where().startsWith("tools/docs"));
-        return Badge.SHIPPED.html("Passing") + " " + Html.escape((documentationOnly ? "Documentation controls only: "
-                : "") + String.join(", ", tests) + " passed in the build that generated this site.");
+        return Badge.SHIPPED.html("Passing") + " " + (documentationOnly ? "Documentation controls only: " : "")
+                + Statuses.passed(tests, "");
     }
 
     private static String status(Capability capability) {

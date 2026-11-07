@@ -5,6 +5,7 @@ import io.github.stigjohnny.docs.repo.Capability;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.TestEvidence;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -71,8 +72,18 @@ final class Statuses {
             return Badge.NONE.html("None yet") + " No passing test is evidence for this page yet; test names in its "
                     + "text are acceptance targets.";
         }
-        return Badge.SHIPPED.html("Passing") + " " + Html.escape(String.join(", ", passing)
-                + " passed in the build that generated this site.");
+        return Badge.SHIPPED.html("Passing") + " " + passed(passing, "");
+    }
+
+    /**
+     * Passing tests as a count in words, then {@code limits} (which says what they do not prove, and is never hidden),
+     * then the full list of names in a disclosure. Built from the test names, never from HTML.
+     */
+    static String passed(Collection<String> tests, String limits) {
+        String count = tests.size() + (tests.size() == 1 ? " test" : " tests");
+        return Html.escape(count + " passed in the build that generated this site." + (limits.isEmpty() ? ""
+                : " " + limits)) + "\n<details class=\"evidence-tests\"><summary>The " + count
+                + " by name</summary><p>" + Html.escape(String.join(", ", tests)) + "</p></details>";
     }
 
     static String words(String status) {

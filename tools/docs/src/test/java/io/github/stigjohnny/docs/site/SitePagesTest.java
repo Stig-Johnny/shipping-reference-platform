@@ -378,9 +378,11 @@ class SitePagesTest {
 
     @Test
     void theModelPagesQualifyTheCheckersEvidenceAndSayWhatItCovers() {
+        // The count and what the tests do not prove stay in the ledger's line; the names are in the disclosure.
         String evidence = "<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Checker tests "
-                + "passing</span> ConformanceDivergenceTest, ConformanceAbsenceTest passed in the build that generated "
-                + "this site. These tests verify the checker; the shipping modules remain planned.</dd>";
+                + "passing</span> 2 tests passed in the build that generated this site. These tests verify the "
+                + "checker; the shipping modules remain planned.\n<details class=\"evidence-tests\"><summary>The 2 "
+                + "tests by name</summary><p>ConformanceDivergenceTest, ConformanceAbsenceTest</p></details></dd>";
         for (String page : List.of("model/index.html", "model/system-context.html", "model/containers.html",
                 "model/api-components.html", "model/quote-book-label.html")) {
             assertThat(site.text(page)).as(page).contains(evidence).doesNotContain(">Passing</span>",
@@ -424,8 +426,8 @@ class SitePagesTest {
                 .filter(c -> c.id().startsWith("control.c4-")).toList();
 
         assertThat(ModelPages.checkerEvidence(conformance, sources.evidence(), false))
-                .endsWith("passed in the build that generated this site. These tests verify the checker, not the "
-                        + "shipping modules.");
+                .contains("passed in the build that generated this site. These tests verify the checker, not the "
+                        + "shipping modules.\n<details class=\"evidence-tests\">");
         assertThat(ModelPages.checkerEvidence(conformance, new TestEvidence(Set.of(), Map.of()), true))
                 .contains(">None yet</span>");
     }
@@ -474,7 +476,7 @@ class SitePagesTest {
                         + "current head.</li>");
         assertThat(repository.indexOf("<li>An issue states the change.</li>"))
                 .isGreaterThan(repository.indexOf("Workflow source"));
-        assertThat(site.text("trust/third-party-notices.html")).contains("five diagram pages");
+        assertThat(site.text("trust/third-party-notices.html")).contains("six diagram pages");
     }
 
     private static int count(String text, String part) {

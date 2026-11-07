@@ -36,8 +36,13 @@ class SiteAssetsTest {
     void theScriptInitialisesMermaidOnceStrictlyAndRendersOnlyTheGeneratorsDiagrams() {
         assertThat(count(js, "mermaid.initialize(")).isEqualTo(1);
         assertThat(js).contains("startOnLoad: false", "securityLevel: 'strict'", "htmlLabels: false",
-                "flowchart: { htmlLabels: false", "fontFamily: 'system-ui, sans-serif'",
-                "themeVariables: { fontFamily: 'system-ui, sans-serif', fontSize: '16px' }")
+                "flowchart: { htmlLabels: false", "fontFamily: 'system-ui, sans-serif'", "theme: 'base'",
+                "fontFamily: 'system-ui, sans-serif', fontSize: '18px'",
+                "background: '#FFFDF7', edgeLabelBackground: '#FFFDF7'",
+                "primaryColor: '#F4F1E8', primaryTextColor: '#172B3A'",
+                "primaryBorderColor: '#687987', textColor: '#172B3A'", "lineColor: '#172B3A', clusterBkg: '#FFFDF7'",
+                "clusterBorder: '#687987'")
+                .doesNotContain("theme: 'default'")
                 .contains("document.querySelectorAll('pre.diagram-source[data-diagram]')")
                 .doesNotContain("dompurifyConfig", "registerIconPacks", "loose", "sandbox", "mermaid.init(",
                         "startOnLoad: true");
@@ -58,29 +63,26 @@ class SiteAssetsTest {
 
     @Test
     void theStylesheetDefinesTheBindingTokensInBothThemes() {
+        // docs/ui/documentation-site.md, "Tokens": drafting paper by default, a blueprint in the dark theme.
         String light = """
-                  --surface: #FAF8F5;
-                  --surface-raised: #FFFFFF;
-                  --text: #1E293B;
-                  --text-muted: #475569;
-                  --border-input: #64748B;
-                  --border-subtle: #E2E8F0;
-                  --action: #0F766E;
-                  --danger: #B91C1C;
-                  --warning: #92400E;
-                  --success: #166534;
+                  --page: #F4F1E8;
+                  --sheet: #FFFDF7;
+                  --ink: #172B3A;
+                  --ink-muted: #4C5E6B;
+                  --control: #687987;
+                  --link: #164F86;
+                  --failure: #A33225;
+                  --rule: #CFD2CA;
                 """;
         String dark = """
-                  --surface: #0F172A;
-                  --surface-raised: #1E293B;
-                  --text: #F1F5F9;
-                  --text-muted: #CBD5E1;
-                  --border-input: #94A3B8;
-                  --border-subtle: #334155;
-                  --action: #2DD4BF;
-                  --danger: #F87171;
-                  --warning: #FBBF24;
-                  --success: #4ADE80;
+                  --page: #0B2538;
+                  --sheet: #12344A;
+                  --ink: #F3F0E6;
+                  --ink-muted: #B8C8D1;
+                  --control: #7F9CAB;
+                  --link: #9ACBFF;
+                  --failure: #FFAB9D;
+                  --rule: #325369;
                 """;
 
         assertThat(css).contains(":root {\n" + light, ":root[data-theme=\"dark\"] {\n" + dark)
@@ -90,14 +92,16 @@ class SiteAssetsTest {
 
     @Test
     void theStylesheetSetsTheShellTypeSpacingFocusAndMotion() {
-        assertThat(css).contains("font-family: system-ui, sans-serif;", "font-family: ui-monospace, monospace;",
-                "font-size: 16px;", "line-height: 1.5;", "font-size: 32px;", "font-size: 24px;", "font-size: 20px;",
-                "font-size: 14px;")
+        assertThat(css).contains("font-family: system-ui, sans-serif;",
+                "font-family: ui-monospace, SFMono-Regular, Consolas, monospace;", "font-size: 16px;",
+                "line-height: 1.5;", "font-size: 36px;", "font-size: 30px;", "font-size: 24px;", "font-size: 20px;",
+                "font-size: 14px;", "letter-spacing: 0.06em;", "font-variant-numeric: tabular-nums;")
                 .contains("grid-template-columns: 240px minmax(0, 1fr);", "max-width: 1120px;", "max-width: 72ch;",
                         "padding: 32px;", "@media (max-width: 719.98px)", "padding: 16px;")
-                .contains("outline: 2px solid var(--action);", "outline-offset: 2px;")
+                .contains("outline: 2px solid var(--link);", "outline-offset: 2px;")
                 .contains("@media (prefers-reduced-motion: reduce)")
-                .contains("border-radius: 8px;").doesNotContain("box-shadow: 0", "@import", "url(http", "@font-face");
+                .contains("border-radius: 2px;").doesNotContain("border-radius: 8px;", "box-shadow", "@import",
+                        "url(", "@font-face", "gradient(", "rotate(");
     }
 
     @Test
@@ -111,8 +115,12 @@ class SiteAssetsTest {
     void linksThatStandAloneInAListOrACardTitleAreAtLeast24PxTall() {
         assertThat(css).contains(".page-contents a,\n.page-related a,\n.card-title a {\n  display: inline-block;\n"
                 + "  min-height: 24px;\n  max-width: 100%;\n  overflow-wrap: anywhere;");
-        assertThat(css).contains(".site-nav a {\n  display: block;\n  min-height: 24px;")
+        assertThat(css).contains(".site-nav a {\n  display: grid;\n  min-height: 24px;")
                 .contains("min-height: 32px;");
+        // Below 720 px, register rows and the navigation's summary are 44 px touch targets.
+        int narrow = css.indexOf("@media (max-width: 719.98px)");
+        assertThat(css.substring(narrow, css.indexOf("@media (min-width: 720px)")))
+                .contains(".site-nav a {\n    min-height: 44px;", "summary {\n    min-height: 44px;");
     }
 
     @Test
@@ -131,7 +139,7 @@ class SiteAssetsTest {
 
     @Test
     void theMainRegionShowsItsFocusAndTheNavigationKeepsFocusWhenItOpensOrCloses() {
-        assertThat(css).contains(".site-main:focus {\n  outline: 2px solid var(--action);\n  outline-offset: -2px;\n}")
+        assertThat(css).contains(".site-main:focus {\n  outline: 2px solid var(--link);\n  outline-offset: -2px;\n}")
                 .doesNotContain("outline: none");
         assertThat(js).contains("disclosure.contains(active)", "summary.focus()",
                 "a[aria-current=\"page\"]");
@@ -151,8 +159,10 @@ class SiteAssetsTest {
     }
 
     @Test
-    void theDiagramPanelIsWhiteInBothThemes() {
-        assertThat(css).contains(".diagram-scroll {").contains("background: #FFFFFF;");
+    void theDiagramPanelIsTheLightSheetInBothThemes() {
+        int panel = css.indexOf(".diagram-scroll {");
+        assertThat(css.substring(panel, css.indexOf("}", panel))).contains("background: #FFFDF7;",
+                "color: #172B3A;", "border: 1px solid var(--ink);");
     }
 
     @Test

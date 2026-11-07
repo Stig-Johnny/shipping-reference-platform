@@ -34,8 +34,9 @@ class SiteBuilderTest {
     static final String STRICT_CSP = "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; "
             + "script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; "
             + "worker-src 'none'; base-uri 'none'; form-action 'none'\">";
-    static final Set<String> DIAGRAM_PAGES = Set.of("model/system-context.html", "model/containers.html",
-            "model/api-components.html", "model/quote-book-label.html", "model/flow-quote-book-label.html");
+    static final Set<String> DIAGRAM_PAGES = Set.of("index.html", "model/system-context.html",
+            "model/containers.html", "model/api-components.html", "model/quote-book-label.html",
+            "model/flow-quote-book-label.html");
     private static final String MERMAID_SHA256 = "581ed7d74bd9048d0e3a91363927d72ef22942d7722546b27f7cc29e35390eb8";
 
     @TempDir

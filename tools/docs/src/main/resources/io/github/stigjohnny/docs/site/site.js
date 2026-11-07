@@ -238,9 +238,18 @@
       securityLevel: 'strict',
       htmlLabels: false,
       flowchart: { htmlLabels: false, useMaxWidth: true },
-      theme: 'default',
+      theme: 'base',
       fontFamily: 'system-ui, sans-serif',
-      themeVariables: { fontFamily: 'system-ui, sans-serif', fontSize: '16px' }
+      // The drawing sheet of docs/ui/documentation-site.md: ink lines on the light sheet in both themes. Node colours
+      // come from the generated definitions and are not themed.
+      themeVariables: {
+        fontFamily: 'system-ui, sans-serif', fontSize: '18px',
+        background: '#FFFDF7', edgeLabelBackground: '#FFFDF7',
+        primaryColor: '#F4F1E8', primaryTextColor: '#172B3A',
+        primaryBorderColor: '#687987', textColor: '#172B3A',
+        lineColor: '#172B3A', clusterBkg: '#FFFDF7',
+        clusterBorder: '#687987'
+      }
     });
     mermaid.run({ nodes: Array.prototype.slice.call(diagrams) }).then(function () {
       Array.prototype.forEach.call(document.querySelectorAll('figure.diagram'), function (figure) {

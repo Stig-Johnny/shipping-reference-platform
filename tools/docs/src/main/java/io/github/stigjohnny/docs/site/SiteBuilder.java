@@ -7,6 +7,7 @@ import io.github.stigjohnny.docs.generate.Diagrams;
 import io.github.stigjohnny.docs.repo.Allowlist;
 import io.github.stigjohnny.docs.repo.AllowlistEntry;
 import io.github.stigjohnny.docs.repo.ApiContract;
+import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.Sources;
 import java.io.IOException;
 import java.io.InputStream;
@@ -58,14 +59,19 @@ public final class SiteBuilder {
         pages.addAll(TrustPages.of(context));
         pages.add(BrainPage.of(context));
         SitePage notFound = NotFoundPage.of();
+        Map<String, String> updated = new TreeMap<>();
+        for (DocFile doc : sources.docs()) {
+            map.site(doc.path()).ifPresent(page -> updated.put(page, doc.updated()));
+        }
         Map<String, byte[]> files = new TreeMap<>();
         for (SitePage page : pages) {
-            String html = PageShell.render(page, pages, revision, target -> Urls.relative(page.path(), target));
+            String html = PageShell.render(page, pages, revision, updated.get(page.path()),
+                    target -> Urls.relative(page.path(), target));
             if (files.put(page.path(), html.getBytes(StandardCharsets.UTF_8)) != null) {
                 throw new DocsException("two pages are written to " + page.path());
             }
         }
-        files.put(notFound.path(), PageShell.render(notFound, pages, revision, NotFoundPage.urls())
+        files.put(notFound.path(), PageShell.render(notFound, pages, revision, null, NotFoundPage.urls())
                 .getBytes(StandardCharsets.UTF_8));
         files.put(CSS, resource("site.css"));
         files.put(JS, resource("site.js"));

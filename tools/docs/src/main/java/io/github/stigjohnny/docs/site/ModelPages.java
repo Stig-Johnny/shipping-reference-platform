@@ -168,8 +168,9 @@ final class ModelPages {
         String slug = ViewNames.slug(view);
         String figure = "figure-" + slug;
         return "<figure class=\"diagram\" id=\"" + figure + "\">\n"
-                + "<div class=\"diagram-toolbar\"><button type=\"button\" class=\"button\" data-enlarge=\"" + figure
-                + "\" aria-pressed=\"false\" hidden>Enlarge diagram</button></div>\n"
+                + "<div class=\"diagram-toolbar\"><p class=\"diagram-title\">" + Sheets.code(viewPage(view)) + " · "
+                + Html.escape(ViewNames.title(view)) + "</p><button type=\"button\" class=\"button\" data-enlarge=\""
+                + figure + "\" aria-pressed=\"false\" hidden>Enlarge diagram</button></div>\n"
                 + "<div class=\"diagram-scroll\" role=\"region\" tabindex=\"0\" aria-label=\""
                 + Html.escape("Diagram: " + ViewNames.title(view) + ". Scrolls when enlarged.") + "\">\n"
                 + "<pre class=\"diagram-source\" data-diagram=\"" + slug + "\">" + Html.escape(definition)
@@ -305,10 +306,9 @@ final class ModelPages {
         if (passing.isEmpty()) {
             return Statuses.evidence(conformance, evidence);
         }
-        return Badge.SHIPPED.html("Checker tests passing") + " " + Html.escape(String.join(", ", passing)
-                + " passed in the build that generated this site. " + (modulesPlanned
-                        ? "These tests verify the checker; the shipping modules remain planned."
-                        : "These tests verify the checker, not the shipping modules."));
+        return Badge.SHIPPED.html("Checker tests passing") + " " + Statuses.passed(passing, modulesPlanned
+                ? "These tests verify the checker; the shipping modules remain planned."
+                : "These tests verify the checker, not the shipping modules.");
     }
 
     private static String statusWords(String status) {
