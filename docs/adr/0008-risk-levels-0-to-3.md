@@ -96,9 +96,10 @@ What is built, and where it differs from the decision above. The decision stands
 - **What is planned.** No branch ruleset exists, and `policy/rulesets.json` does not exist. No trusted admin workflow
   applies settings or reports drift. Code owner review is not required. No `risk-approval` or `ai-review` check exists,
   so nothing computes a level or records an AI approval yet; `policy/risk.json` is policy data that no check reads.
-  `mutation`, `web`, `contract-e2e` and `docs-brain` are not required checks: the `mutation` job arrives with pull
-  request #13, and no frontend or API code exists for `web` and `contract-e2e`. No dedicated GitHub App and no
-  separate reviewer identity exist. `RiskClassifierTest` and `CodeownersRiskConsistencyTest` do not exist.
+  `mutation`, `web` and `contract-e2e` are not required checks: the `mutation` job arrives with pull request #13, and
+  no frontend or API code exists for `web` and `contract-e2e`. There is no `docs-brain` check: the documentation and
+  brain checks run inside the required `java` check (ADR 0011). No dedicated GitHub App and no separate reviewer
+  identity exist. `RiskClassifierTest` and `CodeownersRiskConsistencyTest` do not exist.
 - **Why code owner review cannot be required today.** The only code owner authors the pull requests: the AI agents
   open them on the owner's GitHub account, and GitHub refuses an author's approval of their own pull request.
   Requiring code owner review would block every merge. It needs the agents to open pull requests under their own

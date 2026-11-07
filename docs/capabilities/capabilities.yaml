@@ -1,6 +1,7 @@
 # Capabilities and controls of shipping-reference-platform, with the evidence for each.
 #
-# Read by tools/brain (ADR 0010); `brain --check` validates this file. Changing a status is a claim and is reviewed.
+# Read by tools/docs (ADR 0011); `./gradlew :tools:docs:check` validates this file. Changing a status is a claim and is
+# reviewed.
 #
 # Fields
 #   id               Stable identifier, "<module>.<kebab-name>" for capabilities, "control.<kebab-name>" for controls.
@@ -12,16 +13,24 @@
 #                      planned  no acceptance test exists yet.
 #   target           v0.1 (committed for the first release) or later.
 #   evidence         Test class names (Java) or test file names (TypeScript, JavaScript) that exist and pass at this
-#                    commit, or the string "none yet". Must be "none yet" when status is planned.
+#                    commit, or the string "none yet". Must be "none yet" when status is planned. tools/docs counts a
+#                    test as passing only when its JUnit report in the same build shows tests run and none failed,
+#                    errored or was skipped; TypeScript tests have no such report yet.
 #   acceptanceTests  The tests that must exist and pass before status may become shipped. Implementers create
 #                    them with exactly these names, red first.
 #   docs             The document that specifies the capability.
+#   enforcedSubset   Optional, for a control that is not shipped: the part enforced today, in one sentence. It never
+#                    changes the status; the document named in docs gives the details.
+#   plannedRemainder Optional, for a control that is not shipped: the part still planned, in one sentence.
+#   evidenceLabel    Optional, for a capability or control with evidence: what its tests are called in a sentence
+#                    ("the documentation-tool tests"), so that a decision's page can name them in a few words.
 #
-# The specification pull request started every status at planned, with "none yet" as evidence. A pull request that
-# adds passing acceptance tests moves their names into `evidence` and changes the status in the same commit; brain
-# --check rejects a shipped or partial status whose evidence does not exist, and never shows a planned capability as
-# available because its package exists. The controls of libs/c4-contract-kit carry evidence. Divergence and absence
-# are partial: their ArchitectureConformanceTest in :apps:shipping-api does not exist yet.
+# A pull request that adds passing acceptance tests moves their names into `evidence` and changes the status in the
+# same commit; `:tools:docs:checkGenerated` rejects a shipped or partial status whose evidence does not exist or did
+# not pass, and never shows a planned capability as available because its package exists. The docs tool's own
+# controls are shipped. The controls of libs/c4-contract-kit carry evidence; divergence and absence are partial:
+# their ArchitectureConformanceTest in :apps:shipping-api does not exist yet. Every other status is planned and its
+# evidence is "none yet".
 
 schemaVersion: 1
 
@@ -385,6 +394,8 @@ controls:
     evidence: none yet
     acceptanceTests: [AllowlistCheckTest, GradleVerificationCheckTest, NpmLockCheckTest, WorkflowPinCheckTest, ApprovalBindingTest, StrictJsonParserTest]
     negativeFixture: Demo pull request adding an unreviewed dependency; it is stopped before the build.
+    enforcedSubset: Current enforcement covers preflight, dependency verification and acceptance-digest checks.
+    plannedRemainder: Schema validation, policy tests and approval binding remain planned.
     docs: docs/adr/0007-dependency-allowlist-and-pre-use-enforcement.md
   - id: control.risk-classification
     title: Risk level from base-branch policy; level 3 waits for the owner's approval of the current head.
@@ -408,11 +419,24 @@ controls:
     docs: README.md
   - id: control.brain-check
     title: Generated brain and docs are deterministic, within budget, and never claim unevidenced capabilities.
-    where: tools/brain
-    check: docs-brain
-    status: planned
+    where: tools/docs
+    check: java
+    status: shipped
     target: v0.1
-    evidence: none yet
+    evidence: [BrainGeneratorTest, BrainCheckTest]
+    evidenceLabel: documentation-tool
     acceptanceTests: [BrainGeneratorTest, BrainCheckTest]
     negativeFixture: A shipped capability without evidence; a hand-edited BRAIN.md.
-    docs: docs/adr/0010-documentation-as-code-with-a-generated-brain.md
+    docs: docs/adr/0011-java-documentation-tool-and-publication.md
+
+  - id: control.publication-scan
+    title: The public site is scanned before every upload, fails closed without its dictionary, and names only rules and files.
+    where: tools/docs, .github/workflows/pages.yml
+    check: build
+    status: shipped
+    target: v0.1
+    evidence: [PublicationScannerTest, PagesWorkflowTest]
+    evidenceLabel: publication-scanner
+    acceptanceTests: [PublicationScannerTest, PagesWorkflowTest]
+    negativeFixture: One value per rule; a missing dictionary; a stale exception; a symbolic link in the site.
+    docs: docs/adr/0011-java-documentation-tool-and-publication.md

@@ -1,7 +1,7 @@
 # Third-party notices
 
 This repository's own code, configuration, models, specifications, ADRs, security reviews and documentation are
-licensed under the Apache License 2.0 (`LICENSE`). Two kinds of third-party material are committed to it, and each
+licensed under the Apache License 2.0 ([LICENSE](LICENSE)). Two kinds of third-party material are committed to it, and each
 keeps its own licence. Dependencies that the build only resolves (Maven artifacts, the JDK, GitHub Actions) are not
 redistributed here. Their licences are recorded in their reviews in `security/reviews/`.
 

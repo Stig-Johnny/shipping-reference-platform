@@ -1,0 +1,41 @@
+%% Generated—do not hand-edit. Source: architecture/workspace.dsl, view QuoteBookLabel.
+flowchart LR
+    accTitle: Quote, book and download a simulated label
+    accDescr: Dynamic view with 8 elements and 15 relationships. The tables on the page list every one of them.
+    1["Shipping clerk [Person]"]
+    style 1 fill:#0f766e,stroke:#475569,color:#ffffff
+    4["Carrier (simulated) [Software System] (external, simulated)"]
+    style 4 fill:#64748b,stroke:#475569,color:#ffffff
+    subgraph 5 ["Shipping reference platform"]
+        style 5 fill:#ffffff,stroke:#475569,color:#475569
+        subgraph 7 ["API"]
+            style 7 fill:#ffffff,stroke:#475569,color:#475569
+            10["Tenants [Component] (planned)"]
+            style 10 fill:#f1f5f9,stroke:#64748b,color:#334155
+            11["Audit [Component] (planned)"]
+            style 11 fill:#f1f5f9,stroke:#64748b,color:#334155
+            8["Quotes [Component] (planned)"]
+            style 8 fill:#f1f5f9,stroke:#64748b,color:#334155
+            9["Shipments [Component] (planned)"]
+            style 9 fill:#f1f5f9,stroke:#64748b,color:#334155
+        end
+        15[("Database [Container] (planned)")]
+        style 15 fill:#115e59,stroke:#475569,color:#ffffff
+        6["Web app [Container] (planned)"]
+        style 6 fill:#115e59,stroke:#475569,color:#ffffff
+    end
+    1 -->|"1"| 6
+    6 -->|"2"| 10
+    6 -->|"3"| 8
+    8 ==>|"4 REQUIRED"| 10
+    8 -->|"5"| 4
+    8 -->|"6"| 15
+    6 -->|"7"| 9
+    9 ==>|"8 REQUIRED"| 10
+    9 ==>|"9 REQUIRED"| 8
+    9 -->|"10"| 15
+    11 ==>|"11 REQUIRED"| 9
+    11 ==>|"12 REQUIRED"| 10
+    11 -->|"13"| 15
+    6 -->|"14"| 9
+    9 -->|"15"| 4

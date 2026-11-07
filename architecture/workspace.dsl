@@ -228,7 +228,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
             autoLayout lr
         }
 
-        component api "ApiComponents" "The seven modules of the API. Thick solid arrows are REQUIRED, dashed arrows PERMITTED, faded dotted elements and arrows are planned." {
+        component api "ApiComponents" "The seven modules of the API and the dependencies between them: REQUIRED, PERMITTED or planned. Planned modules and dependencies are labelled as planned." {
             include *
             autoLayout lr
         }

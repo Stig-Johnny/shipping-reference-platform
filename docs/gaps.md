@@ -14,10 +14,13 @@ closes it.
 ## 0. State of this commit
 
 - The specification, the reviewed toolchain and the dependency allowlist with its enforcement are in place, and so
-  are the reviewed dependencies of the docs generator and of the shipping API. The library `libs/c4-contract-kit`
-  (its slices 1 to 4) exists; no application code exists yet. Every product capability in
-  `docs/capabilities/capabilities.yaml` is still `planned` with no evidence; the library's controls carry their tests
-  as evidence, and every other test class named in the documents is still to be written (red first).
+  are the reviewed dependencies of the docs generator and of the shipping API. The docs generator itself,
+  `tools/docs`, exists: it generates the C4 view pages, `BRAIN.md` and the module brains, and builds the
+  documentation site, which `.github/workflows/pages.yml` publishes from `main` after the publication scan. Its own
+  controls, `control.brain-check` and `control.publication-scan`, are shipped with their tests as evidence. The
+  library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. No
+  application code exists yet. Every other capability in `docs/capabilities/capabilities.yaml` is `planned` with no
+  evidence, and every test class named for them is still to be written (red first).
 - The versions in the ADRs were checked against their sources on 2026-11-06. Their combination (JDK 25, Gradle
   9.8.2, Spring Boot 4.1.2, Spring Modulith 2.1.2, Error Prone 2.51.0, NullAway 0.14.3, JUnit 6.0.3 (property
   tests as `@ParameterizedTest` in the normal test task), PIT 1.30.2 with its JUnit 5 plugin 1.2.3) has not been
@@ -159,10 +162,23 @@ closes it.
 ## 7. Documentation
 
 - The brain is a budgeted summary (12 KiB root, 8 KiB per module) and omits detail by design; it links to sources.
-- Frontmatter-linked documentation proves that a document changed with the code, not that it is correct.
+- Frontmatter-linked documentation proves that a document changed with the code, not that it is correct. Not
+  enforced yet: the check that a pull request changing a module's code also changes its documents.
+- Evidence is read from the JUnit reports of the same build, so only Java test classes can count as passing. A
+  TypeScript test name stays an acceptance target until the web build writes reports that the docs tool reads.
+- The module brains list the entries of this file that name a module in code, by its document or as "the X module".
+  An entry that concerns a module without naming it is not listed there, so this whole file still applies.
+- The documentation site is public. Until the repository is public too, which the owner has decided (ADR 0008), the
+  site is the public's only view of it: the documents, the model, the contract, the allowlist with a summary of each
+  review, and the brain. Paths of files it does not publish, such as source code, workflows and review records,
+  appear as plain text, and it does not link to the repository.
+- The publication scan matches shapes and listed terms. It cannot catch a paraphrase, a confidential name or detail
+  that is not in its dictionary, or what a sentence means; nor a secret whose shape it does not know. A person
+  still reads every public page that changes. The dictionary lives outside the repository, so whether it is
+  complete is not checked here.
 
 ## 8. Not in scope for v0.1
 
 Real carriers, webshop connectors, tracking and returns workflows, invoicing, production identity and deployment,
-public documentation hosting, backups, observability beyond logs with correlation IDs, customer code execution and
-broader frontend architecture enforcement.
+backups, observability beyond logs with correlation IDs, customer code execution and broader frontend architecture
+enforcement.

@@ -5,10 +5,10 @@ status: accepted
 updated: 2026-11-06
 date: 2026-11-06
 decision-makers: repository owner
-enforcedBy: [not enforced yet]
+enforcedBy:
+  - "java: :tools:docs:checkGenerated regenerates the view pages in docs/architecture/ and fails on any difference (BrainCheckTest)"
 plannedEnforcement:
   - "java: ArchitectureConformanceTest (c4-contract-kit, both directions)"
-  - "docs-brain: views and model pages regenerate without diff"
   - "risk-approval: architecture/ is level 3"
 ---
 

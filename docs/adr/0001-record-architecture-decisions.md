@@ -5,9 +5,9 @@ status: accepted
 updated: 2026-11-06
 date: 2026-11-06
 decision-makers: repository owner
-enforcedBy: [not enforced yet]
+enforcedBy:
+  - "java: :tools:docs:checkGenerated validates ADR frontmatter, numbering, required sections and enforcedBy test classes (BrainCheckTest)"
 plannedEnforcement:
-  - "docs-brain: brain --check validates ADR frontmatter, numbering and required sections"
   - "CODEOWNERS and risk level 3 on docs/adr/"
 ---
 

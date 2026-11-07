@@ -1,0 +1,713 @@
+/*
+ * The site's one stylesheet, generated with the site by tools/docs. It follows the binding design of the docs site
+ * (the workbench's tokens, system fonts, the 4 to 32 px spacing scale, a 240 px navigation, 1120 px content and 72ch
+ * prose) and WCAG 2.1 AA: visible focus, AA contrast in both themes, reduced motion and reflow at 320 px.
+ * No web fonts, no imports, no images: nothing is fetched from another origin.
+ */
+
+/* Tokens: light by default. */
+:root {
+  --surface: #FAF8F5;
+  --surface-raised: #FFFFFF;
+  --text: #1E293B;
+  --text-muted: #475569;
+  --border-input: #64748B;
+  --border-subtle: #E2E8F0;
+  --action: #0F766E;
+  --danger: #B91C1C;
+  --warning: #92400E;
+  --success: #166534;
+  color-scheme: light;
+}
+
+/* Dark: follows the system unless the reader chose Light; the choice lasts until reload (no storage). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface: #0F172A;
+    --surface-raised: #1E293B;
+    --text: #F1F5F9;
+    --text-muted: #CBD5E1;
+    --border-input: #94A3B8;
+    --border-subtle: #334155;
+    --action: #2DD4BF;
+    --danger: #F87171;
+    --warning: #FBBF24;
+    --success: #4ADE80;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --surface: #0F172A;
+  --surface-raised: #1E293B;
+  --text: #F1F5F9;
+  --text-muted: #CBD5E1;
+  --border-input: #94A3B8;
+  --border-subtle: #334155;
+  --action: #2DD4BF;
+  --danger: #F87171;
+  --warning: #FBBF24;
+  --success: #4ADE80;
+  color-scheme: dark;
+}
+
+/* Type: system fonts, 16 px base, headings 32/24/20 px, metadata 14 px, monospace for code and digests. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.25;
+  margin: 32px 0 12px;
+}
+
+h1 {
+  font-size: 32px;
+  margin-top: 8px;
+}
+
+h2 {
+  font-size: 24px;
+}
+
+h3 {
+  font-size: 20px;
+}
+
+p,
+ul,
+ol,
+dl,
+blockquote {
+  margin: 0 0 16px;
+}
+
+code,
+pre,
+kbd,
+.digest {
+  font-family: ui-monospace, monospace;
+}
+
+code {
+  font-size: 0.875em;
+}
+
+.digest {
+  word-break: break-all;
+}
+
+pre {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+pre code {
+  font-size: inherit;
+}
+
+a {
+  color: var(--action);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Focus: a visible 2 px outline in the action colour, offset 2 px, on everything focusable. */
+:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  top: -200px;
+  left: 16px;
+  z-index: 10;
+  padding: 8px 12px;
+  border: 1px solid var(--border-input);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--action);
+}
+
+.skip-link:focus {
+  top: 16px;
+}
+
+/* Shell: a 240 px navigation beside the content, which is at most 1120 px wide; prose lines at most 72ch. */
+.site {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-areas:
+    "header main"
+    "header footer";
+  grid-template-rows: 1fr auto;
+  min-height: 100vh;
+}
+
+.site-header {
+  grid-area: header;
+  padding: 24px 16px;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.site-name {
+  margin: 0 0 4px;
+  font-weight: 700;
+}
+
+.site-name a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.site-tagline {
+  margin: 0 0 16px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.site-nav-disclosure > summary {
+  display: inline-block;
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--border-input);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.site-nav ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-nav li {
+  margin: 4px 0;
+}
+
+.site-nav a {
+  display: block;
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.site-nav a:hover {
+  text-decoration: underline;
+}
+
+.site-nav a.is-active,
+.site-nav a[aria-current="page"] {
+  font-weight: 700;
+}
+
+.site-nav a[aria-current="page"] {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+
+.site-nav ul ul {
+  margin: 4px 0 8px 12px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border-subtle);
+  font-size: 14px;
+}
+
+.theme-switch {
+  margin: 24px 0 0;
+  padding: 8px 12px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.theme-switch legend {
+  padding: 0 4px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.theme-switch label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  margin-right: 12px;
+}
+
+.theme-switch input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--action);
+}
+
+.site-main {
+  grid-area: main;
+  padding: 32px;
+}
+
+.site-main:focus {
+  outline: 2px solid var(--action);
+  outline-offset: -2px;
+}
+
+.page {
+  max-width: 1120px;
+}
+
+.module-body > p,
+.module-body > ul,
+.page-summary,
+.prose,
+.page-body > p,
+.page-body > ul,
+.page-body > ol,
+.page-body > blockquote,
+.page-body > dl,
+.page-body > h2,
+.page-body > h3,
+.diagram-caption,
+.page-source {
+  max-width: 72ch;
+}
+
+.site-footer {
+  grid-area: footer;
+  padding: 16px 32px 32px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* Breadcrumb and page metadata. */
+.breadcrumb ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.breadcrumb li + li::before {
+  content: "›";
+  margin-right: 4px;
+}
+
+.page-summary {
+  margin-bottom: 24px;
+}
+
+.page-source {
+  margin-top: 32px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.page-contents ol,
+.page-related ul {
+  padding-left: 24px;
+}
+
+.page-contents h2,
+.page-related h2 {
+  font-size: 20px;
+}
+
+/* Links that stand alone in a list or a card title are at least 24 px tall, the line they sit on; a long path in
+   one breaks anywhere, so that it never widens the page. */
+.page-contents a,
+.page-related a,
+.card-title a {
+  display: inline-block;
+  min-height: 24px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+/* Status: three statements, each with a badge that says it in words. */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 0 0 24px;
+}
+
+.status-item {
+  padding: 12px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.status-item dt {
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.status-item dd {
+  margin: 0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0 8px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-accepted,
+.badge-shipped,
+.badge-approved,
+.badge-matches {
+  color: var(--success);
+}
+
+.badge-partial,
+.badge-conditions {
+  color: var(--warning);
+}
+
+.badge-rejected {
+  color: var(--danger);
+}
+
+.badge-planned,
+.badge-none,
+.badge-neutral {
+  color: var(--text-muted);
+}
+
+/* Cards: 1 px border, 8 px radius, no shadow. */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin: 0 0 24px;
+}
+
+.card {
+  padding: 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.card h3,
+.card-title {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.card p:last-child,
+.card ol:last-child {
+  margin-bottom: 0;
+}
+
+.card-meta {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* Tables scroll sideways inside their labelled region; the page never does. */
+.table-scroll {
+  margin: 16px 0 24px;
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+caption {
+  padding: 12px 16px;
+  font-weight: 600;
+  text-align: left;
+}
+
+th,
+td {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: top;
+}
+
+thead th {
+  background: var(--surface);
+}
+
+tbody th {
+  font-weight: 600;
+}
+
+tr.group th {
+  background: var(--surface);
+  font-weight: 400;
+}
+
+.group-title {
+  font-weight: 600;
+}
+
+.group-record,
+.version,
+.constraints {
+  color: var(--text-muted);
+}
+
+/* A review's public summary is prose inside a table cell: it keeps the prose measure and still reflows. */
+.group-summary {
+  max-width: min(72ch, calc(100vw - 80px));
+  overflow-wrap: anywhere;
+}
+
+.conditions {
+  margin: 0;
+  padding-left: 16px;
+}
+
+/* Facts: term and description side by side, stacked on narrow screens. */
+.facts > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 200px) minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.facts dt {
+  font-weight: 600;
+}
+
+.facts dd {
+  margin: 0;
+}
+
+/* Diagrams: a full-width white panel in both themes, the legend right below, enlargement from the keyboard. */
+.diagram {
+  margin: 24px 0;
+}
+
+.diagram-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.diagram-scroll {
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--border-input);
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: #1E293B;
+}
+
+.diagram-scroll pre.diagram-source {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #1E293B;
+}
+
+.diagram-scroll svg {
+  display: block;
+  height: auto;
+  margin: 0 auto;
+}
+
+.diagram.is-enlarged .diagram-scroll svg {
+  margin: 0;
+}
+
+.diagram-caption {
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.diagram-note {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.button {
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--border-input);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.button[aria-pressed="true"] {
+  border-color: var(--action);
+  background: var(--action);
+  color: var(--surface-raised);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin: 0 0 16px;
+}
+
+.copy-status {
+  flex-basis: 100%;
+  min-height: 24px;
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Disclosures: module summaries, examples, diagram sources and the agent context. */
+details.module,
+details.example,
+details.agent-context,
+details.diagram-source-block {
+  margin: 8px 0 16px;
+  padding: 8px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+details > summary {
+  min-height: 24px;
+  cursor: pointer;
+}
+
+details.module > summary {
+  font-weight: 600;
+}
+
+details[open] > summary {
+  margin-bottom: 8px;
+}
+
+.module-body h3 {
+  margin-top: 16px;
+  font-size: 20px;
+}
+
+/* Legal texts: the repository's files as they are, readable and reflowing. */
+pre.license {
+  max-width: 72ch;
+  font-size: 16px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+blockquote {
+  margin-left: 0;
+  padding-left: 16px;
+  border-left: 4px solid var(--border-subtle);
+}
+
+/* Below 720 px: the navigation becomes a labelled disclosure above the content, and padding is 16 px. */
+@media (max-width: 719.98px) {
+  .site {
+    display: block;
+  }
+
+  .site-header {
+    padding: 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .site-main {
+    padding: 16px;
+  }
+
+  .site-footer {
+    padding: 16px;
+  }
+
+  .facts > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+}
+
+/* From 720 px the navigation is always shown; its summary hides only while it is open, so it can never be lost. */
+@media (min-width: 720px) {
+  .site-nav-disclosure[open] > summary {
+    display: none;
+  }
+}
+
+/* No motion when the reader asks for less; the site has no animation of its own. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

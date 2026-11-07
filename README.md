@@ -6,10 +6,13 @@ check that fails. The domain is generic webshop parcel shipping: quote a parcel,
 synthetic and the carrier is simulated.
 
 **State:** the specification (model, contract, decisions, module specifications, risk policy, agent rules), the
-reviewed toolchain, the enforced dependency allowlist and the model-versus-code checker `libs/c4-contract-kit` are
-here. Application code is not written yet: every product capability in `docs/capabilities/capabilities.yaml` is
-`planned`, and that file is the source of truth for status and evidence; the checker's controls carry their tests.
-The table below marks each control **enforced** (it runs and can fail today) or **planned**.
+reviewed toolchain, the enforced dependency allowlist and the model-versus-code checker `libs/c4-contract-kit` are here.
+Application code is not written yet: every product capability in `docs/capabilities/capabilities.yaml` is `planned`, and
+that file is the source of truth for status and evidence; the checker's controls carry their tests. The table below
+marks each control **enforced** (it runs and can fail today) or **planned**. `tools/docs` generates the C4 view pages,
+`BRAIN.md` and a static documentation site from the specification. Its own controls, `control.brain-check` and
+`control.publication-scan` (the scan of the site before each upload), are enforced. The site is published from `main` at
+<https://stig-johnny.github.io/shipping-reference-platform/>.
 
 ## The idea
 
@@ -41,20 +44,30 @@ flowchart LR
     L -- 3 --> O[Owner approves current head] --> G
 ```
 
+The workflow in the diagram, in order:
+
+1. An issue states the change.
+2. The model or the contract changes first.
+3. Failing tests describe the new behaviour.
+4. Code and documentation change until the tests pass.
+5. The checks run; when one fails, the change goes back to step 4.
+6. An AI review is recorded.
+7. The risk level decides: levels 0 to 2 merge; level 3 merges only after the owner approves the current head.
+
 ## The product in one paragraph
 
-A shipping clerk of a webshop (a tenant) enters a parcel and a route and gets comparable offers priced by a
-published synthetic tariff, each valid for 30 minutes. Booking an offer is idempotent per tenant and
-`Idempotency-Key`: booking twice returns the same shipment. The clerk downloads a simulated SVG label. An audit
-module records each booking from an event, deduplicated and replayed after failures. Tenants never see each other's
-data, enforced in queries and by forced PostgreSQL row-level security.
+The planned v0.1 behaviour is: a shipping clerk of a webshop (a tenant) enters a parcel and a route and gets
+comparable offers priced by a published synthetic tariff, each valid for 30 minutes. Booking an offer is idempotent
+per tenant and `Idempotency-Key`: booking twice returns the same shipment. The clerk downloads a simulated SVG
+label. An audit module records each booking from an event, deduplicated and replayed after failures. Tenants never
+see each other's data, enforced in queries and by forced PostgreSQL row-level security.
 
-| Module | v0.1 target, not implemented | Depends on (from the model) |
+| Module | Implementation state | Depends on (from the model) |
 |---|---|---|
-| `quotes` | built | `tenants` (REQUIRED) |
-| `shipments` | built | `quotes`, `tenants` (REQUIRED) |
-| `tenants` | built (minimal) | nothing |
-| `audit` | built (minimal) | `shipments`, `tenants` (REQUIRED); `quotes` (PERMITTED, no static evidence yet) |
+| `quotes` | Planned for v0.1; no code yet | `tenants` (REQUIRED) |
+| `shipments` | Planned for v0.1; no code yet | `quotes`, `tenants` (REQUIRED) |
+| `tenants` | Minimal implementation planned for v0.1; no code yet | nothing |
+| `audit` | Minimal implementation planned for v0.1; no code yet | `shipments`, `tenants` (REQUIRED); `quotes` (PERMITTED, no static evidence yet) |
 | `orders` | planned, no code | `quotes`, `shipments` (PERMITTED, not evaluated) |
 | `tracking` | planned, no code | `shipments` (PERMITTED, not evaluated) |
 | `returns` | planned, no code | `shipments` (PERMITTED, not evaluated) |
@@ -76,10 +89,12 @@ data, enforced in queries and by forced PostgreSQL row-level security.
 | Risk-levelled approval | A level 3 change lacks the owner's approval of its current head. | A sensitive change that matches no rule; a single approver is not two-person review. | `risk-approval` | planned |
 | AI review record | No AI review with findings and dispositions is recorded for the final commit. | AI reviewers being wrong. | `ai-review` | planned |
 | Web behaviour and accessibility | Quote, book and label fail in a real browser against the real API; axe-core finds violations; import cycles or boundary breaks. | Accessibility problems that automated tools miss; unused frontend modules. | `web`, `contract-e2e` | planned |
-| Documentation and brain | Generated docs or `BRAIN.md` drift; budgets exceeded; a capability claims `shipped` without passing evidence; code changed without its module document. | Whether the prose is right. | `docs-brain` | planned |
+| Documentation and brain | Generated docs or `BRAIN.md` drift; budgets exceeded; a capability claims `shipped` without passing evidence; a link, anchor or ADR reference is broken; the site's Mermaid bundle differs from its review; code changed without its module document. | Whether the prose is right. | `java`: `:tools:docs:check` (`BrainGeneratorTest`, `BrainCheckTest`, `SiteBuilderTest`) | **enforced** in the required `java` check, except the module-document check, which is planned |
+| Publication scan of the public site | The built site holds a secret's shape, a link to this repository on GitHub, a local path, a private address or host name, an HTML comment or a term of the confidential dictionary; the dictionary is missing; the Mermaid bundle differs from its review; the site directory holds a link or a hidden file. | A paraphrase, a confidential term that is not in the dictionary, what a sentence means. | `pages`, build job: `:tools:docs:scanSite` before the upload (`PublicationScannerTest`, `PagesWorkflowTest`) | **enforced** on every deployment from `main`; the first run needs the `github-pages` environment and its secret |
 
-Every advertised failure requires a deliberate negative fixture. The checker's own tests have theirs; the
-application's do not exist yet. The full list of limits is in `docs/gaps.md`.
+Every advertised failure requires a deliberate negative fixture. The checker's own tests have theirs, and the
+documentation and brain control has them in `BrainCheckTest` and `SiteBuilderTest`; the application's do not exist yet.
+The full list of limits is in `docs/gaps.md`.
 
 ## Layout
 
@@ -90,14 +105,15 @@ apps/shipping-api/               Gradle project :apps:shipping-api, Spring Boot 
 apps/shipping-web/               npm workspace, React workbench
 libs/c4-contract-kit/            Gradle project :libs:c4-contract-kit, the model-versus-code checker
 packages/shipping-client/        npm workspace, client generated from the contract
-docs/                            npm workspace (VitePress): adr/, modules/, flows/, capabilities/, gaps.md, ui/
+docs/                            Markdown with frontmatter: adr/, modules/, flows/, capabilities/, gaps.md, ui/;
+                                 architecture/ and brain/ are generated by tools/docs
 policy/                          risk.json (risk levels), rulesets.json (later)
 security/                        allowlist.json and reviews/ (bootstrap pull request)
-tools/                           policy checker, brain generator, web import check (later)
+tools/                           policy checker (policy/), docs, brain and site generator (docs/), web import check (later)
 build-logic/, gradle/            Gradle conventions, wrapper and verification metadata (later)
 .github/                         CODEOWNERS; workflows (later)
 AGENTS.md                        rules for AI agents; scoped files in apps/*, libs/*, security/
-BRAIN.md                         generated agent entry point (later)
+BRAIN.md                         generated agent entry point
 ```
 
 ## Running it
@@ -110,9 +126,11 @@ whose SHA-256 is in `security/verifications/2026-11-06-toolchain.md`: Gradle's t
 | Check every dependency against the allowlist (the JDK alone; nothing from the repository runs) | `java tools/policy/PolicyCheck.java .` |
 | Run all Java checks (compile with Error Prone and NullAway, tests) | `./gradlew check` |
 | Run mutation tests (CI only, the `mutation` job: PIT's control socket accepts unauthenticated connections) | `./gradlew :libs:c4-contract-kit:pitest` |
+| Check docs and the brain; regenerate them | `./gradlew :tools:docs:check`; `./gradlew :tools:docs:generate` |
+| Build the documentation site into `tools/docs/build/site/` (open its `index.html`) | `./gradlew :tools:docs:site` |
 
 Not built yet; their commands arrive with their code: a toolchain bootstrap script, PostgreSQL 18.6 with the two
-roles, the API with the `demo` profile, the workbench, web checks, contract and end-to-end tests, and the brain.
+roles, the API with the `demo` profile, the workbench, web checks, and contract and end-to-end tests.
 
 ## Honest limits
 

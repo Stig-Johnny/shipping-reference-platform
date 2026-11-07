@@ -1,0 +1,141 @@
+package io.github.stigjohnny.docs.site;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import io.github.stigjohnny.docs.repo.Sources;
+import io.github.stigjohnny.docs.testing.BuiltSite;
+import io.github.stigjohnny.docs.testing.Fixture;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+/**
+ * The structure WCAG 2.1 AA needs from the HTML, as the binding GUI design states it: a skip link, landmarks, one
+ * heading per page, labelled controls and regions, active navigation in words and aria-current, and the page template
+ * in its order. Contrast, focus, reduced motion and reflow are in the stylesheet (SiteAssetsTest).
+ */
+class SiteAccessibilityTest {
+
+    private static final Pattern REGION = Pattern.compile("<[a-z]+ [^>]*role=\"region\"[^>]*>");
+
+    @TempDir
+    static Path dir;
+
+    private static BuiltSite site;
+
+    @BeforeAll
+    static void buildTheSite() {
+        Fixture fixture = Fixture.copy(dir).passingEvidence();
+        SiteBuilder.build(Sources.read(fixture.root(), List.of(fixture.reports())), dir.resolve("site"), "0123456789abcdef0123456789abcdef01234567");
+        site = BuiltSite.read(dir.resolve("site"));
+    }
+
+    @Test
+    void everyPageIsEnglishWithASkipLinkFirstAndTheLandmarks() {
+        for (String page : site.pages()) {
+            String html = site.text(page);
+            assertThat(html).as(page).startsWith("<!DOCTYPE html>\n<html lang=\"en\">");
+            String body = html.substring(html.indexOf("<body"));
+            assertThat(body.indexOf("<a ")).as(page).isEqualTo(body.indexOf("<a class=\"skip-link\" href=\"#site-main\""));
+            assertThat(html).as(page).contains("<header class=\"site-header\">", "<nav class=\"site-nav\" aria-label=\"Site\">",
+                    "<main id=\"site-main\" class=\"site-main\" tabindex=\"-1\">", "<footer class=\"site-footer\">");
+            assertThat(count(html, "<h1")).as(page).isEqualTo(1);
+            assertThat(html).as(page).contains("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+        }
+    }
+
+    @Test
+    void theNavigationIsALabelledDisclosureAndMarksTheCurrentPage() {
+        for (String page : site.pages()) {
+            String html = site.text(page);
+            assertThat(html).as(page).contains("<details class=\"site-nav-disclosure\" open>",
+                    "<summary>Site navigation</summary>");
+            if (!page.equals("404.html")) {
+                String nav = html.substring(html.indexOf("<nav class=\"site-nav\""), html.indexOf("</nav>",
+                        html.indexOf("<nav class=\"site-nav\"")));
+                String breadcrumb = html.substring(html.indexOf("<nav class=\"breadcrumb\" aria-label=\"Breadcrumb\">"),
+                        html.indexOf("</nav>", html.indexOf("<nav class=\"breadcrumb\"")));
+                assertThat(count(nav, "aria-current=\"page\"")).as(page + " navigation").isEqualTo(1);
+                assertThat(count(breadcrumb, "aria-current=\"page\"")).as(page + " breadcrumb").isEqualTo(1);
+                assertThat(count(html, "aria-current=\"page\"")).as(page).isEqualTo(2);
+            }
+        }
+    }
+
+    @Test
+    void theThemeControlIsALabelledGroupOfThreeChoices() {
+        String html = site.text("index.html");
+
+        assertThat(html).contains("<fieldset class=\"theme-switch\" hidden>", "<legend>Theme</legend>")
+                .contains("<input type=\"radio\" name=\"theme\" value=\"system\" checked> System</label>",
+                        "<input type=\"radio\" name=\"theme\" value=\"light\"> Light</label>",
+                        "<input type=\"radio\" name=\"theme\" value=\"dark\"> Dark</label>");
+    }
+
+    @Test
+    void everyScrollingRegionIsLabelledAndReachableByKeyboard() {
+        for (String page : site.pages()) {
+            Matcher region = REGION.matcher(site.text(page));
+            while (region.find()) {
+                assertThat(region.group()).as(page).contains("tabindex=\"0\"").containsPattern("aria-label=\"[^\"]+\"");
+            }
+        }
+    }
+
+    @Test
+    void everyGeneratedTableHasACaptionAndColumnHeaders() {
+        for (String page : site.pages()) {
+            String html = site.text(page);
+            int tables = count(html, "<table");
+            assertThat(count(html, "<th")).as(page).isGreaterThanOrEqualTo(tables);
+            assertThat(count(html, "<div class=\"table-scroll\"")).as(page).isEqualTo(tables);
+        }
+    }
+
+    @Test
+    void statusIsAlwaysInWords() {
+        String brain = site.text("brain/index.html");
+
+        assertThat(brain).contains("<span class=\"badge badge-planned\">Planned</span>",
+                "<span class=\"badge badge-shipped\">Shipped</span>");
+        assertThat(site.text("trust/allowlist.html")).contains("<span class=\"badge badge-rejected\">Rejected</span>");
+    }
+
+    @Test
+    void thePageTemplateKeepsItsOrder() {
+        for (String page : site.pages()) {
+            if (page.equals("404.html")) {
+                continue;
+            }
+            String html = site.text(page);
+            int breadcrumb = html.indexOf("class=\"breadcrumb\"");
+            int title = html.indexOf("<h1");
+            int summary = html.indexOf("class=\"page-summary\"");
+            int status = html.indexOf("class=\"status-panel\"");
+            int body = html.indexOf("class=\"page-body");
+            int source = html.indexOf("class=\"page-source\"");
+            assertThat(List.of(breadcrumb, title, summary, status, body, source)).as(page).isSorted()
+                    .doesNotContain(-1);
+            int contents = html.indexOf("class=\"page-contents\"");
+            if (contents >= 0) {
+                assertThat(contents).as(page).isBetween(status, body);
+            }
+            int related = html.indexOf("class=\"page-related\"");
+            if (related >= 0) {
+                assertThat(related).as(page).isBetween(body, source);
+            }
+        }
+    }
+
+    private static int count(String text, String part) {
+        int count = 0;
+        for (int at = text.indexOf(part); at >= 0; at = text.indexOf(part, at + 1)) {
+            count++;
+        }
+        return count;
+    }
+}

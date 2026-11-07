@@ -83,7 +83,7 @@
     {
       "id": "controls-tools",
       "level": 3,
-      "reason": "Policy checker, brain generator and other enforcement tools.",
+      "reason": "Policy checker, the docs and brain generator and other enforcement tools.",
       "globs": ["tools/**"]
     },
     {
@@ -243,7 +243,7 @@
     {
       "id": "capability-claims",
       "level": 2,
-      "reason": "Statements of what is shipped and what is not; brain --check validates evidence.",
+      "reason": "Statements of what is shipped and what is not; :tools:docs:checkGenerated validates the evidence.",
       "globs": ["docs/capabilities/**", "docs/gaps.md"]
     },
     {
@@ -257,12 +257,6 @@
       "level": 1,
       "reason": "UI presentation, styles and non-sensitive prototypes behind default-off flags.",
       "globs": ["apps/shipping-web/src/**", "apps/shipping-web/index.html", "apps/shipping-web/public/**"]
-    },
-    {
-      "id": "docs-site-presentation",
-      "level": 1,
-      "reason": "Documentation site theme and configuration.",
-      "globs": ["docs/.vitepress/**"]
     },
     {
       "id": "editor-and-ignore-files",
@@ -279,8 +273,8 @@
     {
       "id": "generated-brain",
       "level": 0,
-      "reason": "Generated from reviewed sources; docs-brain fails on any hand edit or drift.",
-      "globs": ["BRAIN.md", "docs/brain/**", "docs/public/llms.txt"]
+      "reason": "Generated from reviewed sources; :tools:docs:checkGenerated fails on any hand edit or drift.",
+      "globs": ["BRAIN.md", "docs/brain/**"]
     }
   ],
   "behaviourSignals": [
@@ -412,7 +406,7 @@
       "id": "unsafe-web-apis",
       "level": 3,
       "reason": "Script injection and token storage in the browser.",
-      "appliesTo": ["apps/shipping-web/**", "packages/shipping-client/**", "docs/.vitepress/**"],
+      "appliesTo": ["apps/shipping-web/**", "packages/shipping-client/**", "tools/docs/src/main/resources/**"],
       "detect": {
         "kind": "addedLineRegex",
         "pattern": "dangerouslySetInnerHTML|\\.innerHTML|outerHTML|insertAdjacentHTML|localStorage|sessionStorage|document\\.cookie|\\beval\\(|new Function\\(|<script"
@@ -456,7 +450,7 @@
     "closesIssue": "The pull request body contains 'Closes #<number>' for exactly one issue.",
     "conventionalTitle": "^(feat|fix|docs|test|refactor|perf|build|ci|chore|revert)(\\([a-z0-9-]+\\))?!?: [a-z].{2,70}$",
     "authoredLineLimit": 500,
-    "authoredLinesExclude": ["**/gradle.lockfile", "settings-gradle.lockfile", "package-lock.json", "gradle/verification-metadata.xml", "packages/shipping-client/src/schema.d.ts", "BRAIN.md", "docs/brain/**"],
+    "authoredLinesExclude": ["**/gradle.lockfile", "settings-gradle.lockfile", "package-lock.json", "gradle/verification-metadata.xml", "packages/shipping-client/src/schema.d.ts", "BRAIN.md", "docs/brain/**", "docs/architecture/**"],
     "overLimit": "Allowed only with a 'Size reason:' paragraph in the pull request body.",
     "behaviourChanges": "Need acceptance criteria in domain language and red-green evidence (the failing test run before the fix, and the passing run after)."
   }

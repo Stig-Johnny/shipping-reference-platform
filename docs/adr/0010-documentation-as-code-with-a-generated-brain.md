@@ -1,7 +1,8 @@
 ---
 title: "ADR 0010: Documentation as code with a generated brain"
 description: "Docs live beside the code with frontmatter; a deterministic generator builds BRAIN.md and per-module brains within size budgets, and CI fails on drift."
-status: accepted
+status: superseded
+supersededBy: "0011"
 updated: 2026-11-06
 date: 2026-11-06
 decision-makers: repository owner
