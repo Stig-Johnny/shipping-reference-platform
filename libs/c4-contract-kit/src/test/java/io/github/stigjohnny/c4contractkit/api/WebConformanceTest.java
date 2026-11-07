@@ -503,6 +503,86 @@ class WebConformanceTest {
                 tuple(WebViolationType.UNDECLARED_PACKAGE, List.of("widgets", "undeclared")));
     }
 
+    private static final String CLIENT = "npm @shop/client 1.0.0 for web (dependencies), APPROVE, "
+            + "security/reviews/npm--shop-client.md";
+    private static final String REACT = "npm react 19.3.0 for web (dependencies), APPROVE, "
+            + "security/reviews/npm--react.md";
+    private static final String REACT_DOM = "npm react-dom 19.3.0 for web (dependencies), APPROVE, "
+            + "security/reviews/npm--react-dom.md";
+    private static final String TESTING_LIBRARY = "npm @testing-library/react 16.3.3 for web (devDependencies), "
+            + "APPROVE, security/reviews/npm--testing-library-react.md";
+    private static final String NODE = "runtime nodejs.org/dist node 26.13.0 for ci (web, contract-e2e jobs), "
+            + "APPROVE-WITH-CONDITIONS, security/reviews/runtime--node--26.13.0.md";
+    private static final String TEST = "web/src/features/cart/CartPage.test.tsx";
+
+    @Test
+    void theReportGivesTheRuleAndTheApprovalBehindEveryPackageAndBuiltIn() {
+        WebReport report = check(WebFixture.files());
+
+        assertThat(report.violations()).isEmpty();
+        assertThat(report.externalImports()).extracting(WebExternalImport::file, WebExternalImport::line,
+                WebExternalImport::specifier, WebExternalImport::target, WebExternalImport::version,
+                WebExternalImport::rule, WebExternalImport::allowlistEntry, WebExternalImport::status).containsExactly(
+                tuple("web/src/api/cart.ts", 1, "@shop/client", "@shop/client", "1.0.0", "web.packages of client",
+                        CLIENT, ExternalImportStatus.APPROVED),
+                tuple("web/src/api/items.ts", 1, "@shop/client/items", "@shop/client", "1.0.0",
+                        "web.packages of client", CLIENT, ExternalImportStatus.APPROVED),
+                tuple("web/src/app/main.tsx", 1, "react-dom/client", "react-dom", "19.3.0", "web.packages of shell",
+                        REACT_DOM, ExternalImportStatus.APPROVED),
+                tuple(TEST, 1, "node:assert/strict", "node:assert/strict", "26.13.0", "web.testBuiltins", NODE,
+                        ExternalImportStatus.APPROVED),
+                tuple(TEST, 2, "node:test", "node:test", "26.13.0", "web.testBuiltins", NODE,
+                        ExternalImportStatus.APPROVED),
+                tuple(TEST, 3, "@testing-library/react", "@testing-library/react", "16.3.3", "web.testPackages",
+                        TESTING_LIBRARY, ExternalImportStatus.APPROVED),
+                tuple("web/src/features/cart/CartPage.tsx", 1, "react", "react", "19.3.0", "web.packages of cart",
+                        REACT, ExternalImportStatus.APPROVED),
+                tuple("web/src/ui/Button.tsx", 1, "react", "react", "19.3.0", "web.packages of widgets", REACT,
+                        ExternalImportStatus.APPROVED));
+    }
+
+    @Test
+    void theReportGivesTheRuleThatRefusesAPackageOrBuiltIn() {
+        Map<String, String> files = with("ui/pad.ts", """
+                import pad from 'left-pad';
+                import { readFileSync } from 'node:fs';
+                export const padded = pad(readFileSync('x', 'utf8'));
+                """);
+        files.put("features/cart/CartPage.test.tsx", """
+                import { spawn } from 'node:child_process';
+                import fs from 'fs';
+                export const run = () => spawn(String(fs));
+                """);
+        String packageJson = WebFixture.PACKAGE_JSON.replace("\"react-dom\": \"19.3.0\", ", "");
+        String allowlist = WebFixture.ALLOWLIST.replace(WebFixture.npm("react", "19.3.0", "dependencies"),
+                WebFixture.npm("react", "19.2.0", "dependencies"));
+
+        WebReport report = check(WebFixture.MODEL, files, packageJson, allowlist);
+
+        assertThat(report.externalImports()).filteredOn(item -> item.status() != ExternalImportStatus.APPROVED)
+                .extracting(WebExternalImport::file, WebExternalImport::line, WebExternalImport::target,
+                        WebExternalImport::version, WebExternalImport::rule, WebExternalImport::allowlistEntry,
+                        WebExternalImport::status).containsExactly(
+                tuple("web/src/app/main.tsx", 1, "react-dom", "", "web.packages of shell", "",
+                        ExternalImportStatus.UNPINNED),
+                tuple(TEST, 1, "node:child_process", "26.13.0", "web.testBuiltins", "",
+                        ExternalImportStatus.UNDECLARED),
+                tuple(TEST, 2, "fs", "26.13.0", "a test names a Node.js built-in with node:", "",
+                        ExternalImportStatus.REFUSED),
+                tuple("web/src/features/cart/CartPage.tsx", 1, "react", "19.3.0", "web.packages of cart", "",
+                        ExternalImportStatus.UNAPPROVED),
+                tuple("web/src/ui/Button.tsx", 1, "react", "19.3.0", "web.packages of widgets", "",
+                        ExternalImportStatus.UNAPPROVED),
+                tuple("web/src/ui/pad.ts", 1, "left-pad", "", "web.packages of widgets", "",
+                        ExternalImportStatus.UNDECLARED),
+                tuple("web/src/ui/pad.ts", 2, "node:fs", "", "no Node.js built-in in browser code", "",
+                        ExternalImportStatus.REFUSED));
+        assertThat(report.violations()).extracting(WebViolation::type).containsExactly(
+                WebViolationType.NODE_BUILTIN, WebViolationType.NODE_BUILTIN, WebViolationType.NODE_BUILTIN,
+                WebViolationType.UNAPPROVED_IMPORT, WebViolationType.UNAPPROVED_IMPORT,
+                WebViolationType.UNAPPROVED_IMPORT, WebViolationType.UNDECLARED_PACKAGE);
+    }
+
     @Test
     void aDeclaredPackageNeedsAnApprovalForTheAppInDependencies() {
         String reason = "security/allowlist.json approves no npm @shop/client 1.0.0 for web in dependencies, and only "

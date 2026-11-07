@@ -67,11 +67,16 @@ public final class WebConformance {
     /** Writes report.json and report.md to reportDirectory, then throws AssertionError if the report did not pass. */
     public static void assertConforms(WebReport report, Path reportDirectory);
 }
-public record WebReport(String schema, String modelPath, String sourceRoot, List<WebComponentResult> components,
-                        List<WebEdgeResult> edges, List<WebViolation> violations) {
+public record WebReport(String schema, String modelPath, String sourceRoot, List<String> testRoots,
+                        List<String> publicRoots, List<WebComponentResult> components, List<WebEdgeResult> edges,
+                        List<WebExternalImport> externalImports, List<WebViolation> violations) {
     public boolean passed();   // true when violations is empty
 }
 public record ImportEvidence(String file, int line, String specifier, String kind, String target) {}
+/** Every import of a package or Node.js built-in: the model property that lists it and the allowlist entry. */
+public record WebExternalImport(String file, int line, String specifier, String target, String version, String rule,
+                                String allowlistEntry, ExternalImportStatus status) {}
+public enum ExternalImportStatus { APPROVED, UNDECLARED, UNPINNED, UNAPPROVED, REFUSED }
 ```
 
 ## Model rules (the header of `architecture/workspace.dsl` states them for model authors)
@@ -248,7 +253,11 @@ Comparison semantics:
 - Not violations: `CONVERGENCE`, `NO_STATIC_EVIDENCE` (PERMITTED, no import), `NOT_EVALUATED` (a relationship that
   touches a planned component).
 - Reports: `report.json` (`"schema": "c4-contract-kit/web-report/v1"`) and `report.md`, deterministic as above; every
-  piece of evidence names the file (relative to the repository root), line, specifier, kind and target.
+  piece of evidence names the file (relative to the repository root), line, specifier, kind and target. Both list the
+  roots read and every import of a package or a Node.js built-in, approved or not, by file, line and specifier, with
+  its target, version, the rule that decided it (`web.packages of cart`, `web.testPackages`, `web.testBuiltins`, or
+  the rule that refuses it), the approving allowlist entry in one line (kind, coordinate, version, project,
+  configuration, verdict, review record) and its status.
 
 ## Ten TDD slices
 

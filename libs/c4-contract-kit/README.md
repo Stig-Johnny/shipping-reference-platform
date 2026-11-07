@@ -93,7 +93,9 @@ components without an import, on a file in no component or in a planned one, on 
 import of a component other than through its `web.entry`, on an import of a test, on an unresolved import, on a package
 or built-in that is not declared or not approved, on an import cycle, on unsupported syntax or files, and on a refused
 setting of the app's configuration. Its reports, `report.json`
-(`"schema": "c4-contract-kit/web-report/v1"`) and `report.md`, are deterministic like the class check's.
+(`"schema": "c4-contract-kit/web-report/v1"`) and `report.md`, are deterministic like the class check's, and list
+every import of a package or a Node.js built-in with the file and line that make it, the rule that decided it and the
+allowlist entry that approves it.
 
 ## The model
 

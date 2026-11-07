@@ -72,6 +72,7 @@ public final class WebRules {
     private final List<ImportEvidenceItem> fileImports = new ArrayList<>();
     private final List<Refused> refused = new ArrayList<>();
     private final List<WebFinding> findings = new ArrayList<>();
+    private final List<ExternalImportItem> externalImports = new ArrayList<>();
 
     private WebRules(WebModel model, WebInputs inputs) {
         this.model = model;
@@ -176,7 +177,7 @@ public final class WebRules {
                 if (test) {
                     testPackage(found, file, owner, name);
                 } else {
-                    source.ifPresent(component -> browserPackage(found, component, name));
+                    browserPackage(found, file, source, name);
                 }
             }
             case Resolution.ToBuiltin(String name) -> builtin(found, file, test, name);
@@ -217,74 +218,128 @@ public final class WebRules {
         }
     }
 
-    private void browserPackage(ResolvedImport found, WebComponent component, String name) {
-        ImportEvidenceItem evidence = evidence(found, shown(inputs.sources(), found.file()), name);
-        if (!component.packages().contains(name)) {
-            add(undeclaredPackages, List.of(component.id(), name), evidence);
+    /** A file in no component is already a violation; its packages are reported as undeclared, without another. */
+    private void browserPackage(ResolvedImport found, String file, Optional<WebComponent> source, String name) {
+        ImportEvidenceItem evidence = evidence(found, file, name);
+        String version = inputs.configuration().dependencies().getOrDefault(name, "");
+        if (source.isEmpty()) {
+            decide(found, file, name, version, "web.packages (the file is in no component)",
+                    ExternalImportVerdict.UNDECLARED, "");
             return;
         }
-        String version = inputs.configuration().dependencies().get(name);
-        if (version == null) {
+        WebComponent component = source.get();
+        String rule = "web.packages of " + component.id();
+        if (!component.packages().contains(name)) {
+            add(undeclaredPackages, List.of(component.id(), name), evidence);
+            decide(found, file, name, version, rule, ExternalImportVerdict.UNDECLARED, "");
+            return;
+        }
+        if (version.isEmpty()) {
             unapproved(component.id(), name, "package.json declares no exact version of " + name + " in dependencies, "
                     + "so no reviewed release is known", evidence);
+            decide(found, file, name, version, rule, ExternalImportVerdict.UNPINNED, "");
             return;
         }
         if (approvalUnavailable(component.id(), name, evidence)) {
+            decide(found, file, name, version, rule, ExternalImportVerdict.UNAPPROVED, "");
             return;
         }
-        if (inputs.allowlist().npm(name, version, inputs.configuration().app(), RUNTIME).isEmpty()) {
+        Optional<Allowlist.Entry> entry = inputs.allowlist().npm(name, version, inputs.configuration().app(), RUNTIME);
+        if (entry.isEmpty()) {
             unapproved(component.id(), name, Allowlist.PATH + " approves no npm " + name + " " + version + " for "
                     + inputs.configuration().app() + " in dependencies, and only that approval covers code that runs "
                     + "in the browser", evidence);
         }
+        decide(found, file, name, version, rule, entry);
     }
 
     private void testPackage(ResolvedImport found, String file, String owner, String name) {
         ImportEvidenceItem evidence = evidence(found, file, name);
+        String version = inputs.configuration().devDependencies().getOrDefault(name,
+                inputs.configuration().dependencies().getOrDefault(name, ""));
+        String rule = "web.testPackages";
         if (!model.testPackages().contains(name)) {
             add(undeclaredTestPackages, List.of(owner, name), evidence);
+            decide(found, file, name, version, rule, ExternalImportVerdict.UNDECLARED, "");
             return;
         }
-        String version = inputs.configuration().devDependencies().getOrDefault(name,
-                inputs.configuration().dependencies().get(name));
-        if (version == null) {
+        if (version.isEmpty()) {
             unapproved(owner, name, "package.json declares no exact version of " + name + ", so no reviewed release is "
                     + "known", evidence);
+            decide(found, file, name, version, rule, ExternalImportVerdict.UNPINNED, "");
             return;
         }
         if (approvalUnavailable(owner, name, evidence)) {
+            decide(found, file, name, version, rule, ExternalImportVerdict.UNAPPROVED, "");
             return;
         }
-        if (inputs.allowlist().npm(name, version, inputs.configuration().app(), TEST_SCOPES).isEmpty()) {
+        Optional<Allowlist.Entry> entry = inputs.allowlist().npm(name, version, inputs.configuration().app(),
+                TEST_SCOPES);
+        if (entry.isEmpty()) {
             unapproved(owner, name, Allowlist.PATH + " approves no npm " + name + " " + version + " for "
                     + inputs.configuration().app() + " in devDependencies or dependencies", evidence);
         }
+        decide(found, file, name, version, rule, entry);
     }
 
     private void builtin(ResolvedImport found, String file, boolean test, String name) {
         ImportEvidenceItem evidence = evidence(found, file, name);
+        Optional<String> node = test ? inputs.configuration().node() : Optional.empty();
+        String version = node.orElse("");
         String problem;
         if (!test) {
             problem = file + " imports the Node.js built-in " + name + ": code that runs in the browser may not import "
                     + "Node.js built-ins.";
+            decide(found, file, name, version, "no Node.js built-in in browser code", ExternalImportVerdict.REFUSED,
+                    "");
         } else if (!name.startsWith("node:")) {
             problem = file + " imports " + name + " without the node: prefix: a test names a Node.js built-in as node:"
                     + name + ", which web.testBuiltins must list.";
+            decide(found, file, name, version, "a test names a Node.js built-in with node:",
+                    ExternalImportVerdict.REFUSED, "");
         } else if (!model.testBuiltins().contains(name)) {
             problem = file + " imports the Node.js built-in " + name + ", which web.testBuiltins does not list.";
+            decide(found, file, name, version, "web.testBuiltins", ExternalImportVerdict.UNDECLARED, "");
         } else {
-            Optional<String> node = inputs.configuration().node();
-            if (node.isEmpty()) {
-                unapproved(file, name, "package.json names no exact engines.node, so the Node.js whose review covers "
-                        + name + " is not known", evidence);
-            } else if (!approvalUnavailable(file, name, evidence)
-                    && inputs.allowlist().nodeRuntime(node.get()).isEmpty()) {
-                unapproved(file, name, Allowlist.PATH + " approves no " + Allowlist.NODE_RUNTIME + " " + node.get()
-                        + " for the web job, the Node.js whose built-in " + name + " tests import", evidence);
-            }
+            testBuiltin(found, file, name, node, evidence);
             return;
         }
         findings.add(new WebFinding(WebFindingType.NODE_BUILTIN, List.of(file, name), problem, List.of(evidence)));
+    }
+
+    /** A built-in that web.testBuiltins lists: the allowlist must approve the Node.js that engines.node names. */
+    private void testBuiltin(ResolvedImport found, String file, String name, Optional<String> node,
+                             ImportEvidenceItem evidence) {
+        String rule = "web.testBuiltins";
+        if (node.isEmpty()) {
+            unapproved(file, name, "package.json names no exact engines.node, so the Node.js whose review covers "
+                    + name + " is not known", evidence);
+            decide(found, file, name, "", rule, ExternalImportVerdict.UNPINNED, "");
+            return;
+        }
+        if (approvalUnavailable(file, name, evidence)) {
+            decide(found, file, name, node.get(), rule, ExternalImportVerdict.UNAPPROVED, "");
+            return;
+        }
+        Optional<Allowlist.Entry> entry = inputs.allowlist().nodeRuntime(node.get());
+        if (entry.isEmpty()) {
+            unapproved(file, name, Allowlist.PATH + " approves no " + Allowlist.NODE_RUNTIME + " " + node.get()
+                    + " for the web job, the Node.js whose built-in " + name + " tests import", evidence);
+        }
+        decide(found, file, name, node.get(), rule, entry);
+    }
+
+    private void decide(ResolvedImport found, String file, String target, String version, String rule,
+                        Optional<Allowlist.Entry> entry) {
+        decide(found, file, target, version, rule,
+                entry.isPresent() ? ExternalImportVerdict.APPROVED : ExternalImportVerdict.UNAPPROVED,
+                entry.map(Allowlist.Entry::summary).orElse(""));
+    }
+
+    private void decide(ResolvedImport found, String file, String target, String version, String rule,
+                        ExternalImportVerdict verdict, String allowlistEntry) {
+        externalImports.add(new ExternalImportItem(file, found.line(), found.specifier(), target, version, rule,
+                allowlistEntry, verdict));
     }
 
     /** True, after the finding, when the allowlist could not be read: then nothing is approved. */
@@ -331,7 +386,8 @@ public final class WebRules {
                     .filter(item -> members.contains(item.file()) && members.contains(item.target())).toList()));
         }
         List<WebComponentSummary> components = model.components().stream().map(this::summary).toList();
-        return new WebComparison(inputs.sources().root(), components, edges, findings);
+        return new WebComparison(inputs.sources().root(), model.testRoots(), model.publicRoots(), components, edges,
+                externalImports, findings);
     }
 
     private List<WebEdgeOutcome> edges() {

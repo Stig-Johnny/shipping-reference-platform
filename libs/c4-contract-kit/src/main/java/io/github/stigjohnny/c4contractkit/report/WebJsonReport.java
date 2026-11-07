@@ -5,6 +5,7 @@ import static io.github.stigjohnny.c4contractkit.report.Json.member;
 import static io.github.stigjohnny.c4contractkit.report.Json.object;
 import static io.github.stigjohnny.c4contractkit.report.Json.strings;
 
+import io.github.stigjohnny.c4contractkit.rules.ExternalImportItem;
 import io.github.stigjohnny.c4contractkit.rules.ImportEvidenceItem;
 import io.github.stigjohnny.c4contractkit.rules.WebComparison;
 import io.github.stigjohnny.c4contractkit.rules.WebComponentSummary;
@@ -26,9 +27,13 @@ public final class WebJsonReport {
                 member("schema", schema),
                 member("modelPath", modelPath),
                 member("sourceRoot", comparison.sourceRoot()),
+                member("testRoots", strings(comparison.testRoots())),
+                member("publicRoots", strings(comparison.publicRoots())),
                 member("passed", comparison.passed()),
                 member("components", array(comparison.components().stream().map(WebJsonReport::component).toList())),
                 member("edges", array(comparison.edges().stream().map(WebJsonReport::edge).toList())),
+                member("externalImports", array(comparison.externalImports().stream()
+                        .map(WebJsonReport::externalImport).toList())),
                 member("violations", array(comparison.findings().stream().map(WebJsonReport::violation).toList())))
                 .print();
     }
@@ -51,6 +56,18 @@ public final class WebJsonReport {
                 member("mode", edge.mode().name()),
                 member("status", edge.verdict().name()),
                 member("evidence", evidence(edge.evidence())));
+    }
+
+    private static Json externalImport(ExternalImportItem item) {
+        return object(
+                member("file", item.file()),
+                member("line", item.line()),
+                member("specifier", item.specifier()),
+                member("target", item.target()),
+                member("version", item.version()),
+                member("rule", item.rule()),
+                member("allowlistEntry", item.allowlistEntry()),
+                member("status", item.verdict().name()));
     }
 
     private static Json violation(WebFinding finding) {

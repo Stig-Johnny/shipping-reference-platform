@@ -6,6 +6,7 @@ import static io.github.stigjohnny.c4contractkit.report.MarkdownReport.table;
 import static io.github.stigjohnny.c4contractkit.report.MarkdownReport.text;
 import static io.github.stigjohnny.c4contractkit.report.MarkdownReport.words;
 
+import io.github.stigjohnny.c4contractkit.rules.ExternalImportItem;
 import io.github.stigjohnny.c4contractkit.rules.ImportEvidenceItem;
 import io.github.stigjohnny.c4contractkit.rules.WebComparison;
 import io.github.stigjohnny.c4contractkit.rules.WebComponentSummary;
@@ -18,8 +19,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * report.md of the web import check, for people: the verdict first, then every violation with its evidence (file,
- * line, specifier, kind and target), then a table of every edge with its status, then the components. A PERMITTED
+ * report.md of the web import check, for people: the verdict and the roots first, then every violation with its
+ * evidence (file, line, specifier, kind and target), then a table of every edge with its status, then every import of
+ * a package or a Node.js built-in with the rule and the allowlist entry behind it, then the components. A PERMITTED
  * relationship without imports reads "no static evidence".
  */
 public final class WebMarkdownReport {
@@ -36,7 +38,8 @@ public final class WebMarkdownReport {
         blocks.add("# C4 web import report");
         blocks.add("**Verdict: " + (comparison.passed() ? "PASSED" : "FAILED") + "** with "
                 + count(comparison.findings().size()) + ". Model: " + code(modelPath) + ". Web root: "
-                + code(comparison.sourceRoot()) + ". Report format: " + code(schema) + ".");
+                + code(comparison.sourceRoot()) + ". Test roots: " + roots(comparison.testRoots()) + ". Public roots: "
+                + roots(comparison.publicRoots()) + ". Report format: " + code(schema) + ".");
         blocks.add("## Violations");
         if (comparison.findings().isEmpty()) {
             blocks.add("None.");
@@ -51,6 +54,8 @@ public final class WebMarkdownReport {
         }
         blocks.add("## Edges");
         blocks.add(comparison.edges().isEmpty() ? "None." : edges(comparison.edges()));
+        blocks.add("## Packages and built-ins");
+        blocks.add(comparison.externalImports().isEmpty() ? "None." : externalImports(comparison.externalImports()));
         blocks.add("## Components");
         blocks.add(comparison.components().isEmpty() ? "None." : components(comparison.components()));
         return String.join("\n\n", blocks) + "\n";
@@ -71,6 +76,22 @@ public final class WebMarkdownReport {
                 edge.mode().name(),
                 words(edge.verdict().name()),
                 String.valueOf(edge.evidence().size()))).toList());
+    }
+
+    private static String externalImports(List<ExternalImportItem> items) {
+        return table(List.of("File", "Specifier", "Target", "Version", "Rule", "Allowlist entry", "Status"),
+                items.stream().map(item -> List.of(
+                        code(item.file() + ":" + item.line()),
+                        code(item.specifier()),
+                        code(item.target()),
+                        item.version().isEmpty() ? "(none)" : text(item.version()),
+                        text(item.rule()),
+                        item.allowlistEntry().isEmpty() ? "(none)" : text(item.allowlistEntry()),
+                        words(item.verdict().name()))).toList());
+    }
+
+    private static String roots(List<String> roots) {
+        return roots.isEmpty() ? "none" : joined(roots);
     }
 
     private static String components(List<WebComponentSummary> components) {

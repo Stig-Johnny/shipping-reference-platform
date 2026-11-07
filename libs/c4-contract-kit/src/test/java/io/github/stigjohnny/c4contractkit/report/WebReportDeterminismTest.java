@@ -5,11 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.stigjohnny.c4contractkit.api.ComponentStatus;
 import io.github.stigjohnny.c4contractkit.api.EdgeStatus;
+import io.github.stigjohnny.c4contractkit.api.ExternalImportStatus;
 import io.github.stigjohnny.c4contractkit.api.ImportEvidence;
 import io.github.stigjohnny.c4contractkit.api.Mode;
 import io.github.stigjohnny.c4contractkit.api.WebComponentResult;
 import io.github.stigjohnny.c4contractkit.api.WebConformance;
 import io.github.stigjohnny.c4contractkit.api.WebEdgeResult;
+import io.github.stigjohnny.c4contractkit.api.WebExternalImport;
 import io.github.stigjohnny.c4contractkit.api.WebReport;
 import io.github.stigjohnny.c4contractkit.api.WebViolation;
 import io.github.stigjohnny.c4contractkit.api.WebViolationType;
@@ -37,6 +39,7 @@ class WebReportDeterminismTest {
 
     /** A failing report with every part filled, given in report order. */
     private static final WebReport FAILING = new WebReport(WebReport.SCHEMA, "architecture/web.dsl", "web/src",
+            List.of("web/e2e"), List.of("web/public"),
             List.of(new WebComponentResult("cart", "Cart", ComponentStatus.BUILT, List.of("features/cart"),
                             Optional.of("features/cart/index.ts"), List.of("react"), 2),
                     new WebComponentResult("shell", "Shell", ComponentStatus.BUILT, List.of("app", "boot"),
@@ -45,6 +48,12 @@ class WebReportDeterminismTest {
                             Optional.empty(), List.of(), 0)),
             List.of(new WebEdgeResult("cart", "widgets", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED, List.of()),
                     new WebEdgeResult("shell", "cart", Mode.REQUIRED, EdgeStatus.CONVERGENCE, List.of(BYPASS))),
+            List.of(new WebExternalImport("web/src/features/cart/CartPage.test.tsx", 2, "node:test", "node:test",
+                            "26.13.0", "web.testBuiltins",
+                            "runtime nodejs.org/dist node 26.13.0 for ci (web), APPROVE, security/reviews/node.md",
+                            ExternalImportStatus.APPROVED),
+                    new WebExternalImport("web/src/ui/Lazy.ts", 1, "left-pad/pad", "left-pad", "",
+                            "web.packages of widgets", "", ExternalImportStatus.UNDECLARED)),
             List.of(new WebViolation(WebViolationType.ENTRY_POINT_BYPASSED, List.of("shell", "cart"),
                             "shell imports cart other than through its web.entry web/src/features/cart/index.ts.",
                             List.of(BYPASS)),
@@ -70,6 +79,12 @@ class WebReportDeterminismTest {
                   "schema": "c4-contract-kit/web-report/v1",
                   "modelPath": "architecture/web.dsl",
                   "sourceRoot": "web/src",
+                  "testRoots": [
+                    "web/e2e"
+                  ],
+                  "publicRoots": [
+                    "web/public"
+                  ],
                   "passed": false,
                   "components": [
                     {
@@ -133,6 +148,28 @@ class WebReportDeterminismTest {
                       ]
                     }
                   ],
+                  "externalImports": [
+                    {
+                      "file": "web/src/features/cart/CartPage.test.tsx",
+                      "line": 2,
+                      "specifier": "node:test",
+                      "target": "node:test",
+                      "version": "26.13.0",
+                      "rule": "web.testBuiltins",
+                      "allowlistEntry": "runtime nodejs.org/dist node 26.13.0 for ci (web), APPROVE, security/reviews/node.md",
+                      "status": "APPROVED"
+                    },
+                    {
+                      "file": "web/src/ui/Lazy.ts",
+                      "line": 1,
+                      "specifier": "left-pad/pad",
+                      "target": "left-pad",
+                      "version": "",
+                      "rule": "web.packages of widgets",
+                      "allowlistEntry": "",
+                      "status": "UNDECLARED"
+                    }
+                  ],
                   "violations": [
                     {
                       "type": "ENTRY_POINT_BYPASSED",
@@ -180,7 +217,7 @@ class WebReportDeterminismTest {
                 # C4 web import report
 
                 **Verdict: FAILED** with 2 violations. Model: `architecture/web.dsl`. Web root: `web/src`. \
-                Report format: `c4-contract-kit/web-report/v1`.
+                Test roots: `web/e2e`. Public roots: `web/public`. Report format: `c4-contract-kit/web-report/v1`.
 
                 ## Violations
 
@@ -207,6 +244,15 @@ class WebReportDeterminismTest {
                 | cart | widgets | PERMITTED | not evaluated | 0 |
                 | shell | cart | REQUIRED | convergence | 1 |
 
+                ## Packages and built-ins
+
+                | File | Specifier | Target | Version | Rule | Allowlist entry | Status |
+                |---|---|---|---|---|---|---|
+                | `web/src/features/cart/CartPage.test.tsx:2` | `node:test` | `node:test` | 26.13.0 | web.testBuiltins | \
+                runtime nodejs.org/dist node 26.13.0 for ci (web), APPROVE, security/reviews/node.md | approved |
+                | `web/src/ui/Lazy.ts:1` | `left-pad/pad` | `left-pad` | (none) | web.packages of widgets | (none) | \
+                undeclared |
+
                 ## Components
 
                 | Component | Status | Files | Paths | Entry | Packages |
@@ -219,15 +265,16 @@ class WebReportDeterminismTest {
 
     @Test
     void aPassingReportWithoutEdgesOrComponentsSaysSo() throws IOException {
-        WebReport empty = new WebReport(WebReport.SCHEMA, "m.dsl", "src", List.of(), List.of(), List.of());
+        WebReport empty = new WebReport(WebReport.SCHEMA, "m.dsl", "src", List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of());
 
         WebConformance.assertConforms(empty, dir);
 
         assertThat(Files.readString(dir.resolve("report.md"), StandardCharsets.UTF_8)).isEqualTo("""
                 # C4 web import report
 
-                **Verdict: PASSED** with no violations. Model: `m.dsl`. Web root: `src`. Report format: \
-                `c4-contract-kit/web-report/v1`.
+                **Verdict: PASSED** with no violations. Model: `m.dsl`. Web root: `src`. Test roots: none. Public \
+                roots: none. Report format: `c4-contract-kit/web-report/v1`.
 
                 ## Violations
 
@@ -237,12 +284,25 @@ class WebReportDeterminismTest {
 
                 None.
 
+                ## Packages and built-ins
+
+                None.
+
                 ## Components
 
                 None.
                 """);
         assertThat(Files.readString(dir.resolve("report.json"), StandardCharsets.UTF_8))
-                .contains("\"passed\": true,\n  \"components\": [],\n  \"edges\": [],\n  \"violations\": []\n}\n");
+                .endsWith("""
+                          "testRoots": [],
+                          "publicRoots": [],
+                          "passed": true,
+                          "components": [],
+                          "edges": [],
+                          "externalImports": [],
+                          "violations": []
+                        }
+                        """);
     }
 
     @Test
