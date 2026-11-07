@@ -2,8 +2,11 @@ package io.github.stigjohnny.docs.site;
 
 import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.repo.DemoRecord;
+import java.util.Collection;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TreeMap;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -11,7 +14,9 @@ import java.util.regex.Pattern;
  * Each page's sheet code in the drawing register, such as {@code M-03}: a letter for the section and a number. Codes
  * are written out here, page by page, or come from a decision record's own number, or from a demonstration's pull
  * request number, which its file name carries (DemoCheck holds the two equal); never from a page's position in a list,
- * so that adding a page never renumbers the others. A page without a code fails the build.
+ * so that adding a page never renumbers the others. A page without a code fails the build, and so do two pages with
+ * one. A milestone deck's slides are {@code X-Dnn} and its notes {@code X-Nnn}, written out here; {@code X-} and a
+ * number stays a demonstration's.
  */
 final class Sheets {
 
@@ -25,6 +30,8 @@ final class Sheets {
             Map.entry(StartPages.SITE_DESIGN, "S-02"),
             Map.entry(DemoPages.INDEX, "X-00"),
             Map.entry(DemoPages.HOW_TO, "X-GUIDE"),
+            Map.entry("demos/deck-milestone.html", "X-D01"),
+            Map.entry("demos/deck-milestone-notes.html", "X-N01"),
             Map.entry(ModelPages.INDEX, "M-00"),
             Map.entry("model/system-context.html", "M-01"),
             Map.entry("model/containers.html", "M-02"),
@@ -62,6 +69,19 @@ final class Sheets {
             Map.entry(NotFoundPage.PAGE, "404"));
 
     private Sheets() {
+    }
+
+    /** Fails when two of the pages have one sheet code: every sheet has a code of its own. */
+    static void unique(Collection<String> pages, Function<String, String> code) {
+        Map<String, String> pageByCode = new TreeMap<>();
+        for (String page : pages) {
+            String sheet = code.apply(page);
+            String other = pageByCode.putIfAbsent(sheet, page);
+            if (other != null) {
+                throw new DocsException("the sheet code " + sheet + " is given to " + other + " and to " + page
+                        + "; each sheet has a code of its own");
+            }
+        }
     }
 
     /**

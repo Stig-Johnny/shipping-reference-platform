@@ -6,8 +6,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.stigjohnny.docs.DocsException;
+import io.github.stigjohnny.docs.repo.Capability;
+import io.github.stigjohnny.docs.repo.DemoRecord;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.Sources;
+import io.github.stigjohnny.docs.testing.Decks;
 import io.github.stigjohnny.docs.testing.Demos;
 import io.github.stigjohnny.docs.testing.Fixture;
 import io.github.stigjohnny.docs.testing.Repository;
@@ -25,7 +28,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * The demonstrations' negative fixtures (docs/demos/how-to.md): each changes one thing in a demonstration and expects
  * the check to fail and say why. The demonstrations are read against one copy of the repository, whose tests and
- * test reports they name; the check never runs a command they show.
+ * test reports they name; the check never runs a command they show. Then the milestone deck's, against the same copy,
+ * whose capabilities a deck counts: each changes one thing in the sample deck.
  */
 class DemoCheckTest {
 
@@ -484,6 +488,272 @@ class DemoCheckTest {
                 .as("the checker's documented test run").hasSize(1);
         assertThat(howTo).contains("`./gradlew :libs:c4-contract-kit:test --rerun --tests '*<TestClass>'`");
         assertThat(DemoCheck.COMMANDS).noneMatch(command -> command.contains("pitest"));
+    }
+
+    // Milestone decks: docs/demos/deck-<slug>.md, checked by their own rules; a deck is not a demonstration.
+
+    private static final String DECK = Decks.PATH + ": ";
+    private static final String SLIDE_3 = "slide 3 'Én endring porten avviser'";
+
+    @Test
+    void aDeckIsValidBesideTheDemonstrationsAndIsNoDemonstration() {
+        assertThat(problems(Decks.PATH, Decks.SAMPLE)).isEmpty();
+        assertThat(DemoRecord.isDemo(Decks.PATH)).isFalse();
+        assertThat(DemoRecord.isDemo("docs/demos/42-gate.md")).isTrue();
+    }
+
+    @Test
+    void theRepositorysOwnDeckPasses() {
+        assertThat(problems(Decks.PATH, Repository.read(Decks.PATH))).isEmpty();
+    }
+
+    @Test
+    void theRepositoryCheckRunsTheDeckCheck(@TempDir Path copy) {
+        Fixture fixture = Fixture.copy(copy).passingEvidence().withoutDemos().write(Decks.PATH,
+                Decks.with("lang: nb", "lang: en"));
+
+        assertThatThrownBy(() -> Consistency.check(Sources.read(fixture.root(), List.of(fixture.reports()))))
+                .isInstanceOf(DocsException.class).hasMessageContaining(DECK + "lang 'en' is not nb; a deck is "
+                        + "written in Norwegian Bokmål (nb), the language of its slide controls");
+    }
+
+    @Test
+    void aDemonstrationWithTheKindDeckIsToldWhereDecksStand() {
+        assertThat(problems("docs/demos/42-deck.md", GATE.replace("kind: gate", "kind: deck"))).containsExactly(
+                "docs/demos/42-deck.md: kind 'deck' is not one of visual, gate, build, docs and feature; a deck is "
+                        + "named docs/demos/deck-<slug>.md");
+    }
+
+    static Stream<Arguments> invalidDeckMetadata() {
+        String keys = "is not one of title, description, status, updated, kind, lang, milestone, mainSlides and "
+                + "appendixSlides; a deck names no pull request, and no revision is entered by hand";
+        return Stream.of(
+                Arguments.of("kind: deck", "kind: gate", "kind 'gate' is not deck; a file named "
+                        + "docs/demos/deck-<slug>.md is a deck"),
+                Arguments.of("kind: deck\n", "", "frontmatter missing key 'kind'"),
+                Arguments.of("lang: nb", "lang: en", "lang 'en' is not nb; a deck is written in Norwegian Bokmål (nb), "
+                        + "the language of its slide controls"),
+                Arguments.of("lang: nb\n", "", "frontmatter missing key 'lang'"),
+                Arguments.of("milestone: 2026-11-10", "milestone: 10 November", "milestone '10 November' is not an "
+                        + "ISO date (YYYY-MM-DD)"),
+                Arguments.of("milestone: 2026-11-10", "milestone: 2026-02-30", "milestone '2026-02-30' is not an ISO "
+                        + "date (YYYY-MM-DD)"),
+                Arguments.of("milestone: 2026-11-10\n", "", "frontmatter missing key 'milestone'"),
+                Arguments.of("mainSlides: 3", "mainSlides: \"3\"", "mainSlides must be the number of main slides, a "
+                        + "whole number without quotes"),
+                Arguments.of("mainSlides: 3", "mainSlides: 3.0", "mainSlides must be the number of main slides, a "
+                        + "whole number without quotes"),
+                Arguments.of("mainSlides: 3\n", "", "frontmatter missing key 'mainSlides'"),
+                Arguments.of("appendixSlides: 1", "appendixSlides: -1", "appendixSlides must be the number of appendix "
+                        + "slides, a whole number without quotes"),
+                Arguments.of("appendixSlides: 1\n", "", "frontmatter missing key 'appendixSlides'"),
+                Arguments.of("status: accepted", "status: accepted\npr: 48", "frontmatter key 'pr' " + keys),
+                Arguments.of("status: accepted", "status: accepted\nrevision: 44ef312", "frontmatter key 'revision' "
+                        + keys));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidDeckMetadata")
+    void invalidDeckMetadataFails(String from, String to, String problem) {
+        assertThat(problems(Decks.PATH, Decks.with(from, to))).containsExactly(DECK + problem);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"docs/demos/deck-.md", "docs/demos/deck-Milestone.md", "docs/demos/deck-milestone-.md",
+        "docs/demos/deck--milestone.md", "docs/demos/deck-milestone_2.md"})
+    void aDeckIsNamedDeckAndAKebabCaseSlug(String path) {
+        assertThat(problems(path, Decks.SAMPLE)).containsExactly(path + ": a deck is named "
+                + "docs/demos/deck-<slug>.md: deck-, then a kebab-case slug");
+    }
+
+    @Test
+    void theDeclaredCountsAreTheSlidesAndNotesAreNeverCounted() {
+        assertThat(problems(Decks.PATH, Decks.with("mainSlides: 3", "mainSlides: 4")))
+                .containsExactly(DECK + "mainSlides is 4, but the deck has 3 main slides");
+        // Three notes headings would make six, if they were counted.
+        assertThat(problems(Decks.PATH, Decks.with("mainSlides: 3", "mainSlides: 6")))
+                .containsExactly(DECK + "mainSlides is 6, but the deck has 3 main slides");
+        assertThat(problems(Decks.PATH, Decks.with("appendixSlides: 1", "appendixSlides: 0")))
+                .containsExactly(DECK + "appendixSlides is 0, but the deck has 1 appendix slide (a title that starts "
+                        + "with 'Vedlegg:')");
+        assertThat(problems(Decks.PATH, Decks.with("## Vedlegg: verktøy", "## Verktøy")))
+                .containsExactly(DECK + "appendixSlides is 1, but the deck has 0 appendix slides (a title that starts "
+                        + "with 'Vedlegg:')", DECK + "mainSlides is 3, but the deck has 4 main slides");
+    }
+
+    @Test
+    void theAppendixComesLastAndADeckHasTwoMainSlidesAtLeast() {
+        String moved = Decks.with("## Status i dag", "## Vedlegg: status i dag");
+
+        assertThat(problems(Decks.PATH, moved.replace("mainSlides: 3", "mainSlides: 2")
+                .replace("appendixSlides: 1", "appendixSlides: 2"))).containsExactly(DECK + "the main slide 'Én "
+                        + "endring porten avviser' comes after an appendix slide; the appendix comes last");
+        String one = Decks.SAMPLE.substring(0, Decks.SAMPLE.indexOf("## Status i dag")).replace("mainSlides: 3",
+                "mainSlides: 1").replace("appendixSlides: 1", "appendixSlides: 0");
+        assertThat(problems(Decks.PATH, one)).containsExactly(DECK + "a deck has at least two main slides; slide 02 "
+                + "carries the repository's ledger");
+    }
+
+    @Test
+    void aDeckHasOneTitleItsOwnAndNothingBeforeItsFirstSlide() {
+        assertThat(problems(Decks.PATH, Decks.with("# Milepæl: et eksempel\n", "")))
+                .containsExactly(DECK + "the deck has no level-1 heading; it starts with # and its title");
+        assertThat(problems(Decks.PATH, Decks.with("# Milepæl: et eksempel\n", "# Milepæl\n")))
+                .containsExactly(DECK + "the level-1 heading 'Milepæl' is not the title 'Milepæl: et eksempel'");
+        assertThat(problems(Decks.PATH, Decks.with("# Milepæl: et eksempel\n", "# Milepæl: et eksempel\n\nIntro.\n")))
+                .containsExactly(DECK + "text stands before the first slide; everything stands under a slide's "
+                        + "level-2 heading");
+        assertThat(problems(Decks.PATH, Decks.with("Java 25 og strenge bygg.", "Java 25.\n\n# Slutt")))
+                .containsExactly(DECK + "a second level-1 heading, 'Slutt'; a deck has one title");
+    }
+
+    @Test
+    void aSlideHasATitleAndContentAndNoHeadingButItsNotesHeading() {
+        assertThat(problems(Decks.PATH, Decks.with("Java 25 og strenge bygg.\n", "")))
+                .containsExactly(DECK + "slide 4 'Vedlegg: verktøy' is empty");
+        assertThat(problems(Decks.PATH, Decks.with("## Status i dag", "##")))
+                .containsExactly(DECK + "slide 2 has no title");
+        assertThat(problems(Decks.PATH, Decks.with("Sjekkeren kjører i hvert bygg.", "### Bygget\n\nSjekkeren.")))
+                .containsExactly(DECK + "slide 1 'Hva som er bygget' has the heading 'Bygget'; below its title a slide "
+                        + "has only ### Notater, which starts its notes");
+        // A mistyped notes heading would put the notes on the projected slide.
+        assertThat(problems(Decks.PATH, Decks.with("### Notater\n\n- Tallene", "### Notes\n\n- Tallene")))
+                .containsExactly(DECK + "slide 2 'Status i dag' has the heading 'Notes'; below its title a slide has "
+                        + "only ### Notater, which starts its notes");
+        assertThat(problems(Decks.PATH, Decks.with("- Tallene kommer fra kildene\n", "")))
+                .containsExactly(DECK + "the notes of slide 2 'Status i dag' are empty");
+        assertThat(problems(Decks.PATH, Decks.with("- Tallene kommer fra kildene\n", """
+                - Tallene
+
+                ### Notater
+
+                - Igjen
+                """)))
+                .containsExactly(DECK + "the notes of slide 2 'Status i dag' have the heading 'Notater'; notes have no "
+                        + "headings");
+    }
+
+    @Test
+    void eachSlideHasAnAnchorOfItsOwnAndInPageLinksNameASlide() {
+        assertThat(problems(Decks.PATH, Decks.with("## Status i dag", "## Hva som er bygget")))
+                .containsExactly(DECK + "slide 2 'Hva som er bygget' has the anchor #hva-som-er-bygget, which slide 1 "
+                        + "also has; each slide needs a title of its own");
+        assertThat(problems(Decks.PATH, Decks.with("## Status i dag", "## Milepæl: et eksempel")))
+                .containsExactly(DECK + "slide 2 'Milepæl: et eksempel' has the anchor #milepæl-et-eksempel, which the "
+                        + "deck's title has; each slide needs a title of its own");
+        assertThat(problems(Decks.PATH, Decks.with("## Status i dag", "## Notater")))
+                .containsExactly(DECK + "slide 2 'Notater' has the anchor #notater, which the notes headings have; each "
+                        + "slide needs a title of its own");
+        assertThat(problems(Decks.PATH, Decks.with("Java 25 og strenge bygg.", "Se [status](#status-i-dag).")))
+                .isEmpty();
+        assertThat(problems(Decks.PATH, Decks.with("Java 25 og strenge bygg.", "Se [notatene](#notater).")))
+                .containsExactly(DECK + "slide 4 'Vedlegg: verktøy' links #notater, which is no slide of this deck");
+        assertThat(problems(Decks.PATH, Decks.with("- Tallene kommer fra kildene", "- Se [status](#status)")))
+                .containsExactly(DECK + "the notes of slide 2 'Status i dag' link #status, which is no slide of this "
+                        + "deck");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"![skjermbilde](bilde.png)", "<img src=\"bilde.png\" alt=\"skjermbilde\">",
+        "<script>alert(1)</script>", "<iframe src=\"https://example.com/\"></iframe>", "En <b>fet</b> påstand.",
+        "[opptaket](opptak.mp4)", "[en skjerm](https://example.com/skjerm.gif)"})
+    void aDeckIsTextOnlyWithoutActiveContent(String markdown) {
+        List<String> problems = problems(Decks.PATH, Decks.with("Sjekkeren kjører i hvert bygg.",
+                "Sjekkeren kjører i hvert bygg. " + markdown));
+
+        assertThat(problems).singleElement().asString().startsWith(DECK + "slide 1 'Hva som er bygget' ")
+                .contains("a deck is text only");
+    }
+
+    @Test
+    void aDeckShowsRecordedOutputInTextFencesOnly() {
+        assertThat(problems(Decks.PATH, Decks.with("Java 25 og strenge bygg.", "```sh\n./gradlew check\n```")))
+                .containsExactly(DECK + "slide 4 'Vedlegg: verktøy' has a ```sh fence; a deck shows recorded output in "
+                        + "```text fences and nothing else");
+        assertThat(problems(Decks.PATH, Decks.with("Java 25 og strenge bygg.", "```\nJava 25\n```")))
+                .containsExactly(DECK + "slide 4 'Vedlegg: verktøy' has a fence without ```text; a deck shows recorded "
+                        + "output in ```text fences and nothing else");
+        assertThat(problems(Decks.PATH, Decks.with("Java 25 og strenge bygg.", "Java 25.\n\n    java -version")))
+                .containsExactly(DECK + "slide 4 'Vedlegg: verktøy' has an indented code block; recorded output goes "
+                        + "in a ```text fence");
+        assertThat(problems(Decks.PATH, Decks.with("- Modellen styrer strukturen", "- Modellen:\n\n  ```text\n  x\n"
+                + "  ```")))
+                .containsExactly(DECK + "slide 1 'Hva som er bygget' has a code block inside a list or a quote; fences "
+                        + "stand on their own");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"TODO", "Tekst kommer (TBD).", "todo: tall", "<sett inn tall>", "<...>", "Dato YYYY-MM-DD."})
+    void aPlaceholderFails(String text) {
+        List<String> problems = problems(Decks.PATH, Decks.with("Java 25 og strenge bygg.", "Java 25 og strenge bygg. "
+                + text));
+
+        assertThat(problems).singleElement().asString().startsWith(DECK).containsAnyOf("placeholder",
+                "YYYY-MM-DD is left from a template");
+    }
+
+    @Test
+    void aPlaceholderInTheTitleTheDescriptionOrTheNotesFails() {
+        assertThat(problems(Decks.PATH, Decks.with("title: \"Milepæl: et eksempel\"", "title: \"<tittel>\"")
+                .replace("# Milepæl: et eksempel", "# <tittel>"))).contains(DECK + "title holds '<tittel>', an "
+                        + "unfilled placeholder");
+        assertThat(problems(Decks.PATH, Decks.with("- Si først hva som ikke er bygget", "- TBD")))
+                .containsExactly(DECK + "the notes of slide 1 'Hva som er bygget' hold 'TBD', a placeholder");
+    }
+
+    @Test
+    void recordedOutputCarriesItsLabelAndItsRecordInTheNotes() {
+        assertThat(problems(Decks.PATH, Decks.with("Recorded output — not rerun by this site build. Full record",
+                "Full record"))).containsExactly(DECK + SLIDE_3 + " shows recorded output (```text) without the line "
+                        + "'Recorded output — not rerun by this site build.'");
+        assertThat(problems(Decks.PATH, Decks.with("Recorded 2026-11-07T14:56:19Z on", "Recorded on")))
+                .containsExactly(DECK + "the notes of " + SLIDE_3 + " do not name the date its output was recorded "
+                        + "(YYYY-MM-DD)");
+        assertThat(problems(Decks.PATH, Decks.with("on revision 44ef312", "on the branch")))
+                .containsExactly(DECK + "the notes of " + SLIDE_3 + " do not name the revision it was recorded on "
+                        + "(revision and seven to forty hexadecimal digits)");
+        assertThat(problems(Decks.PATH, Decks.with("exited 1, and 0 before and after", "failed")))
+                .containsExactly(DECK + "the notes of " + SLIDE_3 + " do not state its exit status (exited and a "
+                        + "number)");
+        String command = "`./gradlew :libs:c4-contract-kit:test --rerun --tests '*SelfConformanceTest'`";
+        for (String other : List.of("the checker's test", "`./gradlew :libs:c4-contract-kit:test`",
+                "`./gradlew :libs:c4-contract-kit:test --rerun --tests '*NoSuchTest'`")) {
+            assertThat(problems(Decks.PATH, Decks.with(command, other))).as(other)
+                    .containsExactly(DECK + "the notes of " + SLIDE_3 + " do not name the command that recorded it, an "
+                            + "approved command of docs/demos/how-to.md in a code span");
+        }
+        assertThat(problems(Decks.PATH, Decks.SAMPLE.substring(0, Decks.SAMPLE.indexOf("### Notater\n\n- Recorded"))
+                + "## Vedlegg: verktøy\n\nJava 25 og strenge bygg.\n"))
+                .containsExactly(DECK + SLIDE_3 + " shows recorded output, but has no notes that record its date, "
+                        + "revision, command and exit status");
+    }
+
+    @Test
+    void aCountOfCapabilitiesOnASlideIsTheSourcesCount() {
+        List<Capability> product = sources.capabilities().capabilities();
+        long planned = product.stream().filter(c -> c.status() == Capability.Status.PLANNED).count();
+        String slide = "Kontrollene er bygget; produktet er planlagt.";
+
+        assertThat(problems(Decks.PATH, Decks.with(slide, "Planlagt: " + planned + " av " + product.size()
+                + " funksjoner."))).isEmpty();
+        assertThat(problems(Decks.PATH, Decks.with(slide, "Planlagt: " + (planned - 1) + " av\n" + product.size()
+                + " funksjoner."))).containsExactly(DECK + "slide 2 'Status i dag' says '" + (planned - 1) + " av "
+                        + product.size() + " funksjoner', but docs/capabilities/capabilities.yaml has " + planned + " of "
+                        + product.size() + " product capabilities planned");
+        assertThat(problems(Decks.PATH, Decks.with("| Sjekkeren | Bygget og testet |", "| Produktet | "
+                + planned + " av " + (product.size() + 1) + " funksjoner |"))).containsExactly(DECK + "slide 2 'Status "
+                        + "i dag' says '" + planned + " av " + (product.size() + 1) + " funksjoner', but "
+                        + "docs/capabilities/capabilities.yaml has " + planned + " of " + product.size() + " product "
+                        + "capabilities planned");
+    }
+
+    @Test
+    void aDecksNotesPageIsNoOtherDecksPage() {
+        List<String> problems = DemoCheck.problems(sources, List.of(DocFile.parse("docs/demos/deck-x.md",
+                Decks.SAMPLE), DocFile.parse("docs/demos/deck-x-notes.md", Decks.SAMPLE)));
+
+        assertThat(problems).containsExactly("docs/demos/deck-x.md: its notes page, demos/deck-x-notes.html, is also "
+                + "the page of docs/demos/deck-x-notes.md");
     }
 
     private static List<String> problems(String path, String text) {

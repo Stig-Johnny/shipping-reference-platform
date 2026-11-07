@@ -8,6 +8,7 @@ import io.github.stigjohnny.docs.repo.Capability;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.testing.BuiltSite;
+import io.github.stigjohnny.docs.testing.Decks;
 import io.github.stigjohnny.docs.testing.Demos;
 import io.github.stigjohnny.docs.testing.Fixture;
 import java.nio.file.Path;
@@ -23,7 +24,8 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * The drawing set of docs/ui/documentation-site.md: each sheet's code, its title block, the status ledger's evidence
  * line, the register, and the start sheet's drawing. The copy has two demonstrations, so that their sheets are part of
- * the set: pull request 45 was recorded before pull request 42.
+ * the set: pull request 45 was recorded before pull request 42; and a milestone deck, whose slides and notes are sheets
+ * X-D01 and X-N01.
  */
 class SheetDesignTest {
 
@@ -40,7 +42,7 @@ class SheetDesignTest {
     @BeforeAll
     static void buildTheSite() {
         Fixture fixture = Fixture.copy(dir).passingEvidence().withoutDemos().write(Demos.path("gate"), Demos.GATE)
-                .write(Demos.path("build"), Demos.BUILD);
+                .write(Demos.path("build"), Demos.BUILD).write(Decks.PATH, Decks.SAMPLE);
         sources = Sources.read(fixture.root(), List.of(fixture.reports()));
         SiteBuilder.build(sources, dir.resolve("site"), REVISION);
         site = BuiltSite.read(dir.resolve("site"));
@@ -85,6 +87,44 @@ class SheetDesignTest {
                 nav.indexOf(">X-45<"))).doesNotContain(-1).isSorted();
         assertThat(SHEET_CODE.matcher(site.text("demos/45-build.html")).results().map(m -> m.group(1)).toList())
                 .containsExactly("X-45");
+    }
+
+    @Test
+    void aDeckAndItsNotesHaveTheirFixedCodesAndAnotherDeckHasNoneUntilItIsGivenOne() {
+        assertThat(Sheets.code("demos/deck-milestone.html")).isEqualTo("X-D01");
+        assertThat(Sheets.code("demos/deck-milestone-notes.html")).isEqualTo("X-N01");
+        assertThatThrownBy(() -> Sheets.code("demos/deck-review.html")).isInstanceOf(DocsException.class)
+                .hasMessageContaining("demos/deck-review.html has no sheet code");
+        // The deck and its notes stand in the register after the how-to, before the demonstrations.
+        String nav = navigation(site.text("demos/deck-milestone.html"));
+        assertThat(List.of(nav.indexOf(">X-00<"), nav.indexOf(">X-GUIDE<"), nav.indexOf(">X-D01<"),
+                nav.indexOf(">X-N01<"), nav.indexOf(">X-42<"))).doesNotContain(-1).isSorted();
+        assertThat(count(nav, "aria-current=\"page\"")).isEqualTo(1);
+    }
+
+    @Test
+    void twoPagesWithOneCodeFailTheBuild() {
+        assertThatThrownBy(() -> Sheets.unique(List.of("demos/deck-a.html", "demos/deck-b.html"), page -> "X-D01"))
+                .isInstanceOf(DocsException.class).hasMessageContaining("the sheet code X-D01 is given to "
+                        + "demos/deck-a.html and to demos/deck-b.html; each sheet has a code of its own");
+        Sheets.unique(site.pages().stream().toList(), Sheets::code);
+    }
+
+    @Test
+    void aDecksSheetsShowTheRevisionTheUpdateDateAndTheMilestoneApart() {
+        assertThat(titleBlock("demos/deck-milestone.html")).contains(
+                "<div><dt>Source</dt><dd>docs/demos/deck-milestone.md</dd></div>",
+                "<div><dt>Revision</dt><dd><code>01234567</code></dd></div>",
+                "<div><dt>Updated</dt><dd>2026-11-07</dd></div>").doesNotContain("2026-11-10");
+        assertThat(titleBlock("demos/deck-milestone-notes.html")).contains("<div><dt>Updated</dt><dd>2026-11-07</dd>");
+        String deck = site.text("demos/deck-milestone.html");
+        assertThat(deck).contains("Milestone <time datetime=\"2026-11-10\">2026-11-10</time>");
+        // Each slide is drawn as a sheet of the set: the deck's code with the slide's number, and the revision.
+        assertThat(count(deck, "<p class=\"slide-code\">X-D01<span aria-hidden=\"true\"> · ")).isEqualTo(4);
+        assertThat(count(deck, "<p class=\"slide-source\" lang=\"en\">docs/demos/deck-milestone.md · Revision "
+                + "<code>01234567</code></p>")).isEqualTo(4);
+        // A slide's number is never a sheet code: one code per sheet.
+        assertThat(SHEET_CODE.matcher(deck).results().map(m -> m.group(1)).toList()).containsExactly("X-D01");
     }
 
     @Test
@@ -200,5 +240,13 @@ class SheetDesignTest {
     private static String navigation(String html) {
         int start = html.indexOf("<nav class=\"site-nav\"");
         return html.substring(start, html.indexOf("</nav>", start));
+    }
+
+    private static int count(String text, String part) {
+        int count = 0;
+        for (int at = text.indexOf(part); at >= 0; at = text.indexOf(part, at + 1)) {
+            count++;
+        }
+        return count;
     }
 }

@@ -16,9 +16,10 @@ import java.util.List;
  * @param images the destinations of the block's images, in order
  * @param html the block's raw HTML, inline or as a block, in order
  * @param code the literal text of every code block nested in the block, such as a fence inside a list item
+ * @param spans the literal text of the block's code spans, in order, such as a command named in a sentence
  */
 public record MarkdownBlock(Kind kind, int level, String info, String text, String prose, List<String> links,
-        List<String> images, List<String> html, List<String> code) {
+        List<String> images, List<String> html, List<String> code, List<String> spans) {
 
     /** What a top-level block is. */
     public enum Kind {
@@ -34,6 +35,7 @@ public record MarkdownBlock(Kind kind, int level, String info, String text, Stri
         images = List.copyOf(images);
         html = List.copyOf(html);
         code = List.copyOf(code);
+        spans = List.copyOf(spans);
     }
 
     /** Whether the block holds anything to read: a heading never does, a code block its text, any other block text. */

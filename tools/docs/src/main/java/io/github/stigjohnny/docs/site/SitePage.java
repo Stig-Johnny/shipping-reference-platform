@@ -19,14 +19,36 @@ import org.jspecify.annotations.Nullable;
  * @param navBadge a status word shown as a neutral badge after the label in the navigation, such as "Superseded"
  * @param facts HTML this tool wrote, shown beside the summary, such as a demonstration's pull request, kind and
  *     recorded date; null for a page without
+ * @param lang the language of the page's title and body, {@code en} for every page but a deck's: the shell marks its
+ *     own English regions as English on a page in another language
+ * @param layout how the shell lays the page out
  */
 public record SitePage(String path, String title, String navLabel, SiteSection section, String summary,
         @Nullable StatusPanel status, List<Contents> contents, String body, List<Related> related, String source,
-        boolean diagrams, @Nullable String navBadge, @Nullable String facts) {
+        boolean diagrams, @Nullable String navBadge, @Nullable String facts, String lang, Layout layout) {
+
+    /** The site's own language, that of every page but a deck's. */
+    public static final String ENGLISH = "en";
 
     public SitePage {
         contents = List.copyOf(contents);
         related = List.copyOf(related);
+    }
+
+    /** How the shell lays a page out. */
+    public enum Layout {
+        /** A sheet beside the register. */
+        SHEET,
+        /** A deck: the register, the overview and the slide index above the slides, which have the full width. */
+        DECK
+    }
+
+    /** An English sheet beside the register. */
+    public SitePage(String path, String title, String navLabel, SiteSection section, String summary,
+            @Nullable StatusPanel status, List<Contents> contents, String body, List<Related> related, String source,
+            boolean diagrams, @Nullable String navBadge, @Nullable String facts) {
+        this(path, title, navLabel, section, summary, status, contents, body, related, source, diagrams, navBadge, facts,
+                ENGLISH, Layout.SHEET);
     }
 
     /** A page without facts beside its summary. */

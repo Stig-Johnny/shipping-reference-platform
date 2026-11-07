@@ -1104,6 +1104,370 @@ blockquote {
   }
 }
 
+/* A milestone deck (docs/ui/documentation-site.md, "Decks"): slides drawn as enlarged sheets. The register, the
+   overview and the slide index stand above the slides, never beside them, so that every slide has the full width. */
+.deck .site {
+  display: block;
+}
+
+.deck .site-header {
+  border-right: 0;
+  border-bottom: 1px solid var(--ink);
+}
+
+.deck .page {
+  max-width: none;
+}
+
+.deck .sheet-header,
+.deck .status-panel,
+.deck .deck-index {
+  max-width: 1120px;
+}
+
+/* From 720 px the deck's register lays its sections out in up to four columns, so that the overview follows it soon. */
+@media (min-width: 720px) {
+  .deck .site-nav {
+    max-width: 66rem;
+  }
+
+  .deck .site-nav > ul {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    column-gap: 24px;
+  }
+}
+
+.deck-start-line {
+  margin: 0 0 20px;
+}
+
+.deck-start {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--link);
+  border-radius: 2px;
+  background: var(--link);
+  color: var(--sheet);
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.deck-start:hover {
+  text-decoration: underline;
+}
+
+/* The slide index: a register of the slides, each number in a fixed column beside its title. */
+.deck-index {
+  margin: 0 0 48px;
+}
+
+.deck-index-list {
+  margin: 0 0 24px;
+  padding: 0;
+  list-style: none;
+  border-top: 2px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+}
+
+.deck-index-list li + li {
+  border-top: 1px solid var(--rule);
+}
+
+.deck-index-list a {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: baseline;
+  min-height: 24px;
+  padding: 6px 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.deck-index-list a:hover .register-title {
+  text-decoration: underline;
+}
+
+/* A slide: the deck's code and the slide's number, the title, the content, then the controls and the provenance below
+   a rule. At 1920 x 1080 titles are 64/72 px, body text 32/44, evidence excerpts 28/38 and metadata 20/28; the sizes
+   scale with the viewport, bounded in rem, down to about 40 px titles and 24 px body text on a laptop. A slide is at
+   least one viewport tall and grows with its content: nothing is clipped, and nothing is shrunk to fit. */
+.deck-slides {
+  --slide-title: clamp(2.5rem, 3.75vw - 0.5rem, 4rem);
+  --slide-body: clamp(1.5rem, 1.25vw + 0.5rem, 2rem);
+  --slide-evidence: clamp(1.3125rem, 1.09375vw + 0.4375rem, 1.75rem);
+  --slide-meta: clamp(1rem, 0.625vw + 0.5rem, 1.25rem);
+}
+
+.slide {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: clamp(1.5rem, 3vw, 4rem) clamp(1rem, 4vw, 6rem);
+  border-top: 2px solid var(--ink);
+  background: var(--sheet);
+}
+
+.slide-code {
+  align-self: flex-start;
+  margin: 0;
+  padding: 0.1em 0.5em;
+  border: 1px solid var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: var(--slide-meta);
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+}
+
+.slide h2 {
+  margin: 0.5em 0;
+  font-size: var(--slide-title);
+  line-height: 1.125;
+}
+
+.slide-body {
+  flex: 1 0 auto;
+  font-size: var(--slide-body);
+  line-height: 1.375;
+}
+
+.slide-body > p,
+.slide-body > ul,
+.slide-body > ol {
+  max-width: 36em;
+  margin: 0 0 0.75em;
+}
+
+.slide-body li + li {
+  margin-top: 0.25em;
+}
+
+.slide-body pre {
+  margin: 0 0 0.75em;
+  padding: 0.5em 0.75em;
+  font-size: var(--slide-evidence);
+  line-height: 1.36;
+}
+
+.slide-body .table-scroll {
+  margin: 0 0 0.75em;
+}
+
+.slide-body table {
+  font-size: inherit;
+}
+
+.slide-body th,
+.slide-body td {
+  padding: 0.25em 0.75em 0.25em 0;
+}
+
+.slide-body thead th,
+.slide .badge,
+.slide-ledger dt,
+.slide-ledger .evidence-tests summary,
+.slide-ledger .evidence-tests p {
+  font-size: var(--slide-meta);
+  line-height: 1.4;
+}
+
+/* Slide 02 carries the repository's ledger, with the evidence excerpts' size, ruled as wide as the slide's table. */
+.slide-ledger {
+  margin: 0 0 0.75em;
+  font-size: var(--slide-evidence);
+  line-height: 1.36;
+}
+
+.slide-ledger .status-item {
+  grid-template-columns: 12em minmax(0, 1fr);
+}
+
+.slide-ledger .status-item dd {
+  max-width: none;
+}
+
+.slide-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin-top: 24px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ink);
+  font-size: var(--slide-meta);
+  line-height: 1.4;
+}
+
+/* The slides' controls are links in a fixed order, 44 px targets: the browser moves to the slide they name. */
+.slide-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.slide-controls a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--control);
+  border-radius: 2px;
+  text-decoration: none;
+}
+
+.slide-controls a:hover {
+  border-color: var(--ink);
+  text-decoration: underline;
+}
+
+.slide-source {
+  margin: 0;
+  color: var(--ink-muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: 0.06em;
+  overflow-wrap: anywhere;
+}
+
+.slide-source code {
+  font-size: inherit;
+}
+
+/* The notes page: each slide's notes under its number and its title, which links back to the slide. */
+.deck-note {
+  max-width: 72ch;
+  margin: 0 0 32px;
+  padding-top: 12px;
+  border-top: 2px solid var(--ink);
+}
+
+.deck-note h2 {
+  margin-top: 0;
+}
+
+.deck-note h2 .register-code {
+  margin-right: 8px;
+}
+
+.deck-note-none {
+  color: var(--ink-muted);
+}
+
+/* A deck in the register of demonstrations and on the start sheet: a presentation, with a neutral label, never as
+   evidence. */
+.register-feature {
+  max-width: 72ch;
+  margin: 24px 0 32px;
+  padding-top: 12px;
+  border-top: 2px solid var(--ink);
+}
+
+.register-feature p:last-child {
+  margin-bottom: 0;
+}
+
+.start-deck {
+  margin: -8px 0 32px;
+}
+
+/* Scroll snapping helps only where a slide fills a wide, tall screen; the links stay the dependable controls. */
+@media (min-width: 1024px) and (min-height: 600px) {
+  html.deck {
+    scroll-snap-type: y proximity;
+  }
+
+  .deck .slide {
+    scroll-snap-align: start;
+  }
+}
+
+/* On narrow screens, in short windows and in zoomed layouts the slides are ordinary document flow, without snapping,
+   in the sizes of the site's own text. */
+@media (max-width: 1023.98px), (max-height: 599.98px) {
+  .deck-slides {
+    --slide-title: 1.75rem;
+    --slide-body: 1.125rem;
+    --slide-evidence: 1rem;
+    --slide-meta: 0.875rem;
+  }
+
+  .slide {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 719.98px) {
+  .slide {
+    padding: 24px 0;
+  }
+
+  .deck-index-list a {
+    min-height: 44px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .slide-ledger .status-item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Printing a deck: one 16:9 slide on each landscape page, in the light palette, with each slide's code, number and
+   provenance, but without the register, the overview, the index, the controls or any notes. */
+@page deck-slide {
+  size: 320mm 180mm;
+  margin: 0;
+}
+
+@media print {
+  .deck .site {
+    --page: #F4F1E8;
+    --sheet: #FFFDF7;
+    --ink: #172B3A;
+    --ink-muted: #4C5E6B;
+    --control: #687987;
+    --link: #164F86;
+    --failure: #A33225;
+    --rule: #CFD2CA;
+    color-scheme: light;
+    color: var(--ink);
+  }
+
+  .deck .skip-link,
+  .deck .site-header,
+  .deck .sheet-header,
+  .deck .status-panel,
+  .deck .deck-index,
+  .deck .slide-controls,
+  .deck .page-source,
+  .deck .site-footer {
+    display: none;
+  }
+
+  .deck .site-main {
+    padding: 0;
+  }
+
+  .deck .slide {
+    page: deck-slide;
+    min-height: 100vh;
+    break-after: page;
+    border-top: 0;
+  }
+
+  .deck .slide:last-child {
+    break-after: auto;
+  }
+}
+
 /* No motion when the reader asks for less; the site has no animation of its own. */
 @media (prefers-reduced-motion: reduce) {
   *,

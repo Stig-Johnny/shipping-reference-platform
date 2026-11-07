@@ -11,6 +11,11 @@ import org.jspecify.annotations.Nullable;
  * the footer. Links come from a {@link UnaryOperator} that turns
  * a site path into a URL: relative for every page, absolute under the Pages base path for the 404 page only, because
  * GitHub Pages serves that one at whatever path was requested.
+ *
+ * <p>The shell is English. A page in another language, a deck's, names its language on {@code <html>} and marks each of
+ * the shell's English regions as English: the skip link, the banner, the sheet header (whose title is in the page's
+ * language), the status panel, the lists of sections and related pages, the source line and the footer. A deck's
+ * layout is named on {@code <html>} too, so that the stylesheet puts its register above its slides.
  */
 final class PageShell {
 
@@ -28,7 +33,11 @@ final class PageShell {
 
     static String render(SitePage page, List<SitePage> pages, String revision, @Nullable String updated,
             UnaryOperator<String> url) {
-        StringBuilder out = new StringBuilder("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n")
+        boolean english = page.lang().equals(SitePage.ENGLISH);
+        String en = english ? "" : " lang=\"" + SitePage.ENGLISH + "\"";
+        StringBuilder out = new StringBuilder("<!DOCTYPE html>\n<html lang=\"").append(Html.escape(page.lang()))
+                .append(page.layout() == SitePage.Layout.DECK ? "\" class=\"deck\">" : "\">")
+                .append("\n<head>\n<meta charset=\"utf-8\">\n")
                 .append("<meta http-equiv=\"Content-Security-Policy\" content=\"")
                 .append(page.diagrams() ? MERMAID_POLICY : STRICT_POLICY).append("\">\n")
                 .append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n")
@@ -41,8 +50,10 @@ final class PageShell {
             out.append("<script src=\"").append(url.apply(SiteBuilder.MERMAID)).append("\" defer></script>\n");
         }
         out.append("<script src=\"").append(url.apply(SiteBuilder.JS)).append("\" defer></script>\n")
-                .append("</head>\n<body>\n<a class=\"skip-link\" href=\"#site-main\">Skip to main content</a>\n")
-                .append("<div class=\"site\">\n<header class=\"site-header\">\n<p class=\"site-name\"><a href=\"")
+                .append("</head>\n<body>\n<a class=\"skip-link\" href=\"#site-main\"").append(en)
+                .append(">Skip to main content</a>\n")
+                .append("<div class=\"site\">\n<header class=\"site-header\"").append(en)
+                .append(">\n<p class=\"site-name\"><a href=\"")
                 .append(url.apply(StartPages.INDEX)).append("\">").append(SITE_NAME).append("</a></p>\n")
                 .append("<p class=\"site-tagline\">Generated from the repository. Synthetic data only.</p>\n")
                 .append("<details class=\"site-nav-disclosure\" open>\n<summary>Site navigation</summary>\n")
@@ -53,14 +64,15 @@ final class PageShell {
                 .append("<label><input type=\"radio\" name=\"theme\" value=\"dark\"> Dark</label>\n")
                 .append("</fieldset>\n</details>\n</header>\n")
                 .append("<main id=\"site-main\" class=\"site-main\" tabindex=\"-1\">\n<div class=\"page\">\n");
-        out.append("<header class=\"sheet-header\">\n");
+        out.append("<header class=\"sheet-header\"").append(en).append(">\n");
         StatusPanel status = page.status();
         if (status != null) {
             out.append(Navigation.breadcrumb(page, url))
                     .append("<p class=\"sheet-code\"><span class=\"visually-hidden\">Sheet </span>")
                     .append(Sheets.code(page.path())).append("</p>\n");
         }
-        out.append("<h1>").append(Html.escape(page.title())).append("</h1>\n")
+        out.append(english ? "<h1>" : "<h1 lang=\"" + Html.escape(page.lang()) + "\">").append(Html.escape(page.title()))
+                .append("</h1>\n")
                 .append("<p class=\"page-summary\">").append(Html.escape(page.summary())).append("</p>\n");
         String facts = page.facts();
         if (facts != null) {
@@ -71,10 +83,11 @@ final class PageShell {
         }
         out.append("</header>\n");
         if (status != null) {
-            out.append(status.html());
+            out.append(status.html(en));
         }
         if (!page.contents().isEmpty()) {
-            out.append("<nav class=\"page-contents\" aria-labelledby=\"site-contents-title\">\n<details>\n")
+            out.append("<nav class=\"page-contents\" aria-labelledby=\"site-contents-title\"").append(en)
+                    .append(">\n<details>\n")
                     .append("<summary id=\"site-contents-title\">On this sheet (").append(page.contents().size())
                     .append(")</summary>\n<ol>\n");
             for (SitePage.Contents entry : page.contents()) {
@@ -85,7 +98,8 @@ final class PageShell {
         }
         out.append("<div class=\"page-body\">\n").append(page.body()).append("</div>\n");
         if (!page.related().isEmpty()) {
-            out.append("<section class=\"page-related\" aria-labelledby=\"site-related-title\">\n")
+            out.append("<section class=\"page-related\" aria-labelledby=\"site-related-title\"").append(en)
+                    .append(">\n")
                     .append("<h2 id=\"site-related-title\">Related pages</h2>\n<ul>\n");
             for (SitePage.Related related : page.related()) {
                 out.append("<li><a href=\"").append(Html.escape(url.apply(related.path()))).append("\">")
@@ -93,10 +107,11 @@ final class PageShell {
             }
             out.append("</ul>\n</section>\n");
         }
-        out.append("<p class=\"page-source\">Source: ").append(Html.escape(page.source())).append(". ")
-                .append(revision(revision)).append("</p>\n</div>\n</main>\n")
-                .append("<footer class=\"site-footer\">\n<p>Generated from the repository's sources by its documentation "
-                        + "tool. All data is synthetic. <a href=\"").append(url.apply(LegalPages.LICENSE_PAGE))
+        out.append("<p class=\"page-source\"").append(en).append(">Source: ").append(Html.escape(page.source()))
+                .append(". ").append(revision(revision)).append("</p>\n</div>\n</main>\n")
+                .append("<footer class=\"site-footer\"").append(en).append(">\n<p>Generated from the repository's "
+                        + "sources by its documentation tool. All data is synthetic. <a href=\"")
+                .append(url.apply(LegalPages.LICENSE_PAGE))
                 .append("\">Repository licence</a>, <a href=\"").append(url.apply(LegalPages.NOTICE_PAGE))
                 .append("\">Repository NOTICE</a> and <a href=\"").append(url.apply(NoticesPage.PAGE))
                 .append("\">Third-party notices</a>.</p>\n</footer>\n</div>\n</body>\n</html>\n");

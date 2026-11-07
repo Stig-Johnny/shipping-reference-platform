@@ -38,7 +38,8 @@ import java.util.regex.Pattern;
  *       workflow job;
  *   <li>every link resolves: relative links to existing files and their anchors, no private or unsafe destination;
  *   <li>every demonstration under {@code docs/demos/} has its metadata, its sections, approved commands only and text
- *       only ({@link DemoCheck}).
+ *       only ({@link DemoCheck}), and every milestone deck there its slides, its notes apart, counts that the sources
+ *       give and the record of its recorded output ({@link DeckCheck}).
  * </ul>
  */
 public final class Consistency {

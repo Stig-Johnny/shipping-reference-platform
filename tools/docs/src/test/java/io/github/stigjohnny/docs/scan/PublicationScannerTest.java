@@ -7,6 +7,7 @@ import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.repo.Allowlist;
 import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.site.SiteBuilder;
+import io.github.stigjohnny.docs.testing.Decks;
 import io.github.stigjohnny.docs.testing.Demos;
 import io.github.stigjohnny.docs.testing.Fixture;
 import java.io.IOException;
@@ -306,6 +307,39 @@ class PublicationScannerTest {
         assertThat(scanBuiltSite(fixture, exceptions).findings()).containsExactly(
                 new Finding("DICTIONARY", "demos/42-gate.html"), new Finding("LOCAL_PATH", "demos/42-gate.html"),
                 new Finding("PRIVATE_IP", "demos/42-gate.html"));
+    }
+
+    @Test
+    void theScanCoversTheDecksSlidesAndNotesAsBuilt() {
+        Fixture fixture = Fixture.copy(dir.resolve("copy")).passingEvidence().withoutDemos()
+                .write(Decks.PATH, Decks.SAMPLE);
+        ScanExceptions exceptions = ScanExceptions.parse(Sources.text(fixture.root(), PublicationScanner.EXCEPTIONS),
+                PublicationScanner.EXCEPTIONS);
+
+        assertThat(scanBuiltSite(fixture, exceptions).findings()).isEmpty();
+
+        // A slide and a note are published as written, so the scan is what keeps a leaked value off both pages.
+        fixture.edit(Decks.PATH, text -> text.replace("Java 25 og strenge bygg.", "Java 25 på "
+                + sample("PRIVATE_IP") + ".").replace("- Tallene kommer fra kildene", "- Tallene fra "
+                + sample("DICTIONARY") + " i " + sample("LOCAL_PATH")));
+
+        assertThat(scanBuiltSite(fixture, exceptions).findings()).containsExactly(
+                new Finding("DICTIONARY", "demos/deck-milestone-notes.html"),
+                new Finding("LOCAL_PATH", "demos/deck-milestone-notes.html"),
+                new Finding("PRIVATE_IP", "demos/deck-milestone.html"));
+    }
+
+    @Test
+    void theRepositorysOwnDeckPassesTheScanRules() {
+        Fixture fixture = Fixture.copy(dir.resolve("copy")).passingEvidence();
+        ScanExceptions exceptions = ScanExceptions.parse(Sources.text(fixture.root(), PublicationScanner.EXCEPTIONS),
+                PublicationScanner.EXCEPTIONS);
+
+        ScanResult result = scanBuiltSite(fixture, exceptions);
+
+        assertThat(dir.resolve("site/demos/deck-milestone.html")).exists();
+        assertThat(dir.resolve("site/demos/deck-milestone-notes.html")).exists();
+        assertThat(result.findings()).isEmpty();
     }
 
     private ScanResult scanBuiltSite(Fixture fixture, ScanExceptions exceptions) {

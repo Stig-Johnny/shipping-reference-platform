@@ -2,6 +2,7 @@ package io.github.stigjohnny.docs.markdown;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.groups.Tuple.tuple;
 
 import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.markdown.LinkDecision.Keep;
@@ -149,6 +150,140 @@ class MarkdownRendererTest {
                 + "\"diagram-source-block\" open");
         assertThat(MarkdownRenderer.render("```mermaid\nsequenceDiagram\n    a->>b: x\n```\n", "docs/x.md",
                 KEEP_ALL, false).html()).contains("<summary>Sequence source \u2014 not rendered</summary>");
+    }
+
+    private static final String DECK = """
+            # Milepæl
+
+            ## Første lysbilde
+
+            Første avsnitt med `kode`.
+
+            - Et punkt
+
+            ### Notater
+
+            - Et notat som aldri vises på lysbildet
+
+            ## Andre lysbilde
+
+            ```text
+            ## Not a slide
+            ```
+
+            ## Vedlegg: tabell
+
+            | a | b |
+            |---|---|
+            | 1 | 2 |
+            """;
+
+    @Test
+    void aDeckIsGroupedBySlideOnTheParsedBlocksWithItsNotesApart() {
+        DeckOutline deck = MarkdownRenderer.deck(DECK, "docs/demos/deck-x.md", "Notater");
+
+        assertThat(deck.front()).extracting(MarkdownBlock::kind, MarkdownBlock::level, MarkdownBlock::text)
+                .containsExactly(tuple(MarkdownBlock.Kind.HEADING, 1, "Milepæl"));
+        // A level-2 line inside a fence is text: three slides, not four.
+        assertThat(deck.slides()).extracting(SlideOutline::title).containsExactly("Første lysbilde", "Andre lysbilde",
+                "Vedlegg: tabell");
+        assertThat(deck.slides()).extracting(SlideOutline::id).containsExactly("første-lysbilde", "andre-lysbilde",
+                "vedlegg-tabell");
+        SlideOutline first = deck.slides().getFirst();
+        assertThat(first.content()).extracting(MarkdownBlock::text).containsExactly("Første avsnitt med kode.",
+                "Et punkt");
+        assertThat(first.content().getFirst().spans()).containsExactly("kode");
+        assertThat(first.hasNotes()).isTrue();
+        assertThat(first.notes()).extracting(MarkdownBlock::text).containsExactly("Et notat som aldri vises på "
+                + "lysbildet");
+        SlideOutline second = deck.slides().get(1);
+        assertThat(second.hasNotes()).isFalse();
+        assertThat(second.notes()).isEmpty();
+        assertThat(second.content()).singleElement().satisfies(block -> {
+            assertThat(block.kind()).isEqualTo(MarkdownBlock.Kind.FENCED_CODE);
+            assertThat(block.info()).isEqualTo("text");
+            assertThat(block.text()).isEqualTo("## Not a slide\n");
+        });
+    }
+
+    @Test
+    void onlyALevelThreeHeadingWithTheNotesWordStartsTheNotesAndASecondOneIsANotesBlock() {
+        DeckOutline deck = MarkdownRenderer.deck("""
+                # T
+
+                ## A
+
+                Tekst.
+
+                ## Notater
+
+                Tekst.
+
+                #### Notater
+
+                ### Notes
+
+                ### Notater
+
+                - Notat
+
+                ### Notater
+                """, "docs/demos/deck-x.md", "Notater");
+
+        // A level-2 "Notater" is a slide, a level-4 one and an English "Notes" stay in the slide's content.
+        assertThat(deck.slides()).extracting(SlideOutline::title).containsExactly("A", "Notater");
+        SlideOutline second = deck.slides().get(1);
+        assertThat(second.content()).extracting(MarkdownBlock::kind, MarkdownBlock::level).containsExactly(
+                tuple(MarkdownBlock.Kind.OTHER, 0),
+                tuple(MarkdownBlock.Kind.HEADING, 4),
+                tuple(MarkdownBlock.Kind.HEADING, 3));
+        assertThat(second.hasNotes()).isTrue();
+        assertThat(second.notes()).extracting(MarkdownBlock::kind, MarkdownBlock::text).containsExactly(
+                tuple(MarkdownBlock.Kind.OTHER, "Notat"),
+                tuple(MarkdownBlock.Kind.HEADING, "Notater"));
+    }
+
+    @Test
+    void aDeckRendersEachSlideAndItsNotesApart() {
+        RenderedDeck deck = MarkdownRenderer.renderDeck(DECK, "docs/demos/deck-x.md", KEEP_ALL, "Notater",
+                (number, slide) -> "Tabell " + number + " i " + slide);
+
+        assertThat(deck.slides()).extracting(RenderedSlide::id).containsExactly("første-lysbilde", "andre-lysbilde",
+                "vedlegg-tabell");
+        RenderedSlide first = deck.slides().getFirst();
+        assertThat(first.titleHtml()).isEqualTo("Første lysbilde");
+        assertThat(first.html()).isEqualTo("""
+                <p>Første avsnitt med <code>kode</code>.</p>
+                <ul>
+                <li>Et punkt</li>
+                </ul>
+                """);
+        assertThat(first.notesHtml()).isEqualTo("<ul>\n<li>Et notat som aldri vises på lysbildet</li>\n</ul>\n");
+        assertThat(first.html()).doesNotContain("Notater", "Et notat");
+        assertThat(deck.slides().get(1).html()).contains("<pre><code class=\"language-text\">## Not a slide\n");
+        assertThat(deck.slides().get(1).notesHtml()).isEmpty();
+        assertThat(deck.slides().get(2).html()).contains("<div class=\"table-scroll\" role=\"region\" tabindex=\"0\" "
+                + "aria-label=\"Tabell 1 i Vedlegg: tabell\">\n<table>");
+        // The page shows the title; the deck's own blocks never include it.
+        assertThat(String.join("", deck.slides().stream().map(RenderedSlide::html).toList())).doesNotContain("<h1",
+                "Milepæl");
+    }
+
+    @Test
+    void aDecksInPageLinksMustNameASlideAndItsRawHtmlIsEscaped() {
+        String linked = DECK.replace("- Et punkt", "- Et punkt, se [andre](#andre-lysbilde) <b>fet</b>");
+
+        assertThat(MarkdownRenderer.renderDeck(linked, "docs/demos/deck-x.md", KEEP_ALL, "Notater",
+                (number, slide) -> "t").slides().getFirst().html())
+                .contains("<a rel=\"nofollow\" href=\"#andre-lysbilde\">andre</a>", "&lt;b&gt;fet&lt;/b&gt;")
+                .doesNotContain("<b>");
+        // A notes heading has an ID on GitHub, but the deck's pages have only the slides' anchors.
+        assertThatThrownBy(() -> MarkdownRenderer.renderDeck(DECK.replace("- Et punkt", "- [notater](#notater)"),
+                "docs/demos/deck-x.md", KEEP_ALL, "Notater", (number, slide) -> "t"))
+                .isInstanceOf(DocsException.class).hasMessageContaining("#notater");
+        assertThatThrownBy(() -> MarkdownRenderer.renderDeck(DECK.replace("- Et punkt", "- ![bilde](bilde.png)"),
+                "docs/demos/deck-x.md", KEEP_ALL, "Notater", (number, slide) -> "t"))
+                .isInstanceOf(DocsException.class).hasMessageContaining("bilde.png");
     }
 
     @Test

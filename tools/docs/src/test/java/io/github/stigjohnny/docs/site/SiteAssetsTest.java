@@ -7,13 +7,18 @@ import io.github.stigjohnny.docs.testing.BuiltSite;
 import io.github.stigjohnny.docs.testing.Fixture;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The site's one stylesheet and one script: the binding design tokens and layout, and the Mermaid conditions of
- * security/reviews/vendored-js--mermaid--11.17.2.md (condition 3) on the only script that calls Mermaid.
+ * The site's one stylesheet and one script: the binding design tokens and layout, the deck's slides, their type scale
+ * and their printing, and the Mermaid conditions of security/reviews/vendored-js--mermaid--11.17.2.md (condition 3) on
+ * the only script that calls Mermaid.
  */
 class SiteAssetsTest {
 
@@ -249,6 +254,107 @@ class SiteAssetsTest {
                 """);
         int disclosure = css.indexOf(".evidence-tests summary {");
         assertThat(css.substring(disclosure, css.indexOf("}", disclosure))).contains("display: list-item;");
+    }
+
+    @Test
+    void aDecksRegisterOverviewAndIndexStandAboveItsSlidesWhichHaveTheFullWidth() {
+        assertThat(css).contains(".deck .site {\n  display: block;\n}", ".deck .page {\n  max-width: none;\n}",
+                ".deck .sheet-header,\n.deck .status-panel,\n.deck .deck-index {\n  max-width: 1120px;\n}");
+        assertThat(rule(".deck .site-header")).contains("border-right: 0;", "border-bottom: 1px solid var(--ink);");
+    }
+
+    @Test
+    void aSlideUsesTheDesignsTypeScaleAndScalesInRemTowardALaptop() {
+        // 1920 x 1080: titles 64/72 px, body 32/44, evidence excerpts 28/38 and metadata 20/28; at 1280 px wide, titles
+        // 40 px and body 24 px. The bounds are in rem, so that the reader's own text size still scales them.
+        assertThat(rule(".deck-slides")).contains("--slide-title: clamp(2.5rem, 3.75vw - 0.5rem, 4rem);",
+                "--slide-body: clamp(1.5rem, 1.25vw + 0.5rem, 2rem);",
+                "--slide-evidence: clamp(1.3125rem, 1.09375vw + 0.4375rem, 1.75rem);",
+                "--slide-meta: clamp(1rem, 0.625vw + 0.5rem, 1.25rem);");
+        assertThat(rule(".slide h2")).contains("font-size: var(--slide-title);", "line-height: 1.125;");
+        assertThat(rule(".slide-body")).contains("font-size: var(--slide-body);", "line-height: 1.375;");
+        assertThat(rule(".slide-body pre")).contains("font-size: var(--slide-evidence);", "line-height: 1.36;");
+        assertThat(rule(".slide-foot")).contains("font-size: var(--slide-meta);", "line-height: 1.4;");
+        assertThat(rule(".slide-code")).contains("font-size: var(--slide-meta);", "border: 1px solid var(--ink);",
+                "font-family: ui-monospace, SFMono-Regular, Consolas, monospace;");
+    }
+
+    @Test
+    void aSlideIsAtLeastOneViewportTallGrowsWithItsContentAndIsNeverShrunk() {
+        String slide = rule(".slide");
+        assertThat(slide).contains("min-height: 100vh;", "border-top: 2px solid var(--ink);")
+                .doesNotContain("overflow", "\n  height:", "transform", "zoom");
+        assertThat(css).doesNotContain("scale(", "fit-content(100vh)");
+        // The controls are 44 px targets in a fixed order, and square.
+        assertThat(rule(".slide-controls a")).contains("min-height: 44px;", "min-width: 44px;", "border-radius: 2px;");
+    }
+
+    @Test
+    void scrollSnappingIsAnEnhancementForWideTallScreensAndSmallScreensReadADocument() {
+        String snap = "@media (min-width: 1024px) and (min-height: 600px) {\n  html.deck {\n    scroll-snap-type: y "
+                + "proximity;\n  }\n\n  .deck .slide {\n    scroll-snap-align: start;\n  }\n}";
+        assertThat(css).contains(snap);
+        assertThat(count(css, "scroll-snap-type")).isEqualTo(1);
+        assertThat(count(css, "scroll-snap-align")).isEqualTo(1);
+        int flow = css.indexOf("@media (max-width: 1023.98px), (max-height: 599.98px) {");
+        assertThat(flow).isNotNegative();
+        assertThat(css.substring(flow, css.indexOf("\n}\n", flow))).contains("--slide-title: 1.75rem;",
+                "--slide-body: 1.125rem;", ".slide {\n    min-height: 0;\n  }");
+    }
+
+    @Test
+    void aPrintedDeckIsOneSixteenByNineSlidePerPageInTheLightPaletteWithItsProvenanceAndNoNavigation() {
+        assertThat(css).contains("@page deck-slide {\n  size: 320mm 180mm;\n  margin: 0;\n}");
+        int print = css.indexOf("@media print {");
+        assertThat(print).isNotNegative();
+        String printed = css.substring(print, css.indexOf("\n}\n", print));
+        assertThat(printed).contains("""
+                  .deck .site {
+                    --page: #F4F1E8;
+                    --sheet: #FFFDF7;
+                    --ink: #172B3A;
+                    --ink-muted: #4C5E6B;
+                    --control: #687987;
+                    --link: #164F86;
+                    --failure: #A33225;
+                    --rule: #CFD2CA;
+                    color-scheme: light;
+                    color: var(--ink);
+                  }
+                """, """
+                  .deck .skip-link,
+                  .deck .site-header,
+                  .deck .sheet-header,
+                  .deck .status-panel,
+                  .deck .deck-index,
+                  .deck .slide-controls,
+                  .deck .page-source,
+                  .deck .site-footer {
+                    display: none;
+                  }
+                """, "page: deck-slide;", "break-after: page;", ".deck .slide:last-child {\n    break-after: auto;");
+        // The provenance of each slide, its code and its source with the revision, is printed with it.
+        assertThat(printed).doesNotContain(".slide-code", ".slide-source");
+    }
+
+    @Test
+    void theStylesheetHasNoColourButTheTokensSoNoAccentOfItsOwn() {
+        Set<String> tokens = Set.of("#F4F1E8", "#FFFDF7", "#172B3A", "#4C5E6B", "#687987",
+                "#164F86", "#A33225", "#CFD2CA", "#0B2538", "#12344A", "#F3F0E6", "#B8C8D1", "#7F9CAB", "#9ACBFF",
+                "#FFAB9D", "#325369");
+        Matcher colour = Pattern.compile("#[0-9A-Fa-f]{3,8}\\b").matcher(css);
+        while (colour.find()) {
+            assertThat(tokens).as("colour " + colour.group()).contains(colour.group().toUpperCase(Locale.ROOT));
+        }
+        assertThat(css).doesNotContainPattern("(?i)\\b(?:rgb|rgba|hsl|hsla|oklch|lab|lch)\\(")
+                .doesNotContainPattern("(?i):\\s*(?:orange|red|yellow|gold)\\b");
+    }
+
+    /** The declarations of the first rule whose selector is exactly {@code selector}. */
+    private static String rule(String selector) {
+        int start = css.indexOf("\n" + selector + " {\n");
+        assertThat(start).as(selector).isNotNegative();
+        return css.substring(start, css.indexOf("}", start));
     }
 
     private static int count(String text, String part) {

@@ -2,6 +2,7 @@ package io.github.stigjohnny.docs.check;
 
 import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.markdown.MarkdownBlock;
+import io.github.stigjohnny.docs.repo.DeckRecord;
 import io.github.stigjohnny.docs.repo.DemoRecord;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.Sources;
@@ -48,12 +49,15 @@ import java.util.regex.Pattern;
  *
  * <p>Every block is held to these checks, the section headings and anything before the first section included.
  *
+ * <p>A file named {@code docs/demos/deck-<slug>.md} is a milestone deck, not a demonstration, and is held to the deck's
+ * rules ({@link DeckCheck}), which share these commands and this reading of links.
+ *
  * <p>No command is ever run. Whether See it reaches pages of the site is checked where the pages are known, when the
  * site is built (DemoPages).
  */
 final class DemoCheck {
 
-    static final String MARKER = "Recorded output \u2014 not rerun by this site build.";
+    static final String MARKER = DemoRecord.RECORDED_OUTPUT;
     static final List<String> SECTIONS = List.of("What changed", "See it", "Try it", "Evidence", "Limits");
 
     /** The commands a demonstration may show, each whole and with exactly these arguments: README.md documents them. */
@@ -83,7 +87,7 @@ final class DemoCheck {
     private static final Pattern PLACEHOLDER_LINE = Pattern.compile("<[A-Za-z][^<>]*\\s[^<>]*>");
     private static final Pattern TEMPLATE_DATE = Pattern.compile("(?i)YYYY-MM-DD");
     private static final Pattern ABSOLUTE_PATH = Pattern.compile("(?:^|[\\s=])(?:/|~|[A-Za-z]:[\\\\/])");
-    private static final Pattern MEDIA = Pattern.compile("(?i)\\.(?:png|jpe?g|gif|webp|avif|svg|bmp|ico|tiff?|apng|mp4|"
+    static final Pattern MEDIA = Pattern.compile("(?i)\\.(?:png|jpe?g|gif|webp|avif|svg|bmp|ico|tiff?|apng|mp4|"
             + "m4v|webm|mov|avi|mkv|ogv|mp3|m4a|wav|ogg|oga|flac|cast)$");
 
     private DemoCheck() {
@@ -97,17 +101,20 @@ final class DemoCheck {
                         + "media gate");
             }
         }
-        problems(sources, sources.docsUnder(DemoRecord.DIRECTORY).stream().filter(d -> DemoRecord.isDemo(d.path()))
-                .toList()).forEach(problems::add);
+        problems(sources, sources.docsUnder(DemoRecord.DIRECTORY).stream()
+                .filter(d -> !d.path().equals(DemoRecord.HOW_TO)).toList()).forEach(problems::add);
     }
 
-    /** The problems of the given demonstrations, read against the sources: the tests and commands they name. */
-    static List<String> problems(Sources sources, List<DocFile> demos) {
+    /**
+     * The problems of the given demonstrations and decks, read against the sources: the tests and commands they name,
+     * and the capabilities a deck counts. A file named {@code docs/demos/deck-<slug>.md} is checked as a deck.
+     */
+    static List<String> problems(Sources sources, List<DocFile> docs) {
         Set<String> problems = new TreeSet<>();
-        Set<String> checkerTests = new HashSet<>();
-        for (String file : Sources.files(sources.repo(), CHECKER_SOURCES, ".java")) {
-            checkerTests.add(file.substring(file.lastIndexOf('/') + 1, file.length() - ".java".length()));
-        }
+        Set<String> checkerTests = checkerTests(sources);
+        List<DocFile> demos = docs.stream().filter(d -> !DeckRecord.isDeck(d.path())).toList();
+        problems.addAll(DeckCheck.problems(sources, docs.stream().filter(d -> DeckRecord.isDeck(d.path())).toList(),
+                checkerTests));
         Map<Integer, String> byPullRequest = new TreeMap<>();
         for (DocFile doc : demos.stream().sorted(Comparator.comparing(DocFile::path)).toList()) {
             List<String> found = new ArrayList<>();
@@ -119,6 +126,20 @@ final class DemoCheck {
                     : doc.path() + ": " + problem));
         }
         return List.copyOf(problems);
+    }
+
+    /** The test classes of the checker, by simple name: the ones its documented test run may name. */
+    static Set<String> checkerTests(Sources sources) {
+        Set<String> checkerTests = new HashSet<>();
+        for (String file : Sources.files(sources.repo(), CHECKER_SOURCES, ".java")) {
+            checkerTests.add(file.substring(file.lastIndexOf('/') + 1, file.length() - ".java".length()));
+        }
+        return checkerTests;
+    }
+
+    /** Whether a command is one of the approved commands, whole and with exactly its arguments. */
+    static boolean approved(String command, Set<String> checkerTests) {
+        return reason(command, checkerTests).isEmpty();
     }
 
     private static void metadata(DocFile doc, Optional<String> recorded, TestEvidence evidence,
@@ -434,7 +455,7 @@ final class DemoCheck {
      * {@code shot%2epng} is {@code shot.png}. Empty when the encoding is malformed: a {@code %} without two ASCII hex
      * digits, or bytes that are not UTF-8.
      */
-    private static Optional<String> decodedPath(String link) {
+    static Optional<String> decodedPath(String link) {
         String path = link.replaceFirst("[?#].*$", "");
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         int i = 0;
@@ -474,7 +495,7 @@ final class DemoCheck {
     }
 
     /** A field of the frontmatter, or nothing when it cannot be read; the problem is added to {@code found}. */
-    private static <T> Optional<T> read(Supplier<T> field, List<String> found) {
+    static <T> Optional<T> read(Supplier<T> field, List<String> found) {
         try {
             return Optional.of(field.get());
         } catch (DocsException e) {

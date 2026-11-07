@@ -191,7 +191,8 @@ closes it.
   can be stale, edited or wrong; only a reviewer can tell. Only the named tests that passed in the build that made the
   site count as its evidence. That `recorded` never changes after the first recording is a rule, not a check: the
   tool does not read history. Whether a pull request that needs a demonstration has one is a rule for agents
-  (`AGENTS.md`); no check requires it yet.
+  (`AGENTS.md`); no check requires it yet. The same holds for a milestone deck: the tool checks that its recorded
+  output is labelled and that its notes name the date, revision, command and exit status, not that they are true.
 - **Media waits for a gate.** Screenshots, recordings and other media are not published: until a reviewed media gate
   exists, demonstrations are text only, and the screenshots of a visible change go to the owner with the review
   request, outside the repository.

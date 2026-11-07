@@ -5,11 +5,13 @@ import io.github.stigjohnny.docs.generate.ArchitecturePages;
 import io.github.stigjohnny.docs.generate.Brains;
 import io.github.stigjohnny.docs.markdown.MarkdownRenderer;
 import io.github.stigjohnny.docs.markdown.Section;
+import io.github.stigjohnny.docs.markdown.SlideOutline;
 import io.github.stigjohnny.docs.model.C4View;
 import io.github.stigjohnny.docs.model.ViewNames;
 import io.github.stigjohnny.docs.repo.Allowlist;
 import io.github.stigjohnny.docs.repo.ApiContract;
 import io.github.stigjohnny.docs.repo.Capabilities;
+import io.github.stigjohnny.docs.repo.DeckRecord;
 import io.github.stigjohnny.docs.repo.DemoRecord;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.RiskPolicy;
@@ -23,7 +25,9 @@ import java.util.TreeMap;
 
 /**
  * Where each published source appears on the site, and which anchors each page has. Every hand-written document under
- * {@code docs/} must have a page; a document without one fails the build instead of silently staying unpublished.
+ * {@code docs/} must have a page; a document without one fails the build instead of silently staying unpublished. A
+ * milestone deck has two pages, its slides and its notes, and each has its slides' anchors and no other: the notes
+ * headings have IDs on GitHub, but not on the site.
  */
 final class SiteMap {
 
@@ -40,8 +44,16 @@ final class SiteMap {
         SiteMap map = new SiteMap();
         map.page(Sources.README, "start/repository.html");
         for (DocFile doc : sources.docs()) {
-            map.page(doc.path(), pageOf(doc.path()));
-            map.anchors(pageOf(doc.path()), doc.body());
+            String page = pageOf(doc.path());
+            map.page(doc.path(), page);
+            if (DeckRecord.isDeck(doc.path())) {
+                for (SlideOutline slide : DeckRecord.outline(doc).slides()) {
+                    map.anchor(page, slide.id());
+                    map.anchor(DeckRecord.notesPage(page), slide.id());
+                }
+            } else {
+                map.anchors(page, doc.body());
+            }
         }
         map.anchors("start/repository.html", sources.readme());
         map.page(NoticesPage.SOURCE, NoticesPage.PAGE);

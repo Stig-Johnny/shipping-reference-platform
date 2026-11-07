@@ -7,11 +7,16 @@ package io.github.stigjohnny.docs.site;
  */
 public record StatusPanel(String design, String implementation, String evidence) {
 
-    String html() {
-        return "<section class=\"status-panel\" aria-labelledby=\"site-status-title\">\n"
-                + "<h2 id=\"site-status-title\" class=\"visually-hidden\">Status</h2>\n<dl class=\"status-grid\">\n"
-                + item("Accepted design", design) + item("Planned implementation", implementation)
-                + item("Verified evidence", evidence) + "</dl>\n</section>\n";
+    /** The panel under its heading; {@code attributes}, such as a language, are written onto the section. */
+    String html(String attributes) {
+        return "<section class=\"status-panel\" aria-labelledby=\"site-status-title\"" + attributes + ">\n"
+                + "<h2 id=\"site-status-title\" class=\"visually-hidden\">Status</h2>\n" + grid() + "</section>\n";
+    }
+
+    /** The three statements as a ruled list, without a heading: for a page's panel, or a slide that carries it. */
+    String grid() {
+        return "<dl class=\"status-grid\">\n" + item("Accepted design", design)
+                + item("Planned implementation", implementation) + item("Verified evidence", evidence) + "</dl>\n";
     }
 
     private static String item(String term, String description) {
