@@ -6,8 +6,9 @@
 // report -> api or model -> bytecode, fails it with a divergence. The component relationship graph has no cycle.
 //
 // The contract properties are those of architecture/workspace.dsl (see its header), and so are the restrictions:
-// no !include, !script, !plugin, !docs or !adrs, no environment variables and no themes. Changing this file is a
-// risk level 3 change. architecture/workspace.dsl stays the authority for the product (ADR 0002).
+// no !include, !script, !plugin, !docs or !adrs, no environment variables and no themes; no constants or variables,
+// no dollar-brace substitution and no backslash at the end of a line, comments and text blocks included. Changing
+// this file is a risk level 3 change. architecture/workspace.dsl stays the authority for the product (ADR 0002).
 
 workspace "c4-contract-kit" "The internal structure of the library that checks code against a C4 model." {
 
