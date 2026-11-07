@@ -1,41 +1,62 @@
 # AGENTS.md: apps/shipping-web (npm workspace `@shipping-reference-platform/web`)
 
-Adds to the root `AGENTS.md`. Decision: ADR 0009. Screen specification: `docs/ui/workbench.md` (binding for visual
-design, behaviour, states and accessibility; changes require an explicit design decision recorded there).
+Adds to the root `AGENTS.md`. Decision: ADR 0012, which supersedes ADR 0009. Screen specification:
+`docs/ui/workbench.md` (binding for visual design, behaviour, states and accessibility; changes require an explicit
+design decision recorded there; its amendment of 2026-11-07 sets the scope of the first runnable slice).
 
 ## Stack
 
-React 19.3.0, TypeScript 7.0.2, Vite 8.3.6, Node 26.13.0, npm 11.20.0. Tests: Vitest 5.1.0 with Testing Library
-16.3.3; Playwright 1.65.0 with axe-core 4.14.0. No router, state-management, data-fetching, form or component
-library: adding any runtime package needs a review and an allowlist entry (`security/AGENTS.md`).
+A plain TypeScript single-page app with no UI framework (ADR 0012).
 
-- Vitest component tests use `jsdom`; `happy-dom` was rejected by dependency review.
+- TypeScript 5.9.3 (`tsc`) type-checks the sources and emits browser ES modules; there is no bundler. Its review is
+  pending (issue #59): do not install it before its allowlist entry is approved. Node 26.13.0, npm 11.20.0.
+- The Java application serves the emitted assets on loopback (`127.0.0.1`).
+- Tests: `node --test`, Node's built-in runner, for logic; Playwright 1.65.0 with axe-core 4.14.0 for end-to-end and
+  accessibility tests, in the `contract-e2e` CI job only. Their reviews approve no local or headed browser use: do not
+  run them on a developer machine.
+- No runtime package at all: the router (History API), state, forms and components are the project's own code.
+  Adding any package needs a review and an allowlist entry (`security/AGENTS.md`).
+- Deferred: React, Vite, Vitest, Testing Library, jsdom and the generated client (openapi-typescript and
+  openapi-fetch). They come back only with their reviews and a new decision. `happy-dom` was rejected by dependency
+  review.
+- Compiler options `erasableSyntaxOnly`, `verbatimModuleSyntax` and `rewriteRelativeImportExtensions`. Use only
+  erasable syntax: no `enum`, no `namespace` with code, no parameter properties, no `import =` aliases, and no
+  decorators, which `tsc` does not reject but Node's type stripping cannot run. Import types with `import type`. Name
+  every relative import with its `.ts` extension; `tsc` rewrites it to `.js`, and Node runs the `.ts` sources of the
+  logic tests directly.
 
 ## Structure and import rules
 
 ```text
 src/
-  app/                 shell, left navigation, router (History API), theme
-  auth/                synthetic user picker; token held in memory          (risk level 3)
-  api/                 hooks around @shipping-reference-platform/client      (risk level 2)
-  features/quotes/     ParcelForm, QuoteCardList, QuoteCard
-  features/shipments/  BookingForm, ShipmentTable, ShipmentDrawer, LabelPreview
-  ui/                  presentational components: Button, ProblemAlert, EmptyState, StatusBadge, Skeleton, ThemeToggle
-e2e/                   Playwright specs                                       (risk level 2)
+  app/                 part app: shell, left navigation, router (History API), theme
+  auth/                part auth: synthetic user picker; token held in memory          (risk level 3)
+  api/                 part api: the typed HTTP adapter, the only caller of fetch       (risk level 2)
+  features/quotes/     part quote-feature: ParcelForm, QuoteCardList, QuoteCard
+  features/shipments/  part shipment-feature: BookingForm, ShipmentTable, ShipmentDrawer (LabelPreview deferred)
+  ui/                  part ui, presentational: Button, ProblemAlert, EmptyState, StatusBadge, Skeleton, ThemeToggle
+e2e/                   Playwright specs                                                  (risk level 2)
 ```
 
-Checked by `tools/web-imports/check-imports.mjs` in the `web` check:
+The model declares the six parts (issue #64). The JDK import checker of `libs/c4-contract-kit` holds `src/` to them
+in the `java` check (`WebArchitectureConformanceTest`); `tools/web-imports/check-imports.mjs` is not built. The rules:
 
-- Only `src/api/` imports `@shipping-reference-platform/client`.
 - `src/ui/` imports nothing from `app`, `auth`, `api` or `features`.
 - A feature imports another feature only through that feature's `index.ts`.
 - `src/auth/` imports nothing from `features`.
 - No import cycles.
 
+The checker enforces import boundaries and cycles, and requires a direct import for each REQUIRED relationship whose
+endpoints are built. Relationships touching planned parts are not evaluated. The HTTP calls to the API stay outside
+the check; the end-to-end tests are their evidence.
+
 ## Rules
 
-- Call the API only through the generated client. Never write `fetch('/api/...')` by hand, never edit
-  `packages/shipping-client/src/schema.d.ts`, and regenerate it when the contract changes.
+- Call the API only through the adapter in `src/api/`; no other code calls `fetch`. The import check cannot see a
+  call to a global such as `fetch`, so review enforces this rule.
+- The adapter's request and response types are written by hand from `contracts/shipping.openapi.yaml`. When the
+  contract changes, change them in the same pull request. Nothing checks them against the contract: the server's HTTP
+  contract tests and the end-to-end tests catch drift only for what they exercise.
 - The server decides. The UI may disable or explain (an offer past `expiresAt` cannot be booked), but it must handle
   the server's problem for every action: `quote-expired`, `quote-already-booked`, `idempotency-key-reused`, and the
   rest of the contract's problem types.
@@ -43,8 +64,9 @@ Checked by `tools/web-imports/check-imports.mjs` in the `web` check:
   of that intent, including after a network error. A changed recipient or offer is a new intent with a new key.
 - Tokens stay in memory. Do not use `localStorage`, `sessionStorage`, cookies or IndexedDB for anything: v0.1 uses
   no browser storage at all, including for the theme override.
-- Never use `dangerouslySetInnerHTML`, `innerHTML` or `eval`. Render the label preview with `<img>` from an object
-  URL of the downloaded SVG, never as inline SVG markup.
+- Never use `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval` or `new Function`. Build elements
+  with the DOM API and set text with `textContent`. Render the label preview, when it comes, with `<img>` from an
+  object URL of the downloaded SVG, never as inline SVG markup.
 - Prices: show `amount` and `currency` from the contract as received, formatted with `Intl.NumberFormat` for
   display only. Never compute prices in the browser.
 - Every async view has explicit loading, empty, expired (where applicable) and failed states as specified.
@@ -56,10 +78,12 @@ Checked by `tools/web-imports/check-imports.mjs` in the `web` check:
 
 | File | Kind |
 |---|---|
-| `src/**/<Component>.test.tsx` | Vitest and Testing Library component tests, API mocked at the client boundary |
-| `e2e/*.spec.ts` | Playwright against the real API started with the `demo` profile and seed |
+| `src/**/<module>.test.ts` | Logic tests, beside the module they test: `node --test` runs them from the TypeScript sources with Node's type stripping, without a DOM |
+| `e2e/*.spec.ts` | Playwright with axe-core in the `contract-e2e` CI job, against the real API started with the `demo` profile on PostgreSQL |
+| `src/**/<Component>.test.tsx` | Deferred with Vitest and Testing Library: component tests, API mocked at the adapter boundary |
 
 Use the names in `docs/capabilities/capabilities.yaml`: `ParcelForm.test.tsx`, `QuoteCardList.test.tsx`,
 `BookingForm.test.tsx`, `ShipmentDrawer.test.tsx`, `ProblemAlert.test.tsx`, `ThemeToggle.test.tsx`,
 `quote-book-label.spec.ts`, `expired-quote.spec.ts`, `tenant-denial.spec.ts`, `prototype-flag.spec.ts`,
-`accessibility.spec.ts`. Never use `.only`, `.skip` or `test.fixme` in committed code.
+`accessibility.spec.ts`. They stay acceptance targets: the component tests wait for their tooling, and
+`prototype-flag.spec.ts` for the label preview. Never use `.only`, `.skip` or `test.fixme` in committed code.

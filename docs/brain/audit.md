@@ -26,7 +26,7 @@ Appends one tenant-scoped audit entry per shipment event, deduplicated by event 
   - quotes (PERMITTED): May record QuoteIssued events; no listener exists in v0.1, so the report shows no static evidence [Spring Modulith event listener]
 - **Used by:** none.
 - **Other relationships, not checked by the Java check:**
-  - to Database (not checked): Appends audit entries in schema audit [Spring Data JDBC]
+  - to Database (not checked): Appends audit entries in schema audit [Spring JDBC (JdbcClient)]
 
 ## HTTP operations
 

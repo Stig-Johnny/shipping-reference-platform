@@ -75,10 +75,10 @@ class MermaidAdapterTest {
     void plannedElementsAreLabelledInWordsInsteadOfFaded() {
         MermaidDiagram components = adapt("ApiComponents");
 
-        assertThat(components.nodes()).filteredOn(n -> List.of("6", "8", "9", "10", "15").contains(n.id()))
+        assertThat(components.nodes()).filteredOn(n -> List.of("6", "8", "9", "10", "11", "15").contains(n.id()))
                 .extracting(Node::label).containsExactlyInAnyOrder("Web app [Container] (planned)",
-                        "Quotes [Component] (built)", "Shipments [Component] (planned)", "Tenants [Component] (built)",
-                        "Database [Container] (planned)");
+                        "Quotes [Component] (built)", "Shipments [Component] (built)", "Tenants [Component] (built)",
+                        "Audit [Component] (planned)", "Database [Container] (planned)");
         MermaidDiagram context = adapt("SystemContext");
         assertThat(context.nodes()).extracting(Node::label).containsExactlyInAnyOrder("Shipping clerk [Person]",
                 "Platform administrator [Person]", "Webshop [Software System] (external)",
