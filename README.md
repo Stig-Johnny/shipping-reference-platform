@@ -153,10 +153,7 @@ certification.
 ## Prior art
 
 The comparison of a model with code in both directions is decades old; this repository applies it to a Structurizr
-model and Java bytecode and adds required-edge semantics and evidence. The research behind it, including which tools
-check in both directions and what 2025–2026 studies say about coding agents and architecture, is written up in
-[Holding Code to Architecture in the Coding-Agent Era](https://www.dashecorp.com/codi-e/diagram-first-research/)
-(Codi-E blog, 6 November 2026).
+model and Java bytecode and adds required-edge semantics and evidence.
 
 - **Reflexion models**, Gail Murphy, David Notkin and Kevin Sullivan, ACM SIGSOFT FSE 1995: map code onto a model
   and report convergences, divergences and absences. <https://www.cs.ubc.ca/~murphy/papers/rm/fse95.html>
