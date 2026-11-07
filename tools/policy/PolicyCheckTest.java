@@ -81,6 +81,7 @@ public final class PolicyCheckTest {
             npm();
             vendored();
             images();
+            imageBypasses();
             tree();
             commandLine();
         } finally {
@@ -562,7 +563,11 @@ public final class PolicyCheckTest {
     static final String POSTGRES = "a1".repeat(32);
     static final String RYUK = "b2".repeat(32);
     static final String UNLISTED = "c3".repeat(32);
-    static final String DATABASE_TEST = "apps/demo/src/test/java/demo/DatabaseTest.java";
+    /** The database harness: the one source that may use Testcontainers, so the fixtures put their test code there. */
+    static final String HARNESS = "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/ReviewedPostgres.java";
+    static final String DATABASE_TEST = HARNESS;
+    static final String OTHER_TEST = "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/OtherTest.java";
+    static final String WORKFLOW = ".github/workflows/ci.yml";
     static final String STAGING = "tools/ci/stage-image.sh";
 
     /**
@@ -788,6 +793,81 @@ public final class PolicyCheckTest {
             expectOnly(findings, "images", "??md???x/postgres@sha256:" + UNLISTED + " has no review on the allowlist");
             expect(!findings.getFirst().contains("**"), findings.toString());
         });
+    }
+
+    /** A workflow whose fifth line is the given text, inside a job. */
+    static String workflow(String fifth) {
+        return """
+                name: ci
+                on: push
+                jobs:
+                  x:
+                %s
+                    steps:
+                      - run: echo "the test containers are removed"
+                """.formatted(fifth);
+    }
+
+    /** Ordinary shell and YAML spellings that name what the check refuses, each of which got through it once. */
+    static void imageBypasses() {
+        for (String command : List.of("/usr/bin/docker run alpine:3.17", "\"docker\" run alpine:3.17",
+                "'docker' run alpine:3.17", "\"/usr/bin/docker\" \"run\" alpine:3.17", "sudo /usr/bin/docker run alpine:3.17",
+                "/usr/bin/docker login", "/usr/bin/docker cp file x:/tmp", "/usr/local/bin/docker build .",
+                "/usr/bin/docker run --network host -v /:/host postgres@sha256:" + POSTGRES, "exec docker run alpine",
+                "env docker run alpine", "$(command -v docker) run alpine", "runtime=docker", "\"docker\"")) {
+            test("bypasses: a script that names docker this way is refused: " + command, () -> expectFinding(
+                    withImages().write(STAGING, staging(command)).findings(), "images", STAGING + ":4: "));
+        }
+        test("bypasses: a workflow step that runs docker by its path is refused", () -> expectOnly(withImages()
+                .write(WORKFLOW, workflow("    steps:\n      - run: /usr/bin/docker run alpine:3.17").replace(
+                        "    steps:\n      - run: echo", "      - run: echo")).findings(), "images",
+                WORKFLOW + ":6: docker run is not an allowed use"));
+        test("bypasses: restarting the docker service is no docker command", () -> expectClean(withImages()
+                .write(STAGING, staging("sudo systemctl restart docker")).findings()));
+        for (String key : List.of("    \"container\": alpine:3.17", "    'container': alpine:3.17",
+                "    \"services\":", "    'services': {db: {image: alpine}}", "    {container: alpine}",
+                "    runs-on: ubuntu-24.04 # then\n    defaults: {run: {shell: bash}, container: alpine}",
+                "    \"cont\\u0061iner\": alpine", "    ? container\n    : alpine")) {
+            test("bypasses: a job or service container in another YAML spelling is refused: " + show(key), () ->
+                    expectFinding(withImages().write(WORKFLOW, workflow(key)).findings(), "images", WORKFLOW + ":"));
+        }
+        test("bypasses: a test that only has the harness's handle cannot reach the container's API", () -> expectFinding(
+                withImages().write(OTHER_TEST, """
+                        package io.github.stigjohnny.shipping.database;
+
+                        class OtherTest {
+                            void bind() {
+                                var postgres = ReviewedPostgres.start();
+                                postgres.withFileSystemBind("/", "/host");
+                            }
+                        }
+                        """).findings(), "images", OTHER_TEST + ":6: withFileSystemBind is forbidden"));
+        test("bypasses: a test other than the harness may not use Testcontainers, not even in the reviewed form", () ->
+                expectFinding(withImages().write(OTHER_TEST, database("DockerImageName.parse(\"postgres@sha256:" + POSTGRES
+                        + "\")", "new PostgreSQLContainer(IMAGE)").replace("package demo;",
+                        "package io.github.stigjohnny.shipping.database;")).findings(), "images",
+                        OTHER_TEST + ":3: ", "only ReviewedPostgres"));
+        test("bypasses: a fully qualified docker-java call outside the harness is refused", () -> expectFinding(
+                withImages().write(OTHER_TEST, "class OtherTest { Object c = com.github.dockerjava.api.model.Bind.parse(\"/:/h\"); }\n")
+                        .findings(), "images", OTHER_TEST + ":1: ", "only ReviewedPostgres"));
+        test("bypasses: a unicode escape does not hide Testcontainers from the check", () -> expectFinding(
+                withImages().write(OTHER_TEST, "import \\u006frg.testcontainers.containers.GenericContainer;\n"
+                        + "class OtherTest { }\n").findings(), "images", OTHER_TEST + ":1: ", "only ReviewedPostgres"));
+        for (String script : List.of(
+                "tasks.register(\"image\") { doLast { org.testcontainers.utility.DockerImageName.parse(\"alpine:3.17\") } }\n",
+                "val image = DockerImageName.parse(\"alpine:3.17\")\n",
+                "tasks.register<Exec>(\"pull\") { commandLine(\"sh\", \"-c\", \"docker run alpine:3.17\") }\n",
+                "tasks.register<Exec>(\"pull\") { commandLine(\"/usr/bin/docker\", \"run\", \"alpine\") }\n",
+                "dependencies { testImplementation(\"org.testcontainers:testcontainers-postgresql\") }\n"
+                        + "val pg = GenericContainer<Nothing>(\"alpine\").withFileSystemBind(\"/\", \"/h\")\n")) {
+            test("bypasses: a build script is read like test code: " + show(script.strip()), () -> expectFinding(
+                    withImages().write("apps/demo/build.gradle.kts", script).findings(), "images",
+                    "apps/demo/build.gradle.kts:"));
+        }
+        test("bypasses: a build script may still declare the reviewed Testcontainers artifacts", () -> expectClean(
+                withImages().write("apps/demo/build.gradle.kts",
+                        "dependencies { testImplementation(\"org.testcontainers:testcontainers-postgresql\") }\n")
+                        .findings()));
     }
 
     // ---- the checked tree: no symbolic link in it, nothing read from outside it ----
