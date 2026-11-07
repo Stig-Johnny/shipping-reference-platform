@@ -50,6 +50,7 @@ Prices parcels with the synthetic tariff and issues quotes whose offers expire a
 
 - [ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security](../adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md) (accepted)
 - [ADR 0006: Module events through the publication registry, with idempotent consumers](../adr/0006-module-events-through-the-publication-registry.md) (accepted)
+- [ADR 0012: Every migration has a down script, proven in CI; production rolls forward](../adr/0012-down-scripts-proven-in-ci-production-rolls-forward.md) (accepted)
 
 ## Flows
 

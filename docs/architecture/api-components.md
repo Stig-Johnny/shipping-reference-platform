@@ -25,7 +25,7 @@ flowchart LR
     subgraph 5 ["Shipping reference platform"]
         style 5 fill:#ffffff,stroke:#475569,color:#475569
         subgraph 7 ["API"]
-            style 7 fill:#ffffff,stroke:#475569,color:#475569
+            style 7 fill:#ffffff,stroke:#64748b,color:#64748b
             10["Tenants [Component] (planned)"]
             style 10 fill:#f1f5f9,stroke:#64748b,color:#334155
             11["Audit [Component] (planned)"]
@@ -41,10 +41,10 @@ flowchart LR
             9["Shipments [Component] (planned)"]
             style 9 fill:#f1f5f9,stroke:#64748b,color:#334155
         end
-        15[("Database [Container] (planned)")]
+        15[("Database [Container]")]
         style 15 fill:#115e59,stroke:#475569,color:#ffffff
         6["Web app [Container] (planned)"]
-        style 6 fill:#115e59,stroke:#475569,color:#ffffff
+        style 6 fill:#f1f5f9,stroke:#64748b,color:#334155
     end
     6 -->|"1"| 10
     6 -->|"2"| 8
@@ -97,7 +97,7 @@ The same definition is in [api-components.mmd](api-components.mmd).
 | 12 | Orders | Component | Spring Modulith module | planned | Planned: imports webshop orders and turns them into quote and booking requests. |
 | 13 | Tracking | Component | Spring Modulith module | planned | Planned: receives carrier tracking events and moves shipments through transit states. |
 | 14 | Returns | Component | Spring Modulith module | planned | Planned: creates return shipments for delivered shipments. |
-| 15 | Database | Container | PostgreSQL 18.6 | Planned; not covered by module conformance | One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data. |
+| 15 | Database | Container | PostgreSQL 18.6 | Not covered by module conformance | One schema per v0.1 module plus the event publication registry, with forced row-level security on tenant data. Built: the schemas tenants and quotes (migrations V1 and V2, tested in CI). Planned: shipments, audit and the registry. |
 
 ## Relationships
 

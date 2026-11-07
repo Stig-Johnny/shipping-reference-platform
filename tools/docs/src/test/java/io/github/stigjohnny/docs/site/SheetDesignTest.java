@@ -164,10 +164,13 @@ class SheetDesignTest {
     void passingEvidenceIsACountWithWhatItDoesNotProveAndTheNamesInADisclosure() {
         String start = ledgerRow(site.text("index.html"), "Verified evidence");
         String line = start.substring(0, start.indexOf("\n<details"));
-        // Only controls contribute passing evidence today, so the badge and the line say it is the tooling's.
-        assertThat(line).contains("<span class=\"badge badge-shipped\">Tooling tests passing</span> ")
-                .endsWith(" evidence test classes passed in the build that generated this site. These tests verify "
-                        + "repository tooling, not shipping behaviour.")
+        // While only controls contribute passing evidence, the badge and the line say that it is the tooling's.
+        boolean tooling = sources.capabilities().all().stream()
+                .filter(c -> c.evidence().stream().anyMatch(sources.evidence()::passed)).allMatch(Capability::control);
+        assertThat(line).contains(tooling ? "<span class=\"badge badge-shipped\">Tooling tests passing</span> "
+                        : "<span class=\"badge badge-shipped\">Passing</span> ")
+                .endsWith(" evidence test classes passed in the build that generated this site." + (tooling
+                        ? " These tests verify repository tooling, not shipping behaviour." : ""))
                 .doesNotContain("ConformanceDivergenceTest");
         assertThat(start.substring(start.indexOf("\n<details"))).startsWith(
                 "\n<details class=\"evidence-tests\"><summary>Evidence test classes (").contains("ConformanceDivergenceTest");

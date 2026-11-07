@@ -2,7 +2,7 @@
 title: "Module: tenants"
 description: "Demo authentication for synthetic users, tenant derivation from membership, tenant binding for row-level security, and tenant-scoped prototype flags."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 module: tenants
 moduleStatus: planned
 riskLevel: 3
@@ -121,13 +121,16 @@ tells the web app what to show (`Membership.enabledFlags`).
 
 ## Data: schema `tenants` (migration `V1__tenants.sql`; seed `db/demo/V1000__synthetic_tenants.sql`)
 
+`V1__tenants.sql` exists in `apps/shipping-api/src/main/resources/db/migration`, with its down script
+`db/down/V1__tenants.down.sql` (ADR 0012). The seed does not exist yet. Every column is `not null`.
+
 | Table | Columns | Notes |
 |---|---|---|
-| `tenants.tenant` | `tenant_id uuid pk`, `display_name varchar(70)` | Identity table: no RLS; `shipping_app` has no privileges. |
-| `tenants.app_user` | `user_id uuid pk`, `handle varchar(40) unique` (pattern `^[a-z0-9-]{3,40}$`), `display_name varchar(70)` | Identity table: no RLS; no privileges. |
+| `tenants.tenant` | `tenant_id uuid pk`, `display_name varchar(70)` (not empty) | Identity table: no RLS; `shipping_app` has no privileges. |
+| `tenants.app_user` | `user_id uuid pk`, `handle varchar(40) unique` (pattern `^[a-z0-9-]{3,40}$`), `display_name varchar(70)` (not empty) | Identity table: no RLS; no privileges. |
 | `tenants.membership` | `user_id uuid pk` (one membership per user in v0.1), `tenant_id uuid`, `role text` (`CLERK`) | Identity table: no RLS; no privileges. FKs to `tenant` and `app_user`. |
-| `tenants.demo_token` | `token_sha256 bytea pk` (32 bytes), `user_id uuid` | Identity table: no RLS; no privileges. |
-| `tenants.prototype_flag` | `tenant_id uuid`, `flag_key varchar(40)`, `enabled boolean default false` | PK `(tenant_id, flag_key)`; RLS enabled and forced; `shipping_app`: `SELECT`. |
+| `tenants.demo_token` | `token_sha256 bytea pk` (32 bytes), `user_id uuid` | Identity table: no RLS; no privileges. FK to `app_user`. |
+| `tenants.prototype_flag` | `tenant_id uuid`, `flag_key varchar(40)`, `enabled boolean default false` | PK `(tenant_id, flag_key)`; FK `tenant_id` to `tenant`; RLS enabled and forced; `shipping_app`: `SELECT`. |
 
 Function `tenants.resolve_demo_token(p_token_sha256 bytea)` returns
 `table (user_id uuid, user_display_name varchar, tenant_id uuid, tenant_display_name varchar, role text)`:
@@ -141,7 +144,11 @@ inside the migration's transaction.
 
 Database roles (created by `apps/shipping-api/postgres/init-roles.sql`, not by Flyway): `shipping_owner` (login,
 owns everything, used only by Flyway) and `shipping_app` (login, `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-owns nothing).
+owns nothing). Both are also `NOINHERIT` and `NOREPLICATION`, and neither is a member of any role. A superuser runs
+the script through JDBC in each database before its first migration; running it again is safe. It also revokes
+`CONNECT` and `TEMPORARY` on the database from PUBLIC, grants `CONNECT` to both roles and `CREATE` (for schemas) to
+`shipping_owner` only, and sets no passwords. Flyway keeps its history in schema `flyway`, on which `shipping_app` has
+no privileges.
 
 ## Invariants and the tests that assert them
 
@@ -150,8 +157,8 @@ owns nothing).
 | T1 | Requests without a valid token get `401`; a user without membership gets `403`; header/query tenant hints cannot override membership; tenantId body members are rejected. | `DemoTokenAuthenticationTest` |
 | T2 | Token format and hashing are exact. | `DemoTokenTest` |
 | T3 | `TenantScope` binds, restores after exceptions and refuses to switch tenants inside a transaction. | `TenantScopeTest` |
-| T4 | Every tenant-owned table has RLS enabled, forced and a policy; identity tables are unreadable by `shipping_app`; `shipping_app` lacks `BYPASSRLS`, superuser and ownership. | `RowLevelSecurityCatalogTest` |
-| T5 | With plain JDBC as `shipping_app`: a foreign tenant sees and changes nothing; no bound tenant sees nothing and cannot insert; a reused pooled connection (pool size 1) carries no tenant into the next transaction; an asynchronous listener writes only under the event's tenant. | `RowLevelSecurityIntegrationTest` |
+| T4 | Every tenant-owned table has RLS enabled, forced and a policy; identity tables are unreadable by `shipping_app`; `shipping_app` lacks `BYPASSRLS`, superuser and ownership. | `RowLevelSecurityCatalogTest` (passes in CI for the tables of V1 and V2) |
+| T5 | With plain JDBC as `shipping_app`: a foreign tenant sees and changes nothing; no bound tenant sees nothing and cannot insert; a reused pooled connection (pool size 1) carries no tenant into the next transaction; an asynchronous listener writes only under the event's tenant. | `RowLevelSecurityIntegrationTest` (the database's half passes in CI: one reused connection stands in for the pool, and the owner role's queries obey the forced policies too; the listener and `TenantBindingTransactionManager` parts are planned) |
 | T6 | Tenant Beta cannot read, book, cancel or download labels for Tenant Alpha's quotes and shipments over HTTP (always `404`). | `CrossTenantAccessTest` |
 | T7 | Flags are off by default, per tenant, off after expiry, and never change authorization. | `PrototypeFlagsTest` |
 | T8 | No flag definition is past its expiry date. | `PrototypeFlagExpiryTest` |

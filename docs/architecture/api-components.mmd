@@ -9,7 +9,7 @@ flowchart LR
     subgraph 5 ["Shipping reference platform"]
         style 5 fill:#ffffff,stroke:#475569,color:#475569
         subgraph 7 ["API"]
-            style 7 fill:#ffffff,stroke:#475569,color:#475569
+            style 7 fill:#ffffff,stroke:#64748b,color:#64748b
             10["Tenants [Component] (planned)"]
             style 10 fill:#f1f5f9,stroke:#64748b,color:#334155
             11["Audit [Component] (planned)"]
@@ -25,10 +25,10 @@ flowchart LR
             9["Shipments [Component] (planned)"]
             style 9 fill:#f1f5f9,stroke:#64748b,color:#334155
         end
-        15[("Database [Container] (planned)")]
+        15[("Database [Container]")]
         style 15 fill:#115e59,stroke:#475569,color:#ffffff
         6["Web app [Container] (planned)"]
-        style 6 fill:#115e59,stroke:#475569,color:#ffffff
+        style 6 fill:#f1f5f9,stroke:#64748b,color:#334155
     end
     6 -->|"1"| 10
     6 -->|"2"| 8

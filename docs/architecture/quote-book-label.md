@@ -25,7 +25,7 @@ flowchart LR
     subgraph 5 ["Shipping reference platform"]
         style 5 fill:#ffffff,stroke:#475569,color:#475569
         subgraph 7 ["API"]
-            style 7 fill:#ffffff,stroke:#475569,color:#475569
+            style 7 fill:#ffffff,stroke:#64748b,color:#64748b
             10["Tenants [Component] (planned)"]
             style 10 fill:#f1f5f9,stroke:#64748b,color:#334155
             11["Audit [Component] (planned)"]
@@ -35,10 +35,10 @@ flowchart LR
             9["Shipments [Component] (planned)"]
             style 9 fill:#f1f5f9,stroke:#64748b,color:#334155
         end
-        15[("Database [Container] (planned)")]
+        15[("Database [Container]")]
         style 15 fill:#115e59,stroke:#475569,color:#ffffff
         6["Web app [Container] (planned)"]
-        style 6 fill:#115e59,stroke:#475569,color:#ffffff
+        style 6 fill:#f1f5f9,stroke:#64748b,color:#334155
     end
     1 -->|"1"| 6
     6 -->|"2"| 10
@@ -80,7 +80,7 @@ The same definition is in [quote-book-label.mmd](quote-book-label.mmd).
 | 9 | Shipments | Component | Spring Modulith module | planned | Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled. |
 | 10 | Tenants | Component | Spring Modulith module | planned | Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags. |
 | 11 | Audit | Component | Spring Modulith module | planned | Appends one tenant-scoped audit entry per shipment event, deduplicated by event ID; replayed from the publication registry after failures. |
-| 15 | Database | Container | PostgreSQL 18.6 | Planned; not covered by module conformance | One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data. |
+| 15 | Database | Container | PostgreSQL 18.6 | Not covered by module conformance | One schema per v0.1 module plus the event publication registry, with forced row-level security on tenant data. Built: the schemas tenants and quotes (migrations V1 and V2, tested in CI). Planned: shipments, audit and the registry. |
 
 ## Relationships
 

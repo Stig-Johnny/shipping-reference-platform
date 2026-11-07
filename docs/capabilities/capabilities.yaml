@@ -29,8 +29,10 @@
 # same commit; `:tools:docs:checkGenerated` rejects a shipped or partial status whose evidence does not exist or did
 # not pass, and never shows a planned capability as available because its package exists. The docs tool's own
 # controls are shipped. The controls of libs/c4-contract-kit carry evidence; divergence and absence are partial:
-# their ArchitectureConformanceTest in :apps:shipping-api does not exist yet. Every other status is planned and its
-# evidence is "none yet".
+# their ArchitectureConformanceTest in :apps:shipping-api does not exist yet. The database tests of :apps:shipping-api
+# are the evidence of control.migrations, shipped, and of tenants.row-level-security, partial: they cover the schemas
+# tenants and quotes, not yet the application's tenant binding. Every other status is planned and its evidence is
+# "none yet".
 
 schemaVersion: 1
 
@@ -147,9 +149,11 @@ capabilities:
   - id: tenants.row-level-security
     module: tenants
     title: Forced PostgreSQL row-level security on every tenant-owned table, with a runtime role that cannot bypass it.
-    status: planned
+    # Partial: the tables of tenants and quotes, at the database (docs/modules/tenants.md, T4 and T5). Planned: the
+    # tables of shipments and audit, and the application's half of RowLevelSecurityIntegrationTest.
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest]
     acceptanceTests: [RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest]
     docs: docs/modules/tenants.md
   - id: tenants.cross-tenant-denial
@@ -356,14 +360,14 @@ controls:
     negativeFixture: An audit entity mapped to a table in schema shipments.
     docs: docs/adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md
   - id: control.migrations
-    title: Migrations apply cleanly to an empty database as the owner role; the runtime role cannot run DDL.
+    title: Migrations apply cleanly to an empty database as the owner role, each down script restores the previous catalog, and the runtime role cannot run DDL.
     where: apps/shipping-api
     check: java
-    status: planned
+    status: shipped
     target: v0.1
-    evidence: none yet
-    acceptanceTests: [MigrationsIntegrationTest]
-    negativeFixture: A DDL statement attempted as shipping_app.
+    evidence: [MigrationsIntegrationTest, MigrationRoundTripTest]
+    acceptanceTests: [MigrationsIntegrationTest, MigrationRoundTripTest]
+    negativeFixture: DDL statements attempted as shipping_app; an applied migration edited afterwards; a down script without its last statement.
     docs: docs/adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md
   - id: control.http-contract
     title: Exercised HTTP responses, including framework problems, conform to contracts/shipping.openapi.yaml.

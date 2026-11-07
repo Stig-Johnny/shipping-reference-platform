@@ -3,9 +3,9 @@
 A reference monorepo that shows how a Java and React product can be built when the architecture model, the
 API contract and the documentation lead and the code follows, and when each claim about the code is backed by a
 check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is
-synthetic and the carrier is simulated. Application code is not written yet. What exists is the tooling that will
-judge it: a checker that holds compiled Java classes to the C4 model in both directions, a dependency allowlist check
-and a documentation tool.
+synthetic and the carrier is simulated. Application code is not written yet, apart from the database migrations of
+two modules. What exists is the tooling that will judge it: a checker that holds compiled Java classes to the C4 model
+in both directions, a dependency allowlist check and a documentation tool.
 
 ## What exists today
 
@@ -24,14 +24,23 @@ Built and running:
   site. In `java`, it checks committed generated files for drift, repository-local links and anchors for validity,
   and shipped or partial capability claims against passing test evidence. The `pages` workflow scans the site before
   each upload and publishes it from `main` at <https://stig-johnny.github.io/shipping-reference-platform/>.
+- **The first database migrations**, `V1__tenants.sql` and `V2__quotes.sql` in
+  `apps/shipping-api/src/main/resources/db/migration`, each with a down script (ADR 0012), and the role bootstrap
+  `apps/shipping-api/postgres/init-roles.sql`. In `java`, the database tests run them against the reviewed PostgreSQL
+  18.6 image: the owner role migrates an empty database and the runtime role cannot run DDL
+  (`MigrationsIntegrationTest`), every down script restores the previous catalog (`MigrationRoundTripTest`), and
+  forced row-level security keeps each tenant to its own rows (`RowLevelSecurityCatalogTest`,
+  `RowLevelSecurityIntegrationTest`). They run only in CI.
 
 The specification is in place too: the model, the API contract, the decisions, the module specifications, the risk
 policy and the agent rules, with the reviewed toolchain.
 
-Planned, with no code yet: the shipping API's seven modules (`apps/shipping-api` holds only its build file, lockfile
-and `AGENTS.md`), the React workbench, the generated API client and the checks that need them. Every product
-capability in [docs/capabilities/capabilities.yaml](docs/capabilities/capabilities.yaml) is `planned`; that file is
-the source of truth for status and evidence. [docs/gaps.md](docs/gaps.md) lists what a green build does not prove.
+Planned, with no code yet: the Java code of the shipping API's seven modules (`apps/shipping-api` holds its build
+file, lockfile, `AGENTS.md`, the migrations and the database tests), the React workbench, the generated API client
+and the checks that need them. Every product capability in
+[docs/capabilities/capabilities.yaml](docs/capabilities/capabilities.yaml) is `planned`, except
+`tenants.row-level-security`, which is `partial`: its database half is proven, its application half is planned. That
+file is the source of truth for status and evidence. [docs/gaps.md](docs/gaps.md) lists what a green build does not prove.
 
 ## The checker
 
@@ -162,9 +171,9 @@ see each other's data, enforced in queries and by forced PostgreSQL row-level se
 
 | Module | Implementation state | Depends on (from the model) |
 |---|---|---|
-| `quotes` | Planned for v0.1; no code yet | `tenants` (REQUIRED) |
+| `quotes` | Planned for v0.1; no Java code yet; its schema is migrated (V2) | `tenants` (REQUIRED) |
 | `shipments` | Planned for v0.1; no code yet | `quotes`, `tenants` (REQUIRED) |
-| `tenants` | Minimal implementation planned for v0.1; no code yet | nothing |
+| `tenants` | Minimal implementation planned for v0.1; no Java code yet; its schema is migrated (V1) | nothing |
 | `audit` | Minimal implementation planned for v0.1; no code yet | `shipments`, `tenants` (REQUIRED); `quotes` (PERMITTED, not evaluated) |
 | `orders` | planned, no code | `quotes`, `shipments` (PERMITTED, not evaluated) |
 | `tracking` | planned, no code | `shipments` (PERMITTED, not evaluated) |
@@ -182,7 +191,7 @@ checker exists) and which part is **planned**.
 | Model validity | Package mappings overlap, are empty or leave classes uncovered; a planned module has code; forbidden DSL directives; tags disagree with contract properties; cycles. | Whether the model describes the right architecture. | `java`: `RepositoryWorkspaceTest` reads `architecture/workspace.dsl` with the library | **enforced** for the model file; the rules that need classes (uncovered classes, code in a planned module) wait for application code |
 | Module boundaries and layering | Access to another module's internal packages, module cycles, Spring in domain code, unexpected packages. | Coupling through shared data or timing. | `java`: `ModularityTest`, `HexagonalLayeringTest` | planned |
 | API contract | A response deviates from the OpenAPI schema; the regenerated TypeScript client differs from the committed one. | Operations and status codes no test exercises. | `java`: `*HttpContractTest`; `web` | planned |
-| Tenant isolation | A tenant table lacks forced row-level security; the runtime role could bypass it; another tenant's IDs are readable through SQL or HTTP. | SQL run as the owner role; the shared event publication table; strength of the demo authentication. | `java`: `RowLevelSecurityCatalogTest`, `RowLevelSecurityIntegrationTest`, `CrossTenantAccessTest` | planned |
+| Tenant isolation | A tenant table lacks forced row-level security; the runtime role could bypass it; another tenant's IDs are readable through SQL or HTTP. | Policy changes by the owner role; superusers; the shared event publication table; strength of the demo authentication. | `java`: `RowLevelSecurityCatalogTest`, `RowLevelSecurityIntegrationTest`, `CrossTenantAccessTest` | partial: the first two run in `java` against PostgreSQL for the tables of V1 and V2; `CrossTenantAccessTest` and the application's tenant binding are planned |
 | Domain invariants | Golden tariff prices, monotonicity and rounding properties, idempotent booking, expiry rules. | Wrong requirements. | `java` (parameterized property tests included: `SyntheticTariffPropertiesTest`) | planned |
 | Event delivery | A failed audit write is lost, or a replay has a second effect. | Consumers nobody has written yet. | `java`: `AuditReplayIntegrationTest` | planned |
 | Mutation testing | Fewer than 80 % of mutants on changed lines are killed (90 % for pricing and checker code). | Tests that consistently assert the wrong thing; hand-reviewed equivalent mutants. | `mutation` | planned (today the `mutation` job runs PIT on the contract kit and fails under 90 % killed; it is not a required check) |
@@ -206,7 +215,8 @@ architecture/workspace.dsl       C4 model of the product: the structural authori
 contracts/shipping.openapi.yaml  HTTP contract (ADR 0004)
 libs/c4-contract-kit/            Gradle project :libs:c4-contract-kit, the model-versus-code checker, with its
                                  self-model architecture/self.dsl
-apps/shipping-api/               Gradle project :apps:shipping-api: so far only its build file, lockfile and AGENTS.md
+apps/shipping-api/               Gradle project :apps:shipping-api: so far its build file, lockfile, AGENTS.md, the
+                                 migrations and role bootstrap (src/main/resources/db/, postgres/) and their tests
 apps/shipping-web/               the React workbench's agent rules (AGENTS.md); the workbench itself is planned
 docs/                            Markdown with frontmatter: adr/, modules/, flows/, capabilities/, ui/, demos/ (one
                                  demonstration per pull request, how to write one, and the milestone deck), gaps.md,

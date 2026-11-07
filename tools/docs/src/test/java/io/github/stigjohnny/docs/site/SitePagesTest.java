@@ -44,8 +44,10 @@ class SitePagesTest {
     void theStartPageStatesThePurposeTheStateTheDataAndTwoReadingPaths() {
         String start = site.text("index.html");
 
+        // The state in words, from the sources: specification only while every product capability is planned.
+        String state = sources.capabilities().specificationOnly() ? "Specification only" : "Partly built";
         assertThat(start).contains("<h1>Shipping reference platform</h1>", "A reference monorepo",
-                "Specification only", "synthetic", "Reading path for a COO", "Reading path for a Java lead")
+                state, "synthetic", "Reading path for a COO", "Reading path for a Java lead")
                 .contains("href=\"model/flow-quote-book-label.html\"", "href=\"trust/risk-levels.html\"",
                         "href=\"trust/gaps.html\"", "href=\"model/api-components.html\"", "href=\"modules/index.html\"",
                         "href=\"api/index.html\"", "href=\"decisions/index.html\"", "href=\"trust/allowlist.html\"");
@@ -279,20 +281,12 @@ class SitePagesTest {
     @Test
     void theBrainOverviewMatchesItsTables() {
         String brain = site.text("brain/index.html");
-        assertThat(sources.capabilities().specificationOnly()).as("every product capability is planned").isTrue();
-        long capabilities = sources.capabilities().capabilities().size();
-        List<String> controls = new ArrayList<>();
-        for (Capability.Status status : Capability.Status.values()) {
-            long count = sources.capabilities().controls().stream().filter(c -> c.status() == status).count();
-            if (count > 0) {
-                controls.add(count + (count == 1 ? " control " : " controls ") + status.value());
-            }
-        }
-        String counted = controls.size() == 1 ? controls.getFirst() : String.join(", ",
-                controls.subList(0, controls.size() - 1)) + " and " + controls.getLast();
+        String capabilities = counted(sources.capabilities().capabilities(), "capability", "capabilities");
+        String controls = counted(sources.capabilities().controls(), "control", "controls");
+        assertThat(capabilities).as("the product capabilities, counted by status").isNotEmpty();
 
-        assertThat(brain).contains("<span class=\"badge badge-partial\">Partly shipped</span> " + capabilities
-                + " capabilities planned; " + counted + ".");
+        assertThat(brain).contains("<span class=\"badge badge-partial\">Partly shipped</span> " + capabilities + "; "
+                + controls + ".");
         List<Capability> evidenced = sources.capabilities().all().stream()
                 .filter(c -> c.evidence().stream().anyMatch(sources.evidence()::passed)).toList();
         if (evidenced.stream().allMatch(c -> c.control() && c.where().startsWith("tools/docs"))) {
@@ -392,10 +386,17 @@ class SitePagesTest {
             assertThat(site.text(page)).as(page).contains(evidence).doesNotContain(">Passing</span>",
                     "It is not implemented yet", "The planned conformance check", "the planned check");
         }
-        // The flow page keeps its own evidence: no test of its capabilities passes yet.
-        assertThat(site.text("model/flow-quote-book-label.html"))
-                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-none\">None yet</span>")
-                .doesNotContain("Checker tests passing");
+        // The flow page keeps its own evidence, never the checker's: the passing tests of its modules' capabilities.
+        List<String> modules = sources.doc("docs/flows/quote-book-label.md").orElseThrow().frontmatter()
+                .strings("modules");
+        List<String> passing = sources.capabilities().capabilities().stream().filter(c -> modules.contains(c.module()))
+                .flatMap(c -> c.evidence().stream()).filter(sources.evidence()::passed).distinct().toList();
+        String flow = site.text("model/flow-quote-book-label.html");
+        assertThat(flow).doesNotContain("Checker tests passing").contains(passing.isEmpty()
+                ? "<dt>Verified evidence</dt><dd><span class=\"badge badge-none\">None yet</span>"
+                : "<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> " + passing.size()
+                        + (passing.size() == 1 ? " evidence test class " : " evidence test classes "));
+        passing.forEach(test -> assertThat(flow).contains(test));
         String index = site.text("model/index.html");
         assertThat(index).contains("The checker in <code>libs/c4-contract-kit</code> is implemented and its own "
                 + "tests pass. It compares the direct static references in compiled classes with the model in both "
@@ -481,6 +482,19 @@ class SitePagesTest {
         assertThat(repository.indexOf("<li>An issue states the change.</li>"))
                 .isGreaterThan(repository.indexOf("Workflow source"));
         assertThat(site.text("trust/third-party-notices.html")).contains("six diagram pages");
+    }
+
+    /** Entries counted by status, as the overview words them: "1 capability partial and 2 capabilities planned". */
+    private static String counted(List<Capability> entries, String one, String many) {
+        List<String> parts = new ArrayList<>();
+        for (Capability.Status status : Capability.Status.values()) {
+            long count = entries.stream().filter(c -> c.status() == status).count();
+            if (count > 0) {
+                parts.add(count + " " + (count == 1 ? one : many) + " " + status.value());
+            }
+        }
+        return parts.size() <= 1 ? String.join("", parts)
+                : String.join(", ", parts.subList(0, parts.size() - 1)) + " and " + parts.getLast();
     }
 
     private static int count(String text, String part) {

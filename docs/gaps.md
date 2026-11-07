@@ -18,9 +18,12 @@ closes it.
   `tools/docs`, exists: it generates the C4 view pages, `BRAIN.md` and the module brains, and builds the
   documentation site, which `.github/workflows/pages.yml` publishes from `main` after the publication scan. Its own
   controls, `control.brain-check` and `control.publication-scan`, are shipped with their tests as evidence. The
-  library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. No
-  application code exists yet. Every other capability in `docs/capabilities/capabilities.yaml` is `planned` with no
-  evidence, and every test class named for them is still to be written (red first).
+  library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. The
+  first database migrations exist: `V1__tenants.sql` and `V2__quotes.sql` with their down scripts and the role
+  bootstrap, proven against PostgreSQL 18.6 in the `java` check, which makes `control.migrations` shipped and
+  `tenants.row-level-security` partial. No Java application code exists yet. Every other capability in
+  `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for them is still to
+  be written (red first).
 - The versions in the ADRs were checked against their sources on 2026-11-06. Their combination (JDK 25, Gradle
   9.8.2, Spring Boot 4.1.2, Spring Modulith 2.1.2, Error Prone 2.51.0, NullAway 0.14.3, JUnit 6.0.3 (property
   tests as `@ParameterizedTest` in the normal test task), PIT 1.30.2 with its JUnit 5 plugin 1.2.3) has not been
@@ -79,8 +82,13 @@ closes it.
 - **The event publication table is not tenant-scoped.** It stores event payloads, which contain identifiers only.
 - **One runtime role for all modules.** The database does not stop one module's SQL from reading another module's
   schema.
-- **Owner role and superusers bypass the application's guarantees** when used directly. Only Flyway uses the owner
-  role.
+- **The owner role can change the policies, and superusers bypass row-level security.** Forced row-level security
+  holds the owner role's queries to the bound tenant, but not its DDL: it can disable, change or drop a policy. Only
+  Flyway uses the owner role, and every migration is level 3.
+- **Row-level security is proven at the database only.** The database tests bind a tenant with `set_config` over
+  plain JDBC. Nothing in the application binds one yet: `TenantBindingTransactionManager`, the HTTP checks of
+  `CrossTenantAccessTest` and the listeners' tenant scope are planned, and so are the tables of shipments and audit.
+  A session that can call `set_config` chooses its tenant: the setting scopes a connection, it authenticates nobody.
 - **Tracking numbers come from one global sequence.** A tenant can infer the platform's total booking volume.
 - **Labels are SVG.** They are served as attachments with a restrictive Content Security Policy and contain no
   active content, but SVG remains a document format that some viewers treat as active.
@@ -167,6 +175,9 @@ closes it.
 - The web app's static checks cover import boundaries and cycles only. dependency-cruiser and required frontend
   edges are deferred.
 - The CI time target of 8 to 12 minutes is a target, not a measurement.
+- The round trip of the migrations (ADR 0012) compares catalogs, not data, and runs on empty databases: no down script
+  has run against rows that a release wrote. It compares the kinds of objects `CatalogSnapshot` lists; operators,
+  casts, collations, text search objects, foreign data objects, publications and event triggers are not compared.
 
 ## 7. Documentation
 

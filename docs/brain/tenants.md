@@ -39,7 +39,7 @@ Authenticates synthetic users, derives the tenant from membership, binds it to e
 |---|---|---|---|
 | `tenants.demo-authentication` | planned | DemoTokenTest, DemoTokenAuthenticationTest | none yet |
 | `tenants.current-membership` | planned | TenantsHttpContractTest | none yet |
-| `tenants.row-level-security` | planned | RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest | none yet |
+| `tenants.row-level-security` | partial | RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest | RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest |
 | `tenants.cross-tenant-denial` | planned | CrossTenantAccessTest, tenant-denial.spec.ts | none yet |
 | `tenants.tenant-scope-for-events` | planned | TenantScopeTest, RowLevelSecurityIntegrationTest | none yet |
 | `tenants.prototype-flags` | planned | PrototypeFlagsTest, PrototypeFlagExpiryTest, prototype-flag.spec.ts | none yet |
@@ -47,6 +47,7 @@ Authenticates synthetic users, derives the tenant from membership, binds it to e
 ## Decisions its specification names
 
 - [ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security](../adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md) (accepted)
+- [ADR 0012: Every migration has a down script, proven in CI; production rolls forward](../adr/0012-down-scripts-proven-in-ci-production-rolls-forward.md) (accepted)
 
 ## Flows
 

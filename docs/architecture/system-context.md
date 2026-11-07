@@ -26,7 +26,7 @@ flowchart LR
     style 3 fill:#64748b,stroke:#475569,color:#ffffff
     4["Carrier (simulated) [Software System] (external, simulated)"]
     style 4 fill:#64748b,stroke:#475569,color:#ffffff
-    5["Shipping reference platform [Software System] (planned)"]
+    5["Shipping reference platform [Software System]"]
     style 5 fill:#334155,stroke:#475569,color:#ffffff
     1 -->|"1"| 3
     1 -->|"2"| 5
@@ -40,7 +40,6 @@ The same definition is in [system-context.mmd](system-context.mmd).
 ## How to read it
 
 - Each box is an element of the model: its name, its C4 type in brackets and, in parentheses, its implementation status.
-- "(planned)" marks an element that has no code yet.
 - Each line is labelled with its number in the view's relationships table and, where it has one, its mode.
 - A dotted line labelled planned is a relationship that does not exist yet.
 - A solid thin line is a relationship of people, systems or containers, which module conformance does not cover.
@@ -54,7 +53,7 @@ The same definition is in [system-context.mmd](system-context.mmd).
 | 2 | Platform administrator | Person |  | Role; implementation status not applicable | Provisions tenants and memberships for webshops. |
 | 3 | Webshop | Software System |  | external | A merchant's online shop (simulated). Source of the orders that need shipping. |
 | 4 | Carrier (simulated) | Software System |  | external, simulated | A fictional parcel carrier. v0.1 simulates its tariff, tracking numbers and labels inside the API; no network calls. |
-| 5 | Shipping reference platform | Software System |  | Planned; not covered by module conformance | Quotes, books and labels parcels for webshop tenants. |
+| 5 | Shipping reference platform | Software System |  | Not covered by module conformance | Quotes, books and labels parcels for webshop tenants. |
 
 ## Relationships
 

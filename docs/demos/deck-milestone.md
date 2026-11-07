@@ -34,7 +34,7 @@ The checker and the dependency gate run; the shipping app is planned.
 |---|---|
 | The model governs the structure | Built and tested: the checker |
 | The gate stops unreviewed dependencies | Declared dependencies are checked in the approved CI run |
-| The shipping app itself | Planned: 27 of 27 capabilities |
+| The shipping app itself | Planned: 26 of 27 capabilities; tenant isolation is partly built, in the database |
 
 ### Notes
 
@@ -210,4 +210,4 @@ Java 25, strict builds and static analysis.
 
 ### Notes
 
-- The Spring Boot dependencies are declared; a running app and a database are planned
+- The Spring Boot dependencies are declared; a running app is planned. The first database migrations are tested in CI against PostgreSQL 18.6
