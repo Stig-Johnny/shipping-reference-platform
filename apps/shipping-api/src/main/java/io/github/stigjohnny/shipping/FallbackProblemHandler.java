@@ -71,7 +71,7 @@ public final class FallbackProblemHandler extends ResponseEntityExceptionHandler
 
     private static final Logger LOG = LoggerFactory.getLogger(FallbackProblemHandler.class);
     private static final String TYPES = "https://shipping-reference-platform.example/problems/";
-    /** The longest JSON Pointer that {@code errors[].name} holds. */
+    /** The most Unicode code points that {@code errors[].name} holds, after JSON Pointer escaping. */
     private static final int MAX_NAME = 200;
     private static final URI NO_INSTANCE = URI.create("about:blank");
     /** Errors in a fixed order, by where, name and detail: Bean Validation reports violations in no order. */
@@ -162,7 +162,7 @@ public final class FallbackProblemHandler extends ResponseEntityExceptionHandler
         if (exception.getCause() instanceof JacksonException cause && !cause.getPath().isEmpty()) {
             String name = pointer(cause.getPath());
             if (cause instanceof UnrecognizedPropertyException) {
-                return name.length() <= MAX_NAME
+                return name.codePointCount(0, name.length()) <= MAX_NAME
                         ? validationFailed(Stream.of(error("body", name, "is not a member of this object")))
                         : problem(HttpStatus.BAD_REQUEST, "malformed-request", "Malformed request", "The request "
                                 + "body has an unknown member whose JSON Pointer is longer than " + MAX_NAME

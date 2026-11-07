@@ -78,9 +78,9 @@ info:
     - `instance` is the request path without its query string. A path that `instance` cannot hold, one longer
       than 2048 characters or one that is not a valid URI reference, is refused before routing, and the
       problem's `instance` is `about:blank`.
-    - An invalid member of a body is named in `errors` by its JSON Pointer. An unknown member whose pointer is
-      longer than the 200 characters of `name` cannot be named: such a body is `400 malformed-request`, without
-      `errors`.
+    - An invalid member of a body is named in `errors` by its JSON Pointer. The 200-character limit of `name`
+      counts Unicode code points in the escaped pointer. An unknown member whose pointer exceeds that limit
+      cannot be named: such a body is `400 malformed-request`, without `errors`.
   contact:
     name: Repository owner (see .github/CODEOWNERS)
 servers:

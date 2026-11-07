@@ -89,6 +89,7 @@ sequenceDiagram
 
 | Situation | Expected result | Acceptance tests and status |
 |---|---|---|
+| Unknown member in a quote request | `400 validation-failed` names its escaped JSON Pointer through 200 Unicode code points; above that, `400 malformed-request` without `errors`. | Passing: `ProblemDetailsHttpContractTest`, including supplementary characters at both boundaries. |
 | Route not served, parcel too heavy, EXPRESS above 10000 g | `422 no-offer-available` with `reason`; no quote stored; the UI explains the reason. | Passing: `RatingTest` (the reason), `CreateQuoteTest` (nothing stored), `QuotesHttpContractTest` (the problem). Planned: `ProblemAlert.test.tsx` |
 | Offer expired before booking | `422 quote-expired`; the UI shows the expired state and offers a fresh quote. | Passing: `QuoteExpiryTest` (the offer lookup says Expired), `BookShipmentTest` (the booking is refused from the expiry instant on, in memory). Planned: ShipmentsHttpContractTest asserts server rejection with 422; BookingForm.test.tsx asserts the rejection transition; expired-quote.spec.ts verifies the initially expired screen only. |
 | Same quote booked with a different key | `409 quote-already-booked`. | Passing, in memory: `BookShipmentTest` (the second key is refused). Planned: `BookingIdempotencyIntegrationTest` (the `409`, and two keys at once) |

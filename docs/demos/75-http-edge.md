@@ -6,7 +6,7 @@ updated: 2026-11-07
 pr: 75
 kind: feature
 recorded: 2026-11-07
-tests: [TenantsHttpContractTest, QuotesHttpContractTest, ProblemDetailsHttpContractTest, DemoTokenAuthenticationTest]
+tests: [TenantsHttpContractTest, QuotesHttpContractTest, ProblemDetailsHttpContractTest, DemoTokenAuthenticationTest, SitePagesTest]
 ---
 
 ## What changed
@@ -17,6 +17,11 @@ in its tests and answers three operations of the contract: who the caller is (`G
 token of a synthetic user, and the tenant always comes from that user's membership, never from the request. Every
 refusal is a problem in the format of RFC 9457, with the type, title and status that the contract gives it, and every
 response that the tests exercise is checked against the contract.
+
+Unknown members are named through 200 Unicode code points in their escaped JSON Pointer; longer pointers produce
+`malformed-request`. The build-output scan refuses missing or unreadable output as well as a generated password.
+ADR 0012's status panel retains the structure evidence beside the partial HTTP evidence, and keeps the database
+and web checks listed as planned.
 
 ## Try it
 
@@ -138,8 +143,10 @@ X-XSS-Protection: 0
 }
 ```
 
-The test classes named above check these responses, and every other response their requests get, against the
-contract in every build. Reviewed in pull request #75.
+The HTTP tests named above check these responses, and every other response their requests get, against the
+contract in every build. `ProblemDetailsHttpContractTest` also checks supplementary characters at the pointer
+boundary, and `SitePagesTest` checks ADR 0012's status panel. The scan's synthetic fixtures run separately in the
+`java` workflow. These checks are not part of the recorded exchanges above. Reviewed in pull request #75.
 
 ## Limits
 

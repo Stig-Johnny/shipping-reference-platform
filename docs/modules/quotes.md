@@ -186,7 +186,10 @@ Worked example (the contract's example): `NO 0150` to `SE 11122`, 1200 g, 300 x 
   `422 no-offer-available` with its reason and a missing quote to `404 quote-not-found`, with the same detail for
   another tenant's quote as for an unknown one. Bean Validation on the request records checks the contract's bounds;
   the HTTP edge's `FallbackProblemHandler` turns their failures, and unknown members and wrong JSON types, into
-  `400 validation-failed` with each invalid value named. The optional `serviceLevel` may be absent but never `null`,
+  `400 validation-failed` with each invalid value named. An unknown member is named only when its escaped JSON
+  Pointer fits 200 Unicode code points; otherwise it is `400 malformed-request` without `errors`
+  (`ProblemDetailsHttpContractTest`, including supplementary characters at 200 and 201 code points).
+  The optional `serviceLevel` may be absent but never `null`,
   as the contract's conventions say: `OptionalMember` reads it, and an explicit `null` is `400 validation-failed`
   naming `/serviceLevel`. Every optional member of a request body is read that way. `QuotesConfiguration` wires the
   use cases with the application's clock and random UUIDs as the module's IDs.

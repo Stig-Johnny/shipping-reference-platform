@@ -530,11 +530,18 @@ class SitePagesTest {
             assertThat(site.text("decisions/" + old + ".html")).as(old).contains("<span class=\"badge "
                     + "badge-neutral\">Superseded</span> Superseded by <a href=\"" + successor + "\">ADR 0012</a>.");
         }
-        // ADR 0012 documents the HTTP contract control, which is partly enforced, so its ledger gives that control's
-        // enforced part and its planned remainder; the structure checks stay in the record's enforcedBy.
-        assertThat(record).contains("<span class=\"badge badge-partial\">Partly enforced</span> Every response that the "
-                + "HTTP tests exercise", "<span class=\"badge badge-planned\">Planned</span> The shipments operations "
-                + "(ShipmentsHttpContractTest)").doesNotContain(Statuses.TOOLING);
+        // Scope these assertions to the panel: the record's body already contains all these checks.
+        String panel = record.substring(record.indexOf("<section class=\"status-panel\""));
+        panel = panel.substring(0, panel.indexOf("</section>"));
+        assertThat(panel).contains("6 evidence test classes passed", "ModularityTest", "HexagonalLayeringTest",
+                "ArchitectureConformanceTest", "QuotesHttpContractTest", "TenantsHttpContractTest",
+                "ProblemDetailsHttpContractTest", "This verifies the structure of the built modules",
+                "<span class=\"badge badge-partial\">Partly enforced</span> Every response that the HTTP tests exercise",
+                "The shipments operations (ShipmentsHttpContractTest)", "PostgreSQL-backed application remain.",
+                "RowLevelSecurityCatalogTest", "RowLevelSecurityIntegrationTest", "CrossTenantAccessTest",
+                "MigrationsIntegrationTest", "TableOwnershipTest", "WebArchitectureConformanceTest",
+                "web: type check and emit", "node --test", "contract-e2e: Playwright and axe-core")
+                .doesNotContain(Statuses.TOOLING);
         assertThat(site.text("api/index.html")).contains("The contract is the authority for the HTTP interface "
                 + "(ADR 0012).", "Contract-first (ADR 0012): OpenAPI 3.1.2").doesNotContain("ADR 0004");
         assertThat(site.text("modules/index.html")).contains("<a href=\"../decisions/" + successor + "\">ADR 0012: "

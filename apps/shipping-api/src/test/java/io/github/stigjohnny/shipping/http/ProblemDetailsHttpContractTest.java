@@ -167,6 +167,25 @@ class ProblemDetailsHttpContractTest {
                 Arguments.of("a member whose escaped pointer has 201 characters", topLevel("~".repeat(100)), null));
     }
 
+    static Stream<Arguments> supplementaryMembers() {
+        String parcel = "\uD83D\uDCE6";
+        return Stream.of(
+                Arguments.of("top-level", topLevel(parcel.repeat(199)), "/" + parcel.repeat(199),
+                        topLevel(parcel.repeat(200))),
+                Arguments.of("nested", inParcel(parcel.repeat(192)), "/parcel/" + parcel.repeat(192),
+                        inParcel(parcel.repeat(193))),
+                Arguments.of("escaped", topLevel(parcel.repeat(195) + "~/"), "/" + parcel.repeat(195) + "~0~1",
+                        topLevel(parcel.repeat(196) + "~/")));
+    }
+
+    @ParameterizedTest(name = "{0}: 200 code points named, 201 overflow")
+    @MethodSource("supplementaryMembers")
+    void supplementaryPointersUseTheEscapedCodePointBoundary(String what, String atLimit, String pointer,
+            String overLimit) throws Exception {
+        anUnknownMemberIsNamedOnlyWhenItsPointerFitsTheContractsBound(what, overLimit, null);
+        anUnknownMemberIsNamedOnlyWhenItsPointerFitsTheContractsBound(what, atLimit, pointer);
+    }
+
     /** The quote request with an unknown member of this name before its first member. */
     private static String topLevel(String name) {
         return QUOTE_REQUEST.replaceFirst("\\{", "{\"" + name + "\": 1, ");

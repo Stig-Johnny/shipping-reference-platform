@@ -112,6 +112,8 @@ These tokens are public, guessable test fixtures, not secrets. Rules:
   (`security/reviews/maven--spring-security--7.1.2.md`, condition 3). `DemoTokenAuthenticationTest` checks the beans
   and the startup log of the application with and without the `demo` profile, and the `java` workflow fails when
   "Using generated security password" appears in the build's output or in any test result or test report.
+  `tools/ci/check-generated-password.sh` also refuses missing output, failed file discovery and read errors;
+  `check-generated-password-test.sh` proves these cases with synthetic fixtures in the same workflow.
 - Limits are stated in the contract's `demoBearer` description and in `docs/gaps.md`.
 
 ## Request and transaction flow
