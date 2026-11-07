@@ -74,6 +74,19 @@ tasks.withType<Test>().configureEach {
     environment("TESTCONTAINERS_CHECKS_DISABLE", "true")
 }
 
+// The database tests, tagged "database", start the reviewed PostgreSQL through ReviewedPostgres, which refuses to
+// start it on an engine that no review approves. They run in their own task, databaseTest, which CI's java check and
+// the pages workflow's test job run explicitly; check does not, so check needs only the reviewed JDK. Missing engine
+// prerequisites fail databaseTest; a test is never skipped for want of an engine.
+tasks.test {
+    useJUnitPlatform { excludeTags("database") }
+}
+tasks.register<Test>("databaseTest") {
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags("database") }
+}
+
 // The architecture tests read the model and the compiled classes as files. ArchitectureConformanceTest checks every
 // main class-output directory against architecture/workspace.dsl, and HexagonalLayeringTest imports the same
 // directories, which reach them as the system property shipping.mainClassDirectories. Declared as an input, a change

@@ -75,6 +75,21 @@ class DocsToolTest {
     }
 
     @Test
+    void requiredResultsThatDoNotShowAPassingRunFailEveryBuildCommandBeforeItBuildsAnything() throws IOException {
+        Path missing = dir.resolve("database-results");
+        for (String command : List.of("generate", "check-generated", "site")) {
+            out.reset();
+            err.reset();
+            assertThat(run(Map.of(), command, "--repo", dir.toString(), "--out", dir.resolve("site").toString(),
+                    "--required-results", missing.toString())).as(command).isEqualTo(1);
+            assertThat(err.toString(StandardCharsets.UTF_8)).as(command)
+                    .contains("the test results that must pass in this build do not")
+                    .contains("database-results: no test results").doesNotContain(dir.toString());
+            assertThat(dir.resolve("site")).as(command).doesNotExist();
+        }
+    }
+
+    @Test
     void theScanPassesTheRepositorysSiteWithASyntheticDictionaryAndWritesTheSummary() throws IOException {
         Path site = builtSite();
         Path summary = dir.resolve("summary.md");

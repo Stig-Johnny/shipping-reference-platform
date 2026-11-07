@@ -33,8 +33,10 @@ class PagesWorkflowTest {
     private static final String SETUP_JAVA = "actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78";
     private static final String UPLOAD = "actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9";
     private static final String DEPLOY_PAGES = "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346";
-    private static final String DOCS_AND_TESTS = "./gradlew --no-daemon --console=plain :tools:docs:check :tools:docs:site";
-    private static final String SITE_FROM_REPORTS = "./gradlew --no-daemon --console=plain :tools:docs:site -x test";
+    private static final String DOCS_AND_TESTS = "./gradlew --no-daemon --console=plain :apps:shipping-api:databaseTest "
+            + ":tools:docs:check :tools:docs:site -PdatabaseEvidence=true";
+    private static final String SITE_FROM_REPORTS = "./gradlew --no-daemon --console=plain :tools:docs:site -x test "
+            + "-x databaseTest -PdatabaseEvidence=true";
 
     @Test
     void itRunsOnPushesToMainAndByHandOnlyNeverOnPullRequests() {

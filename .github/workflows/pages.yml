@@ -85,9 +85,10 @@ jobs:
           DOCKER_CONFIG: ${{ runner.temp }}/docker-config
         run: tools/ci/container-engine.sh stage
 
-      - name: Run every project's tests, check the docs and build the site
+      - name: Run every project's tests, the database tests included, check the docs and build the site
         # :tools:docs:check and :tools:docs:site run after the tests of every project with test sources and read their
-        # reports, so the site's evidence is this build's. :tools:docs:site empties tools/docs/build/site and writes it
+        # reports, so the site's evidence is this build's; with -PdatabaseEvidence=true they also run databaseTest and
+        # require its reports, passing and unskipped. :tools:docs:site empties tools/docs/build/site and writes it
         # again from the sources of this commit.
         env:
           GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
@@ -96,7 +97,7 @@ jobs:
           DOCKER_CONFIG: ${{ runner.temp }}/docker-config
           TESTCONTAINERS_RYUK_DISABLED: 'true'
           TESTCONTAINERS_CHECKS_DISABLE: 'true'
-        run: ./gradlew --no-daemon --console=plain :tools:docs:check :tools:docs:site
+        run: ./gradlew --no-daemon --console=plain :apps:shipping-api:databaseTest :tools:docs:check :tools:docs:site -PdatabaseEvidence=true
 
       - name: Check that only the reviewed image ran, then remove the test containers
         # After the tests, whatever their outcome, once the image was staged: the image set, the containers made, no
@@ -157,11 +158,12 @@ jobs:
         run: tools/ci/site-handover.sh receive
 
       - name: Build the site from this commit and those reports, without running the tests again
-        # -x test: every test ran in the test job of this run, which has no environment and no secret. The database
-        # tests may not run here. :tools:docs:site empties tools/docs/build/site and writes it again.
+        # -x test -x databaseTest: every test ran in the test job of this run, which has no environment and no secret;
+        # the database tests may not run here. -PdatabaseEvidence=true still requires their reports, passing and
+        # unskipped. :tools:docs:site empties tools/docs/build/site and writes it again.
         env:
           GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
-        run: ./gradlew --no-daemon --console=plain :tools:docs:site -x test
+        run: ./gradlew --no-daemon --console=plain :tools:docs:site -x test -x databaseTest -PdatabaseEvidence=true
 
       - name: Require the site that the test job built
         env:

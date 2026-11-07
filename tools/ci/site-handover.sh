@@ -5,10 +5,12 @@
 # this run: it gets this run's JUnit reports through the test job's outputs, builds the site again from the same
 # commit, and requires the site the test job built, byte for byte.
 #
-#   send     (test job) writes the outputs reports (the JUnit XML reports of every project, as a gzipped tar in
-#            base64), reports-sha256 and site-sha256 (a digest over every file name and content of the site).
+#   send     (test job) writes the outputs reports (the JUnit XML reports of every project and of the shipping API's
+#            databaseTest task, as a gzipped tar in base64), reports-sha256 and site-sha256 (a digest over every file
+#            name and content of the site).
 #   receive  (build job) checks REPORTS against REPORTS_SHA256, accepts only regular files named
-#            <apps|libs|tools>/<project>/build/test-results/test/TEST-<class>.xml, and unpacks them into the checkout,
+#            <apps|libs|tools>/<project>/build/test-results/test/TEST-<class>.xml or
+#            apps/shipping-api/build/test-results/databaseTest/TEST-<class>.xml, and unpacks them into the checkout,
 #            where no report may exist yet.
 #   compare  (build job) fails unless the site it built has the digest SITE_SHA256 from the test job.
 #
@@ -18,7 +20,8 @@ set -euo pipefail
 
 readonly SITE="tools/docs/build/site"
 readonly LIMIT=100000
-readonly REPORT='^(apps|libs|tools)/[a-z0-9-]+/build/test-results/test/TEST-[A-Za-z0-9_.$-]+\.xml$'
+# Every project's test reports, and the shipping API's database test reports (its databaseTest task).
+readonly REPORT='^((apps|libs|tools)/[a-z0-9-]+/build/test-results/test|apps/shipping-api/build/test-results/databaseTest)/TEST-[A-Za-z0-9_.$-]+\.xml$'
 
 fail() {
   echo "::error::$*"
@@ -33,7 +36,8 @@ site_sha256() {
 
 send() {
   local reports encoded
-  reports="$(find apps libs tools -path '*/build/test-results/test/TEST-*.xml' -type f 2>/dev/null | LC_ALL=C sort)"
+  reports="$(find apps libs tools \( -path '*/build/test-results/test/TEST-*.xml' \
+    -o -path 'apps/shipping-api/build/test-results/databaseTest/TEST-*.xml' \) -type f 2>/dev/null | LC_ALL=C sort)"
   [[ -n "$reports" ]] || fail "the tests wrote no reports"
   [[ -z "$(find apps libs tools -path '*/build/test-results/*' -type l -print -quit 2>/dev/null)" ]] \
     || fail "a test report directory contains a symbolic link"
