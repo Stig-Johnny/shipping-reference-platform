@@ -8,7 +8,6 @@ decision-makers: repository owner
 enforcedBy:
   - "java: :tools:docs:checkGenerated regenerates the view pages in docs/architecture/ and fails on any difference (BrainCheckTest)"
   - "java: ArchitectureConformanceTest checks the API's compiled classes against architecture/workspace.dsl in both directions (c4-contract-kit)"
-  - "java: QuoteScenarioTest and TenantDenialScenarioTest check the Scenario dynamic views against one run of the code (in process, partial; amendment below)"
 plannedEnforcement:
   - "risk-approval: architecture/ is level 3"
 ---
@@ -85,11 +84,3 @@ Chosen option 1.
 - ArchUnit PlantUML rules (one direction): <https://www.archunit.org/userguide/html/000_Index.html#_plantuml_component_diagrams_as_rules>
 - Structurizr DSL: <https://docs.structurizr.com/dsl>
 - Related: ADR 0003 (modules), ADR 0008 (risk levels), `docs/gaps.md`.
-- Amendment, 2026-11-07: executable scenario views. The dynamic views whose keys start with `Scenario` are
-  executable. A validated sidecar in `architecture/scenarios/` gives each of their steps machine-readable metadata, and
-  a test in `:apps:shipping-api` runs the scenario and compares the interactions that a test-only recorder observed
-  with those steps; the outcome is asserted separately (`docs/flows/quote-book-label.md`, "Executable scenarios";
-  `control.scenario-conformance`, partial). This adds runtime evidence for the drawn scenarios, one run at a time, to the
-  static check. It does not change what `Conformance.check` means, and the overview view `QuoteBookLabel` stays
-  documentation. The scenario support is test code of the API until it moves into the kit under an entry point of its
-  own.

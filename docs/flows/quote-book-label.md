@@ -102,8 +102,8 @@ sequenceDiagram
 ## Executable scenarios
 
 The dynamic view `QuoteBookLabel` is this flow's documentation overview and is not executable: some of its steps
-combine several actions. Focused views whose keys start with `Scenario` are run instead. Each has a sidecar,
-`architecture/scenarios/<key in kebab case>.json`, that gives every step of the view a stable id, a kind, its
+combine several actions. Focused views whose keys start with `Scenario` are run instead (ADR 0014). Each has a
+sidecar, `architecture/scenarios/<key in kebab case>.json`, that gives every step of the view a stable id, a kind, its
 endpoints, an operation (interface and method, event type, HTTP operation or schema), a phase, a cardinality and the
 steps it must follow; the sidecar is validated against the view, step by step and in both directions. A test runs the
 scenario on the code. A test-only recorder, which knows nothing of the steps, records every interaction that crosses a

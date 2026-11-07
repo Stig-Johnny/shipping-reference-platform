@@ -360,7 +360,7 @@ controls:
     negativeFixture: Altered implementations in ScenarioFixturesTest, a removed call that keeps the outcome (missing step), an added call along a permitted relationship (unexpected interaction), two swapped interactions (order violation), a disabled call observer and a disabled publication observer (coverage gaps), and two interleaved runs that must pass.
     enforcedSubset: In process on the built modules, the module API calls and event publications of the quote and tenant-denial scenarios are compared with their views.
     plannedRemainder: The first booking, booking replay and label scenarios, HTTP exchanges, database steps observed through JDBC and listener executions.
-    docs: docs/flows/quote-book-label.md
+    docs: docs/adr/0014-scenario-views-are-checked-against-recorded-interactions.md
   - id: control.table-ownership
     title: Each module's adapters run SQL only against tables in its own schema.
     where: apps/shipping-api
