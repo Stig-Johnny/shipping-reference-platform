@@ -3,9 +3,9 @@
 -- (ADR 0012).
 --
 -- Quotes never change after they are issued, so shipping_app may read and insert them, nothing else. Both tables are
--- tenant-owned: their keys start with tenant_id, and the offer's foreign key includes it, so that an offer can only
--- belong to a quote of its own tenant. No foreign key leaves the schema. The checks hold the bounds of
--- contracts/shipping.openapi.yaml.
+-- tenant-owned: their keys start with tenant_id, the offer's foreign key includes it, so that an offer can only belong
+-- to a quote of its own tenant, and forced row-level security limits every role but a superuser to the bound tenant's
+-- rows. No foreign key leaves the schema. The checks hold the bounds of contracts/shipping.openapi.yaml.
 
 create schema quotes;
 
@@ -56,6 +56,18 @@ create table quotes.quote_offer (
     constraint quote_offer_transit_days_check check (transit_min_days between 1 and 30
         and transit_max_days between transit_min_days and 30)
 );
+
+alter table quotes.quote enable row level security;
+alter table quotes.quote force row level security;
+create policy tenant_isolation on quotes.quote
+    using (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)
+    with check (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid);
+
+alter table quotes.quote_offer enable row level security;
+alter table quotes.quote_offer force row level security;
+create policy tenant_isolation on quotes.quote_offer
+    using (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)
+    with check (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid);
 
 grant usage on schema quotes to shipping_app;
 grant select, insert on quotes.quote, quotes.quote_offer to shipping_app;

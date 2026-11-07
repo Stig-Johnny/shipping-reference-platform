@@ -27,9 +27,12 @@ $$;
 alter role shipping_owner with login nosuperuser nocreatedb nocreaterole noinherit noreplication nobypassrls;
 alter role shipping_app with login nosuperuser nocreatedb nocreaterole noinherit noreplication nobypassrls;
 
--- Only the owner may create schemas.
+-- Only the two roles may connect, only the owner may create schemas, and no role may create temporary tables: PUBLIC
+-- holds CONNECT and TEMPORARY on a new database until they are revoked here.
 do $$
 begin
-    execute format('grant create on database %I to shipping_owner', current_database());
+    execute format('revoke all on database %I from public', current_database());
+    execute format('grant connect, create on database %I to shipping_owner', current_database());
+    execute format('grant connect on database %I to shipping_app', current_database());
 end
 $$;

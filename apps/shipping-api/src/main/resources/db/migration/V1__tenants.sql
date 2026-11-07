@@ -4,7 +4,7 @@
 --
 -- The four identity tables are read before a tenant is known, so they have no row-level security. shipping_app has no
 -- privileges on them and reads them only through tenants.resolve_demo_token. prototype_flag is tenant-owned: its key
--- starts with tenant_id.
+-- starts with tenant_id, and forced row-level security limits every role but a superuser to the bound tenant's rows.
 
 create schema tenants;
 
@@ -52,6 +52,12 @@ create table tenants.prototype_flag (
     constraint prototype_flag_pkey primary key (tenant_id, flag_key),
     constraint prototype_flag_tenant_fkey foreign key (tenant_id) references tenants.tenant (tenant_id)
 );
+
+alter table tenants.prototype_flag enable row level security;
+alter table tenants.prototype_flag force row level security;
+create policy tenant_isolation on tenants.prototype_flag
+    using (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)
+    with check (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid);
 
 -- Zero rows for an unknown token; one row with null tenant columns for a user without a membership.
 create function tenants.resolve_demo_token(p_token_sha256 bytea)
