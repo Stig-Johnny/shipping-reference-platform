@@ -1,6 +1,6 @@
 ---
 title: "The first runnable slice has its own decision record"
-description: "One new record states what the first runnable slice builds and defers, and the four records it replaces say so on their pages, so a reader never follows a decision the code no longer implements."
+description: "ADR 0012 states the first runnable slice's planned approach and deferrals, and the four superseded records link readers to it."
 status: accepted
 updated: 2026-11-07
 pr: 68
@@ -49,6 +49,7 @@ request #68.
 
 - A decision record states intent. Whether the code follows it is shown by the checks it names, most of which are
   planned until the code they check exists.
-- The hand-written types can drift from the contract; the server's HTTP contract tests and the browser tests catch
-  drift only for the operations they exercise.
-- React and the generated client are deferred, not rejected; bringing them back needs their dependency reviews.
+- The hand-written types can drift from the contract without type checking detecting it. The planned server HTTP
+  contract tests and browser tests will check only the operations and fields they exercise.
+- React and the generated client are deferred, not rejected; bringing them back requires their dependency reviews and
+  a new decision record that supersedes ADR 0012.
