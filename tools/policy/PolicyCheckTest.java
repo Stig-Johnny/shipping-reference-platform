@@ -1,0 +1,1112 @@
+// PolicyCheckTest: regression tests for the dependency allowlist gate, tools/policy/PolicyCheck.java.
+//
+// Run with the JDK alone, from any directory:   java tools/policy/PolicyCheckTest.java
+//
+// Like the checker, it needs nothing but the JDK: no JUnit, no Gradle, nothing downloaded. The source launcher compiles
+// this file and, because it uses PolicyCheck, PolicyCheck.java from the same directory (multi-file source launch, JDK 22
+// and later). So the cases call the checker's package-private code directly and the checker needs no change to be
+// tested; launching PolicyCheck.java never compiles this file. The command-line cases run PolicyCheck.java in a child
+// JVM, as CI does, to see its exit codes; a child that does not finish in time fails its case and is stopped. Every
+// repository a case checks is built in a temporary directory and deleted afterwards. It prints one line per case and
+// exits with 0 only when every case passed, 1 otherwise.
+//
+// Every type in this file is nested in PolicyCheckTest: a second top-level type would share the checker's package when
+// the two files compile together, and could stand in for a name the checker uses.
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.security.CodeSource;
+import java.security.MessageDigest;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+public final class PolicyCheckTest {
+
+    /** The day the in-process cases run on. The command-line cases run on the real date, so entries expire in 2099. */
+    static final LocalDate TODAY = LocalDate.of(2026, 11, 7);
+    static final String LATER = "2099-12-31";
+    static final String SHA_A = "a".repeat(64);
+    static final String SHA_B = "b".repeat(64);
+    static final String COMMIT = "0123456789abcdef0123456789abcdef01234567";
+    /** Text that must never reach the checker's output: it stands for contents the checker reads. */
+    static final String MARKER = "marker-" + UUID.randomUUID();
+    /** Four letters that are no hexadecimal digits, for a broken escape. */
+    static final String MARK4 = "QJZX";
+    static final String LINK_REFUSED = "refused: symbolic link in the checked tree: ";
+    static final String ROOT_REFUSED = "refused: the checked tree is a symbolic link";
+    static final String UNREADABLE_LINE = "unreadable line (expected group:name:version=configurations)";
+    static final byte[] WRAPPER_JAR = utf8("a synthetic wrapper jar\n");
+    static final byte[] WIDGET = utf8("/* widget 1.0.0, a synthetic vendored file */\n");
+
+    interface Case {
+        void run() throws Exception;
+    }
+
+    record Run(int exit, String output, String error) {}
+
+    static int passed;
+    static final List<String> failed = new ArrayList<>();
+    static final List<Path> temporary = new ArrayList<>();
+
+    public static void main(String[] args) throws IOException {
+        try {
+            json();
+            allowlist();
+            acceptance();
+            gradle();
+            wrapper();
+            actions();
+            npm();
+            vendored();
+            tree();
+            commandLine();
+        } finally {
+            for (Path dir : temporary) delete(dir);
+        }
+        System.out.printf("%n%d passed, %d failed%n", passed, failed.size());
+        failed.forEach(name -> System.out.println("FAILED " + name));
+        System.exit(failed.isEmpty() && passed > 0 ? 0 : 1);
+    }
+
+    static void test(String name, Case body) {
+        try {
+            body.run();
+            passed++;
+            System.out.println("ok   " + name);
+        } catch (Throwable e) {
+            failed.add(name);
+            System.out.println("FAIL " + name + "\n       " + e);
+        }
+    }
+
+    // ---- the JSON reader: RFC 8259 and nothing more ----
+
+    static void json() {
+        // A number is -?(0|[1-9][0-9]*)(.[0-9]+)?([eE][-+]?[0-9]+)? and is kept as written: the digest covers that text.
+        for (String number : List.of("0", "-0", "7", "-7", "10", "1234567890123456789012345678901234567890", "0.5",
+                "-0.5", "1.0", "1.50", "1e5", "1E5", "1e+5", "1e-5", "1.5E-10", "0e0", "-0.0e+0")) {
+            test("json: reads the number " + number + " and keeps it as written", () -> {
+                expectEquals(new PolicyCheck.Json.JNumber(number), parse(number));
+                expectEquals("{\"a\":[" + number + "],\"n\":" + number + "}",
+                        canonical("{\"n\": " + number + ", \"a\": [" + number + "]}"));
+            });
+        }
+        for (String token : List.of("+", "-", "+1", "--1", "01", "-01", "00", "1.", ".5", "-.5", "1.e5", "1e", "1E", "1e+",
+                "1e-", "e5", "-e5", ".", "1-2", "1+2", "1.2.3", "1e5e5", "2026-11-07", "0x1F", "1_000", "Infinity",
+                "-Infinity", "NaN")) {
+            test("json: refuses the number " + token, () -> refusedAnywhere(token));
+        }
+        test("json: reads true, false and null", () -> expectEquals("[true,false,null]", canonical("[true, false, null]")));
+        for (String token : List.of("tru", "fals", "nul", "True", "FALSE", "Null", "nil", "undefined", "truex")) {
+            test("json: refuses the literal " + token, () -> refusedAnywhere(token));
+        }
+        test("json: decodes every escape", () -> {
+            String[][] escapes = {{"\\\"", "\""}, {"\\\\", "\\"}, {"\\/", "/"}, {"\\b", "\b"}, {"\\f", "\f"},
+                    {"\\n", "\n"}, {"\\r", "\r"}, {"\\t", "\t"}, {"\\u0041", "A"}, {"\\u00e9", "\u00e9"},
+                    {"\\u00E9", "\u00e9"}, {"\\u0000", "\0"}, {"\\ud83d\\ude00", "\ud83d\ude00"}};
+            for (String[] escape : escapes) {
+                expectEquals(new PolicyCheck.Json.JString("x" + escape[1] + "y"), parse("\"x" + escape[0] + "y\""));
+            }
+        });
+        test("json: keeps unescaped characters as they are, DEL and non-ASCII included", () -> expectEquals(
+                new PolicyCheck.Json.JString("a\u007f\u00e9\u2028\ud83d\ude00 z"),
+                parse("\"a\u007f\u00e9\u2028\ud83d\ude00 z\"")));
+        for (String text : List.of("\"abc", "\"", "[\"a]", "{\"a\":\"b}", "\"\\\"", "\"\\", "\"a\\")) {
+            test("json: refuses the unterminated string " + show(text), () -> refused(text));
+        }
+        for (char c : new char[] {0, '\t', '\n', '\r', 0x1f}) {
+            test("json: refuses U+%04X unescaped in a string".formatted((int) c), () -> refusedAnywhere("\"a" + c + "b\""));
+        }
+        for (String escape : List.of("\\x", "\\U0041", "\\'", "\\0", "\\u12", "\\u004", "\\u+041", "\\u-041", "\\u 041",
+                "\\uGGGG", "\\u00g1", "\\u\u0660\u0660\u0664\u0661", "\\u\uff10\uff10\uff14\uff11")) {
+            test("json: refuses the escape " + show(escape), () -> refusedAnywhere("\"" + escape + "\""));
+        }
+        for (String text : List.of("", " ", "{", "[", "}", "]", "{\"a\":1,}", "[1,]", "[,1]", "{,\"a\":1}", "[1,,2]",
+                "{\"a\":1 \"b\":2}", "[1 2]", "{\"a\" 1}", "{\"a\"}", "{\"a\":}", "{\"a\":1]", "[1}", "{a:1}", "{'a':1}",
+                "['a']", "{1:1}", "{} {}", "[1] x", "1 2", "{\"a\":1}}")) {
+            test("json: refuses " + show(text), () -> refused(text));
+        }
+        for (String text : List.of("{\"a\":1,\"a\":2}", "{\"a\":1,\"\\u0061\":1}", "{\"o\":{\"k\":1,\"k\":2}}",
+                "[{\"k\":1,\"k\":2}]")) {
+            test("json: refuses the duplicate key in " + show(text), () -> refused(text));
+        }
+        test("json: keys that differ in letter case, or are in different objects, are not duplicates", () -> {
+            expectEquals("{\"A\":2,\"a\":1}", canonical("{\"a\":1,\"A\":2}"));
+            expectEquals("[{\"k\":1},{\"k\":2}]", canonical("[{\"k\":1},{\"k\":2}]"));
+        });
+        test("json: reads space, tab, line feed and carriage return between tokens", () -> expectEquals(
+                "{\"a\":[1,2],\"b\":{}}", canonical(" \t\r\n{ \"a\" :\t[ 1 ,\r\n2 ] ,\n\"b\": { } }\r\n")));
+        for (char c : new char[] {'\f', 0x0b, 0x1c, 0xa0, 0x2028, 0x3000, 0xfeff}) {
+            test("json: refuses U+%04X between tokens".formatted((int) c), () -> {
+                refused(c + "{}");
+                refused("{\"a\":" + c + "1}");
+                refused("[1" + c + "]");
+            });
+        }
+        test("json: a member's text is its string, number or boolean, and empty for anything else", () -> {
+            PolicyCheck.Json.JObject o = parse("{\"s\":\"x\",\"n\":1.50,\"b\":true,\"z\":null,\"a\":[1],\"o\":{}}").asObject();
+            expectEquals(List.of("x", "1.50", "true", "", "", "", ""),
+                    Stream.of("s", "n", "b", "z", "a", "o", "absent").map(o::text).toList());
+        });
+        test("json: canonical text sorts the keys at every level and has no whitespace", () -> expectEquals(
+                "{\"a\":[{\"x\":null,\"y\":false}],\"b\":\"\",\"c\":{}}",
+                canonical("{\"c\": {}, \"b\": \"\", \"a\": [ {\"y\": false, \"x\": null} ]}")));
+        test("json: canonical strings escape the quote, the backslash and control characters, and nothing else", () ->
+                expectEquals("\"\\\"\\\\/\\u0008\\u000c\\n\\r\\t\\u0000\\u001f\u007f\u00e9\u2028\"",
+                        PolicyCheck.Json.canonical(new PolicyCheck.Json.JString(
+                                "\"\\/\b\f\n\r\t\0" + (char) 0x1f + "\u007f\u00e9\u2028"))));
+    }
+
+    static PolicyCheck.Json parse(String json) {
+        return PolicyCheck.Json.parse(json);
+    }
+
+    static String canonical(String json) {
+        return PolicyCheck.Json.canonical(parse(json));
+    }
+
+    /** The reader refuses the text with its own error, not by accident (an index or number format exception). */
+    static void refused(String json) {
+        PolicyCheck.Json value;
+        try {
+            value = parse(json);
+        } catch (IllegalArgumentException e) {
+            if (!(e instanceof NumberFormatException) && e.getMessage() != null && e.getMessage().startsWith("JSON ")) {
+                return;
+            }
+            throw new AssertionError("refused " + show(json) + " only by accident: " + e);
+        } catch (RuntimeException e) {
+            throw new AssertionError("refused " + show(json) + " only by accident: " + e);
+        }
+        throw new AssertionError("accepted " + show(json) + " as " + show(PolicyCheck.Json.canonical(value)));
+    }
+
+    /** Refused at the top level, as an array element and as a member value, before the end, ',', ']' and '}'. */
+    static void refusedAnywhere(String token) {
+        for (String json : List.of(token, "[" + token + "]", "[" + token + ",0]", "{\"n\":" + token + "}",
+                "{\"n\":" + token + ",\"m\":0}")) {
+            refused(json);
+        }
+    }
+
+    // ---- the allowlist: every coordinate approved, reviewed and unexpired ----
+
+    static void allowlist() {
+        test("allowlist: an approved, reviewed, unexpired coordinate passes", () -> expectClean(Repo.clean().findings()));
+        test("allowlist: APPROVE-WITH-CONDITIONS approves, and a review that expires today still passes", () -> {
+            Repo repo = Repo.clean();
+            repo.lib().put("verdict", "APPROVE-WITH-CONDITIONS");
+            repo.lib().put("expiresAt", TODAY.toString());
+            expectClean(repo.findings());
+        });
+        test("allowlist: an unreviewed coordinate fails", () -> {
+            Repo repo = Repo.clean().append("gradle.lockfile", "org.example:other:2.0.0=runtimeClasspath\n");
+            expectOnly(repo.findings(), "gradle", "org.example:other 2.0.0 (in gradle.lockfile) has no review on the allowlist");
+        });
+        test("allowlist: a review of another version or another kind does not cover a coordinate", () -> {
+            Repo version = Repo.clean().edit("gradle.lockfile", "org.example:lib:1.0.0=", "org.example:lib:1.0.1=");
+            expectOnly(version.findings(), "gradle", "org.example:lib 1.0.1 (in gradle.lockfile) has no review on the allowlist");
+            Repo kind = Repo.clean();
+            kind.lib().put("kind", "npm");
+            expectOnly(kind.findings(), "gradle", "org.example:lib 1.0.0 (in gradle.lockfile) has no review on the allowlist");
+        });
+        test("allowlist: a rejected coordinate fails and names its review", () -> {
+            Repo repo = Repo.clean();
+            repo.lib().put("verdict", "REJECT");
+            expectOnly(repo.findings(), "gradle",
+                    "org.example:lib 1.0.0 (in gradle.lockfile) was REJECTED in security/reviews/maven--org.example-lib--1.0.0.md");
+        });
+        test("allowlist: an expired review fails", () -> {
+            Repo repo = Repo.clean();
+            repo.lib().put("expiresAt", TODAY.minusDays(1).toString());
+            expectOnly(repo.findings(), "allowlist", "org.example:lib 1.0.0: its review expired on 2026-11-06");
+        });
+        test("allowlist: an expiry that is not a date fails", () -> {
+            Repo repo = Repo.clean();
+            repo.lib().put("expiresAt", "2026-13-01");
+            expectOnly(repo.findings(), "allowlist", "org.example:lib 1.0.0: expiresAt '2026-13-01' is not a date");
+        });
+        test("allowlist: an unknown verdict fails, in any letter case", () -> {
+            for (String verdict : List.of("APPROVED", "approve", "")) {
+                Repo repo = Repo.clean();
+                repo.lib().put("verdict", verdict);
+                expectOnly(repo.findings(), "allowlist", "org.example:lib 1.0.0 has an unknown verdict '" + verdict + "'");
+            }
+        });
+        test("allowlist: a review record that is missing, blank or not a file fails", () -> {
+            for (String record : List.of("security/reviews/missing.md", "", "security/reviews")) {
+                Repo repo = Repo.clean();
+                repo.lib().put("reviewRecord", record);
+                expectOnly(repo.findings(), "allowlist", "org.example:lib 1.0.0: review record '" + record + "' does not exist");
+            }
+        });
+        // Each edit leaves an allowlist the first reader took for valid, with a value the check then read as text.
+        for (String[] edit : new String[][] {{"\"schemaVersion\":1", "\"schemaVersion\":+"},
+                {"\"version\":\"1.0.0\"", "\"version\":1.0.0"}, {"\"expiresAt\":\"2099-12-31\"", "\"expiresAt\":2099-12-31"},
+                {"\"verdict\":\"APPROVE\"", "\"verdict\":\"REJECT\",\"verdict\":\"APPROVE\""}}) {
+            test("allowlist: " + edit[1] + " is not JSON, and the check stops at its place in the file", () -> {
+                Repo repo = Repo.clean().save().edit("security/allowlist.json", edit[0], edit[1]);
+                IOException e = expectThrows(IOException.class, () -> new PolicyCheck(repo.root, TODAY));
+                expect(e.getMessage().startsWith("security/allowlist.json:1:") && e.getMessage().contains(": JSON "),
+                        e.toString());
+            });
+        }
+    }
+
+    // ---- the owner's acceptance of exactly the reviewed set ----
+
+    static void acceptance() {
+        test("acceptance: a set the owner has not accepted fails", () -> {
+            Repo repo = Repo.clean();
+            repo.acceptance.put("status", "pending");
+            expectOnly(repo.findings(), "acceptance",
+                    "the owner has not accepted the reviewed set (acceptance.status is 'pending')");
+        });
+        test("acceptance: an acceptance that records no digest fails", () -> {
+            Repo repo = Repo.clean();
+            repo.acceptance.put("reviewedSetSha256", null);
+            expectOnly(repo.findings(), "acceptance", "the reviewed set changed after the owner accepted it", "accepted none");
+        });
+        test("acceptance: an allowlist without an acceptance record stops the check", () -> {
+            Repo repo = Repo.clean();
+            repo.acceptance = null;
+            IOException e = expectThrows(IOException.class, () -> repo.check().run());
+            expectEquals("security/allowlist.json: missing JSON member 'acceptance'", e.getMessage());
+        });
+        test("acceptance: a review record edited after the acceptance fails", () -> {
+            Repo repo = Repo.clean().accept();
+            repo.append((String) repo.lib().get("reviewRecord"), "Condition: none.\n");
+            expectOnly(repo.findings(), "acceptance", "the reviewed set changed after the owner accepted it");
+        });
+        test("acceptance: a field the checker does not enforce, changed after the acceptance, fails", () -> {
+            Repo repo = Repo.clean().accept();
+            repo.lib().put("conditions", List.of("test scope only"));
+            expectOnly(repo.findings(), "acceptance", "the reviewed set changed after the owner accepted it");
+        });
+        test("acceptance: an entry added after the acceptance fails", () -> {
+            Repo repo = Repo.clean().accept();
+            repo.entry("npm", "example-pkg", "1.0.0", "example-pkg-1.0.0.tgz", null);
+            expectOnly(repo.findings(), "acceptance", "the reviewed set changed after the owner accepted it");
+        });
+        test("acceptance: an entry removed after the acceptance fails", () -> {
+            Repo repo = Repo.clean();
+            repo.entry("npm", "example-pkg", "1.0.0", "example-pkg-1.0.0.tgz", null);
+            repo.accept().entries.removeLast();
+            expectOnly(repo.findings(), "acceptance", "the reviewed set changed after the owner accepted it");
+        });
+        test("acceptance: the digest does not depend on the order of entries or keys, or on whitespace", () -> {
+            Repo repo = Repo.clean();
+            repo.entry("npm", "example-pkg", "1.0.0", "example-pkg-1.0.0.tgz", null);
+            repo.accept();
+            Collections.reverse(repo.entries);
+            repo.entries.replaceAll(PolicyCheckTest::reversedKeys);
+            repo.pretty = true;
+            expectClean(repo.findings());
+        });
+        test("acceptance: the digest is SHA-256 over the sorted lines 'canonical entry|SHA-256 of its review'", () -> {
+            Repo repo = Repo.clean();
+            repo.entry("npm", "example-pkg", "1.0.0", "example-pkg-1.0.0.tgz", null);
+            List<String> lines = new ArrayList<>();
+            for (Map<String, Object> entry : repo.entries) {
+                Path review = repo.root.resolve((String) entry.get("reviewRecord"));
+                lines.add(json(new TreeMap<>(entry), false) + "|" + sha256(Files.readAllBytes(review)));
+            }
+            Collections.sort(lines);
+            expectEquals(sha256(utf8(String.join("\n", lines))), repo.check().entriesDigest());
+        });
+    }
+
+    // ---- Gradle: lockfiles and verification metadata ----
+
+    static void gradle() {
+        test("gradle: an unreadable lockfile line fails by its number, with or without '=', never by its content", () -> {
+            for (String line : List.of("org.example:lib=runtimeClasspath", "org.example:lib:1.0.0:extra=runtimeClasspath",
+                    "org.example:other:2.0.0", MARKER)) {
+                List<String> findings = Repo.clean().append("gradle.lockfile", line + "\n").findings();
+                expectOnly(findings, "gradle", "gradle.lockfile:4: " + UNREADABLE_LINE);
+                expect(!findings.getFirst().contains(line), "the finding repeats the line: " + findings);
+            }
+        });
+        test("gradle: lockfiles of nested projects are checked", () -> {
+            Repo repo = Repo.clean().write("libs/demo/gradle.lockfile", "org.example:other:2.0.0=runtimeClasspath\n");
+            expectOnly(repo.findings(), "gradle", "org.example:other 2.0.0 (in libs/demo/gradle.lockfile) has no review");
+        });
+        test("gradle: lockfiles without gradle/verification-metadata.xml fail", () -> {
+            Repo repo = Repo.clean();
+            Files.delete(repo.root.resolve("gradle/verification-metadata.xml"));
+            expectOnly(repo.findings(), "gradle", "gradle/verification-metadata.xml is missing");
+        });
+        test("gradle: verification metadata that does not verify metadata fails", () -> {
+            Repo repo = Repo.clean().edit("gradle/verification-metadata.xml", ">true<", ">false<");
+            expectOnly(repo.findings(), "gradle", "verification-metadata.xml does not verify metadata");
+        });
+        test("gradle: a jar without a SHA-256 in the verification metadata fails", () -> {
+            Repo repo = Repo.clean().edit("gradle/verification-metadata.xml", "<sha256 value=\"" + SHA_A + "\"/>", "");
+            expectOnly(repo.findings(), "gradle", "org.example:lib:1.0.0 lib-1.0.0.jar has no SHA-256");
+        });
+        test("gradle: a jar whose SHA-256 differs from its review fails", () -> {
+            Repo repo = Repo.clean().edit("gradle/verification-metadata.xml", SHA_A, SHA_B);
+            expectOnly(repo.findings(), "gradle", "org.example:lib:1.0.0 lib-1.0.0.jar: downloaded SHA-256 " + SHA_B
+                    + " differs from the reviewed " + SHA_A);
+        });
+        test("gradle: a jar SHA-256 matches its review in either letter case", () ->
+                expectClean(Repo.clean().edit("gradle/verification-metadata.xml", SHA_A, SHA_A.toUpperCase()).findings()));
+        test("gradle: verification metadata with a doctype declaration stops the check", () -> {
+            Repo repo = Repo.clean().edit("gradle/verification-metadata.xml", "<verification-metadata>",
+                    "<!DOCTYPE verification-metadata [<!ENTITY x \"y\">]>\n<verification-metadata>");
+            IOException e = expectThrows(IOException.class, () -> repo.check().run());
+            expect(e.getMessage().startsWith("gradle/verification-metadata.xml:2:") && e.getMessage().contains("unreadable XML"),
+                    e.toString());
+        });
+    }
+
+    // ---- the Gradle wrapper ----
+
+    /** The clean repository with a Gradle wrapper whose distribution and JAR are reviewed. */
+    static Repo wrapped() throws Exception {
+        Repo repo = Repo.clean().write("gradle/wrapper/gradle-wrapper.properties", """
+                distributionSha256Sum=%s
+                distributionUrl=https\\://example.org/distributions/gradle-9.9.9-bin.zip
+                """.formatted(SHA_B)).write("gradle/wrapper/gradle-wrapper.jar", WRAPPER_JAR);
+        repo.entry("gradle-distribution", "gradle", "9.9.9", "gradle-9.9.9-bin.zip", SHA_B);
+        repo.entry("gradle-distribution", "gradle", "9.9.9", "gradle/wrapper/gradle-wrapper.jar (gradle-9.9.9-wrapper.jar)",
+                sha256(WRAPPER_JAR));
+        return repo;
+    }
+
+    static void wrapper() {
+        test("wrapper: the reviewed distribution and wrapper JAR pass", () -> expectClean(wrapped().findings()));
+        test("wrapper: a wrapper JAR that matches no approved review fails", () -> {
+            byte[] other = utf8("another wrapper jar\n");
+            Repo repo = wrapped().write("gradle/wrapper/gradle-wrapper.jar", other);
+            expectOnly(repo.findings(), "wrapper",
+                    "gradle-wrapper.jar SHA-256 " + sha256(other) + " matches no approved wrapper review");
+        });
+        test("wrapper: a distribution checksum that differs from its review fails", () -> {
+            Repo repo = wrapped().edit("gradle/wrapper/gradle-wrapper.properties", SHA_B, SHA_A);
+            expectOnly(repo.findings(), "wrapper", "distributionSha256Sum " + SHA_A + " differs from the reviewed " + SHA_B);
+        });
+        test("wrapper: a wrapper without distributionSha256Sum fails", () -> {
+            Repo repo = wrapped().edit("gradle/wrapper/gradle-wrapper.properties", "distributionSha256Sum=" + SHA_B, "");
+            expectFinding(repo.findings(), "wrapper", "gradle-wrapper.properties has no distributionSha256Sum");
+        });
+        test("wrapper: a distribution that is not on the allowlist, or was rejected, fails", () -> {
+            Repo unlisted = wrapped().edit("gradle/wrapper/gradle-wrapper.properties", "9.9.9-bin", "9.9.8-bin");
+            expectOnly(unlisted.findings(), "wrapper", "gradle-9.9.8-bin.zip is not an approved Gradle distribution");
+            Repo rejected = wrapped();
+            rejected.entries.get(1).put("verdict", "REJECT");
+            expectOnly(rejected.findings(), "wrapper", "gradle-9.9.9-bin.zip is not an approved Gradle distribution");
+        });
+        test("wrapper: a missing wrapper JAR stops the check", () -> {
+            Repo repo = wrapped();
+            Files.delete(repo.root.resolve("gradle/wrapper/gradle-wrapper.jar"));
+            expectThrows(IOException.class, () -> repo.check().run());
+        });
+    }
+
+    // ---- GitHub Actions ----
+
+    /** The clean repository with a reviewed Action and a workflow whose eighth line uses the given reference. */
+    static Repo withWorkflow(String uses) throws IOException {
+        Repo repo = Repo.clean().write(".github/workflows/ci.yml", """
+                name: ci
+                on: push
+                jobs:
+                  build:
+                    runs-on: ubuntu-24.04
+                    steps:
+                      - uses: ./.github/actions/local
+                      - uses: %s
+                      - run: echo "uses: is only text here"
+                """.formatted(uses));
+        repo.entry("github-action", "example-org/example-action", "1.0.0", COMMIT, null);
+        return repo;
+    }
+
+    static void actions() {
+        for (String uses : List.of("example-org/example-action@" + COMMIT + " # v1.0.0",
+                "'example-org/example-action@" + COMMIT + "'", "\"example-org/example-action/sub/dir@" + COMMIT + "\"")) {
+            test("actions: an Action pinned to its allowlisted commit passes: " + uses,
+                    () -> expectClean(withWorkflow(uses).findings()));
+        }
+        for (String uses : List.of("example-org/example-action@v1", "example-org/example-action@main",
+                "example-org/example-action@" + COMMIT.substring(0, 7), "example-org/example-action")) {
+            test("actions: an Action not pinned to a full commit SHA fails: " + uses, () -> expectOnly(
+                    withWorkflow(uses).findings(), "actions", ".github/workflows/ci.yml:8: " + uses + " is not pinned"));
+        }
+        test("actions: a commit or a repository that is not on the allowlist fails", () -> {
+            String other = "f".repeat(40);
+            expectOnly(withWorkflow("example-org/example-action@" + other).findings(), "actions",
+                    "example-org/example-action@" + other + " is not on the allowlist");
+            expectOnly(withWorkflow("other-org/example-action@" + COMMIT).findings(), "actions",
+                    "other-org/example-action@" + COMMIT + " is not on the allowlist");
+        });
+        test("actions: an Action whose review was rejected fails", () -> {
+            Repo repo = withWorkflow("example-org/example-action@" + COMMIT);
+            repo.entries.getLast().put("verdict", "REJECT");
+            expectOnly(repo.findings(), "actions", "example-org/example-action@" + COMMIT + " is not on the allowlist");
+        });
+        test("actions: container actions fail", () -> expectOnly(withWorkflow("docker://example.org/tool:1.0").findings(),
+                "actions", "container actions are not allowed (docker://example.org/tool:1.0)"));
+        test("actions: workflows named .yaml are checked too", () -> {
+            Repo repo = withWorkflow("example-org/example-action@" + COMMIT).write(".github/workflows/other.yaml",
+                    "jobs:\n  x:\n    steps:\n      - uses: example-org/example-action@v1\n");
+            expectOnly(repo.findings(), "actions", ".github/workflows/other.yaml:4: example-org/example-action@v1 is not pinned");
+        });
+    }
+
+    // ---- npm ----
+
+    /** The clean repository with a package-lock.json of reviewed packages: plain, scoped and nested, and a link. */
+    static Repo withNpm() throws IOException {
+        Map<String, Object> packages = map("", map("name", "demo", "version", "0.0.0"),
+                "node_modules/example-pkg", npmPackage("example-pkg", "1.0.0"),
+                "node_modules/@example/scoped-pkg", npmPackage("@example/scoped-pkg", "2.0.0"),
+                "node_modules/example-pkg/node_modules/nested-pkg", npmPackage("nested-pkg", "3.0.0"),
+                "node_modules/local-workspace", map("resolved", "packages/local-workspace", "link", true),
+                "packages/local-workspace", map("version", "0.0.0"));
+        Repo repo = Repo.clean().write("package-lock.json",
+                json(map("name", "demo", "lockfileVersion", 3, "requires", true, "packages", packages), true));
+        repo.entry("npm", "example-pkg", "1.0.0", "https://registry.npmjs.org/example-pkg/-/example-pkg-1.0.0.tgz", null);
+        repo.entry("npm", "@example/scoped-pkg", "2.0.0", "https://registry.npmjs.org/@example/scoped-pkg/-/scoped-pkg-2.0.0.tgz", null);
+        repo.entry("npm", "nested-pkg", "3.0.0", "https://registry.npmjs.org/nested-pkg/-/nested-pkg-3.0.0.tgz", null);
+        return repo;
+    }
+
+    static Map<String, Object> npmPackage(String name, String version) {
+        String file = name.substring(name.lastIndexOf('/') + 1) + "-" + version + ".tgz";
+        return map("version", version, "resolved", "https://registry.npmjs.org/" + name + "/-/" + file,
+                "integrity", "sha512-" + name + "-integrity");
+    }
+
+    static void npm() {
+        test("npm: reviewed packages from registry.npmjs.org with an integrity hash pass", () -> expectClean(withNpm().findings()));
+        for (String host : List.of("https://registry.example.org/", "http://registry.npmjs.org/",
+                "https://registry.npmjs.org.example.org/")) {
+            test("npm: a package resolved from " + host + " fails", () -> {
+                Repo repo = withNpm().edit("package-lock.json", "https://registry.npmjs.org/example-pkg/", host + "example-pkg/");
+                expectOnly(repo.findings(), "npm", "package-lock.json example-pkg@1.0.0 is not resolved from registry.npmjs.org");
+            });
+        }
+        test("npm: a package without a sha512 integrity hash fails", () -> {
+            Repo repo = withNpm().edit("package-lock.json", "sha512-example-pkg-", "sha1-example-pkg-");
+            expectOnly(repo.findings(), "npm", "package-lock.json example-pkg@1.0.0 has no sha512 integrity hash");
+        });
+        test("npm: an unreviewed version fails", () -> {
+            Repo repo = withNpm().edit("package-lock.json", "\"3.0.0\"", "\"3.0.1\"");
+            expectOnly(repo.findings(), "npm", "nested-pkg 3.0.1 (in package-lock.json) has no review on the allowlist");
+        });
+        test("npm: a package-lock.json that is not JSON stops the check", () -> {
+            Repo repo = withNpm().edit("package-lock.json", "\"lockfileVersion\" : 3", "\"lockfileVersion\" : +3");
+            IOException e = expectThrows(IOException.class, () -> repo.check().run());
+            expectEquals("package-lock.json:3:23: JSON unexpected character", e.getMessage());
+        });
+    }
+
+    // ---- vendored files ----
+
+    static Repo withVendored() throws Exception {
+        Repo repo = Repo.clean().write("site/vendor/widget/1.0.0/widget.min.js", WIDGET);
+        repo.entry("vendored-js", "widget", "1.0.0", "widget.min.js", sha256(WIDGET));
+        return repo;
+    }
+
+    static void vendored() {
+        test("vendored: a file identical to its approved, reviewed artifact passes", () -> expectClean(withVendored().findings()));
+        test("vendored: a file that differs by one byte fails", () -> {
+            byte[] changed = WIDGET.clone();
+            changed[3] ^= 1;
+            Repo repo = withVendored().write("site/vendor/widget/1.0.0/widget.min.js", changed);
+            expectOnly(repo.findings(), "vendored", "site/vendor/widget/1.0.0/widget.min.js (SHA-256 " + sha256(changed)
+                    + ") matches no approved vendored artifact");
+        });
+        test("vendored: a file whose review was rejected, or that only a non-vendored entry matches, fails", () -> {
+            for (String[] change : new String[][] {{"verdict", "REJECT"}, {"kind", "maven"}}) {
+                Repo repo = withVendored();
+                repo.entries.getLast().put(change[0], change[1]);
+                expectOnly(repo.findings(), "vendored", "site/vendor/widget/1.0.0/widget.min.js", "matches no approved");
+            }
+        });
+        test("vendored: an unreviewed file next to a reviewed one fails", () -> {
+            Repo repo = withVendored().write("site/vendor/widget/1.0.0/extra.js", utf8("/* not reviewed */\n"));
+            expectOnly(repo.findings(), "vendored", "site/vendor/widget/1.0.0/extra.js", "matches no approved");
+        });
+    }
+
+    // ---- the checked tree: no symbolic link in it, nothing read from outside it ----
+
+    static void tree() {
+        test("tree: a symbolic link to a lockfile is refused and named", () -> expectRefused(
+                Repo.clean().link("libs/demo/gradle.lockfile", Path.of("../../gradle.lockfile")),
+                LINK_REFUSED + "libs/demo/gradle.lockfile"));
+        test("tree: a symbolic link to a directory that holds a lockfile is refused", () -> {
+            Path elsewhere = temporaryDirectory();
+            Files.writeString(elsewhere.resolve("gradle.lockfile"), "org.example:unreviewed:1.0.0=runtimeClasspath\n");
+            expectRefused(Repo.clean().link("libs/linked", elsewhere), LINK_REFUSED + "libs/linked");
+        });
+        test("tree: a dangling symbolic link is refused", () -> expectRefused(
+                Repo.clean().link("docs/dangling.md", Path.of("missing.md")), LINK_REFUSED + "docs/dangling.md"));
+        test("tree: a symbolic link to a file outside the tree is refused before the file is read", () -> {
+            Path outside = temporaryDirectory().resolve("notes.txt");
+            Files.writeString(outside, MARKER + "=runtimeClasspath\n");
+            IOException e = expectRefused(Repo.clean().link("settings-gradle.lockfile", outside),
+                    LINK_REFUSED + "settings-gradle.lockfile");
+            expect(!e.getMessage().contains(MARKER), "the refusal repeats the file: " + e);
+        });
+        test("tree: symbolic links in the directories the checks skip are refused too", () -> {
+            for (String path : List.of(".git/hooks/pre-commit", "build/output", ".gradle/cache", "node_modules/.bin/tool")) {
+                // A printed path passes through PolicyCheck.safe, which has no '_': names come from the pull request.
+                expectRefused(Repo.clean().link(path, Path.of("elsewhere")), LINK_REFUSED + path.replace('_', '?'));
+            }
+        });
+        test("tree: a checked tree that is itself a symbolic link is refused", () -> {
+            Repo repo = Repo.clean().save();
+            Path link = temporaryDirectory().resolve("repository");
+            Files.createSymbolicLink(link, repo.root);
+            IOException e = expectThrows(IOException.class, () -> new PolicyCheck(link, TODAY));
+            expect(e.getMessage().contains(ROOT_REFUSED), "expected " + ROOT_REFUSED + ", got " + e);
+        });
+        test("tree: a review record outside the tree is refused, by an absolute or a relative path", () -> {
+            Path outside = temporaryDirectory().resolve("review.md");
+            Files.writeString(outside, "# A review record outside the repository\n");
+            for (String record : List.of(outside.toString(), "../" + outside.getParent().getFileName() + "/review.md")) {
+                Repo repo = Repo.clean();
+                repo.lib().put("reviewRecord", record);
+                expectRefused(repo, "refused: the review record of org.example:lib 1.0.0 is outside the checked tree");
+            }
+        });
+        test("tree: a review record is probed and read at its normalized path, not as it is spelled", () -> {
+            // Spelled to leave the tree and come back: <outside>/probe/../../<tree>/security/reviews/<record>.
+            List<List<String>> findings = new ArrayList<>();
+            for (boolean probe : List.of(false, true)) {
+                Repo repo = Repo.clean();
+                Path outside = temporaryDirectory().toRealPath();
+                if (probe) Files.createDirectory(outside.resolve("probe"));
+                String record = (String) repo.lib().get("reviewRecord");
+                repo.lib().put("reviewRecord",
+                        outside + "/probe/../../" + repo.root.toRealPath().getFileName() + "/" + record);
+                findings.add(repo.findings());
+            }
+            expectEquals(List.of(List.of(), List.of()), findings);
+        });
+        test("tree: a directory the walk cannot read stops the check", () -> {
+            Repo repo = Repo.clean().save();
+            Path locked = Files.createDirectories(repo.root.resolve("locked"));
+            Files.setPosixFilePermissions(locked, Set.of());
+            try {
+                if (!Files.isReadable(locked)) {
+                    IOException e = expectThrows(IOException.class, () -> new PolicyCheck(repo.root, TODAY));
+                    expectEquals("locked: cannot be inspected", e.getMessage());
+                } else {
+                    // File permissions do not bind this user, so it is root: the check runs as the unprivileged nobody.
+                    List<String> command = new ArrayList<>(unprivileged().orElseThrow(() -> new AssertionError(
+                            "file permissions do not bind this user, and neither setpriv, runuser nor sudo runs the check"
+                                    + " as an unprivileged one: run the tests as a non-root user")));
+                    Path checker = Files.copy(checker(), shared(temporaryDirectory()).resolve("PolicyCheck.java"));
+                    command.addAll(List.of(java(), checker.toString(), shared(repo.root).toString()));
+                    Run run = run(command, Duration.ofMinutes(5), null);
+                    expect(run.exit() == 2 && run.output().contains("locked: cannot be inspected"), run.toString());
+                }
+            } finally {
+                Files.setPosixFilePermissions(locked, PosixFilePermissions.fromString("rwx------"));
+            }
+        });
+        test("tree: no file outside the tree is read, not even through a link made after the walk", () -> {
+            Path outside = temporaryDirectory().resolve("notes.txt");
+            Files.writeString(outside, MARKER + "\n");
+            Repo repo = Repo.clean().save();
+            PolicyCheck check = new PolicyCheck(repo.root, TODAY);
+            // Real paths, as the checker forms them: a path that only looks outside would be refused before the probe.
+            Path root = repo.root.toRealPath();
+            Path late = Files.createSymbolicLink(root.resolve("late-link.txt"), outside);
+            // A missing file outside is refused too, not reported missing: nothing outside the tree is probed.
+            for (Path path : List.of(outside, outside.resolveSibling("missing.txt"), late, root.resolve("security"))) {
+                IOException e = expectThrows(IOException.class, () -> check.read(path));
+                expect(e.getMessage().contains("is not a regular file inside the checked tree")
+                        && !e.getMessage().contains(MARKER), e.toString());
+            }
+        });
+    }
+
+    /** A command prefix that runs a command as the unprivileged user nobody, when a standard tool here can. */
+    static Optional<List<String>> unprivileged() {
+        for (List<String> prefix : List.of(List.of("setpriv", "--reuid=65534", "--regid=65534", "--clear-groups"),
+                List.of("runuser", "-u", "nobody", "--"), List.of("sudo", "-n", "-u", "nobody", "--"))) {
+            List<String> probe = new ArrayList<>(prefix);
+            probe.addAll(List.of(java(), "-version"));
+            try {
+                if (run(probe, Duration.ofMinutes(1), null).exit() == 0) return Optional.of(prefix);
+            } catch (Exception | AssertionError e) {
+                // This tool is not installed here, or cannot run the JDK as nobody.
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** Lets every user list and enter a directory that a case created. */
+    static Path shared(Path dir) throws IOException {
+        return Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwxr-xr-x"));
+    }
+
+    /** The check stops before it reads anything, with this reason in its message. */
+    static IOException expectRefused(Repo repo, String reason) {
+        IOException e = expectThrows(IOException.class, repo::findings);
+        expect(e.getMessage() != null && e.getMessage().contains(reason), "expected a refusal with " + reason + ", got " + e);
+        return e;
+    }
+
+    // ---- the command line: exit codes 0, 1 and 2 ----
+
+    static void commandLine() {
+        test("cli: a clean repository exits 0", () -> {
+            Run run = launch(Repo.clean().save().root.toString());
+            expect(run.exit() == 0 && run.output().contains("## Dependency allowlist: clean"), run.toString());
+        });
+        test("cli: findings exit 1 and are listed", () -> {
+            Repo repo = Repo.clean().append("gradle.lockfile", "org.example:other:2.0.0=runtimeClasspath\n").save();
+            Run run = launch(repo.root.toString());
+            expect(run.exit() == 1 && run.output().contains("## Dependency allowlist: 1 finding(s)\n")
+                    && run.output().contains("- org.example:other 2.0.0 (in gradle.lockfile) has no review"), run.toString());
+        });
+        test("cli: --report-only lists the findings and exits 0", () -> {
+            Repo repo = Repo.clean().append("gradle.lockfile", "org.example:other:2.0.0=runtimeClasspath\n").save();
+            Run run = launch("--report-only", repo.root.toString());
+            expect(run.exit() == 0 && run.output().contains("1 finding(s) (report-only)"), run.toString());
+        });
+        test("cli: an allowlist that is not JSON exits 2, so a broken check never reads as a pass", () -> {
+            Repo repo = Repo.clean().save().edit("security/allowlist.json", "\"schemaVersion\":1", "\"schemaVersion\":+");
+            Run run = launch(repo.root.toString());
+            expect(run.exit() == 2 && run.output().contains("## Dependency allowlist: could not complete"), run.toString());
+        });
+        test("cli: a repository without an allowlist exits 2, naming the file", () -> {
+            Run run = launch(new Repo().root.toString());
+            expect(run.exit() == 2 && run.output().contains("security/allowlist.json: not found"), run.toString());
+        });
+        test("cli: --print-digest prints the reviewed-set digest and exits 0", () -> {
+            Repo repo = Repo.clean().save();
+            Run run = launch("--print-digest", repo.root.toString());
+            expect(run.exit() == 0, run.toString());
+            expectEquals(repo.check().entriesDigest() + System.lineSeparator(), run.output());
+        });
+        test("cli: an unreadable lockfile line is reported by its number, never by its content", () -> {
+            for (String line : List.of(MARKER + "=runtimeClasspath", MARKER)) {
+                Run run = launch(Repo.clean().append("gradle.lockfile", line + "\n").save().root.toString());
+                expect(!run.output().contains(MARKER) && !run.error().contains(MARKER), "the line was printed: " + run);
+                expect(run.exit() == 1 && run.output().contains("- gradle.lockfile:4: " + UNREADABLE_LINE), run.toString());
+            }
+        });
+        test("cli: a duplicate JSON key is reported by its place in the file, never by the key", () -> {
+            Repo repo = Repo.clean().save().edit("security/allowlist.json", "\"schemaVersion\":1",
+                    "\"schemaVersion\":1,\"" + MARKER + "\":1,\"" + MARKER + "\":2");
+            String text = Files.readString(repo.root.resolve("security/allowlist.json"));
+            int column = text.indexOf("\"" + MARKER + "\"", text.indexOf(MARKER) + MARKER.length()) + 1;
+            Run run = launch(repo.root.toString());
+            expectNoContent(run, MARKER);
+            expect(run.exit() == 2 && run.output().contains("security/allowlist.json:1:" + column + ": JSON duplicate key"),
+                    run.toString());
+        });
+        test("cli: a malformed JSON value is reported by its place in the file, never by its text", () -> {
+            for (String value : List.of("\"\\u" + MARK4 + "\"", "\u00a7" + MARKER)) {
+                Repo repo = Repo.clean().save().edit("security/allowlist.json", "\"schemaVersion\":1",
+                        "\"schemaVersion\":" + value);
+                Run run = launch(repo.root.toString());
+                expectNoContent(run, MARKER, MARK4, "\u00a7");
+                expect(run.exit() == 2 && run.output().contains("security/allowlist.json:1:"), run.toString());
+            }
+        });
+        test("cli: a malformed XML element is reported by its place in the file, and the parser prints nothing", () -> {
+            Repo repo = Repo.clean().save().edit("gradle/verification-metadata.xml", "<components>",
+                    "<components><" + MARKER + ">");
+            Run run = launch(repo.root.toString());
+            expectNoContent(run, MARKER);
+            expect(run.exit() == 2 && run.error().isEmpty()
+                    && run.output().contains("gradle/verification-metadata.xml:15:") && run.output().contains("unreadable XML"),
+                    run.toString());
+        });
+        test("cli: markup and control characters in a coordinate, an Action or a URL are printed as safe characters", () -> {
+            Repo repo = withNpm()
+                    .append("gradle.lockfile", "org.example:**md**<b>x</b>\u001b[31m:1.0.0=runtimeClasspath\n")
+                    .append("gradle.lockfile", "org.example:_emphasis_:1.0.0=runtimeClasspath\n")
+                    .append("gradle.lockfile", "org.example:__strong__:1.0.0=runtimeClasspath\n")
+                    .write(".github/workflows/ci.yml", "jobs:\n  x:\n    steps:\n      - uses: <script>x</script>@v1\n")
+                    .edit("package-lock.json", "https://registry.npmjs.org/example-pkg/-/example-pkg-1.0.0.tgz",
+                            "https://registry.example.org/[click](javascript:alert(1))<img src=x>")
+                    .save();
+            Run run = launch(repo.root.toString());
+            expectNoContent(run, "**md**", "<b>", "</b>", "\u001b", "<script>", "[click](", "<img", "src=x>",
+                    "_emphasis_", "__strong__");
+            expect(run.exit() == 1 && run.error().isEmpty()
+                    && run.output().contains("- org.example:??md???b?x?/b???31m 1.0.0 (in gradle.lockfile) has no review")
+                    && run.output().contains("- org.example:?emphasis? 1.0.0 (in gradle.lockfile) has no review")
+                    && run.output().contains("- org.example:??strong?? 1.0.0 (in gradle.lockfile) has no review")
+                    && run.output().contains("- .github/workflows/ci.yml:4: ?script?x?/script?@v1 is not pinned")
+                    && run.output().contains("(https://registry.example.org/?click??javascript:alert?1???img?src=x?)"),
+                    run.toString());
+        });
+        test("cli: a symbolic link in the checked tree exits 2 and is named", () -> {
+            Repo repo = Repo.clean().save().link("docs/dangling.md", Path.of("missing.md"));
+            Run run = launch(repo.root.toString());
+            expect(run.exit() == 2 && run.output().contains(LINK_REFUSED + "docs/dangling.md"), run.toString());
+        });
+        test("cli: a child that does not finish fails by timeout, counted from when it runs, and is stopped", () -> {
+            Path dir = temporaryDirectory();
+            Path hang = dir.resolve("Hang.java");
+            Path ready = dir.resolve("ready");
+            // It starts slowly, more slowly than its timeout, as a slow compile would; then it signals and never exits.
+            Files.writeString(hang, """
+                    import java.nio.file.Files;
+                    import java.nio.file.Path;
+
+                    public class Hang {
+                        public static void main(String[] args) throws Exception {
+                            Thread.sleep(Long.parseLong(args[1]));
+                            System.out.println("running, with standard output open");
+                            Files.writeString(Path.of(args[0]), "ready");
+                            Thread.sleep(Long.MAX_VALUE);
+                        }
+                    }
+                    """);
+            within(Duration.ofMinutes(3), () -> {
+                AssertionError timeout = expectThrows(AssertionError.class, () -> run(
+                        List.of(java(), hang.toString(), ready.toString(), "2000"), Duration.ofSeconds(1), ready));
+                expect(timeout.getMessage().startsWith("the child did not finish within") && Files.exists(ready),
+                        timeout + "; the child signalled that it runs: " + Files.exists(ready));
+            });
+            expect(ProcessHandle.current().children().noneMatch(ProcessHandle::isAlive), "the child is still running");
+        });
+    }
+
+    /** Runs PolicyCheck.java in a child JVM of the same JDK, as CI does, and gives it five minutes. */
+    static Run launch(String... args) throws Exception {
+        List<String> command = new ArrayList<>(List.of(java(), checker().toString()));
+        command.addAll(List.of(args));
+        return run(command, Duration.ofMinutes(5), null);
+    }
+
+    /**
+     * Runs a child process with its standard output and error in files, never in pipes that it could fill or hold open,
+     * and reads them only once it has exited. Given a ready file, the timeout starts only when the child has created
+     * it, which must happen within a minute. A child still running after the timeout fails the case; whatever happens,
+     * it is stopped with everything it started, and awaited.
+     */
+    static Run run(List<String> command, Duration timeout, Path ready) throws Exception {
+        Path dir = temporaryDirectory();
+        Path output = dir.resolve("stdout");
+        Path error = dir.resolve("stderr");
+        Process process = new ProcessBuilder(command).redirectOutput(output.toFile()).redirectError(error.toFile()).start();
+        try {
+            process.getOutputStream().close();
+            if (ready != null) awaitReady(process, ready, Duration.ofMinutes(1));
+            expect(process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS), "the child did not finish within " + timeout);
+            return new Run(process.exitValue(), new String(Files.readAllBytes(output), StandardCharsets.UTF_8),
+                    new String(Files.readAllBytes(error), StandardCharsets.UTF_8));
+        } finally {
+            stop(process.toHandle());
+        }
+    }
+
+    /** Waits, at most for the limit, until the child has created the ready file; a child that exits first fails. */
+    static void awaitReady(Process process, Path ready, Duration limit) throws InterruptedException {
+        long deadline = System.nanoTime() + limit.toNanos();
+        while (!Files.exists(ready)) {
+            expect(process.isAlive(), "the child exited before it was ready");
+            expect(System.nanoTime() < deadline, "the child was not ready within " + limit);
+            Thread.sleep(20);
+        }
+    }
+
+    /** Kills a process and every process it started, and waits until each has exited; one that does not, fails. */
+    static void stop(ProcessHandle process) throws Exception {
+        List<ProcessHandle> all = Stream.concat(process.descendants(), Stream.of(process)).toList();
+        all.forEach(ProcessHandle::destroyForcibly);
+        for (ProcessHandle each : all) {
+            try {
+                each.onExit().get(1, TimeUnit.MINUTES);
+            } catch (TimeoutException e) {
+                throw new AssertionError("process " + each.pid() + " still runs a minute after it was killed");
+            }
+        }
+    }
+
+    static String java() {
+        return Path.of(System.getProperty("java.home"), "bin", "java").toString();
+    }
+
+    /**
+     * Runs the body on a thread of its own. Still running after the limit, it fails, and every child of this JVM is
+     * stopped and awaited.
+     */
+    static void within(Duration limit, Case body) throws Exception {
+        FutureTask<Void> task = new FutureTask<>(() -> {
+            body.run();
+            return null;
+        });
+        Thread thread = new Thread(task, "a case limited to " + limit);
+        thread.setDaemon(true);
+        thread.start();
+        try {
+            task.get(limit.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            for (ProcessHandle child : ProcessHandle.current().children().toList()) stop(child);
+            throw new AssertionError("still running after " + limit + ": without the limit, the suite would hang here");
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof Exception cause) throw cause;
+            if (e.getCause() instanceof Error error) throw error;
+            throw e;
+        }
+    }
+
+    /** PolicyCheck.java next to this file: the source launcher gives the classes it compiles the launched file's URL. */
+    static Path checker() throws Exception {
+        CodeSource source = PolicyCheckTest.class.getProtectionDomain().getCodeSource();
+        Path checker = source == null ? null : Path.of(source.getLocation().toURI()).resolveSibling("PolicyCheck.java");
+        expect(checker != null && Files.isRegularFile(checker),
+                "PolicyCheck.java is not next to this file; run it as java tools/policy/PolicyCheckTest.java");
+        return checker;
+    }
+
+    // ---- fixtures ----
+
+    /** A repository in a temporary directory: security/allowlist.json, its review records and the files a case adds. */
+    static final class Repo {
+        final Path root;
+        final List<Map<String, Object>> entries = new ArrayList<>();
+        /** The acceptance record, or null for none. Without a digest, save() records the digest of the set as it is. */
+        Map<String, Object> acceptance = map("status", "accepted");
+        boolean pretty;
+
+        Repo() throws IOException {
+            root = temporaryDirectory();
+        }
+
+        /** org.example:lib 1.0.0 in a Gradle lockfile and the verification metadata: reviewed, approved and accepted. */
+        static Repo clean() throws IOException {
+            Repo repo = new Repo().write("gradle.lockfile", """
+                    # This is a Gradle generated file for dependency locking.
+                    org.example:lib:1.0.0=compileClasspath,runtimeClasspath
+                    empty=annotationProcessor
+                    """).write("gradle/verification-metadata.xml", """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <verification-metadata>
+                       <configuration>
+                          <verify-metadata>true</verify-metadata>
+                       </configuration>
+                       <components>
+                          <component group="org.example" name="lib" version="1.0.0">
+                             <artifact name="lib-1.0.0.jar">
+                                <sha256 value="%s"/>
+                             </artifact>
+                             <artifact name="lib-1.0.0.pom">
+                                <sha256 value="%s"/>
+                             </artifact>
+                          </component>
+                       </components>
+                    </verification-metadata>
+                    """.formatted(SHA_A, SHA_B));
+            repo.entry("maven", "org.example:lib", "1.0.0", "lib-1.0.0.jar", SHA_A);
+            return repo;
+        }
+
+        Map<String, Object> lib() {
+            return entries.getFirst();
+        }
+
+        /** Adds an approved, unexpired entry and writes its review record. */
+        Map<String, Object> entry(String kind, String coordinate, String version, String artifact, String sha256)
+                throws IOException {
+            String review = "security/reviews/%s--%s--%s.md".formatted(kind, coordinate.replaceAll("[^A-Za-z0-9.]+", "-"),
+                    version);
+            write(review, "# %s %s\n\nVerdict: APPROVE. A synthetic review record.\n".formatted(coordinate, version));
+            Map<String, Object> entry = map("kind", kind, "coordinate", coordinate, "version", version, "artifact", artifact,
+                    "sha256", sha256, "verdict", "APPROVE", "conditions", List.of(), "reviewRecord", review,
+                    "reviewedAt", "2026-11-01", "expiresAt", LATER);
+            entries.add(entry);
+            return entry;
+        }
+
+        /** Records the owner's acceptance of the set as it is now: the digest the checker computes for it. */
+        Repo accept() throws IOException {
+            acceptance.put("reviewedSetSha256", "");
+            save();
+            acceptance.put("reviewedSetSha256", new PolicyCheck(root, TODAY).entriesDigest());
+            return save();
+        }
+
+        /** Writes security/allowlist.json, after recording the acceptance of the set as it is if none is recorded. */
+        Repo save() throws IOException {
+            if (acceptance != null && !acceptance.containsKey("reviewedSetSha256")) accept();
+            Map<String, Object> allowlist = map("schemaVersion", 1, "acceptance", acceptance, "entries", entries);
+            if (acceptance == null) allowlist.remove("acceptance");
+            return write("security/allowlist.json", json(allowlist, pretty) + "\n");
+        }
+
+        PolicyCheck check() throws IOException {
+            save();
+            return new PolicyCheck(root, TODAY);
+        }
+
+        List<String> findings() throws IOException {
+            return check().run().stream().map(f -> f.area() + ": " + f.message()).toList();
+        }
+
+        Repo write(String path, String text) throws IOException {
+            return write(path, utf8(text));
+        }
+
+        Repo write(String path, byte[] bytes) throws IOException {
+            Path file = root.resolve(path);
+            Files.createDirectories(file.getParent());
+            Files.write(file, bytes);
+            return this;
+        }
+
+        /** A symbolic link at the path to the target, as given: relative to the link's directory, or absolute. */
+        Repo link(String path, Path target) throws IOException {
+            Path link = root.resolve(path);
+            Files.createDirectories(link.getParent());
+            Files.createSymbolicLink(link, target);
+            return this;
+        }
+
+        Repo append(String path, String text) throws IOException {
+            Files.writeString(root.resolve(path), text, StandardOpenOption.APPEND);
+            return this;
+        }
+
+        /** Replaces text in a file; a case whose text is not there fails, so that no case passes without its change. */
+        Repo edit(String path, String from, String to) throws IOException {
+            String text = Files.readString(root.resolve(path));
+            expect(text.contains(from), path + " does not contain " + show(from));
+            return write(path, text.replace(from, to));
+        }
+    }
+
+    /** Fixture JSON, written without the checker's code: strings that need no escape, numbers, booleans, null, lists, maps. */
+    static String json(Object value, boolean pretty) {
+        String comma = pretty ? ",\n  " : ",";
+        return switch (value) {
+            case null -> "null";
+            case String s when s.chars().allMatch(c -> c >= 0x20 && c != '"' && c != '\\') -> "\"" + s + "\"";
+            case String s -> throw new IllegalArgumentException("a fixture string that needs an escape: " + show(s));
+            case Map<?, ?> m -> m.entrySet().stream()
+                    .map(e -> json(e.getKey(), pretty) + (pretty ? " : " : ":") + json(e.getValue(), pretty))
+                    .collect(Collectors.joining(comma, pretty ? "{\n  " : "{", pretty ? "\n}" : "}"));
+            case List<?> l -> l.stream().map(v -> json(v, pretty)).collect(Collectors.joining(comma, "[", "]"));
+            default -> value.toString();
+        };
+    }
+
+    /** A map in the order given: key, value, key, value. Values may be null. */
+    static Map<String, Object> map(Object... keysAndValues) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        for (int i = 0; i < keysAndValues.length; i += 2) map.put((String) keysAndValues[i], keysAndValues[i + 1]);
+        return map;
+    }
+
+    static Map<String, Object> reversedKeys(Map<String, Object> entry) {
+        List<String> keys = new ArrayList<>(entry.keySet());
+        Collections.reverse(keys);
+        Map<String, Object> reversed = new LinkedHashMap<>();
+        keys.forEach(key -> reversed.put(key, entry.get(key)));
+        return reversed;
+    }
+
+    // ---- assertions and helpers ----
+
+    static void expect(boolean condition, String what) {
+        if (!condition) throw new AssertionError(what);
+    }
+
+    static void expectEquals(Object expected, Object actual) {
+        if (!Objects.equals(expected, actual)) {
+            throw new AssertionError("expected " + show(String.valueOf(expected)) + " but was " + show(String.valueOf(actual)));
+        }
+    }
+
+    static <T extends Throwable> T expectThrows(Class<T> type, Case body) {
+        try {
+            body.run();
+        } catch (Throwable e) {
+            if (type.isInstance(e)) return type.cast(e);
+            throw new AssertionError("expected " + type.getSimpleName() + " but got " + e, e);
+        }
+        throw new AssertionError("expected " + type.getSimpleName() + ", but nothing was thrown");
+    }
+
+    /** Neither the standard output nor the standard error of the run repeats any of these texts. */
+    static void expectNoContent(Run run, String... texts) {
+        for (String text : texts) {
+            expect(!run.output().contains(text) && !run.error().contains(text),
+                    "the output repeats " + show(text) + ": " + show(run.toString()));
+        }
+    }
+
+    static void expectClean(List<String> findings) {
+        expect(findings.isEmpty(), "expected no findings, got " + findings);
+    }
+
+    /** Exactly one finding: in this area, with every part in its message. */
+    static void expectOnly(List<String> findings, String area, String... parts) {
+        expect(findings.size() == 1 && findings.getFirst().startsWith(area + ": ")
+                && Stream.of(parts).allMatch(findings.getFirst()::contains),
+                "expected one " + area + " finding with " + List.of(parts) + ", got " + findings);
+    }
+
+    /** At least one finding in this area with every part in its message. */
+    static void expectFinding(List<String> findings, String area, String... parts) {
+        expect(findings.stream().anyMatch(f -> f.startsWith(area + ": ") && Stream.of(parts).allMatch(f::contains)),
+                "expected a " + area + " finding with " + List.of(parts) + ", got " + findings);
+    }
+
+    static String sha256(byte[] bytes) throws Exception {
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+    }
+
+    static byte[] utf8(String text) {
+        return text.getBytes(StandardCharsets.UTF_8);
+    }
+
+    /** The text with control and non-ASCII characters escaped, for names and messages. */
+    static String show(String text) {
+        StringBuilder out = new StringBuilder();
+        for (char c : text.toCharArray()) {
+            if (c < 0x20 || c > 0x7e) out.append("\\u%04x".formatted((int) c)); else out.append(c);
+        }
+        return out.isEmpty() ? "(empty)" : out.toString();
+    }
+
+    /** A new temporary directory, deleted when the run ends. */
+    static Path temporaryDirectory() throws IOException {
+        Path dir = Files.createTempDirectory("policy-check-test-");
+        temporary.add(dir);
+        return dir;
+    }
+
+    static void delete(Path dir) throws IOException {
+        try (Stream<Path> walk = Files.walk(dir)) {
+            for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(p);
+        }
+    }
+}

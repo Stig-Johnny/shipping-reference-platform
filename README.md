@@ -15,10 +15,11 @@ Built and running:
   the library against its own model, run in `java`, a check that a pull request must pass before it can merge.
 - **The dependency allowlist check**, `tools/policy/PolicyCheck.java`. It needs only the JDK. It fails when a locked
   dependency, the Gradle wrapper or an Action has no approved, unexpired review in `security/allowlist.json`, or when
-  a checksum differs from its review. The required `preflight` check runs the main branch's copy of it on every pull
-  request that targets `main`, and refuses pull requests from forks. It has no tests of its own yet: scripted
-  tamperings (ADR 0007) and two pull requests made to fail on purpose ([security/README.md](security/README.md))
-  showed that it fails.
+  a checksum differs from its review, and it refuses a checked tree that holds a symbolic link. The required
+  `preflight` check runs the main branch's copy of it on every pull request that targets `main`, and refuses pull
+  requests from forks. Its tests, `tools/policy/PolicyCheckTest.java`, need only the JDK too and run in `java`;
+  before them, scripted tamperings (ADR 0007) and two pull requests made to fail on purpose
+  ([security/README.md](security/README.md)) showed that it fails.
 - **The documentation tool**, `tools/docs`, with its tests. It generates the C4 view pages, `BRAIN.md` and a static
   site. In `java`, it checks committed generated files for drift, repository-local links and anchors for validity,
   and shipped or partial capability claims against passing test evidence. The `pages` workflow scans the site before
@@ -185,7 +186,7 @@ checker exists) and which part is **planned**.
 | Domain invariants | Golden tariff prices, monotonicity and rounding properties, idempotent booking, expiry rules. | Wrong requirements. | `java` (parameterized property tests included: `SyntheticTariffPropertiesTest`) | planned |
 | Event delivery | A failed audit write is lost, or a replay has a second effect. | Consumers nobody has written yet. | `java`: `AuditReplayIntegrationTest` | planned |
 | Mutation testing | Fewer than 80 % of mutants on changed lines are killed (90 % for pricing and checker code). | Tests that consistently assert the wrong thing; hand-reviewed equivalent mutants. | `mutation` | planned (today the `mutation` job runs PIT on the contract kit and fails under 90 % killed; it is not a required check) |
-| Dependency allowlist, before use | A locked dependency, the Gradle wrapper or an Action has no approved, unexpired review; a checksum or a vendored file differs from its review; an Action is not pinned to an allowlisted commit; the reviewed set changed after the owner accepted it. | Build code that downloads executables itself, compromised approved artifacts, runner compromise, local agents bypassing CI, a reviewed component used outside the scope of its review. | `preflight` (from the base branch); `java` before Gradle starts | **enforced**: `preflight` is a required check, made to fail on purpose by pull requests #16 and #17 (`security/README.md`). Planned, which is why `capabilities.yaml` still lists the control as planned: a schema for the allowlist, tests of the checker, and approval bound to a pull request's head |
+| Dependency allowlist, before use | A locked dependency, the Gradle wrapper or an Action has no approved, unexpired review; a checksum or a vendored file differs from its review; an Action is not pinned to an allowlisted commit; the reviewed set changed after the owner accepted it; the checked tree holds a symbolic link. | Build code that downloads executables itself, compromised approved artifacts, runner compromise, local agents bypassing CI, a reviewed component used outside the scope of its review. | `preflight` (from the base branch); `java` before Gradle starts, then the checker's tests (`tools/policy/PolicyCheckTest.java`) | **enforced**: `preflight` is a required check, made to fail on purpose by pull requests #16 and #17 (`security/README.md`). Planned, which is why `capabilities.yaml` still lists the control as planned: a schema for the allowlist, the checker's acceptance tests named there (its JDK-only tests run in `java` but write no JUnit report), and approval bound to a pull request's head |
 | Risk-levelled approval | A level 3 change lacks the owner's approval of its current head. | A sensitive change that matches no rule; a single approver is not two-person review. | `risk-approval` | planned |
 | AI review record | No AI review with findings and dispositions is recorded for the final commit. | AI reviewers being wrong. | `ai-review` | planned |
 | Web behaviour and accessibility | Quote, book and label fail in a real browser against the real API; axe-core finds violations; import cycles or boundary breaks. | Accessibility problems that automated tools miss; unused frontend modules. | `web`, `contract-e2e` | planned |
@@ -194,8 +195,9 @@ checker exists) and which part is **planned**.
 
 Every advertised failure requires a deliberate negative fixture. The checker's own tests have theirs, and the
 documentation and brain control has them in `BrainCheckTest` and `SiteBuilderTest`; the application's do not exist
-yet. The allowlist check has no tests yet: scripted tamperings (ADR 0007) and the closed pull requests that
-`security/README.md` lists showed that it fails. The full list of limits is in `docs/gaps.md`.
+yet. The allowlist check's JDK-only tests, `tools/policy/PolicyCheckTest.java`, build theirs in temporary
+directories; before them, scripted tamperings (ADR 0007) and the closed pull requests that `security/README.md` lists
+showed that it fails. The full list of limits is in `docs/gaps.md`.
 
 ## Layout
 
@@ -210,7 +212,7 @@ docs/                            Markdown with frontmatter: adr/, modules/, flow
                                  risk-levels.md; architecture/ and brain/ are generated by tools/docs
 policy/                          risk.json (risk levels)
 security/                        allowlist.json, reviews/ and verifications/, explained in README.md
-tools/policy/                    PolicyCheck.java, the dependency allowlist check
+tools/policy/                    PolicyCheck.java, the dependency allowlist check, and PolicyCheckTest.java, its tests
 tools/ci/                        stage-temurin.sh: downloads the CI JDK and checks its SHA-256
 tools/docs/                      Gradle project :tools:docs: docs, brain and site generator, publication scan
 build-logic/                     Gradle convention plugins: compiler settings, Error Prone and NullAway, locking, PIT
@@ -232,6 +234,7 @@ off.
 | Step | Command |
 |---|---|
 | Check every dependency against the allowlist (the JDK alone; runs the repository's policy checker without invoking the build) | `java tools/policy/PolicyCheck.java .` |
+| Test the allowlist checker (the JDK alone) | `java tools/policy/PolicyCheckTest.java` |
 | Run all Java checks (compile with Error Prone and NullAway, tests) | `./gradlew check` |
 | Run mutation tests (CI only, the `mutation` job: PIT's control socket accepts unauthenticated connections) | `./gradlew :libs:c4-contract-kit:pitest` |
 | Check docs and the brain; regenerate them | `./gradlew :tools:docs:check`; `./gradlew :tools:docs:generate` |

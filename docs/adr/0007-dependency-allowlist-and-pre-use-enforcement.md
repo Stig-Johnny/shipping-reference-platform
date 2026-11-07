@@ -2,7 +2,7 @@
 title: "ADR 0007: Dependency allowlist with pre-use enforcement"
 description: "Every third-party component is reviewed and listed in security/allowlist.json before any build can download or run it; a base-branch preflight enforces this."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
@@ -110,14 +110,26 @@ What is built, and where it differs from the decision above. The decision stands
   `runner-image`. Verdicts: `APPROVE`, `APPROVE-WITH-CONDITIONS`, `REJECT`. There is no
   `security/allowlist.schema.json`, and the names `ecosystem`, `sourceHost`, `purpose`, `licence`, `reviewRef` and
   `decision` are not used. `project` and `configuration` record the scope; the checker does not enforce it.
-- **The checker is one file without tests.** `tools/policy/PolicyCheck.java` runs with the JDK's source launcher
-  (`java PolicyCheck.java`). There is no `module-info.java`, no `:tools:policy` Gradle project and no test class. It
-  imports only JDK packages. It was proven by mutation by hand: 13 scripted tamperings, recorded in pull requests #3,
-  #7 and #10, not an automated suite. It checks the lockfiles, the SHA-256 values in
-  `gradle/verification-metadata.xml`, the wrapper JAR and distribution checksum, workflow `uses:` pins, any
-  `package-lock.json` (none exists yet), files under `vendor/` directories, review record presence, verdicts, expiry
-  dates and the acceptance digest. It does not validate the allowlist against a schema. Its XML parser has
-  doctype declarations and external entities switched off.
+- **The checker is one file, with JDK-only regression tests.** `tools/policy/PolicyCheck.java` runs with the JDK's
+  source launcher (`java PolicyCheck.java`). There is no `module-info.java` and no `:tools:policy` Gradle project. It
+  imports only JDK packages. It checks the lockfiles, the SHA-256 values in `gradle/verification-metadata.xml`, the
+  wrapper JAR and distribution checksum, workflow `uses:` pins, any `package-lock.json` (none exists yet), files under
+  `vendor/` directories, review record presence, verdicts, expiry dates and the acceptance digest. It does not
+  validate the allowlist against a schema. Its XML parser has doctype declarations and external entities switched
+  off. Its JSON reader accepts RFC 8259 JSON only: an allowlist or `package-lock.json` with a malformed value, such
+  as an unquoted version or a lone `+`, stops the check with exit 2 instead of being read as data. It refuses symbolic
+  links in the checked tree, the root included (exit 2), and reads only regular files inside the tree; a finding about
+  an unreadable lock-file line names the file and the line number, not the line. What it prints never repeats what a
+  file holds: the values a finding names, such as coordinates, Action references and URLs, are printed in safe
+  characters only, and a file it cannot parse is named with a line, a column and a fixed reason.
+- **The tests are one more file for the source launcher, not the planned suite.**
+  `java tools/policy/PolicyCheckTest.java` compiles `PolicyCheck.java` next to it and calls the checker directly;
+  launching the checker never compiles the tests. They cover the JSON reader token by token, and each check above on
+  small repositories they build in temporary directories, exit codes included. The `java` job runs the candidate's
+  copy once the base branch's checker has passed the candidate; `preflight` does not, because it runs no pull request
+  code. They write no JUnit report, so they are not the acceptance tests named under Confirmation, and
+  `docs/capabilities/capabilities.yaml` does not count them as evidence. Before them, the checker was proven by
+  mutation by hand: 13 scripted tamperings, recorded in pull requests #3, #7 and #10.
 - **The pull request is checked out as data, not fetched through the API.** `preflight` checks out the base commit
   into `base/` and the pull request's head into `pr/`, both with `persist-credentials: false`, and runs
   `java base/tools/policy/PolicyCheck.java pr`. Nothing from `pr/` is executed. The JDK comes from the base branch's
@@ -133,9 +145,10 @@ What is built, and where it differs from the decision above. The decision stands
 - **No base-dispatched verification workflow.** `preflight` dispatches nothing, and no trusted job publishes check
   results. `java` is an ordinary `pull_request` workflow. It checks out the base branch next to the candidate, stages
   the JDK with the base branch's script and runs the base branch's checker on the candidate before any candidate code
-  runs. Only then does it verify the wrapper and run `./gradlew check` under strict locking and checksum
-  verification. So an unreviewed dependency stops the job before Gradle starts. A pull request can still edit
-  `java.yml` itself. `preflight`, run from the base branch, is the gate a pull request cannot weaken.
+  runs. Only then does it run the candidate's checker tests, verify the wrapper and run `./gradlew check` under
+  strict locking and checksum verification. So an unreviewed dependency stops the job before Gradle starts. A pull
+  request can still edit `java.yml` itself. `preflight`, run from the base branch, is the gate a pull request cannot
+  weaken.
 - **No agent App identity.** The AI agents open pull requests on the owner's GitHub account. No GitHub App exists
   for them, so their pull requests have the same author as the owner's.
 - **Repository settings.** The Actions setting is applied: selected actions only, SHA pinning required, six allowed
