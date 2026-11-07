@@ -34,7 +34,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Markdown to HTML for the public site, under the CommonMark conditions of
  * security/reviews/maven--docs-tool-scope-extension.md. It is the only class that uses CommonMark
- * (ReviewConditionsTest).
+ * (DocsReviewConditionsTest).
  *
  * <ul>
  *   <li>One parser and one renderer, built once: the GFM tables extension and nothing else; the renderer escapes raw

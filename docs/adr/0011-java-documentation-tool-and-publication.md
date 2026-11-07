@@ -191,7 +191,7 @@ SnakeYAML Engine 3.2.
   deploy-pages review requires.
 - The review conditions on the tool's libraries: `SafeYamlTest`, `RestrictedStructurizrTest`, `WorkspacesTest`,
   `MermaidValidatorTest`, `MermaidAdapterTest`, `MarkdownRendererTest`, `SiteUrlSanitizerTest` and
-  `ReviewConditionsTest`.
+  `DocsReviewConditionsTest`.
 
 ## More Information
 

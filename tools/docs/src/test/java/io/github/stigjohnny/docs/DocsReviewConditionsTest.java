@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
  * security/reviews/maven--docs-tool-scope-extension.md, maven--snakeyaml-engine--3.2.md and maven--structurizr-dsl--6.2.4.md.
  * Behaviour is tested next to each class; this test keeps every use behind the one class that is allowed to make it.
  */
-class ReviewConditionsTest {
+class DocsReviewConditionsTest {
 
     private static final Path MAIN = Repository.file("tools/docs/src/main/java/io/github/stigjohnny/docs");
     private static final Map<String, String> SOURCES = sources();
@@ -118,7 +118,7 @@ class ReviewConditionsTest {
         try (Stream<Path> files = Files.walk(MAIN)) {
             return files.filter(p -> p.toString().endsWith(".java"))
                     .collect(Collectors.toMap(p -> MAIN.relativize(p).toString().replace('\\', '/'),
-                            ReviewConditionsTest::read, (a, b) -> a, TreeMap::new));
+                            DocsReviewConditionsTest::read, (a, b) -> a, TreeMap::new));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

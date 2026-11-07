@@ -36,7 +36,8 @@ import org.snakeyaml.engine.v2.schema.Schema;
 
 /**
  * The one factory through which this tool reads YAML and JSON, under the conditions of
- * security/reviews/maven--snakeyaml-engine--3.2.md. No other class may use SnakeYAML Engine (ReviewConditionsTest).
+ * security/reviews/maven--snakeyaml-engine--3.2.md. No other class may use SnakeYAML Engine
+ * (DocsReviewConditionsTest).
  *
  * <ul>
  *   <li>Explicit {@link LoadSettings}: duplicate, recursive and non-scalar keys rejected, comments not parsed, no alias
