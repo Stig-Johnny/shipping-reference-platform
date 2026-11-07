@@ -27,6 +27,10 @@ Built and running:
   deterministic IDs; no endpoint, database or running application exists yet. In `java`, `ArchitectureConformanceTest`
   checks the API's classes against the model with the checker, `ModularityTest` runs Spring Modulith's verification
   and `HexagonalLayeringTest` the layering rules, and each of the three also fails on fixtures that break it.
+- **The database harness** of the shipping API's tests. It starts the reviewed PostgreSQL image, by digest, only on
+  a container engine that a review approves. The checker rejects recognized container declarations. The harness
+  validates its PostgreSQL instance, and CI checks subsequent engine activity. These controls do not isolate arbitrary
+  build code. No schema exists yet.
 - **The documentation tool**, `tools/docs`, with its tests. It generates the C4 view pages, `BRAIN.md` and a static
   site. In `java`, it checks committed generated files for drift, repository-local links and anchors for validity,
   and shipped or partial capability claims against passing test evidence. The `pages` workflow scans the site before
@@ -253,6 +257,11 @@ off.
 | Run mutation tests (CI only, the `mutation` job: PIT's control socket accepts unauthenticated connections) | `./gradlew :libs:c4-contract-kit:pitest` |
 | Check docs and the brain; regenerate them | `./gradlew :tools:docs:check`; `./gradlew :tools:docs:generate` |
 | Build the documentation site into `tools/docs/build/site/` (open its `index.html`) | `./gradlew :tools:docs:site` |
+
+`./gradlew check` includes the shipping API's database tests. They start the reviewed PostgreSQL 18.6 image through
+Testcontainers only on a container engine that a review approves: today the GitHub-hosted ubuntu-24.04 runner of the
+`java` check and of the `pages` workflow, prepared by `tools/ci/container-engine.sh`. Anywhere else they refuse to
+start PostgreSQL and fail, by design; run the other checks with `./gradlew check -x :apps:shipping-api:test`.
 
 Not built yet; their commands arrive with their code: a developer toolchain bootstrap script, PostgreSQL 18.6 with
 the two roles, the API with the `demo` profile, the workbench, web checks, and contract and end-to-end tests.

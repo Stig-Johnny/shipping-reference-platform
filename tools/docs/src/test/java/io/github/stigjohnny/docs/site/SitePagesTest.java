@@ -311,7 +311,8 @@ class SitePagesTest {
     @Test
     void trustKeepsTheEnforcedSubsetApartFromThePlannedControl() {
         String planned = "Schema validation, policy tests and approval binding remain planned.";
-        String enforced = "Current enforcement covers preflight, dependency verification and acceptance-digest checks.";
+        String enforced = "Current enforcement covers preflight, dependency verification, acceptance-digest checks and "
+                + "container image digests.";
         String allowlist = site.text("trust/allowlist.html");
         String trust = site.text("trust/index.html");
         String adr = site.text("decisions/0007-dependency-allowlist-and-pre-use-enforcement.html");

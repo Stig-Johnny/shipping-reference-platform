@@ -21,7 +21,9 @@ closes it.
   library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. The first
   application code exists: the domain and application layers of the `quotes` module and the tenant context of the
   `tenants` module, checked by `ArchitectureConformanceTest`, `ModularityTest` and `HexagonalLayeringTest`. Four
-  capabilities of the quotes module have passing tests: two are shipped and two partial. Every other capability in
+  capabilities of the quotes module have passing tests: two are shipped and two partial. The shipping API's database
+  harness exists too: in CI, `PostgresHarnessIntegrationTest` starts the reviewed PostgreSQL 18.6 image under the
+  runner review's conditions and queries it; no schema exists yet. Every other capability in
   `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for them is still to
   be written (red first).
 - **The quotes module runs in its tests only.** No class of it is a Spring bean, and no endpoint, database or running
@@ -152,6 +154,21 @@ closes it.
   parsing assembles for an empty group (for example with a `$` group separator) stays in the parser's own table:
   no element carries it, so it is not checked and cannot reach a report.
 
+- **The container image check reads text, not code.** The allowlist checker's check 8 finds image references and
+  the Testcontainers calls the reviews forbid by how they are spelled, in sources, resources, build scripts,
+  workflows and shell scripts. It refuses what it cannot read, such as a computed reference or a container made from
+  a value it cannot trace in the same file. A call through reflection, a library that names an image of its own, or
+  a file it does not read (documents, review records, binary resources) is outside it; the harness's checks and the
+  workflow's image-set check are the second line, at run time.
+- **The platform image is inferred, not read back.** The runner's engine keeps an image's index digest, not the
+  digest of the platform manifest it pulled. That the tests ran the linux/amd64 image `sha256:e923a22a…` follows
+  from the pinned index, whose platforms the review lists, and from the image's reported platform; nothing compares
+  that digest itself.
+- **The engine review's first-run amendment is pending.** The runner review asks for the containerd and runc
+  versions of the first CI run to be appended to it before the job becomes a required check. `java` is a required
+  check already, and editing a review record needs the owner's acceptance again. The versions are in each run's job
+  summary until the owner records them.
+
 - **Dependabot sees the workflows' Actions, not the Gradle dependencies.** GitHub's dependency graph lists only what
   it can read without running the build: the pinned Actions. Gradle dependencies would need a dependency-submission
   step, which is not set up, because an automatic submission build would run the build outside the reviewed
@@ -175,6 +192,18 @@ closes it.
   first connection without authentication, so its review forbids developer machines whose firewall lets inbound
   connections reach `java`. On 2026-11-06 the library's development ran PIT on such a machine (firewall off) before
   that condition was checked; the exposure was one listening socket per run, for the length of the run.
+- **Database tests run only where a reviewed engine is prepared.** That is the `java` job and the `pages`
+  workflow's `test` job, on GitHub-hosted ubuntu-24.04 with Docker Engine 28.0.4, prepared by
+  `tools/ci/container-engine.sh`. Anywhere else `ReviewedPostgres` refuses to start PostgreSQL and the test fails, so
+  `./gradlew check` fails on a machine without that engine; the other checks run with `-x :apps:shipping-api:test`.
+  The two colima hosts that a review approves are not engines of the harness yet.
+- **The event check sees the engine's last 256 events.** After the tests, the workflow reads their window from the
+  engine's event buffer to show that every container came from the reviewed image and nothing was copied into one.
+  It fails when the window holds 256 events or more, because it could no longer show that it saw them all.
+- **The site's evidence passes between jobs as a job output.** The publishing job builds the site from the test job's
+  JUnit reports, which travel as a job output of at most 100,000 characters (they arrive as an environment variable,
+  which Linux limits to 128 KiB). Reports that outgrow it fail the handover, and another transport, such as an
+  artifact download, needs its own review first.
 - axe-core finds a subset of accessibility problems; manual keyboard and screen reader checks are required and
   recorded by hand.
 - The web app's static checks cover import boundaries and cycles only. dependency-cruiser and required frontend

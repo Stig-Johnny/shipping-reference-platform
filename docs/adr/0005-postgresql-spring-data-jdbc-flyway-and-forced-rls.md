@@ -2,10 +2,11 @@
 title: "ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security"
 description: "PostgreSQL 18.6, one schema per module, Spring Data JDBC, Flyway migrations under a separate role, and forced row-level security for tenant isolation."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 date: 2026-11-06
 decision-makers: repository owner
-enforcedBy: [not enforced yet]
+enforcedBy:
+  - "java: PostgresHarnessIntegrationTest and ReviewedPostgresTest, for the test database only: tests start the reviewed PostgreSQL 18.6 image by digest through Testcontainers, on a reviewed engine; the schemas, roles and row-level security are planned"
 plannedEnforcement:
   - "java: RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, CrossTenantAccessTest"
   - "java: MigrationsIntegrationTest, TableOwnershipTest"
@@ -75,6 +76,11 @@ Chosen option 1.
 
 ### Confirmation
 
+- Built: the test database. `ReviewedPostgres` starts PostgreSQL for the tests: the reviewed 18.6 image by its
+  digest, already staged, on an engine that a review approves, with a random password and its port on 127.0.0.1,
+  and it refuses to start on any mismatch. `PostgresHarnessIntegrationTest` starts it in CI and queries
+  it; `ReviewedPostgresTest` shows that each of its conditions refuses on its own. The allowlist checker refuses any
+  other image reference before anything is pulled (ADR 0007).
 - `RowLevelSecurityCatalogTest` queries `pg_class`, `pg_policy` and `pg_roles`: every table with a `tenant_id`
   column has RLS enabled and forced and at least one policy, except the four identity tables, on which `shipping_app`
   has no privileges; `shipping_app` is not superuser, lacks `BYPASSRLS` and owns nothing.

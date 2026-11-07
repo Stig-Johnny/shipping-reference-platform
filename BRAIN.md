@@ -69,9 +69,9 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | [ADR 0002: Diagrams first: the C4 model is the structural authority](docs/adr/0002-c4-model-is-the-structural-authority.md) | accepted | java |
 | [ADR 0003: Modular monolith with Spring Modulith and hexagonal modules](docs/adr/0003-modular-monolith-with-spring-modulith-and-hexagonal-modules.md) | accepted | java |
 | [ADR 0004: Contract-first OpenAPI 3.1.2 with RFC 9457 problem details](docs/adr/0004-contract-first-openapi-with-rfc-9457-problems.md) | accepted | not enforced yet |
-| [ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security](docs/adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md) | accepted | not enforced yet |
+| [ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security](docs/adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md) | accepted | java |
 | [ADR 0006: Module events through the publication registry, with idempotent consumers](docs/adr/0006-module-events-through-the-publication-registry.md) | accepted | not enforced yet |
-| [ADR 0007: Dependency allowlist with pre-use enforcement](docs/adr/0007-dependency-allowlist-and-pre-use-enforcement.md) | accepted | preflight (required check), java (required check), tools/ci/stage-temurin.sh, GitHub Actions setting, acceptance |
+| [ADR 0007: Dependency allowlist with pre-use enforcement](docs/adr/0007-dependency-allowlist-and-pre-use-enforcement.md) | accepted | preflight (required check), java (required check), tools/ci/stage-temurin.sh, GitHub Actions setting, acceptance, preflight and java (required checks), tools/ci/container-engine.sh |
 | [ADR 0008: Risk levels 0 to 3 decide who must approve a change](docs/adr/0008-risk-levels-0-to-3.md) | accepted | branch protection on main, GitHub Actions setting |
 | [ADR 0009: React workbench with a generated API client](docs/adr/0009-react-workbench-with-a-generated-client.md) | accepted | not enforced yet |
 | [ADR 0010: Documentation as code with a generated brain](docs/adr/0010-documentation-as-code-with-a-generated-brain.md) | superseded by ADR 0011 | not enforced yet |

@@ -68,7 +68,13 @@ Adds to the root `AGENTS.md`. Decisions: ADR 0003 (modules), 0004 (contract), 00
 
 ## Tests
 
-- Set `TESTCONTAINERS_RYUK_DISABLED=true` for local and CI Testcontainers runs. Ryuk is rejected; the test harness and runner own container cleanup.
+- Set `TESTCONTAINERS_RYUK_DISABLED=true` and `TESTCONTAINERS_CHECKS_DISABLE=true` for local and CI Testcontainers
+  runs (every `Test` task here sets both). Ryuk is rejected; the test harness and runner own container cleanup.
+- Start PostgreSQL only through `ReviewedPostgres.start()` (test package `io.github.stigjohnny.shipping.database`). It
+  uses the reviewed image by digest and refuses to start on an engine that no review approves, so database tests run
+  in CI; locally, run the other checks with `-x :apps:shipping-api:test`. Never construct another container, name
+  another image or add Testcontainers configuration: the allowlist check (check 8) refuses them before anything is
+  pulled.
 - Mockito's inline mock maker runs as an explicit `-javaagent` on every Gradle `Test` task, which is Mockito's recipe
   for Java 21 and later. Never set `-XX:+EnableDynamicAgentLoading` or `jdk.attach.allowAttachSelf`
   (`security/reviews/maven--test-libraries--mockito-5.23.0-byte-buddy-1.18.15-and-assertion-libs.md`).

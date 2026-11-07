@@ -139,12 +139,19 @@ SnakeYAML Engine 3.2.
 - The owner decided on 2026-11-06 to publish the site on GitHub Pages, at
   <https://stig-johnny.github.io/shipping-reference-platform/>. The documentation site is public. The repository
   itself is planned to become public (ADR 0008); repository links will be enabled after that change.
-- `.github/workflows/pages.yml` runs for `main` only, one run at a time. Its build job runs in the `github-pages`
-  environment, whose secret is the dictionary, and may only read the repository. On a commit that is already on
-  `main`, it stages the reviewed JDK and runs the allowlist check, its trusted bootstrap, then verifies the Gradle
-  wrapper, runs `:tools:docs:check` and `:tools:docs:site`, and then `:tools:docs:scanSite` in a step of its own, the
-  only one that receives the dictionary. It re-checks Mermaid's SHA-256 in the site, refuses symbolic links, hard
-  links and hidden files there, and only then uploads the site directory. The deploy job has one step,
+- `.github/workflows/pages.yml` runs for `main` only, one run at a time, in three jobs, so that the job that runs
+  the tests holds no publication privilege and the jobs that hold one run no test. Each stages the reviewed JDK and
+  runs the allowlist check, its trusted bootstrap, on a commit that is already on `main`, then verifies the Gradle
+  wrapper. The test job has no environment and no secret, may only read the repository, and runs on GitHub-hosted
+  ubuntu-24.04 under the container engine's review, because the database tests start PostgreSQL: it runs
+  `:tools:docs:check` and `:tools:docs:site`, and with them every project's tests, then hands this run's JUnit
+  reports and the site's digest to the build job as job outputs. The build job runs in the `github-pages`
+  environment, whose secret is the dictionary, and may only read the repository. It unpacks those reports, builds the
+  site again from the same commit with `:tools:docs:site -x test`, and fails unless the site is byte for byte the one
+  the test job built, so the evidence it publishes is this run's and never a stale report. It then runs
+  `:tools:docs:scanSite` in a step of its own, the only one that receives the dictionary, re-checks Mermaid's SHA-256
+  in the site, refuses symbolic links, hard links and hidden files there, and only then uploads the site directory.
+  The deploy job has one step,
   `actions/deploy-pages`, and the workflow's only write permissions, `pages: write` and `id-token: write`. Every
   action runs at the full SHA its review approved; `actions/configure-pages` is not used, because the site's links
   are relative.
@@ -205,9 +212,11 @@ SnakeYAML Engine 3.2.
   `ScannedNamesTest` (terms and token shapes in file and directory names, withheld from every output) and
   `DocsToolTest` (the scan command end to end, and exit codes for errors, `StackOverflowError` included, and for
   timeouts).
-- `PagesWorkflowTest`: who may run the publishing workflow, each job's permissions, the dictionary in the scan step
-  only, the build job's order (check before use, build, scan, re-check, guard, upload) and the four reviewed actions
-  by full SHA. After the first deployment, a person checks that its log shows the OIDC token masked, as the
+- `PagesWorkflowTest`: who may run the publishing workflow, each job's permissions, that the test job has no
+  environment and no secret and runs the tests under the runner review's conditions, that the build job runs no test
+  and takes its evidence from the test job of the same run, the dictionary in the scan step only, each job's order
+  (in the build job: check before use, take over the reports, build, compare, scan, re-check, guard, upload) and the
+  four reviewed actions by full SHA. After the first deployment, a person checks that its log shows the OIDC token masked, as the
   deploy-pages review requires.
 - The review conditions on the tool's libraries: `SafeYamlTest`, `RestrictedStructurizrTest`, `WorkspacesTest`,
   `MermaidValidatorTest`, `MermaidAdapterTest`, `MarkdownRendererTest`, `SiteUrlSanitizerTest` and

@@ -199,7 +199,7 @@ verify() {
       problems=1
     fi
   done <<< "$events"
-  record "Test window: $count engine events, $creates containers made from the reviewed image"
+  record "Test window: $count engine events, $creates container creations"
 
   # Cleanup: the label sweep removes the test containers with their anonymous volumes, then their networks.
   local id
