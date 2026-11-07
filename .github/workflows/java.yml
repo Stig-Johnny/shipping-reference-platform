@@ -68,6 +68,13 @@ jobs:
         working-directory: candidate
         run: java tools/policy/PolicyCheckTest.java
 
+      - name: Check the candidate with its own allowlist checker as well
+        # The base branch's run above is the gate. The candidate's copy runs too, so that a rule a pull request adds,
+        # such as the container image references (check 8), applies to that pull request itself, before anything is
+        # pulled. It reads files only; 1 = findings and 2 = could not complete fail the job.
+        working-directory: candidate
+        run: java tools/policy/PolicyCheck.java . | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Verify the Gradle wrapper before running it
         working-directory: candidate
         run: echo "3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  gradle/wrapper/gradle-wrapper.jar" | sha256sum --check --strict
