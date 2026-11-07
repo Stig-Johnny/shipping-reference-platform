@@ -89,13 +89,13 @@ engine verify
 check "a verification without a staging fails" fail $? "nothing was staged"
 
 # The version comparator, as the script defines it: a prerelease of the floor is below it.
-comparator="$(sed -n '/^at_least() {/,/^}/p' "$script")"
+sed -n '/^at_least() {/,/^}/p' "$script" > "$work/comparator.sh"
 for pair in "1.3.3 yes" "1.3.4 yes" "v1.3.3 yes" "1.4.0-rc.3 yes" "1.3.4-rc.1 yes" "1.10.0 yes" "2.0.0 yes" \
     "1.3.3-rc.1 no" "v1.3.3-rc.2 no" "1.3.3+dirty no" "1.3.2 no" "1.2.8 no" "1.3.0-rc.1 no" "1.3 no" "unknown no" "no"; do
   version="${pair% *}"
   [[ "$pair" == "no" ]] && version=""
   expected="${pair##* }"
-  if bash -c "$comparator"$'\n'"at_least \"\$1\" 1.3.3" _ "$version"; then got=yes; else got=no; fi
+  if bash -c 'source "$1" && at_least "$2" 1.3.3' _ "$work/comparator.sh" "$version"; then got=yes; else got=no; fi
   : > "$work/output"
   check "runc '$version' against the floor 1.3.3: $expected" pass "$([[ "$got" == "$expected" ]] && echo 0 || echo 1)"
 done

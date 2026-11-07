@@ -943,6 +943,31 @@ public final class PolicyCheckTest {
         test("own evasion 5: a Java text block joins a line break into docker", () -> expectFinding(withImages()
                 .write(OTHER_TEST, "class OtherTest {\n    String s = \"\"\"\n        doc\\\n        ker run alpine:3.17\n"
                         + "        \"\"\";\n}\n").findings(), "images", OTHER_TEST + ":", "runs a container runtime"));
+        // Then against the normalising version itself: spellings that still reached docker after the first round of
+        // normalisation, or that try to. Each must be refused.
+        test("own evasion 6: brace expansion assembles docker run", () -> expectFinding(withImages().write(STAGING,
+                staging("{docker,run} alpine:3.17")).findings(), "images", STAGING + ":4: "));
+        test("own evasion 7: a Groovy slashy string is a string", () -> expectFinding(withImages().write(groovy,
+                "tasks.register('pull', Exec) { commandLine /docker/, 'run', 'alpine:3.17' }\n").findings(), "images",
+                groovy + ":1: "));
+        test("own evasion 8: a Kotlin string template splits docker around a literal", () -> expectFinding(withImages()
+                .write(kotlin, "tasks.register<Exec>(\"pull\") { commandLine(\"doc${\"\"}ker\", \"run\", \"alpine\") }\n")
+                .findings(), "images", kotlin + ":1: "));
+        test("own evasion 9: a line continuation in a YAML block joins the indented next line", () -> expectFinding(
+                withImages().write(WORKFLOW, workflow("    steps:\n      - run: |\n          doc\\\n          ker run alpine:3.17")
+                        .replace("    steps:\n      - run: echo", "      - run: echo")).findings(), "images", WORKFLOW + ":"));
+        test("own evasion 10: a GitHub expression that builds the command", () -> expectFinding(withImages().write(
+                WORKFLOW, workflow("    steps:\n      - run: ${{ format('{0}ocker run alpine:3.17', 'd') }}").replace(
+                        "    steps:\n      - run: echo", "      - run: echo")).findings(), "images", WORKFLOW + ":6: "));
+        test("own evasion 11: a command substitution in the place of the command", () -> expectFinding(withImages()
+                .write(STAGING, staging("$(printf '\\x64ocker') run alpine:3.17")).findings(), "images", STAGING + ":4: "));
+        test("own evasion 12: a test resource that holds the command", () -> expectFinding(withImages().write(
+                "apps/demo/src/test/resources/command.txt", "docker run alpine:3.17\n").findings(), "images",
+                "apps/demo/src/test/resources/command.txt:1: "));
+        test("own evasion 13: a Java file outside src/, run by java as a single-file program", () -> expectFinding(
+                withImages().write("tools/run/Pull.java", "class Pull { public static void main(String[] a) throws Exception {"
+                        + " new ProcessBuilder(\"docker\", \"run\", \"alpine:3.17\").start(); } }\n").findings(), "images",
+                "tools/run/Pull.java:1: runs a container runtime as a command"));
         // What the normalisation must leave alone.
         test("normalised: paths, the socket, the service and a read of the engine are no refused command", () -> {
             for (String command : List.of("printf '{\"ip\":\"127.0.0.1\"}\\n' | sudo tee /etc/docker/daemon.json > /dev/null",

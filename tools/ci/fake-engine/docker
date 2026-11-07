@@ -4,7 +4,7 @@
 # was pulled and swept, is files in FAKE_STATE.
 args="$*"
 if [[ -n "${FAKE_FAIL:-}" && "$args" == *"$FAKE_FAIL"* ]]; then
-  echo "fake docker: failing $args" >&2
+  echo "fake engine: failing $args" >&2
   exit 42
 fi
 digest="sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583"
@@ -23,5 +23,5 @@ case "$args" in
   "rm -f -v "*) touch "$FAKE_STATE/swept" ;;
   "network ls -q --filter label=org.testcontainers=true") ;;
   "network rm "*) ;;
-  *) echo "fake docker: unexpected query: $args" >&2; exit 99 ;;
+  *) echo "fake engine: unexpected query: $args" >&2; exit 99 ;;
 esac
