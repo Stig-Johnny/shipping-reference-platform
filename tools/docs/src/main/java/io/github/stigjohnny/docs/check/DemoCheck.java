@@ -7,6 +7,11 @@ import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.repo.TestEvidence;
 import io.github.stigjohnny.docs.yaml.YamlValue;
+import java.io.ByteArrayOutputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -36,8 +41,9 @@ import java.util.regex.Pattern;
  *   <li>shows commands in {@code ```sh} fences, in Try it or Evidence, each one of the approved commands, whole and
  *       with exactly its arguments; and recorded output in {@code ```text} fences, in Evidence, after the line that
  *       says it was not rerun. Its evidence names its capture date, and a gate's shows a rejected and an accepted case;
- *   <li>is text only until a reviewed media gate exists: no image, no raw HTML and no link to a media file; and
- *       {@code docs/demos/} holds nothing but Markdown, because the repository is public as well.
+ *   <li>is text only until a reviewed media gate exists: no image, no raw HTML and no link to a media file, read from
+ *       its percent-decoded path; and {@code docs/demos/} holds nothing but Markdown, because the repository is
+ *       public as well.
  * </ul>
  *
  * <p>Every block is held to these checks, the section headings and anything before the first section included.
@@ -253,7 +259,10 @@ final class DemoCheck {
                     found.add(section + " shows the image '" + image + "'" + TEXT_ONLY);
                 }
                 for (String link : block.links()) {
-                    if (MEDIA.matcher(withoutFragment(link)).find()) {
+                    Optional<String> path = decodedPath(link);
+                    if (path.isEmpty()) {
+                        found.add(section + " links '" + link + "', whose percent-encoding is malformed");
+                    } else if (MEDIA.matcher(path.get()).find()) {
                         found.add(section + " links the media file '" + link + "'" + TEXT_ONLY);
                     }
                 }
@@ -385,8 +394,48 @@ final class DemoCheck {
         return left.find() ? Optional.of(left.group()) : Optional.empty();
     }
 
-    private static String withoutFragment(String link) {
-        return link.replaceFirst("[?#].*$", "");
+    /**
+     * A link's path as a server reads it: without its query and fragment, then percent-decoded, so that
+     * {@code shot%2epng} is {@code shot.png}. Empty when the encoding is malformed: a {@code %} without two ASCII hex
+     * digits, or bytes that are not UTF-8.
+     */
+    private static Optional<String> decodedPath(String link) {
+        String path = link.replaceFirst("[?#].*$", "");
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        int i = 0;
+        while (i < path.length()) {
+            if (path.charAt(i) == '%') {
+                int high = i + 1 < path.length() ? hex(path.charAt(i + 1)) : -1;
+                int low = i + 2 < path.length() ? hex(path.charAt(i + 2)) : -1;
+                if (high < 0 || low < 0) {
+                    return Optional.empty();
+                }
+                bytes.write(high * 16 + low);
+                i += 3;
+            } else {
+                int codePoint = path.codePointAt(i);
+                bytes.writeBytes(Character.toString(codePoint).getBytes(StandardCharsets.UTF_8));
+                i += Character.charCount(codePoint);
+            }
+        }
+        try {
+            return Optional.of(StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes.toByteArray()))
+                    .toString());
+        } catch (CharacterCodingException e) {
+            return Optional.empty();
+        }
+    }
+
+    /** An ASCII hex digit's value, or -1: other digits, such as fullwidth ones, are not hex in a URL. */
+    private static int hex(char c) {
+        if (c >= '0' && c <= '9') {
+            return c - '0';
+        }
+        if (c >= 'a' && c <= 'f') {
+            return c - 'a' + 10;
+        }
+        return c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
     }
 
     /** A field of the frontmatter, or nothing when it cannot be read; the problem is added to {@code found}. */

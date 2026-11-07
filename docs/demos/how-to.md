@@ -153,7 +153,8 @@ The documentation tool checks every demo with the other documents (`./gradlew :t
   outside Try it and Evidence, and a Try it without one; recorded output outside Evidence or before the line that
   says it was not rerun; an evidence section without its capture date; a gate's evidence without two recorded
   outputs; a command that is not one of the list above;
-- an image, raw HTML or a link to a media file.
+- an image, raw HTML or a link to a media file, whose path is read percent-decoded (`shot%2epng` is `shot.png`), and a
+  link whose percent-encoding is malformed.
 
 When it builds the site, it also fails when a link in See it opens no page of this site, when a link to the site's
 address names a page or an anchor the site does not have, and when the evidence of a visual change links no page.

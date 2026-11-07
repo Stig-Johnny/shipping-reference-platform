@@ -388,13 +388,26 @@ class DemoCheckTest {
     @ValueSource(strings = {"![the sheet](shot.png)", "<img src=\"shot.png\" alt=\"the sheet\">",
         "<iframe src=\"https://example.com/demo\"></iframe>", "<video src=\"clip.mp4\" controls></video>",
         "A <b>bold</b> claim.", "[the recording](clip.mp4)", "[a capture](https://example.com/demo.gif)",
-        "[a session](session.cast)", "[a screenshot](https://example.com/shot.PNG#top)"})
+        "[a session](session.cast)", "[a screenshot](https://example.com/shot.PNG#top)",
+        "[a capture](https://example.com/shot%2epng)", "[a capture](https://example.com/shot.%70ng)",
+        "[a capture](https://example.com/shot%2EpN%67)", "[a capture](https://example.com/shot%2epng?size=large)",
+        "[a capture](https://example.com/shot%2epng#top)", "[a clip](clip%2Emp4)"})
     void aDemonstrationIsTextOnly(String markdown) {
         List<String> problems = problems("docs/demos/42-gate.md", GATE.replace("Now the check\nfails first.\n",
                 "Now the check\nfails first. " + markdown + "\n"));
 
         assertThat(problems).singleElement().asString().startsWith("docs/demos/42-gate.md: What changed ")
                 .contains("a demonstration is text only");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"https://example.com/shot%zz.png", "https://example.com/shot%2",
+        "https://example.com/a%C3%28b", "https://example.com/shot%\uFF12e.png", "page%.md"})
+    void aLinkWhosePercentEncodingIsMalformedFails(String destination) {
+        assertThat(problems("docs/demos/42-gate.md", GATE.replace("fails first.\n", "fails first. See [the page]("
+                + destination + ").\n")))
+                .containsExactly("docs/demos/42-gate.md: What changed links '" + destination + "', whose "
+                        + "percent-encoding is malformed");
     }
 
     @Test
