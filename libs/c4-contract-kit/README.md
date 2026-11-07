@@ -1,12 +1,19 @@
 # c4-contract-kit
 
 Checks compiled Java classes against a C4 model written in Structurizr DSL, in both directions. A dependency between
-two components that the model does not declare fails (a divergence), and so does a `REQUIRED` relationship without
-any static reference (an absence). A `PERMITTED` relationship without references is reported as "no static
-evidence", never as unused. A finding about dependencies (a divergence or an isolation breach) carries each reference
+two components that the model does not declare fails (a divergence). Between built components, a `REQUIRED`
+relationship without any static reference fails too (an absence), and a `PERMITTED` relationship without references
+is reported as "no static evidence", never as unused; a relationship that touches a planned component is not
+evaluated. A finding about dependencies (a divergence or an isolation breach) carries each reference
 as evidence: class, member, kind, and the source file and line when the class file records them. Absences, empty
 components, planned components with code and unmapped classes have no reference to show; they name the components
 and classes concerned.
+
+The library is built and tested; the shipping API, its first user, is planned. `SelfConformanceTest` checks the
+library's own five packages against its self-model, [`architecture/self.dsl`](architecture/self.dsl), and the negative
+fixtures of `ConformanceDivergenceTest` and `ConformanceAbsenceTest` show both directions failing. The commands to run
+them, how long they took, and how to watch the self-check fail are under [Try it](../../README.md#try-it) in the
+repository's README.
 
 The specification is [`AGENTS.md`](AGENTS.md); the decision behind it is
 [ADR 0002](../../docs/adr/0002-c4-model-is-the-structural-authority.md). What the check cannot prove is in
@@ -14,8 +21,8 @@ The specification is [`AGENTS.md`](AGENTS.md); the decision behind it is
 
 ## Use
 
-From a test of the project whose classes are checked, for example `ArchitectureConformanceTest` in
-`:apps:shipping-api`:
+From a test of the project whose classes are checked, such as the planned `ArchitectureConformanceTest` in
+`:apps:shipping-api` (`SelfConformanceTest` does the same for the library today):
 
 ```java
 @Test
@@ -90,6 +97,10 @@ Details the specification leaves open, decided here:
 `report.md` gives the verdict first, then each violation with its evidence, then a table of every edge with its
 status, then the components. Both are UTF-8 with LF line ends, without timestamps, and in a fixed order:
 identical inputs give identical bytes, whatever the order of class roots or model elements.
+
+For example, with the `report -> model` relationship removed from the self-model, `report.md` opens with
+`**Verdict: FAILED** with 1 violation.` and lists `DIVERGENCE: report -> model` with each class in `report` that
+calls into `model`, its member and its source line.
 
 ## Structure and checks
 

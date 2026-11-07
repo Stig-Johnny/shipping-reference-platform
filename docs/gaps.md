@@ -34,8 +34,9 @@ closes it.
 
 - **A REQUIRED edge proves a reference, not behaviour.** A listener that references `ShipmentBooked` but never
   writes an audit entry passes. So does an unused class that happens to reference the required API. Integration
-  tests (`ShipmentAuditIntegrationTest`) carry the behavioural claim; the library's slice 10 demonstrates the gap
-  with a deliberately broken listener.
+  tests (`ShipmentAuditIntegrationTest`) are to carry the behavioural claim. A demonstration of this gap with a
+  deliberately broken listener is planned as the library's slice 10 (`libs/c4-contract-kit/AGENTS.md`); it does not
+  exist yet.
 - **"No static evidence" is not "unused".** Reflection, Spring wiring by type or name, serialisation, configuration
   properties and string-built class names create runtime use that bytecode analysis does not see.
 - **Invisible channels.** SQL that reads another module's schema, shared database rows, HTTP calls, message
@@ -57,8 +58,9 @@ closes it.
 - **Planned components are not evaluated.** Their edges are reported as "not evaluated". Code appearing in a planned
   package fails the build, but the planned edges themselves carry no meaning until the module is built.
 - **The model can be weakened.** Adding a relationship or broadening a package mapping makes a failing build pass.
-  The checker does not understand intent. The compensating control is human approval: `architecture/` is level 3 and
-  owned by the owner, and the demo shows a weakening pull request waiting for that approval.
+  The checker does not understand intent. The compensating control is to be the owner's approval: `architecture/` is
+  level 3 and owned by the owner. That approval is not enforced yet (section 5), and the demonstration of a weakening
+  pull request waiting for it, the library's slice 8, is planned.
 - **The web app is outside the check.** The C4 relationships from the web app to the API are network calls. Java
   static analysis does not see them; the contract tests and Playwright tests do, for the operations they exercise.
 - **Library self-model.** The library's internal structure is governed by `libs/c4-contract-kit/architecture/self.dsl`,

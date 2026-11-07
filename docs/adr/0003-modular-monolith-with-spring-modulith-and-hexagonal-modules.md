@@ -2,7 +2,7 @@
 title: "ADR 0003: Modular monolith with Spring Modulith and hexagonal modules"
 description: "One deployable Spring Boot application; each business module is a top-level package with a public api package and hexagonal internals."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy: [not enforced yet]
@@ -64,7 +64,13 @@ Chosen option 1.
 
 - Good, because module boundaries fail the build in three complementary ways: Modulith (internals, cycles), ArchUnit
   (layering) and c4-contract-kit (declared edges in both directions).
-- Good, because extracting a module later is a packaging change, not a redesign.
+- Good, because each module's boundary is explicit: its public `api` package, its own schema (ADR 0005) and events
+  where a module only reacts to another (ADR 0006). A later extraction would start from a boundary already drawn.
+- Bad, because extracting a module would still be a redesign of that boundary, not a packaging change. A booking
+  looks up its quote's offer and records its event publication in one database transaction
+  (`docs/modules/shipments.md`). Across services that lookup becomes a network call that can fail or time out on its
+  own, and the planned in-process publication would need reliable cross-service delivery, for example through a
+  message broker.
 - Bad, because hexagonal ports add interfaces that a small CRUD module would not need.
 - Bad, because Error Prone and NullAway couple the build to compiler internals; a JDK update needs a compatibility
   check and an allowlist review.
@@ -83,3 +89,6 @@ Chosen option 1.
 
 - Spring Modulith reference: <https://docs.spring.io/spring-modulith/reference/>
 - Module documentation: `docs/modules/<module>.md`.
+- Correction, 2026-11-07: a consequence above said that extracting a module later is "a packaging change, not a
+  redesign". That left out the network calls and the transaction boundary an extraction changes; the two
+  consequences about the module boundary replace it. The decision is unchanged.
