@@ -6,8 +6,9 @@
 // this file and, because it uses PolicyCheck, PolicyCheck.java from the same directory (multi-file source launch, JDK 22
 // and later). So the cases call the checker's package-private code directly and the checker needs no change to be
 // tested; launching PolicyCheck.java never compiles this file. The command-line cases run PolicyCheck.java in a child
-// JVM, as CI does, to see its exit codes. Every repository a case checks is built in a temporary directory and deleted
-// afterwards. It prints one line per case and exits with 0 only when every case passed, 1 otherwise.
+// JVM, as CI does, to see its exit codes; a child that does not finish in time fails its case and is stopped. Every
+// repository a case checks is built in a temporary directory and deleted afterwards. It prints one line per case and
+// exits with 0 only when every case passed, 1 otherwise.
 //
 // Every type in this file is nested in PolicyCheckTest: a second top-level type would share the checker's package when
 // the two files compile together, and could stand in for a name the checker uses.
@@ -19,6 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.CodeSource;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,7 +31,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -48,7 +53,7 @@ public final class PolicyCheckTest {
         void run() throws Exception;
     }
 
-    record Run(int exit, String output) {}
+    record Run(int exit, String output, String error) {}
 
     static int passed;
     static final List<String> failed = new ArrayList<>();
@@ -538,46 +543,106 @@ public final class PolicyCheckTest {
     static void commandLine() {
         test("cli: a clean repository exits 0", () -> {
             Run run = launch(Repo.clean().save().root.toString());
-            expectEquals(0, run.exit());
-            expect(run.output().contains("## Dependency allowlist: clean"), run.output());
+            expect(run.exit() == 0 && run.output().contains("## Dependency allowlist: clean"), run.toString());
         });
         test("cli: findings exit 1 and are listed", () -> {
             Repo repo = Repo.clean().append("gradle.lockfile", "org.example:other:2.0.0=runtimeClasspath\n").save();
             Run run = launch(repo.root.toString());
-            expectEquals(1, run.exit());
-            expect(run.output().contains("## Dependency allowlist: 1 finding(s)\n")
-                    && run.output().contains("- org.example:other 2.0.0 (in gradle.lockfile) has no review"), run.output());
+            expect(run.exit() == 1 && run.output().contains("## Dependency allowlist: 1 finding(s)\n")
+                    && run.output().contains("- org.example:other 2.0.0 (in gradle.lockfile) has no review"), run.toString());
         });
         test("cli: --report-only lists the findings and exits 0", () -> {
             Repo repo = Repo.clean().append("gradle.lockfile", "org.example:other:2.0.0=runtimeClasspath\n").save();
             Run run = launch("--report-only", repo.root.toString());
-            expectEquals(0, run.exit());
-            expect(run.output().contains("1 finding(s) (report-only)"), run.output());
+            expect(run.exit() == 0 && run.output().contains("1 finding(s) (report-only)"), run.toString());
         });
         test("cli: an allowlist that is not JSON exits 2, so a broken check never reads as a pass", () -> {
             Repo repo = Repo.clean().save().edit("security/allowlist.json", "\"schemaVersion\":1", "\"schemaVersion\":+");
             Run run = launch(repo.root.toString());
-            expectEquals(2, run.exit());
-            expect(run.output().contains("## Dependency allowlist: could not complete"), run.output());
+            expect(run.exit() == 2 && run.output().contains("## Dependency allowlist: could not complete"), run.toString());
         });
-        test("cli: a repository without an allowlist exits 2", () -> expectEquals(2, launch(new Repo().root.toString()).exit()));
+        test("cli: a repository without an allowlist exits 2", () -> {
+            Run run = launch(new Repo().root.toString());
+            expect(run.exit() == 2, run.toString());
+        });
         test("cli: --print-digest prints the reviewed-set digest and exits 0", () -> {
             Repo repo = Repo.clean().save();
             Run run = launch("--print-digest", repo.root.toString());
-            expectEquals(0, run.exit());
+            expect(run.exit() == 0, run.toString());
             expectEquals(repo.check().entriesDigest() + System.lineSeparator(), run.output());
+        });
+        test("cli: a child that does not finish fails its case by timeout, and is stopped", () -> {
+            Path hang = temporaryDirectory().resolve("Hang.java");
+            Files.writeString(hang, """
+                    public class Hang {
+                        public static void main(String[] args) throws InterruptedException {
+                            System.out.println("running, with standard output open");
+                            Thread.sleep(Long.MAX_VALUE);
+                        }
+                    }
+                    """);
+            within(Duration.ofSeconds(60), () -> {
+                AssertionError timeout = expectThrows(AssertionError.class,
+                        () -> run(List.of(java(), hang.toString()), Duration.ofSeconds(3)));
+                expect(timeout.getMessage().startsWith("the child did not finish within"), timeout.toString());
+            });
+            expect(ProcessHandle.current().children().noneMatch(ProcessHandle::isAlive), "the child is still running");
         });
     }
 
-    /** Runs PolicyCheck.java in a child JVM of the same JDK, as CI does. Its standard error goes to this one's. */
+    /** Runs PolicyCheck.java in a child JVM of the same JDK, as CI does, and gives it five minutes. */
     static Run launch(String... args) throws Exception {
-        List<String> command = new ArrayList<>(List.of(Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-                checker().toString()));
+        List<String> command = new ArrayList<>(List.of(java(), checker().toString()));
         command.addAll(List.of(args));
-        Process process = new ProcessBuilder(command).redirectError(ProcessBuilder.Redirect.INHERIT).start();
-        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        expect(process.waitFor(5, TimeUnit.MINUTES), "PolicyCheck.java did not finish");
-        return new Run(process.exitValue(), output);
+        return run(command, Duration.ofMinutes(5));
+    }
+
+    /**
+     * Runs a child process with its standard output and error in files, never in pipes that it could fill or hold open,
+     * and reads them only once it has exited. A child still running after the timeout fails the case; it is stopped
+     * and reaped whatever happens.
+     */
+    static Run run(List<String> command, Duration timeout) throws Exception {
+        Path dir = temporaryDirectory();
+        Path output = dir.resolve("stdout");
+        Path error = dir.resolve("stderr");
+        Process process = new ProcessBuilder(command).redirectOutput(output.toFile()).redirectError(error.toFile()).start();
+        try {
+            process.getOutputStream().close();
+            expect(process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS), "the child did not finish within " + timeout);
+            return new Run(process.exitValue(), new String(Files.readAllBytes(output), StandardCharsets.UTF_8),
+                    new String(Files.readAllBytes(error), StandardCharsets.UTF_8));
+        } finally {
+            if (process.isAlive()) {
+                process.destroyForcibly();
+                process.waitFor(1, TimeUnit.MINUTES);
+            }
+        }
+    }
+
+    static String java() {
+        return Path.of(System.getProperty("java.home"), "bin", "java").toString();
+    }
+
+    /** Runs the body on a thread of its own: still running after the limit, it fails, and this JVM's children stop. */
+    static void within(Duration limit, Case body) throws Exception {
+        FutureTask<Void> task = new FutureTask<>(() -> {
+            body.run();
+            return null;
+        });
+        Thread thread = new Thread(task, "a case limited to " + limit);
+        thread.setDaemon(true);
+        thread.start();
+        try {
+            task.get(limit.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            ProcessHandle.current().descendants().forEach(ProcessHandle::destroyForcibly);
+            throw new AssertionError("still running after " + limit + ": without the limit, the suite would hang here");
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof Exception cause) throw cause;
+            if (e.getCause() instanceof Error error) throw error;
+            throw e;
+        }
     }
 
     /** PolicyCheck.java next to this file: the source launcher gives the classes it compiles the launched file's URL. */
@@ -600,8 +665,7 @@ public final class PolicyCheckTest {
         boolean pretty;
 
         Repo() throws IOException {
-            root = Files.createTempDirectory("policy-check-test-");
-            temporary.add(root);
+            root = temporaryDirectory();
         }
 
         /** org.example:lib 1.0.0 in a Gradle lockfile and the verification metadata: reviewed, approved and accepted. */
@@ -793,6 +857,13 @@ public final class PolicyCheckTest {
             if (c < 0x20 || c > 0x7e) out.append("\\u%04x".formatted((int) c)); else out.append(c);
         }
         return out.isEmpty() ? "(empty)" : out.toString();
+    }
+
+    /** A new temporary directory, deleted when the run ends. */
+    static Path temporaryDirectory() throws IOException {
+        Path dir = Files.createTempDirectory("policy-check-test-");
+        temporary.add(dir);
+        return dir;
     }
 
     static void delete(Path dir) throws IOException {
