@@ -1,44 +1,59 @@
 package io.github.stigjohnny.shipping.scenarios.support;
 
+import com.tngtech.archunit.core.domain.Dependency;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaCodeUnit;
 import com.tngtech.archunit.core.domain.JavaCodeUnitAccess;
-import com.tngtech.archunit.core.domain.JavaModifier;
+import com.tngtech.archunit.core.domain.JavaFieldAccess;
 import io.github.stigjohnny.shipping.architecture.ClassDirectories;
-import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.nio.file.Path;
+import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import org.springframework.aop.framework.Advised;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.event.EventListener;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.util.ReflectionUtils;
 
 /**
- * Makes the recorder's coverage verifiable, so that what it cannot see is a finding and never silence.
+ * Makes the recorder's coverage verifiable within a bounded contract, so that what the recorder cannot see is a
+ * finding and never silence. The contract, checked before the run and again after it:
  *
- * <p>Statically, every call and method or constructor reference from one module's main classes to another module's
- * classes is classified: a call of an {@code api} interface method, which the call observer can wrap; a use of a value
- * (a record, an enum, a sealed outcome or an exception), which is not an interaction; or anything else, which no proxy
- * can intercept and is a gap. At run time, every bean that implements an {@code api} interface must be wrapped; no
- * field of a module's bean may hold another module's {@code api} implementation unwrapped, or an event publisher that
- * is not the application context; a probe event published through the context must reach the publication observer;
- * and a listener method in a module's bean is a gap, because listener executions are not observed yet.
+ * <ul>
+ *   <li>Every singleton that implements an {@code api} interface is wrapped by the call observer, and no module
+ *       object is a singleton registered as an object, which no post-processor sees.
+ *   <li>Every object reachable from a module bean or from a static field of a class the run uses is a value, an
+ *       object of the same module, an observer's proxy or the application context ({@link Reachability}).
+ *   <li>The census reads every class of a module that the run reaches, from the main classes and from the test
+ *       classes (altered implementations, stores, fixtures); a class it cannot find on disk is a gap. In those
+ *       classes, every use of another module is a call of an {@code api} interface method whose parameters and
+ *       result are values only, which the proxies intercept and whose receiver the walk proves to be a proxy, or a
+ *       value use: a constructor, a record accessor, {@code equals}, {@code hashCode}, {@code toString} or an enum's
+ *       built-in method on a type that holds values only. Anything else is a gap, and so are a method other than a
+ *       constructor that takes another module's {@code api} service as a parameter, and any use of reflection,
+ *       method handles, Spring AOP or bean lookup, which could reach an implementation behind its proxy.
+ *   <li>A probe event published through the context reaches the publication observer, and no module bean has an
+ *       event listener, since listener executions are not observed yet.
+ * </ul>
  */
 public final class Coverage {
 
-    /** A cross-module call site in the main classes and how the recorder covers it. */
+    /** A cross-module use in a class of the run and how the recorder covers it. */
     public record CallSite(String from, String to, String target, Category category, String location) {
     }
 
-    /** How the recorder covers a call site. */
+    /** How the recorder covers a use. */
     public enum Category {
         INTERCEPTED, VALUE, NOT_INTERCEPTABLE
     }
@@ -57,98 +72,46 @@ public final class Coverage {
             gaps = List.copyOf(gaps);
             observedApis = Set.copyOf(observedApis);
         }
+
+        /** The same result with more gaps and checks, found after the run. */
+        Result with(List<Check> more, List<String> moreGaps) {
+            List<Check> allChecks = new ArrayList<>(checks);
+            allChecks.addAll(more);
+            List<String> allGaps = new ArrayList<>(gaps);
+            moreGaps.stream().filter(g -> !allGaps.contains(g)).forEach(allGaps::add);
+            return new Result(callSites, allChecks, allGaps, observedApis, publicationsObserved);
+        }
     }
 
-    private static List<CallSite> census;
+    private static final List<String> FORBIDDEN = List.of("java.lang.reflect.", "java.lang.invoke.",
+            "org.springframework.");
+    /** The one use of Spring that module code makes: publishing an event through the context. */
+    private static final String PUBLISH = "org.springframework.context.ApplicationEventPublisher#publishEvent";
+    private static final Set<String> VALUE_METHODS = Set.of("equals", "hashCode", "toString");
+    private static final Set<String> ENUM_METHODS = Set.of("values", "valueOf", "name", "ordinal", "compareTo",
+            "getDeclaringClass", "describeConstable");
+
+    private static JavaClasses main;
+    private static JavaClasses test;
 
     private Coverage() {
     }
 
-    /** The call sites of the main classes; read once per test JVM, since the classes do not change during it. */
-    static synchronized List<CallSite> callSites(ScenarioModel model, List<Path> mainClassDirectories) {
-        if (census == null) {
-            JavaClasses classes = ClassDirectories.read(mainClassDirectories);
-            List<CallSite> sites = new ArrayList<>();
-            for (JavaClass origin : classes) {
-                Optional<String> from = model.moduleOf(origin.getName());
-                if (from.isEmpty()) {
-                    continue;
-                }
-                for (JavaCodeUnitAccess<?> access : origin.getCodeUnitAccessesFromSelf()) {
-                    site(model, from.get(), access).ifPresent(sites::add);
-                }
-            }
-            sites.sort(Comparator.comparing(CallSite::from).thenComparing(CallSite::to).thenComparing(CallSite::target)
-                    .thenComparing(CallSite::location));
-            census = List.copyOf(sites);
-        }
-        return census;
-    }
-
-    private static Optional<CallSite> site(ScenarioModel model, String from, JavaCodeUnitAccess<?> access) {
-        JavaClass owner = access.getTargetOwner();
-        Optional<String> to = model.moduleOf(owner.getName());
-        if (to.isEmpty() || to.get().equals(from)) {
-            return Optional.empty();
-        }
-        Category category;
-        try {
-            Class<?> type = Class.forName(owner.getName(), false, Coverage.class.getClassLoader());
-            boolean value = type.isRecord() || type.isEnum() || Throwable.class.isAssignableFrom(type)
-                    || (type.isInterface() && type.isSealed());
-            boolean instanceMethod = access.getTarget().resolveMember()
-                    .filter(m -> !m.getModifiers().contains(JavaModifier.STATIC) && !m.isConstructor()).isPresent();
-            if (value) {
-                category = Category.VALUE;
-            } else if (type.isInterface() && instanceMethod && model.apiModuleOf(type).isPresent()) {
-                category = Category.INTERCEPTED;
-            } else {
-                category = Category.NOT_INTERCEPTABLE;
-            }
-        } catch (ClassNotFoundException e) {
-            category = Category.NOT_INTERCEPTABLE;
-        }
-        String location = access.getOrigin().getFullName() + " (" + access.getSourceCodeLocation().getSourceFileName()
-                + ":" + access.getLineNumber() + ")";
-        return Optional.of(new CallSite(from, to.get(), owner.getName() + "#" + access.getName(), category,
-                location));
-    }
-
     /** Verifies the observers of a refreshed context, before the scenario starts. */
-    static Result verify(GenericApplicationContext context, Recorder recorder, ScenarioModel model,
-            List<CallSite> callSites) {
+    static Result verify(GenericApplicationContext context, Recorder recorder, ScenarioModel model) {
         List<Check> checks = new ArrayList<>();
         List<String> gaps = new ArrayList<>(recorder.wrappingGaps());
         Set<String> observed = new TreeSet<>();
-        List<String> wrapped = new ArrayList<>();
-        List<Object> moduleBeans = new ArrayList<>();
-        for (String name : context.getBeanDefinitionNames()) {
-            Object bean = context.getBean(name);
-            Object target = target(bean, recorder);
-            List<Class<?>> api = recorder.apiInterfaces(target.getClass());
-            if (!api.isEmpty()) {
-                if (recorder.observes(bean)) {
-                    api.forEach(i -> observed.add(i.getName()));
-                    wrapped.add(name + " (" + String.join(", ", api.stream().map(Class::getSimpleName).toList()) + ")");
-                } else {
-                    gaps.add("bean '" + name + "' implements " + api.stream().map(Class::getName).toList()
-                            + ", but no observer wraps it");
-                }
-            }
-            if (model.moduleOf(target.getClass().getName()).isPresent()) {
-                moduleBeans.add(target);
-            }
-        }
-        checks.add(new Check("Beans that implement an api interface are wrapped by the call observer",
-                gaps.isEmpty(), wrapped.isEmpty() ? "none" : String.join("; ", wrapped)));
-
+        Map<String, Object> moduleBeans = new LinkedHashMap<>();
         int before = gaps.size();
-        int fields = 0;
-        for (Object bean : moduleBeans) {
-            fields += bypasses(bean, context, recorder, model, gaps);
-        }
-        checks.add(new Check("No field of a module's bean bypasses an observer", gaps.size() == before,
-                fields + " fields of " + moduleBeans.size() + " module beans read"));
+        List<String> wrapped = singletons(context, recorder, model, observed, moduleBeans, gaps);
+        checks.add(new Check("Every singleton that implements an api interface is wrapped by the call observer, and no "
+                + "module object is a singleton registered as an object", gaps.size() == before,
+                wrapped.isEmpty() ? "none" : String.join("; ", wrapped)));
+
+        Reachability.Result reached = new Reachability(model, recorder, context).walk(moduleBeans, List.of());
+        Census census = census(model, reached.moduleClasses(), gaps, checks);
+        walk(context, recorder, model, moduleBeans, census.scope(), gaps, checks, "before the run");
 
         context.publishEvent(new Recorder.Probe());
         boolean publications = recorder.probeSeen();
@@ -160,7 +123,7 @@ public final class Coverage {
                 publications, publications ? "observed" : "not observed"));
 
         before = gaps.size();
-        for (Object bean : moduleBeans) {
+        for (Object bean : moduleBeans.values()) {
             ReflectionUtils.doWithMethods(bean.getClass(), method -> {
                 if (AnnotatedElementUtils.hasAnnotation(method, EventListener.class)) {
                     gaps.add("listener " + bean.getClass().getName() + "#" + method.getName() + ": listener "
@@ -170,17 +133,72 @@ public final class Coverage {
         }
         checks.add(new Check("No module bean has an event listener that the recorder cannot observe",
                 gaps.size() == before, "listener methods are found by @EventListener and its meta-annotations"));
+        return new Result(census.sites(), checks, gaps, observed, publications);
+    }
 
-        List<CallSite> unwrappable = callSites.stream().filter(s -> s.category() == Category.NOT_INTERCEPTABLE)
-                .toList();
-        unwrappable.forEach(s -> gaps.add("call site " + s.location() + " uses " + s.target()
-                + ", which no proxy can intercept"));
-        long intercepted = callSites.stream().filter(s -> s.category() == Category.INTERCEPTED).count();
-        checks.add(new Check("Every cross-module call site in the main classes calls an api interface or uses a value",
-                unwrappable.isEmpty(), "call sites: " + callSites.size() + "; api interface calls: " + intercepted
-                        + "; value uses: " + (callSites.size() - intercepted - unwrappable.size())
-                        + "; not interceptable: " + unwrappable.size()));
-        return new Result(callSites, checks, gaps, observed, publications);
+    /**
+     * Verifies again after the run: the singletons, what the run can reach now, the census of any class that has
+     * become reachable, and the threads the run left behind.
+     */
+    static Result afterRun(Result before, GenericApplicationContext context, Recorder recorder, ScenarioModel model) {
+        List<Check> checks = new ArrayList<>();
+        List<String> gaps = new ArrayList<>();
+        Map<String, Object> moduleBeans = new LinkedHashMap<>();
+        singletons(context, recorder, model, new TreeSet<>(), moduleBeans, gaps);
+        Reachability.Result reached = new Reachability(model, recorder, context).walk(moduleBeans, List.of());
+        Census census = census(model, reached.moduleClasses(), gaps, new ArrayList<>());
+        walk(context, recorder, model, moduleBeans, census.scope(), gaps, checks, "after the run");
+        List<String> threads = recorder.threadsLeftRunning();
+        threads.forEach(t -> gaps.add("thread '" + t + "' started during the run and is still running: work it does "
+                + "after the recording ends would not be seen"));
+        checks.add(new Check("No thread that the run started outlives it", threads.isEmpty(),
+                threads.isEmpty() ? "none" : String.join(", ", threads)));
+        return before.with(checks, gaps);
+    }
+
+    private static List<String> singletons(GenericApplicationContext context, Recorder recorder, ScenarioModel model,
+            Set<String> observed, Map<String, Object> moduleBeans, List<String> gaps) {
+        DefaultListableBeanFactory factory = context.getDefaultListableBeanFactory();
+        List<String> wrapped = new ArrayList<>();
+        for (String name : factory.getSingletonNames()) {
+            Object bean = factory.getSingleton(name);
+            if (bean == null) {
+                continue;
+            }
+            Object target = target(bean, recorder);
+            List<Class<?>> api = recorder.apiInterfaces(target.getClass());
+            boolean moduleClass = model.moduleOf(Reachability.className(target.getClass())).isPresent();
+            if (!factory.containsBeanDefinition(name) && (moduleClass || !api.isEmpty())) {
+                gaps.add("singleton '" + name + "' was registered as an object, so no post-processor, and no observer, "
+                        + "saw it");
+            }
+            if (!api.isEmpty()) {
+                if (recorder.observes(bean)) {
+                    api.forEach(i -> observed.add(i.getName()));
+                    wrapped.add(name + " (" + String.join(", ", api.stream().map(Class::getSimpleName).toList()) + ")");
+                } else {
+                    gaps.add("bean '" + name + "' implements " + api.stream().map(Class::getName).toList()
+                            + ", but no observer wraps it");
+                }
+            }
+            if (moduleClass) {
+                moduleBeans.put(name, target);
+            }
+        }
+        return wrapped;
+    }
+
+    private static void walk(GenericApplicationContext context, Recorder recorder, ScenarioModel model,
+            Map<String, Object> moduleBeans, Set<String> scope, List<String> gaps, List<Check> checks, String when) {
+        List<String> loading = new ArrayList<>();
+        List<Class<?>> statics = Reachability.classes(scope, loading);
+        Reachability.Result walk = new Reachability(model, recorder, context).walk(moduleBeans, statics);
+        gaps.addAll(loading);
+        gaps.addAll(walk.gaps());
+        checks.add(new Check("Everything reachable from the module beans and from static fields, " + when + ", is a "
+                + "value, an object of its own module, an observer's proxy or the application context",
+                walk.gaps().isEmpty() && loading.isEmpty(), moduleBeans.size() + " module beans, "
+                        + statics.size() + " classes' static fields"));
     }
 
     private static Object target(Object bean, Recorder recorder) {
@@ -197,36 +215,186 @@ public final class Coverage {
         return bean;
     }
 
-    /** The bypasses held in one module bean's fields; returns how many fields were read. */
-    private static int bypasses(Object bean, GenericApplicationContext context, Recorder recorder,
-            ScenarioModel model, List<String> gaps) {
-        String owner = model.moduleOf(bean.getClass().getName()).orElseThrow();
-        int read = 0;
-        for (Class<?> type = bean.getClass(); type != null && type.getName().startsWith(model.root() + ".");
-                type = type.getSuperclass()) {
-            for (Field field : type.getDeclaredFields()) {
-                if (Modifier.isStatic(field.getModifiers())) {
-                    continue;
-                }
-                read++;
-                ReflectionUtils.makeAccessible(field);
-                Object value = ReflectionUtils.getField(field, bean);
-                if (value == null) {
-                    continue;
-                }
-                String where = type.getName() + "." + field.getName();
-                boolean otherModule = recorder.apiInterfaces(value.getClass()).stream()
-                        .anyMatch(i -> !model.apiModuleOf(i).orElseThrow().equals(owner));
-                if (otherModule && !recorder.observes(value)) {
-                    gaps.add("bypass: " + where + " holds an implementation of another module's api interface that "
-                            + "no observer wraps");
-                }
-                if (value instanceof ApplicationEventPublisher && !context.equals(value)) {
-                    gaps.add("bypass: " + where + " publishes through an event publisher that is not the application "
-                            + "context, so its publications never reach the publication observer");
+    private static synchronized JavaClasses imported(boolean mainClasses) {
+        if (main == null) {
+            main = ClassDirectories.read(ClassDirectories.main());
+            test = ClassDirectories.read(ClassDirectories.test());
+        }
+        return mainClasses ? main : test;
+    }
+
+    /**
+     * The census of the run: every main class of a module, and every test class of a module that the run reached or
+     * that such a class depends on, read from its class file.
+     */
+    private static Census census(ScenarioModel model, Set<String> reached, List<String> gaps, List<Check> checks) {
+        JavaClasses mainClasses = imported(true);
+        JavaClasses testClasses = imported(false);
+        Map<String, JavaClass> scope = new LinkedHashMap<>();
+        mainClasses.stream().filter(c -> model.moduleOf(c.getName()).isPresent()).forEach(c -> scope.put(c.getName(),
+                c));
+        List<String> todo = new ArrayList<>(reached);
+        int before = gaps.size();
+        while (!todo.isEmpty()) {
+            String name = todo.removeLast();
+            if (scope.containsKey(name)) {
+                continue;
+            }
+            Optional<JavaClass> found = testClasses.stream().filter(c -> c.getName().equals(name)).findFirst();
+            if (found.isEmpty()) {
+                gaps.add("class " + name + " takes part in the run, but no class file of it is in the main or test "
+                        + "class directories, so the census cannot read it");
+                continue;
+            }
+            scope.put(name, found.get());
+            for (Dependency dependency : found.get().getDirectDependenciesFromSelf()) {
+                String target = dependency.getTargetClass().getBaseComponentType().getName();
+                if (model.moduleOf(target).isPresent() && !scope.containsKey(target)) {
+                    todo.add(target);
                 }
             }
         }
-        return read;
+        boolean found = gaps.size() == before;
+        List<CallSite> sites = new ArrayList<>();
+        ValueTypes values = new ValueTypes();
+        for (JavaClass origin : scope.values()) {
+            String from = model.moduleOf(origin.getName()).orElseThrow();
+            for (JavaCodeUnitAccess<?> access : origin.getCodeUnitAccessesFromSelf()) {
+                forbidden(access.getTargetOwner().getName(), access.getName(), access.getOrigin(),
+                        access.getLineNumber(), gaps);
+                site(model, values, from, access).ifPresent(sites::add);
+            }
+            for (JavaFieldAccess access : origin.getFieldAccessesFromSelf()) {
+                forbidden(access.getTargetOwner().getName(), access.getName(), access.getOrigin(),
+                        access.getLineNumber(), gaps);
+                field(model, values, from, access).ifPresent(sites::add);
+            }
+            for (JavaCodeUnit unit : origin.getCodeUnits()) {
+                if (!unit.isConstructor()) {
+                    serviceParameters(model, values, from, unit, gaps);
+                }
+            }
+        }
+        sites.sort(Comparator.comparing(CallSite::from).thenComparing(CallSite::to).thenComparing(CallSite::target)
+                .thenComparing(CallSite::location));
+        List<CallSite> unwrappable = sites.stream().filter(s -> s.category() == Category.NOT_INTERCEPTABLE).toList();
+        unwrappable.forEach(s -> gaps.add("call site " + s.location() + " uses " + s.target()
+                + ", which no proxy can intercept"));
+        long intercepted = sites.stream().filter(s -> s.category() == Category.INTERCEPTED).count();
+        checks.add(new Check("The census reads every class of a module that the run uses", found,
+                scope.size() + " classes: " + mainClasses.stream().filter(c -> model.moduleOf(c.getName())
+                        .isPresent()).count() + " main, the rest from the test classes"));
+        checks.add(new Check("Every cross-module use calls an api interface method on values only, or uses a value, "
+                + "and nothing reaches behind a proxy", unwrappable.isEmpty() && gaps.size() == before,
+                "call sites: " + sites.size() + "; api interface calls: " + intercepted + "; value uses: "
+                        + (sites.size() - intercepted - unwrappable.size()) + "; not interceptable: "
+                        + unwrappable.size()));
+        return new Census(sites, scope.keySet());
+    }
+
+    /** The census's call sites, and the classes it read. */
+    private record Census(List<CallSite> sites, Set<String> scope) {
+
+        Census {
+            sites = List.copyOf(sites);
+            scope = Set.copyOf(scope);
+        }
+    }
+
+    private static void forbidden(String owner, String member, JavaCodeUnit origin, int line, List<String> gaps) {
+        if (FORBIDDEN.stream().anyMatch(owner::startsWith) && !PUBLISH.equals(owner + "#" + member)) {
+            gaps.add("call site " + origin.getFullName() + " (line " + line + ") uses " + owner + ", which could reach "
+                    + "an implementation behind its proxy");
+        }
+    }
+
+    private static Optional<CallSite> site(ScenarioModel model, ValueTypes values, String from,
+            JavaCodeUnitAccess<?> access) {
+        String owner = access.getTargetOwner().getName();
+        Optional<String> to = model.moduleOf(owner);
+        if (to.isEmpty() || to.get().equals(from)) {
+            return Optional.empty();
+        }
+        Category category = Category.NOT_INTERCEPTABLE;
+        Optional<Class<?>> type = load(owner);
+        if (type.isPresent() && model.apiModuleOf(type.get()).filter(to.get()::equals).isPresent()) {
+            String member = access.getName();
+            boolean constructor = "<init>".equals(member);
+            List<String> parameters = access.getTarget().getRawParameterTypes().stream().map(JavaClass::getName)
+                    .toList();
+            Optional<Method> method = method(type.get(), member, parameters);
+            if (values.valueOnly(type.get()) && valueUse(type.get(), member, constructor, parameters)) {
+                category = Category.VALUE;
+            } else if (type.get().isInterface() && !type.get().isSealed() && !constructor
+                    && method.filter(m -> !Modifier.isStatic(m.getModifiers())).filter(m -> values.valueOnly(
+                            m.getGenericReturnType()) && Arrays.stream(m.getGenericParameterTypes())
+                                    .allMatch(values::valueOnly)).isPresent()) {
+                category = Category.INTERCEPTED;
+            }
+        }
+        String location = access.getOrigin().getFullName() + " (" + access.getSourceCodeLocation().getSourceFileName()
+                + ":" + access.getLineNumber() + ")";
+        return Optional.of(new CallSite(from, to.get(), owner + "#" + access.getName(), category, location));
+    }
+
+    private static Optional<CallSite> field(ScenarioModel model, ValueTypes values, String from,
+            JavaFieldAccess access) {
+        String owner = access.getTargetOwner().getName();
+        Optional<String> to = model.moduleOf(owner);
+        if (to.isEmpty() || to.get().equals(from)) {
+            return Optional.empty();
+        }
+        Optional<Class<?>> type = load(owner);
+        boolean enumConstant = type.filter(Class::isEnum).filter(values::valueOnly)
+                .map(t -> Arrays.stream(t.getEnumConstants()).map(e -> ((Enum<?>) e).name())
+                        .anyMatch(access.getName()::equals)).orElse(false);
+        String location = access.getOrigin().getFullName() + " (" + access.getSourceCodeLocation().getSourceFileName()
+                + ":" + access.getLineNumber() + ")";
+        return Optional.of(new CallSite(from, to.get(), owner + "." + access.getName(),
+                enumConstant ? Category.VALUE : Category.NOT_INTERCEPTABLE, location));
+    }
+
+    /** A constructor, a record accessor, equals, hashCode, toString, an enum's built-ins, a throwable's methods. */
+    private static boolean valueUse(Class<?> type, String member, boolean constructor, List<String> parameters) {
+        if (constructor || VALUE_METHODS.contains(member)) {
+            return true;
+        }
+        if (type.isRecord() && parameters.isEmpty()) {
+            return Arrays.stream(type.getRecordComponents()).map(RecordComponent::getName).anyMatch(member::equals);
+        }
+        if (type.isEnum()) {
+            return ENUM_METHODS.contains(member);
+        }
+        return Throwable.class.isAssignableFrom(type) && Arrays.stream(Throwable.class.getMethods())
+                .map(Method::getName).anyMatch(member::equals);
+    }
+
+    /** The public method of the type with this name and these parameter types, resolved by reflection. */
+    private static Optional<Method> method(Class<?> type, String member, List<String> parameters) {
+        return Arrays.stream(type.getMethods()).filter(m -> m.getName().equals(member))
+                .filter(m -> Arrays.stream(m.getParameterTypes()).map(Class::getName).toList().equals(parameters))
+                .findFirst();
+    }
+
+    /** A method of a module that takes another module's api service: its receiver cannot be proven a proxy. */
+    private static void serviceParameters(ScenarioModel model, ValueTypes values, String from, JavaCodeUnit unit,
+            List<String> gaps) {
+        for (JavaClass parameter : unit.getRawParameterTypes()) {
+            Optional<Class<?>> type = load(parameter.getName());
+            boolean service = type.filter(t -> t.isInterface() && !values.valueOnly(t)).flatMap(model::apiModuleOf)
+                    .filter(m -> !m.equals(from)).isPresent();
+            if (service) {
+                gaps.add("method " + unit.getFullName() + " takes another module's api service as a parameter, so the "
+                        + "receiver of a call on it cannot be proven to be an observer's proxy");
+            }
+        }
+    }
+
+    private static Optional<Class<?>> load(String name) {
+        try {
+            return Optional.of(Class.forName(name, false, Coverage.class.getClassLoader()));
+        } catch (ClassNotFoundException | LinkageError e) {
+            return Optional.empty();
+        }
     }
 }

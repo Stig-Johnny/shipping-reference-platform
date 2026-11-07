@@ -94,9 +94,11 @@ tasks.test {
     inputs.dir(rootDir.resolve("docs/architecture")).withPathSensitivity(PathSensitivity.RELATIVE)
         .withPropertyName("viewPages")
     val mainClassDirectories: FileCollection = sourceSets.main.get().output.classesDirs
+    val testClassDirectories: FileCollection = sourceSets.test.get().output.classesDirs
     val scenarioRevision = revision
     jvmArgumentProviders.add(CommandLineArgumentProvider {
         listOf("-Dshipping.mainClassDirectories=" + mainClassDirectories.files.joinToString(File.pathSeparator),
+            "-Dshipping.testClassDirectories=" + testClassDirectories.files.joinToString(File.pathSeparator),
             "-Dshipping.revision=" + scenarioRevision.get())
     })
 }

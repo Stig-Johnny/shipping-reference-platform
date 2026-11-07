@@ -25,11 +25,27 @@ public final class ClassDirectories {
     private ClassDirectories() {
     }
 
+    /**
+     * Set for the test task by apps/shipping-api/build.gradle.kts: the test source set's class-output directories, which
+     * the scenario checks' census reads for the test classes that take part in a run.
+     */
+    static final String TEST = "shipping.testClassDirectories";
+
     /** Every class-output directory of the API's main source set, as Gradle passes them to the test task. */
     public static List<Path> main() {
-        String directories = System.getProperty(MAIN, "");
+        return directories(MAIN);
+    }
+
+    /** Every class-output directory of the API's test source set, as Gradle passes them to the test task. */
+    public static List<Path> test() {
+        return directories(TEST);
+    }
+
+    private static List<Path> directories(String property) {
+        String directories = System.getProperty(property, "");
         if (directories.isBlank()) {
-            throw new IllegalStateException("The system property " + MAIN + " is not set: run the tests with Gradle.");
+            throw new IllegalStateException("The system property " + property + " is not set: run the tests with "
+                    + "Gradle.");
         }
         return Stream.of(directories.split(Pattern.quote(File.pathSeparator), -1)).map(Path::of).toList();
     }

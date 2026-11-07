@@ -115,11 +115,18 @@ public final class Comparison {
 
         Map<String, List<String>> observed = new LinkedHashMap<>();
         Map<Integer, String> matched = new LinkedHashMap<>();
+        Set<String> stimulusThreads = new LinkedHashSet<>();
+        stimuli.forEach(s -> stimulusThreads.add(s.thread()));
         for (Interaction interaction : interactions) {
             if (interaction.kind() == Seen.UNATTRIBUTED) {
                 findings.add(new Finding(FindingType.COVERAGE_GAP, interaction.run(), "", interaction.seq(),
                         "the caller of " + interaction.operation() + " (" + interaction.caller() + ") maps to no "
                                 + "module"));
+            } else if (COMPARED.contains(interaction.kind()) && interaction.run().isEmpty()
+                    && !stimulusThreads.contains(interaction.thread())) {
+                findings.add(new Finding(FindingType.COVERAGE_GAP, "", "", interaction.seq(), describe(interaction)
+                        + " ran on thread " + interaction.thread() + ", which ran no stimulus: asynchronous work is "
+                        + "not observed, so it cannot be compared"));
             } else if (COMPARED.contains(interaction.kind()) && interaction.run().isEmpty()) {
                 findings.add(new Finding(FindingType.UNEXPECTED_INTERACTION, "", "", interaction.seq(),
                         describe(interaction) + " happened outside every stimulus"));

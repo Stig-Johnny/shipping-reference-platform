@@ -70,22 +70,32 @@ public final class ScenarioRun implements AutoCloseable {
     private final Sidecar sidecar;
     private final Recorder recorder;
     private final AnnotationConfigApplicationContext context;
+    private final Path sidecarFile;
     private final Coverage.Result coverage;
     private final Map<String, Runnable> checks = new LinkedHashMap<>();
     private final List<Throwable> failures = new ArrayList<>();
     private Result result;
+    private List<Outcome> outcomes = List.of();
+    private Coverage.Result finalCoverage;
+    private boolean closed;
 
-    private ScenarioRun(String view, String reportName, TestInfo test, Observers observers,
-            Class<?>... configurations) {
+    private ScenarioRun(String view, String reportName, Path sidecarFile, String sidecarDisplay, TestInfo test,
+            Observers observers, Class<?>... configurations) {
         this.reportName = reportName;
         this.test = test;
         this.observers = observers;
+        this.sidecarFile = sidecarFile;
         Report kit = Conformance.check(REPOSITORY.resolve(MODEL), ClassDirectories.main());
         this.model = ScenarioModel.read(REPOSITORY.resolve(MODEL), kit);
-        String sidecarPath = SIDECARS + Sidecar.fileName(view);
-        this.sidecar = Sidecar.read(REPOSITORY.resolve(sidecarPath), sidecarPath, model);
+        this.sidecar = Sidecar.read(sidecarFile, sidecarDisplay, model);
+        if (!sidecar.view().equals(view)) {
+            throw new IllegalArgumentException(sidecarDisplay + " is the sidecar of " + sidecar.view() + ", not of "
+                    + view);
+        }
         this.recorder = new Recorder(model, observers.ignoredApis(), observers.publications());
         this.context = new AnnotationConfigApplicationContext();
+        // No early, unwrapped reference to a bean can be injected anywhere: a cycle fails the refresh instead.
+        context.setAllowCircularReferences(false);
         context.getBeanFactory().addBeanPostProcessor(recorder.observers());
         Supplier<ApplicationEventMulticaster> multicaster = SimpleApplicationEventMulticaster::new;
         context.registerBean(AbstractApplicationContext.APPLICATION_EVENT_MULTICASTER_BEAN_NAME,
@@ -93,8 +103,7 @@ public final class ScenarioRun implements AutoCloseable {
         context.register(configurations);
         try {
             context.refresh();
-            this.coverage = Coverage.verify(context, recorder, model, Coverage.callSites(model,
-                    ClassDirectories.main()));
+            this.coverage = Coverage.verify(context, recorder, model);
         } catch (RuntimeException e) {
             context.close();
             throw e;
@@ -104,14 +113,28 @@ public final class ScenarioRun implements AutoCloseable {
 
     /** Starts the scenario of a dynamic view; its reports are build/reports/scenarios/{@code <view slug>}. */
     public static ScenarioRun start(String view, TestInfo test, Observers observers, Class<?>... configurations) {
-        return new ScenarioRun(view, Sidecar.fileName(view).replaceFirst("\\.json$", ""), test, observers,
-                configurations);
+        String sidecar = SIDECARS + Sidecar.fileName(view);
+        return new ScenarioRun(view, Sidecar.fileName(view).replaceFirst("\\.json$", ""), REPOSITORY.resolve(sidecar),
+                sidecar, test, observers, configurations);
     }
 
     /** Starts a negative fixture's run; its reports are build/reports/scenarios/fixtures/{@code <name>}. */
     public static ScenarioRun fixture(String view, String name, TestInfo test, Observers observers,
             Class<?>... configurations) {
-        return new ScenarioRun(view, "fixtures/" + name, test, observers, configurations);
+        String sidecar = SIDECARS + Sidecar.fileName(view);
+        return new ScenarioRun(view, "fixtures/" + name, REPOSITORY.resolve(sidecar), sidecar, test, observers,
+                configurations);
+    }
+
+    /**
+     * Starts a negative fixture's run against a sidecar of its own, which differs from the view's in one declaration,
+     * from the directory given (relative to apps/shipping-api).
+     */
+    public static ScenarioRun fixtureWithSidecar(String view, String name, Path sidecarDirectory, TestInfo test,
+            Observers observers, Class<?>... configurations) {
+        Path sidecar = sidecarDirectory.resolve(Sidecar.fileName(view));
+        return new ScenarioRun(view, "fixtures/" + name, sidecar, "apps/shipping-api/" + sidecar.toString()
+                .replace('\\', '/'), test, observers, configurations);
     }
 
     /** A bean of the run's context, as the modules see it: an observed bean is the observer's proxy. */
@@ -153,35 +176,43 @@ public final class ScenarioRun implements AutoCloseable {
         }
     }
 
-    /** Ends the recording, compares, evaluates the outcomes and writes the reports. */
+    /**
+     * Ends the recording, verifies the coverage again, evaluates the outcomes, compares and writes the reports. The
+     * outcome assertions run after the recording, and are not recorded; any other interaction from now on is late.
+     */
     public Result finish() {
         if (result != null) {
             return result;
         }
         recorder.end();
-        List<Recorder.Interaction> interactions = recorder.interactions();
-        List<Recorder.Stimulus> stimuli = recorder.stimuli();
-        Comparison.Result comparison = Comparison.compare(sidecar, model, observers, coverage, stimuli,
-                interactions);
-        List<Outcome> outcomes = new ArrayList<>();
+        finalCoverage = Coverage.afterRun(coverage, context, recorder, model);
+        List<Outcome> held = new ArrayList<>();
         checks.forEach((description, check) -> {
             try {
                 check.run();
-                outcomes.add(new Outcome(description, true));
+                held.add(new Outcome(description, true));
             } catch (AssertionError | RuntimeException e) {
                 failures.add(e);
-                outcomes.add(new Outcome(description, false));
+                held.add(new Outcome(description, false));
             }
         });
-        String sidecarPath = SIDECARS + Sidecar.fileName(sidecar.view());
-        Provenance provenance = new Provenance(revision(), MODEL, sha256(REPOSITORY.resolve(MODEL)), sidecarPath,
-                sha256(REPOSITORY.resolve(sidecarPath)), mainClassesSha256());
+        recorder.done();
+        outcomes = List.copyOf(held);
+        result = report(finalCoverage);
+        return result;
+    }
+
+    private Result report(Coverage.Result verified) {
+        List<Recorder.Interaction> interactions = recorder.interactions();
+        List<Recorder.Stimulus> stimuli = recorder.stimuli();
+        Comparison.Result comparison = Comparison.compare(sidecar, model, observers, verified, stimuli, interactions);
+        Provenance provenance = new Provenance(revision(), MODEL, sha256(REPOSITORY.resolve(MODEL)), sidecar.path(),
+                sha256(sidecarFile), mainClassesSha256());
         ScenarioReport report = new ScenarioReport(sidecar, title(), test.getTestClass().map(Class::getName)
-                .orElse(""), test.getTestMethod().map(Method::getName).orElse(""), provenance, observers, coverage,
+                .orElse(""), test.getTestMethod().map(Method::getName).orElse(""), provenance, observers, verified,
                 stimuli, interactions, comparison, outcomes);
         Path markdown = report.write(REPORTS, reportName);
-        result = new Result(comparison, outcomes, interactions, markdown, report.verdict());
-        return result;
+        return new Result(comparison, outcomes, interactions, markdown, report.verdict());
     }
 
     /** {@link #finish()}, then fails unless the run conforms and every outcome held. */
@@ -201,9 +232,32 @@ public final class ScenarioRun implements AutoCloseable {
         }
     }
 
+    /**
+     * Closes the context. An interaction after the recording ended, other than the outcome assertions' own, is
+     * asynchronous work the comparison could not see: the reports are written again with it as a coverage gap, and
+     * closing fails.
+     */
     @Override
     public void close() {
+        if (closed) {
+            return;
+        }
+        closed = true;
         context.close();
+        List<String> late = recorder.late();
+        if (!late.isEmpty() && result != null) {
+            List<String> gaps = late.stream().map(l -> "after the recording ended, " + l + " ran: asynchronous work "
+                    + "is not observed, so this run's comparison is incomplete").toList();
+            result = report(finalCoverage.with(List.of(new Coverage.Check("No interaction happens after the "
+                    + "recording ends", false, late.size() + " late")), gaps));
+            throw new AssertionError("Scenario " + sidecar.view() + ": " + late.size() + " interactions happened "
+                    + "after the recording ended (report: " + result.markdown() + "):\n  " + String.join("\n  ", late));
+        }
+    }
+
+    /** The run's result, as {@link #finish()} or a failing {@link #close()} last wrote it. */
+    public Result result() {
+        return finish();
     }
 
     /** The view's title: the first sentence of its description, as the docs tool titles it. */

@@ -9,16 +9,15 @@ import io.github.stigjohnny.shipping.quotes.internal.domain.IdGenerator;
 import io.github.stigjohnny.shipping.quotes.internal.domain.QuoteFixtures;
 import io.github.stigjohnny.shipping.shipments.internal.application.BookShipment;
 import io.github.stigjohnny.shipping.shipments.internal.application.InMemoryShipmentStore;
+import io.github.stigjohnny.shipping.shipments.internal.application.InMemoryTrackingNumbers;
 import io.github.stigjohnny.shipping.shipments.internal.application.ShipmentStore;
 import io.github.stigjohnny.shipping.shipments.internal.application.TrackingNumbers;
 import io.github.stigjohnny.shipping.shipments.internal.domain.ShipmentFixtures;
-import io.github.stigjohnny.shipping.shipments.internal.domain.TrackingNumber;
 import io.github.stigjohnny.shipping.tenants.api.CurrentTenant;
 import io.github.stigjohnny.shipping.tenants.internal.application.ThreadTenantContext;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -78,8 +77,7 @@ final class InProcessModules {
 
         @Bean
         TrackingNumbers trackingNumbers() {
-            AtomicLong taken = new AtomicLong();
-            return () -> new TrackingNumber("SIM%010d".formatted(taken.incrementAndGet()));
+            return new InMemoryTrackingNumbers();
         }
 
         @Bean

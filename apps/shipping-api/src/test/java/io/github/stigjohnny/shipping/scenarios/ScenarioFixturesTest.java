@@ -6,14 +6,12 @@ import static io.github.stigjohnny.shipping.quotes.internal.domain.QuoteFixtures
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
-import io.github.stigjohnny.shipping.quotes.api.QuoteId;
 import io.github.stigjohnny.shipping.quotes.api.QuoteOffers;
 import io.github.stigjohnny.shipping.quotes.internal.application.CreateQuote;
-import io.github.stigjohnny.shipping.quotes.internal.application.InMemoryQuoteStore;
+import io.github.stigjohnny.shipping.quotes.internal.application.GatedQuoteStore;
 import io.github.stigjohnny.shipping.quotes.internal.application.QuoteStore;
 import io.github.stigjohnny.shipping.quotes.internal.application.ScenarioAlterations;
 import io.github.stigjohnny.shipping.quotes.internal.domain.IdGenerator;
-import io.github.stigjohnny.shipping.quotes.internal.domain.Quote;
 import io.github.stigjohnny.shipping.quotes.internal.domain.QuoteResult;
 import io.github.stigjohnny.shipping.scenarios.support.Comparison.Finding;
 import io.github.stigjohnny.shipping.scenarios.support.Comparison.FindingType;
@@ -26,8 +24,6 @@ import io.github.stigjohnny.shipping.tenants.internal.application.ThreadTenantCo
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -122,9 +118,9 @@ class ScenarioFixturesTest {
                     tuple("resolve-tenant", "no observed bean implements "
                             + "io.github.stigjohnny.shipping.tenants.api.CurrentTenant in this run, so its calls "
                             + "cannot be seen"),
-                    tuple("", "bypass: io.github.stigjohnny.shipping.quotes.internal.application.CreateQuote"
-                            + ".currentTenant holds an implementation of another module's api interface that no "
-                            + "observer wraps"));
+                    tuple("", "bypass: bean 'createQuote' -> currentTenant reaches "
+                            + "io.github.stigjohnny.shipping.tenants.internal.application.ThreadTenantContext, an "
+                            + "object of module tenants that no observer wraps"));
         }
     }
 
@@ -151,13 +147,13 @@ class ScenarioFixturesTest {
         try (ScenarioRun run = ScenarioRun.fixture("ScenarioQuote", "interleaved-runs", test, Observers.inProcess(),
                 InProcessModules.Core.class, GatedStoreConfiguration.class, InProcessModules.Quotes.class);
                 ExecutorService threads = Executors.newFixedThreadPool(2)) {
-            GatedStore store = (GatedStore) run.bean(QuoteStore.class);
+            GatedQuoteStore store = (GatedQuoteStore) run.bean(QuoteStore.class);
 
             Future<QuoteResult> alpha = threads.submit(() -> quoteFor(run, ALPHA, "alpha"));
-            assertThat(store.alphaWaits.await(WAIT_SECONDS, TimeUnit.SECONDS)).as("Alpha reached the gate").isTrue();
+            assertThat(store.awaitWaiting()).as("Alpha reached the gate").isTrue();
             Future<QuoteResult> beta = threads.submit(() -> quoteFor(run, BETA, "beta"));
             QuoteResult betas = beta.get(WAIT_SECONDS, TimeUnit.SECONDS);
-            store.open.countDown();
+            store.open();
             QuoteResult alphas = alpha.get(WAIT_SECONDS, TimeUnit.SECONDS);
             QuoteOutcomes.issuedFor(run, "Tenant Alpha's quote", alphas, ALPHA, BETA);
             QuoteOutcomes.issuedFor(run, "Tenant Beta's quote", betas, BETA, ALPHA);
@@ -245,40 +241,7 @@ class ScenarioFixturesTest {
 
         @Bean
         QuoteStore quoteStore() {
-            return new GatedStore();
-        }
-    }
-
-    /** Tenant Alpha's insert waits at the gate until the test opens it; Tenant Beta's passes. */
-    static final class GatedStore implements QuoteStore {
-
-        final CountDownLatch alphaWaits = new CountDownLatch(1);
-        final CountDownLatch open = new CountDownLatch(1);
-        private final InMemoryQuoteStore quotes = new InMemoryQuoteStore();
-
-        @Override
-        public void insert(Quote quote) {
-            if (quote.tenantId().equals(ALPHA)) {
-                alphaWaits.countDown();
-                try {
-                    if (!open.await(WAIT_SECONDS, TimeUnit.SECONDS)) {
-                        throw new IllegalStateException("the gate was not opened");
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new IllegalStateException(e);
-                }
-            }
-            synchronized (quotes) {
-                quotes.insert(quote);
-            }
-        }
-
-        @Override
-        public Optional<Quote> find(TenantId tenant, QuoteId quote) {
-            synchronized (quotes) {
-                return quotes.find(tenant, quote);
-            }
+            return new GatedQuoteStore(ALPHA);
         }
     }
 }

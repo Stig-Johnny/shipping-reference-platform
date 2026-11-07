@@ -204,7 +204,7 @@ public final class ScenarioReport {
         coverage.checks().forEach(c -> out.append("- ").append(c.passed() ? "Passed" : "FAILED").append(": ")
                 .append(c.name()).append(" (").append(c.detail()).append(")\n"));
         coverage.gaps().forEach(g -> out.append("- Gap: ").append(g).append('\n'));
-        out.append("\nCross-module call sites in the main classes:\n\n");
+        out.append("\nCross-module uses in the classes of the run:\n\n");
         if (coverage.callSites().isEmpty()) {
             out.append("- none\n");
         }

@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
@@ -74,8 +75,17 @@ public final class Recorder {
     private final Map<Thread, String> threads = new HashMap<>();
     private final ThreadLocal<String> run = new ThreadLocal<>();
     private final ThreadLocal<Deque<Integer>> open = ThreadLocal.withInitial(ArrayDeque::new);
-    private volatile boolean recording;
+    private final List<String> late = new ArrayList<>();
+    private final Set<Thread> stimulusThreads = ConcurrentHashMap.newKeySet();
+    private Set<Thread> threadsAtStart = Set.of();
+    private volatile State state = State.PREPARING;
+    private volatile Thread outcomeThread;
     private volatile boolean probeSeen;
+
+    /** Where a run is: preparing, recording, evaluating its outcomes (on one thread), or done. */
+    private enum State {
+        PREPARING, RECORDING, OUTCOMES, DONE
+    }
 
     /**
      * A recorder for one run.
@@ -150,15 +160,46 @@ public final class Recorder {
     }
 
     void begin() {
-        recording = true;
+        threadsAtStart = Set.copyOf(Thread.getAllStackTraces().keySet());
+        state = State.RECORDING;
     }
 
+    /** Ends the recording; the outcomes are evaluated next, on the calling thread, and are not recorded. */
     void end() {
-        recording = false;
+        outcomeThread = Thread.currentThread();
+        state = State.OUTCOMES;
+    }
+
+    /** After the outcomes: from now on every interaction is late. */
+    void done() {
+        state = State.DONE;
+    }
+
+    /** Interactions after the recording ended, other than the outcome assertions' own: asynchronous work. */
+    synchronized List<String> late() {
+        return List.copyOf(late);
+    }
+
+    /** Threads that started during the run, ran no stimulus and are still alive; JDK system threads aside. */
+    List<String> threadsLeftRunning() {
+        ThreadGroup system = systemGroup();
+        return Thread.getAllStackTraces().keySet().stream()
+                .filter(t -> t.isAlive() && !threadsAtStart.contains(t) && !stimulusThreads.contains(t))
+                .filter(t -> t.getThreadGroup() != null && !t.getThreadGroup().equals(system))
+                .map(Thread::getName).sorted().toList();
+    }
+
+    private static ThreadGroup systemGroup() {
+        ThreadGroup group = Thread.currentThread().getThreadGroup();
+        while (group != null && group.getParent() != null) {
+            group = group.getParent();
+        }
+        return group;
     }
 
     /** Runs a stimulus of the scenario under its run name, on the calling thread. */
     <T> T stimulus(String name, String description, Supplier<T> work) {
+        stimulusThreads.add(Thread.currentThread());
         String previous = run.get();
         int after = last();
         run.set(name);
@@ -191,7 +232,7 @@ public final class Recorder {
     private Object call(MethodInvocation invocation) throws Throwable {
         Method method = invocation.getMethod();
         Optional<String> callee = model.apiModuleOf(method.getDeclaringClass());
-        if (!recording || callee.isEmpty()) {
+        if (callee.isEmpty() || !recordable(method.getDeclaringClass().getName() + "#" + method.getName())) {
             return invocation.proceed();
         }
         Optional<Integer> seq = record(Seen.MODULE_API_CALL, callee.get(),
@@ -213,11 +254,30 @@ public final class Recorder {
             Object payload = event instanceof PayloadApplicationEvent<?> published ? published.getPayload() : event;
             if (payload instanceof Probe) {
                 probeSeen = true;
-            } else if (recording && payload != null && model.apiModuleOf(payload.getClass()).isPresent()) {
+            } else if (payload != null && model.apiModuleOf(payload.getClass()).isPresent()
+                    && recordable(payload.getClass().getName())) {
                 record(Seen.EVENT_PUBLICATION, "", payload.getClass().getName());
             }
         }
         return invocation.proceed();
+    }
+
+    /**
+     * Whether an interaction is recorded now: during the recording, yes; before it, no; after it, no, but it is kept
+     * as late unless it is an outcome assertion's own, on the thread that evaluates the outcomes.
+     */
+    private boolean recordable(String operation) {
+        State now = state;
+        if (now == State.RECORDING) {
+            return true;
+        }
+        boolean outcome = now == State.OUTCOMES && Thread.currentThread().equals(outcomeThread);
+        if (now != State.PREPARING && !outcome) {
+            synchronized (this) {
+                late.add(operation + " on thread '" + Thread.currentThread().getName() + "'");
+            }
+        }
+        return false;
     }
 
     /** Records one interaction with its caller; empty when the caller is in the callee's own module. */

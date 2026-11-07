@@ -12,18 +12,25 @@ import io.github.stigjohnny.shipping.quotes.internal.domain.QuoteResult;
 import io.github.stigjohnny.shipping.quotes.internal.domain.Rating;
 import io.github.stigjohnny.shipping.quotes.internal.domain.SyntheticTariff;
 import io.github.stigjohnny.shipping.tenants.api.CurrentTenant;
+import io.github.stigjohnny.shipping.tenants.api.TenantBadge;
 import io.github.stigjohnny.shipping.tenants.api.TenantId;
+import io.github.stigjohnny.shipping.tenants.internal.application.ThreadTenantContext;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * Altered implementations of the quotes module, for the negative fixtures of the scenario checks
  * (ScenarioFixturesTest). Each is the real class with one interaction changed, and keeps the real one's outcome for
- * the fixture's tenant, so that the outcome assertions still pass; the static architecture check passes too, since
- * quotes still depends on tenants only through tenants.api. They live in the quotes package because the recorder
- * attributes a caller to a module by its package.
+ * the fixture's tenant, so that the outcome assertions still pass. The first three change what crosses the boundary;
+ * the others reach the tenants module around the observers, which coverage verification must find. They live in the
+ * quotes package because the recorder attributes a caller to a module by its package, and the census reads them as the
+ * module's code.
  */
 public final class ScenarioAlterations {
 
@@ -113,6 +120,150 @@ public final class ScenarioAlterations {
         public OfferLookup findOffer(TenantId tenant, QuoteId quote, OfferId offer, Instant at) {
             TenantId bound = currentTenant.require();
             return offers.findOffer(bound.equals(tenant) ? tenant : bound, quote, offer, at);
+        }
+    }
+
+    /**
+     * CreateQuote that also calls a Supplier holding the tenants module's implementation unwrapped, captured before
+     * any proxy existed: the review's probe. The extra call never reaches an observer; the walk must find the
+     * reference.
+     */
+    public static final class CapturedTenantQuote extends CreateQuote {
+
+        private final Supplier<TenantId> captured;
+
+        public CapturedTenantQuote(Clock clock, IdGenerator ids, CurrentTenant currentTenant,
+                ApplicationEventPublisher events, QuoteStore store, CurrentTenant unwrapped) {
+            super(clock, ids, currentTenant, events, store);
+            this.captured = unwrapped::require;
+        }
+
+        @Override
+        public QuoteResult handle(QuoteRequest request) {
+            Objects.requireNonNull(captured.get(), "tenant");
+            return super.handle(request);
+        }
+    }
+
+    /** A holder that keeps a reference one level down. */
+    public record TenantHolder(CurrentTenant tenant) {
+    }
+
+    /** CreateQuote that also calls the tenants module through a reference nested in a holder. */
+    public static final class NestedTenantQuote extends CreateQuote {
+
+        private final TenantHolder holder;
+
+        public NestedTenantQuote(Clock clock, IdGenerator ids, CurrentTenant currentTenant,
+                ApplicationEventPublisher events, QuoteStore store, TenantHolder holder) {
+            super(clock, ids, currentTenant, events, store);
+            this.holder = holder;
+        }
+
+        @Override
+        public QuoteResult handle(QuoteRequest request) {
+            holder.tenant().require();
+            return super.handle(request);
+        }
+    }
+
+    /** CreateQuote that also calls the tenants module through a reference kept in a static field. */
+    public static final class StaticTenantQuote extends CreateQuote {
+
+        private static volatile @Nullable CurrentTenant held;
+
+        public StaticTenantQuote(Clock clock, IdGenerator ids, CurrentTenant currentTenant,
+                ApplicationEventPublisher events, QuoteStore store) {
+            super(clock, ids, currentTenant, events, store);
+        }
+
+        /** Keeps the reference that handle uses; null forgets it. */
+        public static void hold(@Nullable CurrentTenant tenant) {
+            held = tenant;
+        }
+
+        @Override
+        public QuoteResult handle(QuoteRequest request) {
+            Objects.requireNonNull(held, "held").require();
+            return super.handle(request);
+        }
+    }
+
+    /**
+     * CreateQuote that starts a thread which asks the tenants module for the current tenant once it is released, after
+     * the scenario's recording has ended: asynchronous work.
+     */
+    public static final class LateTenantQuote extends CreateQuote {
+
+        /** The name of the thread it starts. */
+        public static final String THREAD = "late-tenant-lookup";
+
+        private final CurrentTenant tenant;
+        private final CountDownLatch release = new CountDownLatch(1);
+
+        public LateTenantQuote(Clock clock, IdGenerator ids, CurrentTenant currentTenant,
+                ApplicationEventPublisher events, QuoteStore store) {
+            super(clock, ids, currentTenant, events, store);
+            this.tenant = currentTenant;
+        }
+
+        /** Lets the thread make its call. */
+        public void release() {
+            release.countDown();
+        }
+
+        @Override
+        public QuoteResult handle(QuoteRequest request) {
+            Thread.ofPlatform().name(THREAD).start(this::lookUpLater);
+            return super.handle(request);
+        }
+
+        private void lookUpLater() {
+            try {
+                if (release.await(10, TimeUnit.SECONDS)) {
+                    tenant.require();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (RuntimeException e) {
+                // No tenant is bound on this thread; the call has been made, which is what the fixture needs.
+            }
+        }
+    }
+
+    /**
+     * QuoteOffers that binds the tenant itself through the tenants module's internal class, which it creates: a test
+     * implementation whose own use of another module no proxy can intercept. The census reads it.
+     */
+    public static final class OffersThatBindTheTenantThemselves implements QuoteOffers {
+
+        private final QuoteOffersService offers;
+
+        public OffersThatBindTheTenantThemselves(QuoteStore store) {
+            this.offers = new QuoteOffersService(store);
+        }
+
+        @Override
+        public OfferLookup findOffer(TenantId tenant, QuoteId quote, OfferId offer, Instant at) {
+            return new ThreadTenantContext().callAs(tenant, () -> offers.findOffer(tenant, quote, offer, at));
+        }
+    }
+
+    /** CreateQuote that also calls behaviour on a value of the tenants module's api: not a value use. */
+    public static final class BadgeQuote extends CreateQuote {
+
+        public BadgeQuote(Clock clock, IdGenerator ids, CurrentTenant currentTenant, ApplicationEventPublisher events,
+                QuoteStore store) {
+            super(clock, ids, currentTenant, events, store);
+        }
+
+        @Override
+        public QuoteResult handle(QuoteRequest request) {
+            QuoteResult result = super.handle(request);
+            if (result instanceof QuoteResult.Offered(Quote quote)) {
+                Objects.requireNonNull(new TenantBadge(quote.tenantId()).describe(), "badge");
+            }
+            return result;
         }
     }
 }
