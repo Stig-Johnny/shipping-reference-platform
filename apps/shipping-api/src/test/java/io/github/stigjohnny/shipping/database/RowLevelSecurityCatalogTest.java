@@ -71,11 +71,12 @@ class RowLevelSecurityCatalogTest {
             assertThat(Jdbc.strings(catalog, TABLES_IN_APPLICATION_SCHEMAS + " order by 1"))
                     .containsExactlyElementsOf(Stream.concat(TENANT_TABLES.stream(), IDENTITY_TABLES.stream()).sorted()
                             .toList());
-            // A tenant_id column marks a tenant-owned table; membership, an identity table, is the only other one.
+            // A tenant_id column marks a tenant-owned table; the identity tables tenant and membership are the only
+            // others that have one.
             assertThat(Jdbc.strings(catalog, TABLES_IN_APPLICATION_SCHEMAS + """
                     and exists (select from pg_attribute a where a.attrelid = c.oid and a.attname = 'tenant_id'
                         and not a.attisdropped) order by 1""")).containsExactly("quotes.quote", "quotes.quote_offer",
-                    "tenants.membership", "tenants.prototype_flag");
+                    "tenants.membership", "tenants.prototype_flag", "tenants.tenant");
             for (String table : TENANT_TABLES) {
                 assertThat(Jdbc.strings(catalog, """
                         select a.attname from pg_index i join pg_attribute a on a.attrelid = i.indrelid

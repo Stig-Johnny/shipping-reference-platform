@@ -31,7 +31,7 @@ class RowLevelSecurityIntegrationTest {
 
     private static final String QUOTES = "select quote_id::text from quotes.quote order by 1";
     private static final String OFFERS = "select offer_id::text from quotes.quote_offer order by 1";
-    private static final String FLAGS = "select tenant_id || ' ' || flag_key || ' ' || enabled"
+    private static final String FLAGS = "select tenant_id::text || ' ' || flag_key || ' ' || enabled::text"
             + " from tenants.prototype_flag order by 1";
     private static final String REFUSED = "42501 ERROR: new row violates row-level security policy for table ";
     private static final String NEW_QUOTE = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa9";
