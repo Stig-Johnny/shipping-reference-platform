@@ -142,6 +142,13 @@ closes it.
   parsing assembles for an empty group (for example with a `$` group separator) stays in the parser's own table:
   no element carries it, so it is not checked and cannot reach a report.
 
+- **Dependabot sees the workflows' Actions, not the Gradle dependencies.** GitHub's dependency graph lists only what
+  it can read without running the build: the pinned Actions. Gradle dependencies would need a dependency-submission
+  step, which is not set up, because an automatic submission build would run the build outside the reviewed
+  toolchain. So Dependabot alerts cover the Actions only. The Gradle dependencies are covered by the reviews recorded
+  in the allowlist, each of which checked the known advisories when it was written; nothing re-checks them
+  continuously yet.
+
 ## 6. Tests and quality gates
 
 - Contract conformance covers only the responses that tests exercise. Not enforced yet: a check that every
