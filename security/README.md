@@ -47,8 +47,10 @@ requests then made `preflight` fail on purpose and were closed unmerged:
 | #16 | Added the line `com.example:unreviewed-library:1.0.0=runtimeClasspath` to `tools/docs/gradle.lockfile`. | Exit 1 (findings), with the finding `com.example:unreviewed-library 1.0.0 (in tools/docs/gradle.lockfile) has no review on the allowlist`. | `preflight` failed with exit 1. |
 | #17 | Replaced `security/allowlist.json` with the text `{ this is not JSON`. | Exit 2 (could not complete): `## Dependency allowlist: could not complete`, then `java.lang.IllegalArgumentException: JSON expected '"' at offset 2`. | `preflight` failed with exit 2. |
 
-The expected column is the checker's own output. `tools/policy/PolicyCheck.java` was unchanged from those runs to
-2026-11-07, so both can be replayed in a clone, the missing `pipefail` too; `git checkout` undoes each change:
+The expected column is the checker's own output at the time. Both can be replayed in a clone, the missing `pipefail`
+too, with the same exit codes; `git checkout` undoes each change. Since pull request #44 the checker names the place
+of a parse error instead of quoting the parser, so replaying #17 prints `security/allowlist.json:1:3: JSON expected '"'`
+after the heading:
 
 ```bash
 echo 'com.example:unreviewed-library:1.0.0=runtimeClasspath' >> tools/docs/gradle.lockfile
@@ -71,8 +73,11 @@ pull requests. Until the agents have their own identity (ADR 0008), the owner's 
 acceptance recorded in `allowlist.json`.
 
 Run the checker yourself with the JDK alone: `java tools/policy/PolicyCheck.java .` (exit 0 = clean, 1 = findings,
-2 = it could not complete). `--report-only` prints the findings and exits 0. `--print-digest` prints the digest that an
-acceptance must record (see [Acceptance](#acceptance)).
+2 = it could not complete). It reads only regular files inside the tree it checks, and refuses a tree that holds a
+symbolic link anywhere (exit 2). `--report-only` prints the findings and exits 0. `--print-digest` prints the digest
+that an acceptance must record (see [Acceptance](#acceptance)). Its regression tests need only the JDK too:
+`java tools/policy/PolicyCheckTest.java`. The `java` job runs them on every pull request, after the checker has passed
+it.
 
 ## Adding a dependency
 
