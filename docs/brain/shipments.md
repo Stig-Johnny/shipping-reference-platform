@@ -2,7 +2,7 @@
 title: "Brain: shipments"
 description: "Generated summary of module shipments for agents: status, dependencies, HTTP operations, capabilities with their evidence, decisions, flows and gaps."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 ---
 
 > Generated—do not hand-edit. Sources: `architecture/workspace.dsl`, `docs/modules/shipments.md`, `docs/capabilities/capabilities.yaml`, `contracts/shipping.openapi.yaml` and `docs/`.

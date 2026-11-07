@@ -75,6 +75,22 @@ class BrainCheckTest {
     }
 
     @Test
+    void evidenceWhoseNameTwoTestClassesShareFails() {
+        fixture.report("io.github.stigjohnny.other.BrainCheckTest", 3, 0, 0, 0);
+
+        assertFails().hasMessageContaining("evidence BrainCheckTest is ambiguous: more than one test class is called "
+                + "BrainCheckTest; evidence names must be unique");
+    }
+
+    @Test
+    void anEnforcedByTestWhoseNameTwoTestClassesShareFails() {
+        fixture.report("io.github.stigjohnny.other.BrainGeneratorTest", 3, 0, 0, 0);
+
+        assertFails().hasMessageContaining("enforcedBy names BrainGeneratorTest, which is ambiguous: more than one "
+                + "test class is called BrainGeneratorTest; evidence names must be unique");
+    }
+
+    @Test
     void aSkippedTestIsNotEvidence() {
         fixture.report("io.github.stigjohnny.docs.check.BrainCheckTest", 19, 0, 0, 1);
 

@@ -37,13 +37,33 @@ class TestEvidenceTest {
     }
 
     @Test
-    void twoTestClassesWithOneNameAreRefused() {
+    void twoTestClassesWithOneNameAreAmbiguousAndNeverPassAsEvidence() {
         Fixture fixture = Fixture.copy(dir)
                 .report("io.github.stigjohnny.docs.check.BrainCheckTest", 3, 0, 0, 0)
-                .report("io.github.stigjohnny.other.BrainCheckTest", 3, 0, 0, 0);
+                .report("io.github.stigjohnny.other.BrainCheckTest", 3, 0, 0, 0)
+                .report("io.github.stigjohnny.docs.generate.BrainGeneratorTest", 3, 0, 0, 0);
 
-        assertThatThrownBy(() -> TestEvidence.read(fixture.root(), List.of(fixture.reports())))
-                .isInstanceOf(DocsException.class).hasMessageContaining("two test classes are called BrainCheckTest");
+        TestEvidence evidence = TestEvidence.read(fixture.root(), List.of(fixture.reports()));
+
+        assertThat(evidence.ambiguous("BrainCheckTest")).isTrue();
+        assertThat(evidence.passed("BrainCheckTest")).isFalse();
+        assertThat(evidence.ambiguous("BrainGeneratorTest")).isFalse();
+        assertThat(evidence.passed("BrainGeneratorTest")).isTrue();
+    }
+
+    @Test
+    void twoTestSourcesWithOneNameAreAmbiguousEvenWhenOnlyOneOfThemRan() {
+        Fixture fixture = Fixture.copy(dir)
+                .write("libs/other/src/test/java/io/github/stigjohnny/other/BrainCheckTest.java",
+                        "package io.github.stigjohnny.other;\n\nclass BrainCheckTest {}\n")
+                .report("io.github.stigjohnny.docs.check.BrainCheckTest", 3, 0, 0, 0)
+                .report("io.github.stigjohnny.docs.generate.BrainGeneratorTest", 3, 0, 0, 0);
+
+        TestEvidence evidence = TestEvidence.read(fixture.root(), List.of(fixture.reports()));
+
+        assertThat(evidence.ambiguous("BrainCheckTest")).isTrue();
+        assertThat(evidence.passed("BrainCheckTest")).isFalse();
+        assertThat(evidence.passed("BrainGeneratorTest")).isTrue();
     }
 
     @Test

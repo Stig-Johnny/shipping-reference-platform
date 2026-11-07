@@ -22,7 +22,9 @@ import org.xml.sax.SAXException;
  * Which tests exist in the repository and which passed in this build. A test is evidence only when both hold: its
  * source file exists under a {@code src/test/java} directory, and the build's JUnit XML report shows it ran at least
  * one test with no failure, error or skip. Test names that are not Java classes (TypeScript files) have no reports
- * here yet, so they never count as passing.
+ * here yet, so they never count as passing. A simple name that more than one test class carries, among the sources or
+ * the reports, is ambiguous and never evidence: it would not say which class passed. Modules may share such a name as
+ * long as no evidence uses it.
  */
 public final class TestEvidence {
 
@@ -36,21 +38,33 @@ public final class TestEvidence {
 
     private final Set<String> sources;
     private final Map<String, Result> results;
+    private final Set<String> ambiguous;
 
     public TestEvidence(Set<String> sources, Map<String, Result> results) {
+        this(sources, results, Set.of());
+    }
+
+    public TestEvidence(Set<String> sources, Map<String, Result> results, Set<String> ambiguous) {
         this.sources = Set.copyOf(sources);
         this.results = Map.copyOf(results);
+        this.ambiguous = Set.copyOf(ambiguous);
     }
 
     /** Reads the test sources of the repository and the JUnit XML reports in the given directories. */
     public static TestEvidence read(Path repo, List<Path> reportDirs) {
         Set<String> sources = new TreeSet<>();
+        Set<String> ambiguous = new TreeSet<>();
         try (Stream<Path> files = Files.walk(repo)) {
-            files.filter(Files::isRegularFile)
+            for (Path source : files.filter(Files::isRegularFile)
                     .filter(p -> !skipped(repo.relativize(p).toString().replace('\\', '/')))
                     .filter(p -> p.toString().replace('\\', '/').contains("/src/test/java/"))
                     .filter(p -> p.getFileName().toString().endsWith(".java"))
-                    .forEach(p -> sources.add(p.getFileName().toString().replace(".java", "")));
+                    .toList()) {
+                String simpleName = source.getFileName().toString().replace(".java", "");
+                if (!sources.add(simpleName)) {
+                    ambiguous.add(simpleName);
+                }
+            }
         } catch (IOException e) {
             throw new DocsException("the repository's test sources cannot be listed", e);
         }
@@ -64,17 +78,22 @@ public final class TestEvidence {
                         && p.getFileName().toString().endsWith(".xml")).sorted().toList()) {
                     Result result = parse(report);
                     String simpleName = result.suite().substring(result.suite().lastIndexOf('.') + 1);
-                    Result previous = results.put(simpleName, result);
+                    Result previous = results.putIfAbsent(simpleName, result);
                     if (previous != null && !previous.suite().equals(result.suite())) {
-                        throw new DocsException("two test classes are called " + simpleName + " (" + previous.suite()
-                                + ", " + result.suite() + "); evidence names must be unique");
+                        // Two modules may name a test class alike; the name is only unusable as evidence.
+                        ambiguous.add(simpleName);
                     }
                 }
             } catch (IOException e) {
                 throw new DocsException("the test reports cannot be listed", e);
             }
         }
-        return new TestEvidence(sources, results);
+        return new TestEvidence(sources, results, ambiguous);
+    }
+
+    /** Whether more than one test class, among the sources or the reports, has this simple name. */
+    public boolean ambiguous(String test) {
+        return ambiguous.contains(test);
     }
 
     public boolean exists(String test) {
@@ -85,9 +104,9 @@ public final class TestEvidence {
         return Optional.ofNullable(results.get(test));
     }
 
-    /** Exists in the repository and passed in this build. */
+    /** Exists in the repository, names one test class only, and passed in this build. */
     public boolean passed(String test) {
-        return exists(test) && result(test).map(Result::passed).orElse(false);
+        return exists(test) && !ambiguous(test) && result(test).map(Result::passed).orElse(false);
     }
 
     private static boolean skipped(String relative) {

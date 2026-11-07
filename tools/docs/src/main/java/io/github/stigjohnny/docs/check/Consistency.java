@@ -186,6 +186,9 @@ public final class Consistency {
                         if (!sources.evidence().exists(test.group())) {
                             problems.add(adr.path() + ": enforcedBy names " + test.group()
                                     + ", which does not exist in the repository");
+                        } else if (sources.evidence().ambiguous(test.group())) {
+                            problems.add(adr.path() + ": enforcedBy names " + test.group() + ", which "
+                                    + ambiguity(test.group()));
                         }
                     }
                 }
@@ -280,9 +283,16 @@ public final class Consistency {
         }
     }
 
+    private static String ambiguity(String test) {
+        return "is ambiguous: more than one test class is called " + test + "; evidence names must be unique";
+    }
+
     private static Optional<String> evidenceProblem(String test, TestEvidence evidence) {
         if (!evidence.exists(test)) {
             return Optional.of("does not exist in the repository");
+        }
+        if (evidence.ambiguous(test)) {
+            return Optional.of(ambiguity(test));
         }
         Optional<TestEvidence.Result> result = evidence.result(test);
         if (result.isEmpty()) {

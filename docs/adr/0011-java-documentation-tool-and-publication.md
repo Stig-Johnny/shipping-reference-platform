@@ -2,7 +2,7 @@
 title: "ADR 0011: A Java documentation tool, a static site and a scanned publication"
 description: "One Java tool generates the C4 view pages, the budgeted brain and a static documentation site, and fails on drift and on claims without evidence; the site is published on GitHub Pages from main after a fail-closed scan. Supersedes ADR 0010."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
@@ -82,9 +82,11 @@ SnakeYAML Engine 3.2.
   a link to a file or an anchor that does not exist; a capability marked `shipped` or `partial` whose evidence tests
   do not exist or did not pass in the same build (their JUnit reports), or a planned capability that names
   evidence; a shipped control whose check is not a workflow job; and an exceeded budget. A planned capability never
-  gets a green badge because its package exists.
-- `./gradlew :tools:docs:generate` rewrites the generated files. Both tasks run after the tool's tests, whose reports
-  are the evidence of its own control, `control.brain-check`.
+  gets a green badge because its package exists. Evidence names a test class by its simple name, so a name that
+  more than one test class has, in any module, fails wherever a capability's evidence or an ADR's `enforcedBy` uses
+  it; modules may otherwise share test class names.
+- `./gradlew :tools:docs:generate` rewrites the generated files. Both tasks run after the tests of every project with
+  test sources and read all their reports; the tool's own are the evidence of its control, `control.brain-check`.
 - `:tools:docs:site`, also part of `check`, builds the documentation site into `tools/docs/build/site/` from the
   same sources, after the same checks. It is static HTML with one stylesheet and one script of the tool's own, and
   relative links, so it works under any base path. Its sections are Start, Model, Modules, Decisions, API, Trust and

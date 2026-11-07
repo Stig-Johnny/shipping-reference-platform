@@ -2,7 +2,7 @@
 title: "C4 view: Components of the API"
 description: "Component view of the API. The seven modules of the API and the dependencies between them: REQUIRED, PERMITTED or planned. Planned modules and dependencies are labelled as planned."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 ---
 
 > Generated—do not hand-edit. Source: `architecture/workspace.dsl`, view `ApiComponents`. Regenerate with
