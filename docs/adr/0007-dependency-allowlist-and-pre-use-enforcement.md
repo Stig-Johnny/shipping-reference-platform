@@ -119,7 +119,9 @@ What is built, and where it differs from the decision above. The decision stands
   off. Its JSON reader accepts RFC 8259 JSON only: an allowlist or `package-lock.json` with a malformed value, such
   as an unquoted version or a lone `+`, stops the check with exit 2 instead of being read as data. It refuses symbolic
   links in the checked tree, the root included (exit 2), and reads only regular files inside the tree; a finding about
-  an unreadable lock-file line names the file and the line number, not the line.
+  an unreadable lock-file line names the file and the line number, not the line. What it prints never repeats what a
+  file holds: the values a finding names, such as coordinates, Action references and URLs, are printed in safe
+  characters only, and a file it cannot parse is named with a line, a column and a fixed reason.
 - **The tests are one more file for the source launcher, not the planned suite.**
   `java tools/policy/PolicyCheckTest.java` compiles `PolicyCheck.java` next to it and calls the checker directly;
   launching the checker never compiles the tests. They cover the JSON reader token by token, and each check above on

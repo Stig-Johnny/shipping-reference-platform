@@ -51,6 +51,8 @@ public final class PolicyCheckTest {
     static final String COMMIT = "0123456789abcdef0123456789abcdef01234567";
     /** Text that must never reach the checker's output: it stands for contents the checker reads. */
     static final String MARKER = "marker-" + UUID.randomUUID();
+    /** Four letters that are no hexadecimal digits, for a broken escape. */
+    static final String MARK4 = "QJZX";
     static final String LINK_REFUSED = "refused: symbolic link in the checked tree: ";
     static final String ROOT_REFUSED = "refused: the checked tree is a symbolic link";
     static final String UNREADABLE_LINE = "unreadable line (expected group:name:version=configurations)";
@@ -263,9 +265,11 @@ public final class PolicyCheckTest {
         for (String[] edit : new String[][] {{"\"schemaVersion\":1", "\"schemaVersion\":+"},
                 {"\"version\":\"1.0.0\"", "\"version\":1.0.0"}, {"\"expiresAt\":\"2099-12-31\"", "\"expiresAt\":2099-12-31"},
                 {"\"verdict\":\"APPROVE\"", "\"verdict\":\"REJECT\",\"verdict\":\"APPROVE\""}}) {
-            test("allowlist: " + edit[1] + " is not JSON, and the check stops", () -> {
+            test("allowlist: " + edit[1] + " is not JSON, and the check stops at its place in the file", () -> {
                 Repo repo = Repo.clean().save().edit("security/allowlist.json", edit[0], edit[1]);
-                expectThrows(IllegalArgumentException.class, () -> new PolicyCheck(repo.root, TODAY));
+                IOException e = expectThrows(IOException.class, () -> new PolicyCheck(repo.root, TODAY));
+                expect(e.getMessage().startsWith("security/allowlist.json:1:") && e.getMessage().contains(": JSON "),
+                        e.toString());
             });
         }
     }
@@ -287,7 +291,8 @@ public final class PolicyCheckTest {
         test("acceptance: an allowlist without an acceptance record stops the check", () -> {
             Repo repo = Repo.clean();
             repo.acceptance = null;
-            expectThrows(IllegalArgumentException.class, () -> repo.check().run());
+            IOException e = expectThrows(IOException.class, () -> repo.check().run());
+            expectEquals("security/allowlist.json: missing JSON member 'acceptance'", e.getMessage());
         });
         test("acceptance: a review record edited after the acceptance fails", () -> {
             Repo repo = Repo.clean().accept();
@@ -371,7 +376,8 @@ public final class PolicyCheckTest {
             Repo repo = Repo.clean().edit("gradle/verification-metadata.xml", "<verification-metadata>",
                     "<!DOCTYPE verification-metadata [<!ENTITY x \"y\">]>\n<verification-metadata>");
             IOException e = expectThrows(IOException.class, () -> repo.check().run());
-            expect(e.getMessage().startsWith("unreadable XML"), e.toString());
+            expect(e.getMessage().startsWith("gradle/verification-metadata.xml:2:") && e.getMessage().contains("unreadable XML"),
+                    e.toString());
         });
     }
 
@@ -513,7 +519,8 @@ public final class PolicyCheckTest {
         });
         test("npm: a package-lock.json that is not JSON stops the check", () -> {
             Repo repo = withNpm().edit("package-lock.json", "\"lockfileVersion\" : 3", "\"lockfileVersion\" : +3");
-            expectThrows(IllegalArgumentException.class, () -> repo.check().run());
+            IOException e = expectThrows(IOException.class, () -> repo.check().run());
+            expectEquals("package-lock.json:3:23: JSON unexpected character", e.getMessage());
         });
     }
 
@@ -619,8 +626,11 @@ public final class PolicyCheckTest {
             Files.writeString(outside, MARKER + "\n");
             Repo repo = Repo.clean().save();
             PolicyCheck check = new PolicyCheck(repo.root, TODAY);
-            Path late = Files.createSymbolicLink(repo.root.resolve("late-link.txt"), outside);
-            for (Path path : List.of(outside, late, repo.root.resolve("security"))) {
+            // Real paths, as the checker forms them: a path that only looks outside would be refused before the probe.
+            Path root = repo.root.toRealPath();
+            Path late = Files.createSymbolicLink(root.resolve("late-link.txt"), outside);
+            // A missing file outside is refused too, not reported missing: nothing outside the tree is probed.
+            for (Path path : List.of(outside, outside.resolveSibling("missing.txt"), late, root.resolve("security"))) {
                 IOException e = expectThrows(IOException.class, () -> check.read(path));
                 expect(e.getMessage().contains("is not a regular file inside the checked tree")
                         && !e.getMessage().contains(MARKER), e.toString());
@@ -658,9 +668,9 @@ public final class PolicyCheckTest {
             Run run = launch(repo.root.toString());
             expect(run.exit() == 2 && run.output().contains("## Dependency allowlist: could not complete"), run.toString());
         });
-        test("cli: a repository without an allowlist exits 2", () -> {
+        test("cli: a repository without an allowlist exits 2, naming the file", () -> {
             Run run = launch(new Repo().root.toString());
-            expect(run.exit() == 2, run.toString());
+            expect(run.exit() == 2 && run.output().contains("security/allowlist.json: not found"), run.toString());
         });
         test("cli: --print-digest prints the reviewed-set digest and exits 0", () -> {
             Repo repo = Repo.clean().save();
@@ -674,6 +684,49 @@ public final class PolicyCheckTest {
                 expect(!run.output().contains(MARKER) && !run.error().contains(MARKER), "the line was printed: " + run);
                 expect(run.exit() == 1 && run.output().contains("- gradle.lockfile:4: " + UNREADABLE_LINE), run.toString());
             }
+        });
+        test("cli: a duplicate JSON key is reported by its place in the file, never by the key", () -> {
+            Repo repo = Repo.clean().save().edit("security/allowlist.json", "\"schemaVersion\":1",
+                    "\"schemaVersion\":1,\"" + MARKER + "\":1,\"" + MARKER + "\":2");
+            String text = Files.readString(repo.root.resolve("security/allowlist.json"));
+            int column = text.indexOf("\"" + MARKER + "\"", text.indexOf(MARKER) + MARKER.length()) + 1;
+            Run run = launch(repo.root.toString());
+            expectNoContent(run, MARKER);
+            expect(run.exit() == 2 && run.output().contains("security/allowlist.json:1:" + column + ": JSON duplicate key"),
+                    run.toString());
+        });
+        test("cli: a malformed JSON value is reported by its place in the file, never by its text", () -> {
+            for (String value : List.of("\"\\u" + MARK4 + "\"", "\u00a7" + MARKER)) {
+                Repo repo = Repo.clean().save().edit("security/allowlist.json", "\"schemaVersion\":1",
+                        "\"schemaVersion\":" + value);
+                Run run = launch(repo.root.toString());
+                expectNoContent(run, MARKER, MARK4, "\u00a7");
+                expect(run.exit() == 2 && run.output().contains("security/allowlist.json:1:"), run.toString());
+            }
+        });
+        test("cli: a malformed XML element is reported by its place in the file, and the parser prints nothing", () -> {
+            Repo repo = Repo.clean().save().edit("gradle/verification-metadata.xml", "<components>",
+                    "<components><" + MARKER + ">");
+            Run run = launch(repo.root.toString());
+            expectNoContent(run, MARKER);
+            expect(run.exit() == 2 && run.error().isEmpty()
+                    && run.output().contains("gradle/verification-metadata.xml:15:") && run.output().contains("unreadable XML"),
+                    run.toString());
+        });
+        test("cli: markup and control characters in a coordinate, an Action or a URL are printed as safe characters", () -> {
+            Repo repo = withNpm()
+                    .append("gradle.lockfile", "org.example:**md**<b>x</b>\u001b[31m:1.0.0=runtimeClasspath\n")
+                    .write(".github/workflows/ci.yml", "jobs:\n  x:\n    steps:\n      - uses: <script>x</script>@v1\n")
+                    .edit("package-lock.json", "https://registry.npmjs.org/example-pkg/-/example-pkg-1.0.0.tgz",
+                            "https://registry.example.org/[click](javascript:alert(1))<img src=x>")
+                    .save();
+            Run run = launch(repo.root.toString());
+            expectNoContent(run, "**md**", "<b>", "</b>", "\u001b", "<script>", "[click](", "<img", "src=x>");
+            expect(run.exit() == 1 && run.error().isEmpty()
+                    && run.output().contains("- org.example:??md???b?x?/b???31m 1.0.0 (in gradle.lockfile) has no review")
+                    && run.output().contains("- .github/workflows/ci.yml:4: ?script?x?/script?@v1 is not pinned")
+                    && run.output().contains("(https://registry.example.org/?click??javascript:alert?1???img?src=x?)"),
+                    run.toString());
         });
         test("cli: a symbolic link in the checked tree exits 2 and is named", () -> {
             Repo repo = Repo.clean().save().link("docs/dangling.md", Path.of("missing.md"));
@@ -929,6 +982,14 @@ public final class PolicyCheckTest {
             throw new AssertionError("expected " + type.getSimpleName() + " but got " + e, e);
         }
         throw new AssertionError("expected " + type.getSimpleName() + ", but nothing was thrown");
+    }
+
+    /** Neither the standard output nor the standard error of the run repeats any of these texts. */
+    static void expectNoContent(Run run, String... texts) {
+        for (String text : texts) {
+            expect(!run.output().contains(text) && !run.error().contains(text),
+                    "the output repeats " + show(text) + ": " + show(run.toString()));
+        }
     }
 
     static void expectClean(List<String> findings) {
