@@ -6,9 +6,10 @@ check that fails. The domain is generic webshop parcel shipping: quote a parcel,
 synthetic and the carrier is simulated.
 
 **State:** the specification (model, contract, decisions, module specifications, risk policy, agent rules), the
-reviewed toolchain and the enforced dependency allowlist are here. Application code is not written yet: every product
-capability in `docs/capabilities/capabilities.yaml` is `planned`, and that file is the source of truth for status and
-evidence. The table below marks each control **enforced** (it runs and can fail today) or **planned**.
+reviewed toolchain, the enforced dependency allowlist and the model-versus-code checker `libs/c4-contract-kit` are
+here. Application code is not written yet: every product capability in `docs/capabilities/capabilities.yaml` is
+`planned`, and that file is the source of truth for status and evidence; the checker's controls carry their tests.
+The table below marks each control **enforced** (it runs and can fail today) or **planned**.
 
 ## The idea
 
@@ -62,22 +63,23 @@ data, enforced in queries and by forced PostgreSQL row-level security.
 
 | Control | Fails the build when | What it cannot catch | Where it runs | Status |
 |---|---|---|---|---|
-| C4 conformance: divergence | A class in one module references another module without a relationship in the model. | Use through reflection, SQL, HTTP or configuration; a model widened to allow the dependency (that change needs the owner). | `java`: `ArchitectureConformanceTest` | planned (the library is in review; the application test needs application code) |
+| C4 conformance: divergence | A class in one module references another module without a relationship in the model. | Use through reflection, SQL, HTTP or configuration; references the class file does not record (compile-time constants, casts); a model widened to allow the dependency (that change needs the owner). | `java`: `ArchitectureConformanceTest` | planned (the library is built and tested; there is no application code to check yet) |
 | C4 conformance: absence | A `REQUIRED` relationship has no static reference in the bytecode. | A reference that exists while the behaviour behind it does nothing. | `java`: `ArchitectureConformanceTest` | planned (as above) |
-| Model validity | Package mappings overlap, are empty or leave classes uncovered; a planned module has code; forbidden DSL directives; tags disagree with contract properties; cycles. | Whether the model describes the right architecture. | `java` | planned (in the library, in review) |
+| Model validity | Package mappings overlap, are empty or leave classes uncovered; a planned module has code; forbidden DSL directives; tags disagree with contract properties; cycles. | Whether the model describes the right architecture. | `java`: `RepositoryWorkspaceTest` reads `architecture/workspace.dsl` with the library | **enforced** for the model file; the rules that need classes (uncovered classes, code in a planned module) wait for application code |
 | Module boundaries and layering | Access to another module's internal packages, module cycles, Spring in domain code, unexpected packages. | Coupling through shared data or timing. | `java`: `ModularityTest`, `HexagonalLayeringTest` | planned |
 | API contract | A response deviates from the OpenAPI schema; the regenerated TypeScript client differs from the committed one. | Operations and status codes no test exercises. | `java`: `*HttpContractTest`; `web` | planned |
 | Tenant isolation | A tenant table lacks forced row-level security; the runtime role could bypass it; another tenant's IDs are readable through SQL or HTTP. | SQL run as the owner role; the shared event publication table; strength of the demo authentication. | `java`: `RowLevelSecurityCatalogTest`, `RowLevelSecurityIntegrationTest`, `CrossTenantAccessTest` | planned |
 | Domain invariants | Golden tariff prices, monotonicity and rounding properties, idempotent booking, expiry rules. | Wrong requirements. | `java` (parameterized property tests included: `SyntheticTariffPropertiesTest`) | planned |
 | Event delivery | A failed audit write is lost, or a replay has a second effect. | Consumers nobody has written yet. | `java`: `AuditReplayIntegrationTest` | planned |
-| Mutation testing | Fewer than 80 % of mutants on changed lines are killed (90 % for pricing and checker code). | Tests that consistently assert the wrong thing; hand-reviewed equivalent mutants. | `mutation` | planned |
+| Mutation testing | Fewer than 80 % of mutants on changed lines are killed (90 % for pricing and checker code). | Tests that consistently assert the wrong thing; hand-reviewed equivalent mutants. | `mutation` | planned (today the `mutation` job runs PIT on the contract kit and fails under 90 % killed; it is not a required check) |
 | Dependency allowlist, before use | A component lacks an approved, unexpired review; a lockfile or checksum disagrees with it; an Action is not pinned by SHA. | Build code that downloads executables itself, compromised approved artifacts, runner compromise, local agents bypassing CI. | `preflight` (base-branch workflow) | **enforced**: a required check, proven to fail |
 | Risk-levelled approval | A level 3 change lacks the owner's approval of its current head. | A sensitive change that matches no rule; a single approver is not two-person review. | `risk-approval` | planned |
 | AI review record | No AI review with findings and dispositions is recorded for the final commit. | AI reviewers being wrong. | `ai-review` | planned |
 | Web behaviour and accessibility | Quote, book and label fail in a real browser against the real API; axe-core finds violations; import cycles or boundary breaks. | Accessibility problems that automated tools miss; unused frontend modules. | `web`, `contract-e2e` | planned |
 | Documentation and brain | Generated docs or `BRAIN.md` drift; budgets exceeded; a capability claims `shipped` without passing evidence; code changed without its module document. | Whether the prose is right. | `docs-brain` | planned |
 
-Every advertised failure requires a deliberate negative fixture; none exists yet. The full list of limits is in `docs/gaps.md`.
+Every advertised failure requires a deliberate negative fixture. The checker's own tests have theirs; the
+application's do not exist yet. The full list of limits is in `docs/gaps.md`.
 
 ## Layout
 
@@ -107,7 +109,7 @@ whose SHA-256 is in `security/verifications/2026-11-06-toolchain.md`: Gradle's t
 |---|---|
 | Check every dependency against the allowlist (the JDK alone; nothing from the repository runs) | `java tools/policy/PolicyCheck.java .` |
 | Run all Java checks (compile with Error Prone and NullAway, tests) | `./gradlew check` |
-| Run mutation tests on changed code | `<mutation>` |
+| Run mutation tests (CI only, the `mutation` job: PIT's control socket accepts unauthenticated connections) | `./gradlew :libs:c4-contract-kit:pitest` |
 
 Not built yet; their commands arrive with their code: a toolchain bootstrap script, PostgreSQL 18.6 with the two
 roles, the API with the `demo` profile, the workbench, web checks, contract and end-to-end tests, and the brain.

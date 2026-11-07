@@ -17,10 +17,11 @@
 #                    them with exactly these names, red first.
 #   docs             The document that specifies the capability.
 #
-# This file belongs to the specification pull request. No code exists yet, so every status is planned and every
-# evidence value is "none yet". A pull request that adds passing acceptance tests moves their names into `evidence`
-# and changes the status in the same commit; brain --check rejects a shipped or partial status whose evidence does
-# not exist, and never shows a planned capability as available because its package exists.
+# The specification pull request started every status at planned, with "none yet" as evidence. A pull request that
+# adds passing acceptance tests moves their names into `evidence` and changes the status in the same commit; brain
+# --check rejects a shipped or partial status whose evidence does not exist, and never shows a planned capability as
+# available because its package exists. The controls of libs/c4-contract-kit carry evidence. Divergence and absence
+# are partial: their ArchitectureConformanceTest in :apps:shipping-api does not exist yet.
 
 schemaVersion: 1
 
@@ -259,9 +260,9 @@ controls:
     title: A dependency between modules that the C4 model does not declare fails the build.
     where: libs/c4-contract-kit, apps/shipping-api
     check: java
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [ConformanceDivergenceTest]
     acceptanceTests: [ConformanceDivergenceTest, ArchitectureConformanceTest]
     negativeFixture: A quotes class referencing shipments.api.ShipmentId (demo pull request "undeclared dependency").
     docs: docs/adr/0002-c4-model-is-the-structural-authority.md
@@ -269,9 +270,9 @@ controls:
     title: A REQUIRED relationship without any static reference fails the build.
     where: libs/c4-contract-kit, apps/shipping-api
     check: java
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [ConformanceAbsenceTest]
     acceptanceTests: [ConformanceAbsenceTest, ArchitectureConformanceTest]
     negativeFixture: Removing ShipmentAuditListener's dependency on shipments.api (demo pull request "missing required edge").
     docs: docs/adr/0002-c4-model-is-the-structural-authority.md
@@ -279,9 +280,9 @@ controls:
     title: A PERMITTED relationship without references is reported as "no static evidence", never as unused, and does not fail.
     where: libs/c4-contract-kit
     check: java
-    status: planned
+    status: shipped
     target: v0.1
-    evidence: none yet
+    evidence: [ReportNoStaticEvidenceTest]
     acceptanceTests: [ReportNoStaticEvidenceTest]
     negativeFixture: A fixture with built, nonempty audit and quotes components, a PERMITTED audit -> quotes relationship, and no static reference between them.
     docs: docs/adr/0002-c4-model-is-the-structural-authority.md
@@ -289,9 +290,9 @@ controls:
     title: Restricted DSL parsing and mapping validation (overlaps, empty or uncovered mappings, planned code, tag mismatches, cycles, forbidden directives).
     where: libs/c4-contract-kit
     check: java
-    status: planned
+    status: shipped
     target: v0.1
-    evidence: none yet
+    evidence: [RestrictedDslParserTest, MappingValidationTest]
     acceptanceTests: [RestrictedDslParserTest, MappingValidationTest]
     negativeFixture: Fixture models with !include, overlapping packages, a planned component with a class, an invalid contract.mode value.
     docs: libs/c4-contract-kit/AGENTS.md
@@ -299,9 +300,9 @@ controls:
     title: Class, member, reference kind and source line evidence for every dependency, including inheritance, annotations, generics and lambdas.
     where: libs/c4-contract-kit
     check: java
-    status: planned
+    status: shipped
     target: v0.1
-    evidence: none yet
+    evidence: [BytecodeEvidenceTest]
     acceptanceTests: [BytecodeEvidenceTest]
     negativeFixture: Fixture classes for each reference kind; a missing kind fails the test.
     docs: libs/c4-contract-kit/AGENTS.md
@@ -309,9 +310,9 @@ controls:
     title: Byte-identical JSON and Markdown reports for identical inputs, written before an assertion fails.
     where: libs/c4-contract-kit
     check: java
-    status: planned
+    status: shipped
     target: v0.1
-    evidence: none yet
+    evidence: [ReportDeterminismTest, ConformanceAssertionsTest, SelfConformanceTest]
     acceptanceTests: [ReportDeterminismTest, ConformanceAssertionsTest, SelfConformanceTest]
     negativeFixture: Shuffled input order must produce the same bytes.
     docs: libs/c4-contract-kit/AGENTS.md

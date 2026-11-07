@@ -97,3 +97,77 @@ jobs:
           overwrite: false
           retention-days: 14
           if-no-files-found: ignore
+
+  mutation:
+    # PIT runs only here, on a disposable GitHub-hosted worker. Its parent JVM listens on all interfaces and accepts
+    # its workers' first connection without authentication (security/reviews/maven--pitest-command-line--1.30.2.md,
+    # condition 2), so the pitest task never runs on a developer machine whose firewall lets inbound connections
+    # reach java. No secret or token is in this job's environment (condition 3). As in `java`, the base branch supplies
+    # the tooling, and nothing from the candidate runs until the base branch's checker has passed it.
+    name: mutation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out the trusted tooling (the base branch)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: base
+          persist-credentials: false
+
+      - name: Check out the candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
+        with:
+          path: candidate
+          persist-credentials: false
+
+      - name: Stage the reviewed JDK (the base branch's script and checksum)
+        id: jdk
+        run: base/tools/ci/stage-temurin.sh "$RUNNER_TEMP/jdk"
+
+      - name: Install the staged JDK
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0, reviewed
+        with:
+          distribution: jdkfile
+          jdk-file: ${{ steps.jdk.outputs.jdk-file }}
+          java-version: '25.0.5'
+          architecture: x64
+          token: ''
+
+      - name: Check the candidate against the allowlist before any of its code runs
+        # 1 = findings and 2 = the check could not complete both fail the job (pipefail).
+        run: java base/tools/policy/PolicyCheck.java candidate | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify the Gradle wrapper before running it
+        working-directory: candidate
+        run: echo "3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  gradle/wrapper/gradle-wrapper.jar" | sha256sum --check --strict
+
+      - name: Mutation testing of the contract kit (at least 90 % killed)
+        working-directory: candidate
+        env:
+          GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
+        run: ./gradlew --no-daemon --console=plain :libs:c4-contract-kit:pitest
+
+      - name: Refuse symbolic links before uploading the report
+        # Any link under libs/, the report directory itself included: the upload follows links.
+        id: report_guard
+        if: ${{ !cancelled() }}
+        run: |
+          links="$(find candidate/libs -type l -print -quit 2>/dev/null || true)"
+          if [[ -n "$links" ]]; then
+            echo "::error::A symbolic link was found under libs/; refusing to upload the mutation report."
+            exit 1
+          fi
+
+      - name: Upload the mutation report
+        # Only when the guard ran and passed: always() would upload even after the guard failed.
+        if: ${{ !cancelled() && steps.report_guard.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2, reviewed
+        with:
+          name: mutation-report
+          path: candidate/libs/*/build/reports/pitest/
+          include-hidden-files: false
+          archive: true
+          overwrite: false
+          retention-days: 14
+          if-no-files-found: ignore

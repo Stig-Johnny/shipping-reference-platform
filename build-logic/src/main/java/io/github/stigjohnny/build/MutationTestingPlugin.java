@@ -23,7 +23,9 @@ import org.gradle.api.tasks.SourceSetContainer;
  *
  * <p>The task's own classpath is only the {@code pitest} configuration: PIT, its JUnit 5 plugin and the JUnit
  * Platform launcher. The code under test reaches PIT only through {@code --classPath}, {@code --targetClasses} and
- * {@code --sourceDirs}. Reports go under {@code build/reports/pitest} without timestamps, so two runs on the same
+ * {@code --sourceDirs}. {@code --mutableCodePaths} names the main output directories: without it PIT treats every
+ * class directory on the class path as mutable, including the compiled tests, and a mutant that deletes an assertion
+ * from a test can never be killed. Reports go under {@code build/reports/pitest} without timestamps, so two runs on the same
  * commit produce the same files.
  *
  * <p>PIT's parent JVM accepts its workers' connection without authentication. Run it only on a disposable CI worker or
@@ -54,6 +56,7 @@ public final class MutationTestingPlugin implements Plugin<Project> {
         SourceSet main = sourceSets.getByName(SourceSet.MAIN_SOURCE_SET_NAME);
         SourceSet test = sourceSets.getByName(SourceSet.TEST_SOURCE_SET_NAME);
         FileCollection codeUnderTest = test.getRuntimeClasspath();
+        FileCollection productionClasses = main.getOutput().getClassesDirs();
         FileCollection sourceDirs = main.getJava().getSourceDirectories();
         Provider<Directory> reportDir = project.getLayout().getBuildDirectory().dir("reports/pitest");
         Property<String> targetClasses = extension.getTargetClasses();
@@ -74,6 +77,7 @@ public final class MutationTestingPlugin implements Plugin<Project> {
                 args.add("--targetClasses=" + targetClasses.get());
                 args.add("--sourceDirs=" + join(sourceDirs));
                 args.add("--classPath=" + join(codeUnderTest));
+                args.add("--mutableCodePaths=" + join(productionClasses));
                 args.add("--outputFormats=HTML,XML");
                 args.add("--timestampedReports=false");
                 args.add("--mutationThreshold=" + threshold.get());
