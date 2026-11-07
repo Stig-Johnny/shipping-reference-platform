@@ -532,18 +532,32 @@ public final class PolicyCheck {
             boolean workflow = rel.startsWith(".github/workflows/");
             boolean source = ("/" + rel).contains("/src/") && Stream.of(".java", ".kt", ".groovy").anyMatch(name::endsWith);
             boolean buildScript = name.endsWith(".gradle.kts") || name.endsWith(".gradle");
-            if (workflow || name.endsWith(".sh")) checkDockerCommands(file, text, workflow);
+            if (workflow || name.endsWith(".sh") || text.startsWith("#!")) checkDockerCommands(file, text, workflow);
             if (source || buildScript) checkImageCode(file, text, rel.equals(HARNESS));
         }
     }
 
-    /** The files that can name an image: sources and resources, build scripts, workflows and shell scripts. */
+    /**
+     * The files that can name an image: sources and resources, build scripts, workflows and shell scripts, those
+     * without the .sh extension included, by their #! line.
+     */
     boolean namesImages(Path p) {
         String rel = repo.relativize(p).toString();
         String name = p.getFileName().toString();
         return ("/" + rel).contains("/src/") || name.endsWith(".sh") || name.endsWith(".gradle.kts")
                 || name.endsWith(".gradle") || name.equals("gradle.properties") || name.endsWith("testcontainers.properties")
-                || rel.startsWith(".github/workflows/") && (name.endsWith(".yml") || name.endsWith(".yaml"));
+                || rel.startsWith(".github/workflows/") && (name.endsWith(".yml") || name.endsWith(".yaml"))
+                || startsWithShebang(p);
+    }
+
+    /** Whether a file starts with #!; one that cannot be opened is read, so that the read stops the check. */
+    static boolean startsWithShebang(Path p) {
+        try (InputStream in = Files.newInputStream(p, LinkOption.NOFOLLOW_LINKS)) {
+            byte[] head = in.readNBytes(2);
+            return head.length == 2 && head[0] == '#' && head[1] == '!';
+        } catch (IOException e) {
+            return true;
+        }
     }
 
     /** A file read as text: a known text format; under src/, a binary file such as an image names no container. */

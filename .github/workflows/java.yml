@@ -72,9 +72,12 @@ jobs:
 
       - name: Test the CI scripts (bash alone)
         # tools/ci/container-engine.sh against a fake engine that fails one query at a time: a failed query stops the
-        # script, it never passes on an empty answer. No real engine is touched.
+        # script, it never passes on an empty answer; no real engine is touched. tools/ci/site-handover.sh against
+        # handovers that must be refused: a wrong digest, a path that leaves the checkout, a link, an overwrite.
         working-directory: candidate
-        run: bash tools/ci/container-engine-test.sh
+        run: |
+          bash tools/ci/container-engine-test.sh
+          bash tools/ci/site-handover-test.sh
 
       - name: Test the candidate's allowlist checker (the JDK alone)
         # The candidate's tests of its own tools/policy/PolicyCheck.java, which may run now that the base branch's
