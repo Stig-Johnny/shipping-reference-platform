@@ -30,6 +30,15 @@ mutationTesting {
     targetClasses = "io.github.stigjohnny.c4contractkit.*"
 }
 
+// The tests read two models from the repository: architecture/workspace.dsl (RepositoryWorkspaceTest) and the
+// self-model architecture/self.dsl (SelfConformanceTest). Declared as inputs, a change to either reruns the tests
+// instead of reusing their earlier result. Line endings are not normalised: SelfConformanceTest matches text in the
+// self-model with LF line ends, so a change of line endings alone changes its result.
+tasks.test {
+    inputs.files(rootDir.resolve("architecture/workspace.dsl"), file("architecture/self.dsl"))
+        .withPathSensitivity(PathSensitivity.RELATIVE).withPropertyName("models")
+}
+
 // The Javadoc JAR documents the public API only; every other package is internal (AGENTS.md, "Boundaries").
 tasks.javadoc {
     include("io/github/stigjohnny/c4contractkit/api/**")
