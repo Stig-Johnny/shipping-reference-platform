@@ -69,4 +69,7 @@ configurations.configureEach {
 tasks.withType<Test>().configureEach {
     // Ryuk (Testcontainers' cleanup container) is rejected: it needs a privileged container holding the Docker socket.
     environment("TESTCONTAINERS_RYUK_DISABLED", "true")
+    // Testcontainers' startup checks would run another image (alpine) with a bind mount; the runner review turns
+    // them off. The database harness, src/test/java/.../database/ReviewedPostgres.java, refuses to start without both.
+    environment("TESTCONTAINERS_CHECKS_DISABLE", "true")
 }
