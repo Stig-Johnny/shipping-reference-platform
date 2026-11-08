@@ -98,3 +98,37 @@ tasks.test {
         listOf("-Dshipping.mainClassDirectories=" + mainClassDirectories.files.joinToString(File.pathSeparator))
     })
 }
+
+// ExternalImportPolicyTest classifies external dependencies reported by ArchUnit 1.5.1 from API outputs: through the
+// provider index (ProviderIndexTask in build-logic, which reads the four classpaths' JARs without loading a class) to
+// an artifact that security/allowlist.json approves for this project and that configuration, or to the JDK's module
+// metadata, and then against its layer's whitelist. The index and the allowlist are inputs of the test task.
+val providerIndex = tasks.register<io.github.stigjohnny.build.ProviderIndexTask>("providerIndex") {
+    description = "Writes which resolved artifact provides each class on the four Java classpaths."
+    projectPath = project.path
+    release = tasks.compileJava.flatMap { it.options.release }
+    rootDirectory = rootProject.layout.projectDirectory
+    indexFile = layout.buildDirectory.file("external-imports/provider-index.json")
+    dependsOn(gradle.includedBuild("build-logic").task(":providerIdentityTest"))
+    repositoryOutputs = providers.provider {
+        val kit = project(":libs:c4-contract-kit")
+        val classes = kit.extensions.getByType<SourceSetContainer>().named("main").get().output.classesDirs.files
+        val jar = kit.tasks.named<Jar>("jar").get().archiveFile.get().asFile
+        (classes + jar).associate { it.relativeTo(rootDir).invariantSeparatorsPath to kit.path }
+    }
+    for (name in listOf("compileClasspath", "runtimeClasspath", "testCompileClasspath", "testRuntimeClasspath")) {
+        configuration(name, configurations.named(name).flatMap { it.incoming.artifacts.resolvedArtifacts })
+    }
+}
+
+tasks.test {
+    inputs.files(providerIndex).withPathSensitivity(PathSensitivity.NONE).withPropertyName("providerIndex")
+    inputs.files(rootDir.resolve("security/allowlist.json")).withPathSensitivity(PathSensitivity.NONE)
+        .withPropertyName("allowlist")
+    val testClassDirectories: FileCollection = sourceSets.test.get().output.classesDirs
+    val index = providerIndex.flatMap { it.indexFile }
+    jvmArgumentProviders.add(CommandLineArgumentProvider {
+        listOf("-Dshipping.testClassDirectories=" + testClassDirectories.files.joinToString(File.pathSeparator),
+            "-Dshipping.providerIndex=" + index.get().asFile)
+    })
+}
