@@ -3,7 +3,7 @@ title: "Build downloads retry briefly and refuse changed bytes"
 description: "Temporary download failures get bounded retries while the future mirror remains disabled."
 status: accepted
 updated: 2026-11-08
-pr: 0
+pr: 86
 kind: build
 recorded: 2026-11-08
 tests: [PagesWorkflowTest]
