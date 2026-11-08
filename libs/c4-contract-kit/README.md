@@ -9,9 +9,53 @@ as evidence: class, member, kind, and the source file and line when the class fi
 components, planned components with code and unmapped classes have no reference to show; they name the components
 and classes concerned.
 
+Its package `sources` is a **partial static lint**. It reads a web app's TypeScript sources, tests, style sheets and
+configuration as data, with a deliberately restricted grammar and the JDK alone, for a web conformance gate that is
+not built yet ([`AGENTS.md`](AGENTS.md), "Web imports"). It refuses some recognized unsupported or ambiguous forms;
+it does not guarantee that every import is found or every unsupported construct is refused. The owner accepted
+shipping this limited reader on 2026-11-08 (ADR 0014).
+
+Known open bypass: directly after spread syntax, `import("unlisted")`, `import(name)`, `require("unlisted")` and
+`import.meta.glob("./*.ts")` can produce no imports and no refusals. The review found this in object, array, call
+and nested-template spreads, including whitespace, comments and line breaks after `...`, in TS/TSX and source/test
+placements. Parenthesizing the operand restores detection in the reviewed control; it does not close the bypass.
+The review reported no other open bypass class in its probe set, which was not exhaustive. The restrictions below
+describe recognized forms and tested cases, not complete enforcement.
+
+Authoritative controls are planned: the reviewed TypeScript compiler's import graph for import dependencies, and a
+strict Content-Security-Policy in the web app, enforced by the browser, for runtime loading and execution. Neither
+is implemented by this reader. Passing this lint does not prove runtime safety; see
+[`docs/gaps.md`](../../docs/gaps.md#6-tests-and-quality-gates) and
+[ADR 0014](../../docs/adr/0014-partial-web-import-lint-and-authoritative-controls.md).
+
+The reader also refuses a slash after `>`: a closing type argument can end a value, while a comparison operator
+starts an expression. Parenthesize the value before dividing; `=>` still starts an arrow-function expression.
+Loader capabilities (`Function`, `eval`, workers, service workers and code-loading constructors) are refused as
+identifiers, quoted destructuring keys and literal bracket keys, before aliasing or indirect calls. Escaped keys are
+refused without decoding; escaped identifiers already stop the lexer. Computed access and binding keys must be one
+plain string or number literal: templates, concatenations, parenthesized expressions and const-derived keys are
+refused, rather than evaluated. Timer references must be direct calls with a visible function literal; aliases and
+unproven arguments are refused. These conservative rules also reject harmless names and computed indexing.
+
+Numeric tokens stop at the literal's boundary: decimal fractions, exponents, BigInts and binary/octal/hexadecimal
+integers leave following property names visible, including `1..constructor` and `1n.constructor`. Separators must
+occur between digits; malformed continuations, identifier escapes immediately after a number and legacy leading-zero
+forms are refused. Regular expression flags must be distinct letters from `dgimsuy`; unknown, escaped and duplicate
+flags are refused. Unicode sets (`v`) are refused because their character classes need a different reader. These
+rules apply to TS and TSX in source and test roots, including test-named files in source roots.
+
+In HTML, duplicate attribute names (case-insensitive) and any ampersand in `src`, `href` or `type` are refused.
+Every `src` and `href` on a scanned element is validated before origin classification: ASCII controls (including
+TAB/LF/CR), spaces, backslashes, non-ASCII characters and malformed percent escapes are refused. The accepted URL
+syntax is a conservative subset: relative references and HTTP(S)/network references with plain DNS authorities.
+Other schemes, credentials, encoded hosts, IP literals, numeric-ending hosts and invalid ports are refused without
+approximating WHATWG parsing. Every accepted absolute/network reference is then refused as another origin. Local
+paths, queries and fragments within the subset still pass. TypeScript imports of `.css` package subpaths, scoped or
+unscoped and in any letter case, remain unsupported in browser code and tests. Style sheets must be linked from HTML.
+
 The library is built and tested, and the shipping API is its first user: `ArchitectureConformanceTest` in
 `:apps:shipping-api` checks the API's classes with it. `SelfConformanceTest` checks the
-library's own five packages against its self-model, [`architecture/self.dsl`](architecture/self.dsl), and the negative
+library's own six packages against its self-model, [`architecture/self.dsl`](architecture/self.dsl), and the negative
 fixtures of `ConformanceDivergenceTest` and `ConformanceAbsenceTest` show both directions failing. The commands to run
 them, how long they took, and how to watch the self-check fail are under [Try it](../../README.md#try-it) in the
 repository's README.
@@ -105,7 +149,7 @@ calls into `model`, its member and its source line.
 
 ## Structure and checks
 
-The library's five packages and the only dependencies allowed between them are in its self-model,
+The library's six packages and the only dependencies allowed between them are in its self-model,
 [`architecture/self.dsl`](architecture/self.dsl). `SelfConformanceTest` checks the library against it with the library
 itself; `ReviewConditionsTest` checks the conditions of the ArchUnit and Structurizr reviews on the library's class
 files (no `reflect()`, file-path imports only, one parser factory, no URL or feature re-enabled, and more). A rule on
