@@ -61,7 +61,7 @@ class PagesWorkflowTest {
     @Test
     void theBuildJobUsesTheEnvironmentWhoseSecretIsTheDictionary() {
         assertThat(BUILD.string("environment")).isEqualTo("github-pages");
-        assertThat(BUILD.string("runs-on")).startsWith("ubuntu-");
+        assertThat(BUILD.string("runs-on")).isEqualTo("ubuntu-24.04");
     }
 
     @Test

@@ -22,14 +22,14 @@ public final class ClassDirectories {
     /** Set for the test task by apps/shipping-api/build.gradle.kts: the main source set's class-output directories. */
     static final String MAIN = "shipping.mainClassDirectories";
 
-    private ClassDirectories() {
-    }
-
     /**
-     * Set for the test task by apps/shipping-api/build.gradle.kts: the test source set's class-output directories, which
-     * the scenario checks' census reads for the test classes that take part in a run.
+     * Set for the test task by apps/shipping-api/build.gradle.kts: the test source set's class-output directories,
+     * read by the external-import policy and the scenario checks' census.
      */
     static final String TEST = "shipping.testClassDirectories";
+
+    private ClassDirectories() {
+    }
 
     /** Every class-output directory of the API's main source set, as Gradle passes them to the test task. */
     public static List<Path> main() {

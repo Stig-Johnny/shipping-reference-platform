@@ -6,7 +6,7 @@ updated: 2026-11-08
 pr: 77
 kind: gate
 recorded: 2026-11-08
-tests: [CoverageBypassTest, ReachabilityTest, QuoteScenarioTest, TenantDenialScenarioTest, CoverageLedgerTest, ScenarioReportTest, SiteAssetsTest]
+tests: [CoverageBypassTest, ReachabilityTest, QuoteScenarioTest, TenantDenialScenarioTest, CoverageLedgerTest, ScenarioReportTest, SiteAssetsTest, ExternalImportPolicyTest]
 ---
 
 ## What changed
@@ -26,6 +26,10 @@ The census refuses task-capable dispatch sites it examines; it does not try to p
 The value-behaviour fixture now registers and checks three quote outcomes. The public claims distinguish detected
 gaps from unexamined cases, and the repository-view comparison with Structurizr from syntax fixtures without that
 independent oracle.
+
+The external-import control also checks the scenario harness and its deliberately altered implementations. Their
+needed external classes have exact, reasoned grants in two test-only areas. Other module tests and all production
+areas keep their existing lists. This permits the tests to run without treating any coverage gap as resolved.
 
 The shared diagram renderer now reserves space around group headings and uses opaque relationship-label backgrounds.
 This addresses the quote scenario's merged API heading and step 4, and the line through step 3's REQUIRED label,
@@ -108,6 +112,26 @@ The diagram follow-up's new `SiteAssetsTest` assertion failed before the renderi
 failure), then passed during documentation generation on 2026-11-08 with the same JDK. It checks the generated
 script's shared title margins and opaque SVG label backing. A fresh rendered inspection is still pending because
 browser access was unavailable in that review session; these assertions do not establish the final pixel layout.
+
+The import-policy integration was recorded on the same capture date, platform and JDK. Before the grants,
+`./gradlew :apps:shipping-api:test --tests '*ExternalImportPolicyTest'` exited 1: the two new area-boundary tests
+and the existing compiled-test-output policy failed. Excerpt, omitting task logs and stack traces:
+
+```text
+45 tests completed, 3 failed
+```
+
+After the exact-class grants, that command exited 0, with all 45 tests passing, including the unused-entry rule.
+Excerpt, omitting task logs:
+
+```text
+BUILD SUCCESSFUL in 4s
+10 actionable tasks: 3 executed, 7 up-to-date
+```
+
+`ExternalImportPolicyTest` checks both exact scenario packages, the named fixture families, exclusion of neighboring
+packages and similarly named classes, and unchanged main-output classification. Its current-build evidence comes
+from the publishing build's JUnit results, separately from this recorded output.
 
 ## Limits
 
