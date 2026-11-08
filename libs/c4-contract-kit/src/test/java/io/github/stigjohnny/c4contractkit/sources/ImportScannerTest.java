@@ -1,0 +1,919 @@
+package io.github.stigjohnny.c4contractkit.sources;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
+
+import java.util.List;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
+
+/**
+ * Synthetic cases for the partial import grammar (libs/c4-contract-kit/AGENTS.md, "Web imports"): tested forms are
+ * read with their line and specifier or refused, and tested non-code text does not count as code. These assertions
+ * do not establish complete detection; the known spread-syntax misses remain open (ADR 0014).
+ */
+class ImportScannerTest {
+
+    @ParameterizedTest(name = "lexical boundary: {0}, JSX={1}")
+    @MethodSource("lexicalBoundaries")
+    void literalBoundariesCannotConcealLoaderNames(LexicalBoundaryFixtures.Fixture fixture, boolean jsx) {
+        ImportScanner.Scan scan = ImportScanner.scan("// synthetic fixture\n" + fixture.source(), jsx);
+        assertThat(scan.imports()).isEmpty();
+        assertThat(scan.refusals()).containsExactlyElementsOf(fixture.reasons().stream()
+                .map(reason -> new Refusal(fixture.line(), reason)).toList());
+    }
+
+    static Stream<Arguments> lexicalBoundaries() {
+        return LexicalBoundaryFixtures.cases().flatMap(fixture -> Stream.of(
+                arguments(fixture, false), arguments(fixture, true)));
+    }
+
+    @ParameterizedTest(name = "generic assertion hiding {0}, JSX={1}")
+    @CsvSource({"import('undeclared'), false", "import(name), false",
+        "import('undeclared'), true", "import(name), true"})
+    void aSlashAfterAClosingTypeArgumentCannotHideAnImport(String expression, boolean jsx) {
+        String source = "type N<T> = number;\nasync function f(value: number) {\n"
+                + "  const n = value as N<number> / (await " + expression + ").n / 2;\n}\n";
+        assertThat(ImportScanner.scan(source, jsx).refusals()).extracting(Refusal::line, Refusal::reason)
+                .containsExactly(tuple(3, "a / after '>' is not supported: it could start a regular expression "
+                        + "or be an operator, and the reader does not guess; put the expression in parentheses"));
+    }
+
+    @ParameterizedTest(name = "loader reference: {0}")
+    @ValueSource(strings = {
+        "const F = Function; F(\"return import('unlisted')\")();",
+        "Function.call(null, \"return import('unlisted')\")();",
+        "Function.apply(null, [\"return import('unlisted')\"])();",
+        "const F = globalThis.Function.bind(null); F(\"return import('unlisted')\")();",
+        "const { Function: F } = globalThis; F(\"return import('unlisted')\")();",
+        "const F = globalThis['Function']; F(\"return import('unlisted')\")();",
+        "const W = Worker; new W('https://example.invalid/a.js');",
+        "const W = SharedWorker; new W('https://example.invalid/a.js');",
+        "const W = globalThis['Worker']; new W('https://example.invalid/a.js');",
+        "const load = importScripts; load('https://example.invalid/a.js');",
+        "importScripts.call(null, 'https://example.invalid/a.js');"})
+    void loaderReferencesAreRefusedBeforeTheyCanBeAliasedOrCalledIndirectly(String source) {
+        String reason = source.contains("Function") ? ImportScanner.FUNCTION : ImportScanner.WORKER;
+        assertThat(ts("// synthetic fixture\n" + source).refusals()).extracting(Refusal::line, Refusal::reason)
+                .containsExactly(tuple(2, reason));
+    }
+
+    @ParameterizedTest(name = "static key: {0}")
+    @MethodSource("io.github.stigjohnny.c4contractkit.sources.LoaderKeyFixtures#keys")
+    void everyStaticLoaderKeyIsRefused(String description, String source, String reason) {
+        for (boolean jsx : List.of(false, true)) {
+            assertThat(ImportScanner.scan("// synthetic fixture\n" + source, jsx).refusals())
+                    .as("%s, JSX=%s", description, jsx).extracting(Refusal::line, Refusal::reason)
+                    .containsExactly(tuple(2, reason));
+        }
+    }
+
+    @ParameterizedTest(name = "key syntax: {0}")
+    @ValueSource(strings = {
+        "const F = globalThis['Funct\\u0069on']; F(\"return import('unlisted')\")();",
+        "const F = globalThis['Funct\\u{69}on'];",
+        "const F = globalThis['Funct\\x69on'];",
+        "const F = globalThis['Funct\\ion'];",
+        "const F = globalThis['Funct\\\nion'];",
+        "const { 'Funct\\x69on': F } = globalThis;",
+        "const F = globalThis?.['Funct\\u0069on'];",
+        "const F = globalThis[`Funct\\u0069on`];",
+        "const F = globalThis[`Funct${'i'}on`];",
+        "const { [`Function`]: F } = globalThis;",
+        "const key = 'Fun' + 'ction'; const F = (globalThis)[key];",
+        "const key = `Function`; const F = globalThis?.[key];",
+        "const key = 'Function'; const F = globalThis![key];",
+        "const key = 'Function'; const F = (globalThis as typeof globalThis)[key];",
+        "const keys = { name: 'Function' }; const F = globalThis[keys.name];",
+        "const F = globalThis['constructor']; F('return 1')();",
+        "const F = (() => undefined).constructor; F('return 1')();",
+        "globalThis['setTimeout'](\"import('unlisted')\", 0);",
+        "globalThis[`setInterval`](\"import('unlisted')\", 0);",
+        "const schedule = setTimeout; schedule(\"import('unlisted')\", 0);",
+        "const code = \"import('unlisted')\"; setTimeout(code, 0);",
+        "setInterval.call(null, \"import('unlisted')\", 0);",
+        "setTimeout?.(\"import('unlisted')\", 0);"})
+    void unsupportedKeySyntaxAndIndirectTimersFailClosed(String source) {
+        for (boolean jsx : List.of(false, true)) {
+            assertThat(ImportScanner.scan("// synthetic fixture\n" + source, jsx).refusals())
+                    .as("JSX=%s", jsx).anySatisfy(refusal -> {
+                        assertThat(refusal.line()).isEqualTo(2);
+                        assertThat(refusal.reason()).isIn(LoaderKeyFixtures.ESCAPED, LoaderKeyFixtures.COMPUTED,
+                                LoaderKeyFixtures.TIMER, LoaderKeyFixtures.CONSTRUCTOR);
+                    });
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"globalThis.Funct\\u0069on", "globalThis.\\u0046unction",
+        "globalThis.\\u{46}unction", "\\u0065val", "\\u0057orker", "set\\u0054imeout"})
+    void escapedIdentifiersAreRefusedWithoutLosingEarlierQuotedKeys(String identifier) {
+        assertThat(ts("const { 'Function': F } = globalThis;\nconst loader = " + identifier + ";").refusals())
+                .extracting(Refusal::line, Refusal::reason).containsExactly(
+                        tuple(1, ImportScanner.FUNCTION), tuple(2,
+                                "a backslash outside a string, template or regular expression is not supported"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "setTimeout(function () {} && \"import('unlisted')\", 0);",
+        "setInterval(function task() {} ? \"import('unlisted')\" : '', 0);",
+        "setTimeout(async function () {} && \"import('unlisted')\", 0);",
+        "setInterval(function* () {} && \"import('unlisted')\", 0);"})
+    void aFunctionPrefixDoesNotProveTheTimerArgumentRemainsAFunction(String source) {
+        assertThat(ts(source).refusals()).extracting(Refusal::line, Refusal::reason)
+                .containsExactly(tuple(1, LoaderKeyFixtures.TIMER));
+    }
+
+    private static ImportScanner.Scan ts(String text) {
+        return ImportScanner.scan(text, false);
+    }
+
+    private static ImportScanner.Scan tsx(String text) {
+        return ImportScanner.scan(text, true);
+    }
+
+    @Test
+    void readsEveryStaticImportFormWithTheLineOfItsSpecifier() {
+        ImportScanner.Scan scan = ts("""
+                import a from './a';
+                import * as b from "./b";
+                import { c, d as e } from './c';
+                import f, { g } from './f';
+                import h, * as i from './h';
+                import './side-effect.css';
+                import {
+                    j,
+                    k,
+                } from './j';
+                import type from './type-is-a-default-binding';
+                import type, { l } from './l';
+                """);
+
+        assertThat(scan.refusals()).isEmpty();
+        assertThat(scan.imports()).extracting(SourceImport::line, SourceImport::specifier, SourceImport::kind)
+                .containsExactly(
+                        tuple(1, "./a", ImportKind.IMPORT),
+                        tuple(2, "./b", ImportKind.IMPORT),
+                        tuple(3, "./c", ImportKind.IMPORT),
+                        tuple(4, "./f", ImportKind.IMPORT),
+                        tuple(5, "./h", ImportKind.IMPORT),
+                        tuple(6, "./side-effect.css", ImportKind.SIDE_EFFECT),
+                        tuple(10, "./j", ImportKind.IMPORT),
+                        tuple(11, "./type-is-a-default-binding", ImportKind.IMPORT),
+                        tuple(12, "./l", ImportKind.IMPORT));
+    }
+
+    @Test
+    void typeOnlyImportsAndReExportsAreDependenciesOfTheirOwnKind() {
+        ImportScanner.Scan scan = ts("""
+                import type { A } from './a';
+                import type B from './b';
+                import type * as C from './c';
+                import { type D } from './d';
+                export * from './e';
+                export * as f from './f';
+                export { g, h as i } from './g';
+                export type { J } from './j';
+                export type * from './k';
+                export type * as L from './l';
+                """);
+
+        assertThat(scan.refusals()).isEmpty();
+        assertThat(scan.imports()).extracting(SourceImport::specifier, SourceImport::kind).containsExactly(
+                tuple("./a", ImportKind.TYPE_IMPORT),
+                tuple("./b", ImportKind.TYPE_IMPORT),
+                tuple("./c", ImportKind.TYPE_IMPORT),
+                tuple("./d", ImportKind.IMPORT),
+                tuple("./e", ImportKind.RE_EXPORT),
+                tuple("./f", ImportKind.RE_EXPORT),
+                tuple("./g", ImportKind.RE_EXPORT),
+                tuple("./j", ImportKind.TYPE_RE_EXPORT),
+                tuple("./k", ImportKind.TYPE_RE_EXPORT),
+                tuple("./l", ImportKind.TYPE_RE_EXPORT));
+    }
+
+    @Test
+    void localExportsAndDeclarationsAreNoDependencies() {
+        ImportScanner.Scan scan = ts("""
+                const a = 1;
+                export { a };
+                export { a as b };
+                export type T = { from: string };
+                export interface U { from: 'x' }
+                export const from = 'not a specifier';
+                export default function main() {}
+                export enum E { A }
+                export abstract class Base {}
+                export declare const declared: number;
+                """);
+
+        assertThat(scan.refusals()).isEmpty();
+        assertThat(scan.imports()).isEmpty();
+    }
+
+    @Test
+    void aDynamicImportOfAPlainStringIsADependencyAnywhereEvenInATypePosition() {
+        ImportScanner.Scan scan = ts("""
+                const lazy = () => import('./lazy');
+                type T = typeof import("./types");
+                let u: import('./more').U;
+                """);
+
+        assertThat(scan.refusals()).isEmpty();
+        assertThat(scan.imports()).extracting(SourceImport::line, SourceImport::specifier, SourceImport::kind)
+                .containsExactly(
+                        tuple(1, "./lazy", ImportKind.DYNAMIC),
+                        tuple(2, "./types", ImportKind.DYNAMIC),
+                        tuple(3, "./more", ImportKind.DYNAMIC));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"import(name)", "import(`./a`)", "import(`./${name}`)", "import('./a' + name)",
+        "import('./a', { with: { type: 'json' } })", "import()"})
+    void aDynamicImportOfAnythingButOnePlainStringIsRefused(String expression) {
+        ImportScanner.Scan scan = ts("const name = 'a';\nconst m = " + expression + ";\n");
+
+        assertThat(scan.imports()).isEmpty();
+        assertThat(scan.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(tuple(2,
+                "import() is supported only with one plain string literal: the module it loads must be known "
+                        + "without running the code"));
+    }
+
+    @Test
+    void requireAndImportMetaResolutionAreRefusedWhereverTheyAppear() {
+        ImportScanner.Scan scan = ts("""
+                const a = require('./a');
+                const modules = import.meta.glob('./pages/*.ts');
+                const url = new URL('./b.svg', import.meta.url);
+                const c = import.meta.resolve('./c');
+                const fine = import.meta.env.MODE;
+                """);
+
+        assertThat(scan.imports()).isEmpty();
+        assertThat(scan.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(
+                tuple(1, "require is not supported: modules are loaded with import declarations only"),
+                tuple(2, "import.meta is supported only as import.meta.env: import.meta.glob, import.meta.url and "
+                        + "import.meta.resolve locate modules or files at run time"),
+                tuple(3, "import.meta is supported only as import.meta.env: import.meta.glob, import.meta.url and "
+                        + "import.meta.resolve locate modules or files at run time"),
+                tuple(4, "import.meta is supported only as import.meta.env: import.meta.glob, import.meta.url and "
+                        + "import.meta.resolve locate modules or files at run time"));
+    }
+
+    @Test
+    void aTestMayLocateFilesWithImportMetaButNotResolveModules() {
+        // Tests run in Node.js and read fixtures through node:fs; locating a file is no import. Browser code may not.
+        String text = """
+                const contract = new URL('../../../../contracts/shipping.openapi.yaml', import.meta.url);
+                const here = import.meta.dirname + import.meta.filename;
+                const resolved = import.meta.resolve('./x.ts');
+                """;
+
+        assertThat(ImportScanner.scan(text, false, true).refusals()).extracting(Refusal::line, Refusal::reason)
+                .containsExactly(tuple(3, ImportScanner.IMPORT_META));
+        assertThat(ImportScanner.scan(text, false, false).refusals()).extracting(Refusal::line)
+                .containsExactly(1, 2, 3);
+    }
+
+    @Test
+    void typeScriptModuleFormsOutsideTheGrammarAreRefused() {
+        ImportScanner.Scan scan = ts("""
+                import fs = require('fs');
+                import Alias = Some.Namespace;
+                export import Other = Some.Other;
+                import json from './data.json' with { type: 'json' };
+                import legacy from './legacy.json' assert { type: 'json' };
+                declare module 'virtual:thing' {
+                    export const x: number;
+                }
+                """);
+
+        assertThat(scan.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(
+                tuple(1, "import ... = (an import-equals declaration) is not supported"),
+                tuple(1, "require is not supported: modules are loaded with import declarations only"),
+                tuple(2, "import ... = (an import-equals declaration) is not supported"),
+                tuple(3, "import ... = (an import-equals declaration) is not supported"),
+                tuple(4, "import attributes (with or assert) are not supported"),
+                tuple(5, "import attributes (with or assert) are not supported"),
+                tuple(6, "a module declaration with a module name (module 'x') is not supported: it declares a "
+                        + "module that no file of the web root is"));
+        assertThat(scan.imports()).extracting(SourceImport::specifier)
+                .containsExactly("./data.json", "./legacy.json");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"module 'hidden' { export const n: number; }",
+        "export module 'hidden' { export const n: number; }",
+        "declare namespace N { module 'hidden' { export const n: number; } }",
+        "declare\nmodule \"hidden\" { }"})
+    void aModuleDeclarationWithAModuleNameIsRefusedWithOrWithoutDeclare(String text) {
+        ImportScanner.Scan scan = ts(text + "\n");
+
+        assertThat(scan.refusals()).extracting(Refusal::reason).containsExactly("a module declaration with a module "
+                + "name (module 'x') is not supported: it declares a module that no file of the web root is");
+    }
+
+    @Test
+    void evalAndTheFunctionConstructorAreRefusedBecauseTheCodeTheyRunCouldImportAnything() {
+        String eval = "eval is not supported: the code it runs could load modules that the check never sees";
+        String function = "the Function constructor is not supported: the code it builds could load modules that the "
+                + "check never sees";
+        ImportScanner.Scan scan = ts("""
+                eval("import('./hidden.ts')");
+                const run = new Function("return import('./hidden.ts')");
+                const also = Function('return 1')();
+                const viaGlobal = globalThis.eval('1');
+                const callback: Function = () => undefined;
+                const name = Function.prototype.name;
+                """);
+
+        assertThat(scan.imports()).isEmpty();
+        assertThat(scan.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(
+                tuple(1, eval), tuple(2, function), tuple(3, function), tuple(4, eval),
+                tuple(5, function), tuple(6, function));
+    }
+
+    @Test
+    void workersStringTimersAndConstructorCallsAreRefusedBecauseTheyLoadCodeTheCheckNeverReads() {
+        String worker = "a worker (Worker, SharedWorker, importScripts, serviceWorker) is not supported: it loads a "
+                + "script from a URL at run time";
+        String constructor = "a call of a constructor property (x.constructor(...)) is not supported: it can reach the "
+                + "Function constructor";
+        String timer = "setTimeout and setInterval with a string are not supported: the string is code the check "
+                + "never reads";
+        ImportScanner.Scan scan = ts("""
+                const w = new Worker(new URL('./worker.ts', location.href), { type: 'module' });
+                const s = new SharedWorker('./shared.js');
+                importScripts('./more.js');
+                navigator.serviceWorker.register('./sw.js');
+                const run = (() => undefined).constructor("return import('./hidden.ts')");
+                setTimeout("import('./hidden.ts')", 0);
+                setInterval(`import('./hidden.ts')`, 10);
+                setTimeout(() => undefined, 0);
+                class A { constructor(x: number) {} }
+                """);
+
+        assertThat(scan.imports()).isEmpty();
+        assertThat(scan.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(
+                tuple(1, worker), tuple(2, worker), tuple(3, worker), tuple(4, worker), tuple(5, constructor),
+                tuple(6, timer), tuple(7, timer));
+    }
+
+    @Test
+    void tripleSlashDirectivesAndJsxPragmasAreRefusedBecauseTheyAddDependenciesInComments() {
+        ImportScanner.Scan scan = tsx("""
+                /// <reference types="vite/client" />
+                ///<reference path="./globals.d.ts" />
+                /** @jsxImportSource preact */
+                // An ordinary comment that mentions /// <reference> is fine.
+                /* So is one that says import x from 'y' or require('z'). */
+                export const ok = 1;
+                """);
+
+        assertThat(scan.imports()).isEmpty();
+        assertThat(scan.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(
+                tuple(1, "triple-slash directives (/// <reference ...>) are not supported: they add dependencies "
+                        + "in comments"),
+                tuple(2, "triple-slash directives (/// <reference ...>) are not supported: they add dependencies "
+                        + "in comments"),
+                tuple(3, "JSX pragmas (@jsx, @jsxImportSource, @jsxFrag, @jsxRuntime) are not supported: they "
+                        + "change which module JSX imports"));
+    }
+
+    @Test
+    void wordsInStringsCommentsTemplatesAndRegularExpressionsAreNotCode() {
+        ImportScanner.Scan scan = ts("""
+                const s1 = "import x from './not-a'; require('./not-b')";
+                const s2 = 'export * from "./not-c"';
+                const t = `import('./not-d') ${s1.length > 0 ? `require('./not-e')` : ''} import.meta.glob`;
+                const r1 = /import\\('x'\\)|['"`]/g;
+                const r2 = s1.replace(/require\\(/, '') / 2;
+                // import y from './not-f';
+                /* export { z } from './not-g'; */
+                const object = { import: 1, require: 2, module: 'x' };
+                const member = object.import + object?.require;
+                import real from './real';
+                """);
+
+        assertThat(scan.refusals()).isEmpty();
+        assertThat(scan.imports()).extracting(SourceImport::line, SourceImport::specifier)
+                .containsExactly(tuple(10, "./real"));
+    }
+
+    @Test
+    void aKeywordAfterADotOrAHashIsAPropertyNameSoASlashOrALessThanAfterItIsAnOperator() {
+        // After return or default an expression starts, so a slash starts a regular expression. After options.default a
+        // value has ended: read as a regular expression, this division would hide the package import beside it, with
+        // no refusal.
+        ImportScanner.Scan division = ts(
+                "const half = options.default / 2; const chart = import('chart-kit'); const third = total / 3;\n");
+
+        assertThat(division.refusals()).isEmpty();
+        assertThat(division.imports()).extracting(SourceImport::specifier, SourceImport::kind)
+                .containsExactly(tuple("chart-kit", ImportKind.DYNAMIC));
+
+        ImportScanner.Scan scan = ts("""
+                const quarter = this.#in / 4; import('./rest.ts'); const fifth = total / 5;
+                const ratio = size?.of / 2;
+                export function first(items: string[]) { return /^[a-z]/.test(items[0] ?? ''); }
+                """);
+
+        assertThat(scan.refusals()).isEmpty();
+        assertThat(scan.imports()).extracting(SourceImport::line, SourceImport::specifier)
+                .containsExactly(tuple(1, "./rest.ts"));
+
+        ImportScanner.Scan jsx = tsx("""
+                const small = options.default < 3;
+                import later from './later.ts';
+                """);
+
+        assertThat(jsx.refusals()).isEmpty();
+        assertThat(jsx.imports()).extracting(SourceImport::specifier).containsExactly("./later.ts");
+    }
+
+    @Test
+    void jsxTextAndAttributesMayHoldQuotesAndCodeLikeWordsWhileExpressionsInsideThemAreCode() {
+        ImportScanner.Scan scan = tsx("""
+                import { lazy } from 'react';
+                export function View({ items }: { items: string[] }) {
+                    const Page = lazy(() => import('./Page'));
+                    return (
+                        <section title="Don't import 'this' {here}" data-x='a "b" c'>
+                            <p>Don't import this, and don't require that.</p>
+                            {items.length > 0 ? <ul>{items.map((item) => <li key={item}>{item}'s</li>)}</ul> : null}
+                            <>
+                                <Page />
+                                {/* import('./not-in-a-comment') */}
+                                {cond && import('./also-real')}
+                            </>
+                        </section>
+                    );
+                }
+                const less = 1 < 2 && 3 > 1;
+                const generic = new Map<string, number>();
+                """);
+
+        assertThat(scan.refusals()).isEmpty();
+        assertThat(scan.imports()).extracting(SourceImport::line, SourceImport::specifier, SourceImport::kind)
+                .containsExactly(
+                        tuple(1, "react", ImportKind.IMPORT),
+                        tuple(3, "./Page", ImportKind.DYNAMIC),
+                        tuple(11, "./also-real", ImportKind.DYNAMIC));
+    }
+
+    @Test
+    void aTypeAssertionInATsFileIsNotJsx() {
+        ImportScanner.Scan scan = ts("""
+                const value = <string>input;
+                const fn = <T>(x: T): T => x;
+                import later from './later';
+                """);
+
+        assertThat(scan.refusals()).isEmpty();
+        assertThat(scan.imports()).extracting(SourceImport::specifier).containsExactly("./later");
+    }
+
+    @Test
+    void aGenericArrowFunctionInATsxFileIsRefusedRatherThanMisread() {
+        ImportScanner.Scan scan = tsx("""
+                const identity = <T,>(x: T) => x;
+                import later from './later';
+                """);
+
+        assertThat(scan.imports()).isEmpty();
+        assertThat(scan.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(tuple(1,
+                "JSX: unexpected ',' in a tag (a generic arrow function or generic function type starting with "
+                        + "'<' is not supported in .tsx files)"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "const a = 'unterminated;\nimport b from './b';\n",
+        "const a = \"unterminated;\nimport b from './b';\n",
+        "const a = `unterminated;\nimport b from './b';\n",
+        "/* unterminated comment\nimport b from './b';\n",
+        "const r = /unterminated;\nimport b from './b';\n"})
+    void anUnterminatedLiteralOrCommentStopsTheScanAndIsRefused(String text) {
+        ImportScanner.Scan scan = ts(text);
+
+        assertThat(scan.imports()).isEmpty();
+        assertThat(scan.refusals()).hasSize(1).first().satisfies(refusal -> {
+            assertThat(refusal.line()).isEqualTo(1);
+            assertThat(refusal.reason()).startsWith("unterminated ");
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "const a = <div>never closed;\n",
+        "const a = <div>text</span>;\n",
+        "const a = <div>a } b</div>;\n",
+        "const a = <div>a > b</div>;\n",
+        "const a = <div attr=<b />></div>;\n"})
+    void jsxOutsideTheGrammarIsRefused(String text) {
+        ImportScanner.Scan scan = tsx(text);
+
+        assertThat(scan.refusals()).hasSize(1).first().extracting(Refusal::reason).asString().startsWith("JSX: ");
+    }
+
+    @Test
+    void lineSeparatorsAndEscapedIdentifiersAreRefused() {
+        assertThat(ts("const a = 1;\u2028import b from './b';\n").refusals()).extracting(Refusal::reason)
+                .containsExactly("the characters U+2028 and U+2029 are not supported");
+        assertThat(ts("const \\u0061 = 1;\n").refusals()).extracting(Refusal::reason)
+                .containsExactly("a backslash outside a string, template or regular expression is not supported");
+    }
+
+    @Test
+    void statementsAfterAnotherOnTheSameLineAndWithoutSemicolonsAreRead() {
+        ImportScanner.Scan scan = ts("""
+                import a from './a'; import b from './b'
+                import c from './c'
+                export { d } from './d'\r
+                import e from './e'
+                """);
+
+        assertThat(scan.refusals()).isEmpty();
+        assertThat(scan.imports()).extracting(SourceImport::line, SourceImport::specifier).containsExactly(
+                tuple(1, "./a"), tuple(1, "./b"), tuple(2, "./c"), tuple(3, "./d"), tuple(4, "./e"));
+    }
+
+    @Test
+    void escapesInsideStringSpecifiersAreRefusedSoThatTheSpecifierIsExactlyItsText() {
+        ImportScanner.Scan scan = ts("import a from './\\u0061';\n");
+
+        assertThat(scan.imports()).isEmpty();
+        assertThat(scan.refusals()).extracting(Refusal::reason)
+                .containsExactly("a module specifier with a backslash escape is not supported");
+    }
+
+    @Test
+    void anImportClauseThatIsNotFollowedByFromAndAStringIsRefused() {
+        assertThat(ts("import { a } './a';\n").refusals()).extracting(Refusal::reason)
+                .containsExactly("unsupported import declaration: expected from and a string after the import clause");
+        assertThat(ts("import * from './a';\n").refusals()).extracting(Refusal::reason)
+                .containsExactly("unsupported import declaration: expected from and a string after the import clause");
+        assertThat(ts("export * './a';\n").refusals()).extracting(Refusal::reason)
+                .containsExactly("unsupported export declaration: expected from and a string after export *");
+        assertThat(ts("export { a } from b;\n").refusals()).extracting(Refusal::reason)
+                .containsExactly("unsupported export declaration: expected a string after from");
+    }
+
+    @Test
+    void cssImportRulesAreRefusedAndOtherCssIsNoDependency() {
+        assertThat(ImportScanner.scanStyle("""
+                :root { --action: #0f766e; }
+                .icon { background: url('./icon.svg'); }
+                @media (prefers-color-scheme: dark) { :root { --action: #5eead4; } }
+                """)).isEmpty();
+        assertThat(ImportScanner.scanStyle("""
+                :root { --a: 1; }
+                @IMPORT './tokens.css';
+                """)).extracting(Refusal::line, Refusal::reason).containsExactly(tuple(2,
+                "CSS @import is not supported: link each style sheet from index.html"));
+    }
+
+    @Test
+    void anImportRuleIsRefusedWhereverTheTextNamesItCommentsAndStringsIncluded() {
+        // The rule is searched in the raw text: a /* inside a string cannot blank the rule that follows it.
+        assertThat(ImportScanner.scanStyle("@x \"/*\"; @import \"./hidden.css\"; /* */\n")).extracting(Refusal::reason)
+                .containsExactly("CSS @import is not supported: link each style sheet from index.html");
+        assertThat(ImportScanner.scanStyle("/* no @import here */\na { content: '@import'; }\n"))
+                .extracting(Refusal::line).containsExactly(1, 2);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"@\\69mport \"./hidden.css\";", "@\\import \"./hidden.css\";", "@imp\\6frt \"./hidden.css\";",
+        "@\\49 MPORT \"./hidden.css\";", "@media\\ screen { }"})
+    void aCssAtRuleWhoseNameHoldsAnEscapeIsRefusedUndecoded(String css) {
+        assertThat(ImportScanner.scanStyle("a { }\n" + css + "\n")).extracting(Refusal::line, Refusal::reason)
+                .contains(tuple(2, "a CSS at-rule whose name holds a backslash escape is not supported: the reader "
+                        + "does not decode escapes"));
+    }
+
+    /**
+     * Snippets the lexer must read exactly: each comes before an import of ./z, which must be found on the right line
+     * with nothing refused. A slash read as the start of a regular expression where it divides, or the other way
+     * round, would swallow a quote and stop the scan; a line end counted wrongly would move the import.
+     */
+    static Stream<Arguments> snippetsTheLexerReadsExactly() {
+        return Stream.of(
+                arguments("division after an identifier", "const half = total / 2; const s = 'a/b';", 1, false),
+                arguments("division after a number", "const r = 10 / 5; const q = \"it's\";", 1, false),
+                arguments("division after )", "const r = (a + b) / 2; const s = \"it's\";", 1, false),
+                arguments("division after ]", "const r = list[0] / 2; const s = \"it's\";", 1, false),
+                arguments("division after a string", "const r = 'a' / 2; const s = \"it's\";", 1, false),
+                arguments("division after a template", "const r = `a` / 2; const s = \"it's\";", 1, false),
+                arguments("division after a regular expression", "const r = /a/ / 2; const s = \"it's\";", 1, false),
+                arguments("division after a decimal", "const r = 1.5 / 2; const s = \"it's\";", 1, false),
+                arguments("division after a tab", "const r = a\t/ 2; const s = \"it's\";", 1, false),
+                arguments("division after a no-break space", "const r = a\u00A0/ 2; const s = \"it's\";", 1, false),
+                arguments("division after a form feed", "const r = a\f/ 2; const s = \"it's\";", 1, false),
+                arguments("division after a vertical tab", "const r = a\u000B/ 2; const s = \"it's\";", 1, false),
+                arguments("division after a byte order mark", "const r = a\uFEFF/ 2; const s = \"it's\";", 1, false),
+                arguments("division after an EM SPACE", "const r = a\u2003/ 2; const s = \"it's\";", 1, false),
+                arguments("division after an IDEOGRAPHIC SPACE", "const r = a\u3000/ 2; const s = \"it's\";", 1, false),
+                arguments("division after a non-null assertion", "const r = a! / 2; const s = \"it's\";", 1, false),
+                arguments("division after the ) of a call", "const r = f(a) / 2; const s = \"it's\";", 1, false),
+                arguments("a regular expression after the ) of if", "if (a) /'/.test(s);", 1, false),
+                arguments("a regular expression after the ) of for await",
+                        "async function f() { for await (const x of y) /'/.test(x); }", 1, false),
+                arguments("a regular expression after a negation on the next line", "x\n!/'/.test(s);", 2, false),
+                arguments("CRLF line ends", "const a = 1;\r\nconst b = 'it\\'s';\r\n", 3, false),
+                arguments("a regular expression after return", "function f() { return /'/.test(s); }", 1, false),
+                arguments("a regular expression after typeof", "const t = typeof /'/;", 1, false),
+                arguments("a regular expression after a comma", "f(a, /'/);", 1, false),
+                arguments("a regular expression after !", "if (!/'/.test(s)) {}", 1, false),
+                arguments("a regular expression after =>", "const f = () => /'/;", 1, false),
+                arguments("a slash inside a character class", "const r = /[/']/;", 1, false),
+                arguments("an escaped slash", "const r = /\\/'/;", 1, false),
+                arguments("flags", "const r = /a/gimsuy; const s = \"it's\";", 1, false),
+                arguments("an escaped backtick in a template", "const t = `a\\`b ${c} 'd`;", 1, false),
+                arguments("a template over two lines", "const t = `one\ntwo ${'x'}`;", 2, false),
+                arguments("a nested template", "const t = `a ${b ? `c ${d}` : ''} e`;", 1, false),
+                arguments("an escaped quote", "const s = 'it\\'s';", 1, false),
+                arguments("a string continued after a backslash and CRLF", "const s = 'a\\\r\nb';", 2, false),
+                arguments("a string continued after a backslash and LF", "const s = 'a\\\nb';", 2, false),
+                arguments("a template continued after a backslash and LF", "const t = `a\\\nb`;", 2, false),
+                arguments("a block comment over three lines", "/* one\ntwo\nthree */", 3, false),
+                arguments("identifiers that only contain require", "const x = $require('a') + _require('b') "
+                        + "+ require$('c') + requireAll('d');", 1, false),
+                arguments("an identifier with a joiner", "const a\u200Cb = 1; const s = \"it's\";", 1, false),
+                arguments("a member named after a keyword", "const m = a?.import + a.require + b.module;", 1, false),
+                arguments("module as a variable", "declare module Foo { }\nconst module = 1;", 2, false),
+                arguments("with as a statement", "with (scope) { }", 1, false),
+                arguments("import.meta.env", "const mode = import.meta.env.MODE;", 1, false),
+                arguments("comparison after ) in TSX", "const c = (a) < b && c > d;", 1, true),
+                arguments("a boolean attribute", "const e = <input disabled />;", 1, true),
+                arguments("spread attributes", "const e = <Field {...props} key={`k`} />;", 1, true),
+                arguments("namespaced and member names", "const e = <svg:rect data-x='1'><Foo.Bar /></svg:rect>;",
+                        1, true),
+                arguments("comments in a tag", "const e = <div /* a */ id=\"x\" // b\n>it's</div>;", 2, true),
+                arguments("spaces in a closing tag", "const e = <div>it's</ div >;", 1, true),
+                arguments("an attribute string over two lines", "const e = <a title=\"one\ntwo\">it's</a>;", 2,
+                        true),
+                arguments("JSX text over two lines", "const e = <p>one\ntwo's</p>;", 2, true),
+                arguments("an expression container over two lines", "const e = <p>{a\n}</p>;", 2, true),
+                arguments("a comparison after an element", "const e = <a /> < b;", 1, true),
+                arguments("JSX after default", "export default <App />;", 1, true),
+                arguments("JSX after a keyword and in a ternary", "function f() { return a ? <b>it's</b> : <c />; }",
+                        1, true));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("snippetsTheLexerReadsExactly")
+    void theLexerReadsSnippetsExactly(String name, String snippet, int lines, boolean jsx) {
+        ImportScanner.Scan scan = ImportScanner.scan(snippet + "\nimport z from './z';\n", jsx);
+
+        assertThat(scan.refusals()).as(name).isEmpty();
+        assertThat(scan.imports()).as(name).containsExactly(new SourceImport(lines + 1, "./z", ImportKind.IMPORT));
+    }
+
+    /**
+     * A slash read the wrong way round hides what follows it on its line: a division read as the start of a regular
+     * expression swallows the code up to the next slash, and a regular expression read as a division lets a quote in
+     * it open a string. Each case has a real import after the slash on the same line, which the reader must read
+     * (Codex's two probes are the first two).
+     */
+    static Stream<Arguments> slashesBeforeAnImportOnTheSameLine() {
+        return Stream.of(
+                arguments("a non-null assertion is no negation: the slash divides",
+                        "const n = 4; const half = n! / [import('./hidden.ts')].length; const third = n / 3;",
+                        "./hidden.ts"),
+                arguments("the ) of an if head: the slash starts a regular expression",
+                        "if (true) /'/.test(\"x\"); import(\"./hidden.ts\"); /'/.test(\"y\");", "./hidden.ts"),
+                arguments("the ) of a while head",
+                        "while (ready()) /'/.test(s); import('./hidden.ts'); /'/.test(t);", "./hidden.ts"),
+                arguments("the ) of a for head",
+                        "for (const x of list) /'/.test(x); import('./hidden.ts'); /'/.test(y);", "./hidden.ts"),
+                arguments("the ) of a call divides",
+                        "const v = f(x) / 2; import('./hidden.ts'); const w = y / 3;", "./hidden.ts"),
+                arguments("the ) of a method named if divides",
+                        "const v = a.if(x) / 2; import('./hidden.ts'); const w = y / 3;", "./hidden.ts"),
+                arguments("a negation after =", "const a = !/'/.test(s); import('./hidden.ts'); const b = /'/.test(t);",
+                        "./hidden.ts"),
+                arguments("Codex's probe of the rules: a non-null assertion before an awaited import",
+                        "const n = value! / (await import('undeclared')).n / 2;", "undeclared"),
+                arguments("a non-null assertion after a template over two lines",
+                        "const t = `a\n${b}`! / [import('./hidden.ts')].length; const u = c / 3;", "./hidden.ts"),
+                arguments("a negation on the line after a value",
+                        "x\n!/'/.test(s); import('./hidden.ts'); /'/.test(t);", "./hidden.ts"),
+                arguments("an EM SPACE is white space",
+                        "const n = 4; const half = n\u2003/ 2; const lazy = import('hidden'); const third = n / 3;",
+                        "hidden"),
+                arguments("an OGHAM SPACE MARK is white space",
+                        "const n = 4; const half = n\u1680/ 2; const lazy = import('hidden'); const third = n / 3;",
+                        "hidden"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("slashesBeforeAnImportOnTheSameLine")
+    void aSlashNeverHidesAnImportOnItsLine(String name, String text, String specifier) {
+        ImportScanner.Scan scan = ts(text + "\n");
+
+        assertThat(scan.refusals()).as(name).isEmpty();
+        assertThat(scan.imports()).as(name).extracting(SourceImport::specifier).contains(specifier);
+    }
+
+    /** Where the token before a slash allows both readings, the reader refuses the file instead of choosing one. */
+    static Stream<Arguments> slashesTheReaderCannotClassify() {
+        return Stream.of(
+                arguments("after a block",
+                        "if (true) {} /'/.test(\"x\"); import(\"./hidden.ts\"); /'/.test(\"y\");", "'}'"),
+                arguments("after of as a name",
+                        "const of = 4; const half = of / 2; const lazy = import('hidden'); const third = of / 3;",
+                        "'of'"),
+                arguments("after await as a name",
+                        "const await = 4; const h = await / 2; const lazy = import('hidden'); const t = await / 3;",
+                        "'await'"),
+                arguments("after yield", "function* g() { const y = yield / 2; import('./hidden.ts'); }", "'yield'"),
+                arguments("after ++", "let i = 0; const r = i++ / 2; const lazy = import('hidden'); const t = i / 3;",
+                        "'++'"),
+                arguments("after --", "let i = 0; const r = i-- / 2; const lazy = import('hidden'); const t = i / 3;",
+                        "'--'"),
+                arguments("after a module specifier", "import './a.ts'\n/'/.test(s); import('./hidden.ts'); /'/;",
+                        "a module specifier"),
+                arguments("after an unmatched )", "x) / 2; import('./hidden.ts'); y / 3;", "an unmatched ')'"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("slashesTheReaderCannotClassify")
+    void aSlashThatCouldBeEitherIsRefused(String name, String text, String after) {
+        ImportScanner.Scan scan = ts(text + "\n");
+
+        assertThat(scan.refusals()).as(name).extracting(Refusal::reason).anySatisfy(reason -> assertThat(reason)
+                .isEqualTo("a / after " + after + " is not supported: it could start a regular expression or be an "
+                        + "operator, and the reader does not guess; put the expression in parentheses"));
+    }
+
+    @Test
+    void aLessThanAfterABlockInATsxFileIsRefused() {
+        ImportScanner.Scan scan = tsx("if (a) {} <b>it's</b>; import('./hidden.ts');\n");
+
+        assertThat(scan.refusals()).extracting(Refusal::reason).containsExactly("a < after '}' is not supported: it "
+                + "could start a JSX element or be an operator, and the reader does not guess; put the expression in "
+                + "parentheses");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\u200B", "\u0085", "\u0007", "\u2060", "\u180E"})
+    void aCharacterThatIsNeitherWhiteSpaceNorCodeIsRefused(String character) {
+        ImportScanner.Scan scan = ts("const n = 4; const h = n" + character
+                + "/ 2; const lazy = import('hidden'); const t = n / 3;\n");
+
+        assertThat(scan.refusals()).extracting(Refusal::reason).containsExactly("the character U+"
+                + String.format(java.util.Locale.ROOT, "%04X", (int) character.charAt(0)) + " is not supported outside "
+                + "strings, comments, templates and JSX text");
+    }
+
+    @Test
+    void aLoneCarriageReturnIsRefusedWhereverItIsBecauseTypeScriptEndsACommentThere() {
+        String refused = "a carriage return that is not followed by a line feed is not supported: TypeScript ends a "
+                + "line, and a // comment, there";
+
+        ImportScanner.Scan comment = ts("// comment\rimport './hidden.ts';");
+        assertThat(comment.imports()).isEmpty();
+        assertThat(comment.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(tuple(1, refused));
+        assertThat(ts("/* a\r*/ import './b.ts';\n").refusals()).extracting(Refusal::reason).containsExactly(refused);
+        assertThat(ts("const s = 'a\\\rb';\n").refusals()).extracting(Refusal::reason).containsExactly(refused);
+        assertThat(ts("const r = a\r/ 2;\n").refusals()).extracting(Refusal::reason).containsExactly(refused);
+        assertThat(ts("import './a.ts';\nconst b = 1;\r").refusals()).extracting(Refusal::line, Refusal::reason)
+                .containsExactly(tuple(2, refused));
+
+        ImportScanner.Scan crlf = ts("// one\r\nimport './a.ts';\r\nimport './b.ts';\r\n");
+        assertThat(crlf.refusals()).isEmpty();
+        assertThat(crlf.imports()).extracting(SourceImport::line, SourceImport::specifier)
+                .containsExactly(tuple(2, "./a.ts"), tuple(3, "./b.ts"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/** @jsximportsource hidden */", "/** @JSXIMPORTSOURCE hidden */", "/* @JsxFrag Fragment */",
+        "// @JSX h", "/**\n * @jsxImportSource hidden\n */"})
+    void aJsxPragmaInAnyLetterCaseIsRefused(String comment) {
+        ImportScanner.Scan scan = tsx(comment + "\nexport const e = <div/>;\n");
+
+        assertThat(scan.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(tuple(1,
+                "JSX pragmas (@jsx, @jsxImportSource, @jsxFrag, @jsxRuntime) are not supported: they change which "
+                        + "module JSX imports"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"///\u00a0<reference path=\"./hidden.ts\" />", "///\u2003<reference path=\"./hidden.ts\" />",
+        "\u3000/// <reference path=\"./hidden.ts\" />", "/* c */ /// <reference path=\"./hidden.ts\" />",
+        "////////// a banner", "///<amd-dependency path=\"./hidden.ts\" />"})
+    void everyCommentThatStartsWithThreeSlashesIsRefusedOnce(String comment) {
+        ImportScanner.Scan scan = ts(comment + "\nexport const n = 1;\n");
+
+        assertThat(scan.imports()).isEmpty();
+        assertThat(scan.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(tuple(1,
+                "triple-slash directives (/// <reference ...>) are not supported: they add dependencies in comments"));
+    }
+
+    @Test
+    void aLineThatStartsWithThreeSlashesInsideATemplateIsRefusedToo() {
+        // The check runs on lines, before the lexer: a refusal of a template's text costs a rewording, not a guess.
+        ImportScanner.Scan scan = ts("const banner = `\n/// not a directive\n`;\n");
+
+        assertThat(scan.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(tuple(2,
+                "triple-slash directives (/// <reference ...>) are not supported: they add dependencies in comments"));
+    }
+
+    @Test
+    void aLineCommentAtTheEndOfTheFileEndsTheFile() {
+        ImportScanner.Scan scan = ts("import a from './a'; // the end");
+
+        assertThat(scan.refusals()).isEmpty();
+        assertThat(scan.imports()).extracting(SourceImport::specifier).containsExactly("./a");
+    }
+
+    @Test
+    void importMetaAloneAndTypeAsAnImportEqualsBindingAreRefused() {
+        assertThat(ts("const meta = import.meta;\n").refusals()).extracting(Refusal::reason)
+                .containsExactly(ImportScanner.IMPORT_META);
+        assertThat(ts("import type = require('x');\n").refusals()).extracting(Refusal::reason)
+                .containsExactly(ImportScanner.IMPORT_EQUALS, ImportScanner.REQUIRE);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"import { a; } from './a';", "import { a (b) } from './a';", "import { a { } } from './a';",
+        "import { a", "import * as from './a';"})
+    void bindingsThatDoNotCloseOrNameNothingAreRefused(String text) {
+        assertThat(ts(text + "\n").refusals()).extracting(Refusal::reason).contains(ImportScanner.IMPORT_CLAUSE);
+    }
+
+    @Test
+    void reExportsUnderAStringNameAndUnclosedLocalExports() {
+        assertThat(ts("export * as \"odd name\" from './a';\n").imports())
+                .containsExactly(new SourceImport(1, "./a", ImportKind.RE_EXPORT));
+        assertThat(ts("export * as;\n").refusals()).extracting(Refusal::reason)
+                .containsExactly(ImportScanner.EXPORT_STAR);
+        ImportScanner.Scan unclosed = ts("export { a\n");
+        assertThat(unclosed.imports()).isEmpty();
+        assertThat(unclosed.refusals()).isEmpty();
+    }
+
+    @Test
+    void anImportBeforeTheLineWhereTheLexerStoppedIsKeptAndACutOffStatementIsNotRefusedTwice() {
+        ImportScanner.Scan complete = ts("import a from './a';\nconst s = 'open\n");
+        assertThat(complete.imports()).extracting(SourceImport::specifier).containsExactly("./a");
+        assertThat(complete.refusals()).extracting(Refusal::line, Refusal::reason)
+                .containsExactly(tuple(2, "unterminated string literal"));
+
+        ImportScanner.Scan cut = ts("import { a } from 'open\n");
+        assertThat(cut.imports()).isEmpty();
+        assertThat(cut.refusals()).extracting(Refusal::reason).containsExactly("unterminated string literal");
+    }
+
+    @Test
+    void anUnterminatedSubstitutionAndJsxAtTheEndOfTheFileAreRefused() {
+        assertThat(ts("const t = `a ${b\n").refusals()).extracting(Refusal::reason)
+                .containsExactly("unterminated template literal");
+        assertThat(tsx("const e = <").refusals()).extracting(Refusal::reason).containsExactly("JSX: unexpected 'the "
+                + "end of the file' in a tag (a generic arrow function or generic function type starting with '<' "
+                + "is not supported in .tsx files)");
+        assertThat(tsx("const e = <div id").refusals()).extracting(Refusal::reason)
+                .containsExactly("JSX: unterminated tag <div>");
+        assertThat(tsx("const e = <div id=\"x>").refusals()).extracting(Refusal::reason)
+                .containsExactly("JSX: unterminated attribute string in the tag <div>");
+        assertThat(tsx("const e = <div id={a").refusals()).extracting(Refusal::reason)
+                .containsExactly("JSX: unterminated attribute expression in the tag <div>");
+        assertThat(tsx("const e = <div {...a").refusals()).extracting(Refusal::reason)
+                .containsExactly("JSX: unterminated expression in the tag <div>");
+        assertThat(tsx("const e = <div>{a").refusals()).extracting(Refusal::reason)
+                .containsExactly("JSX: unterminated expression in <div>");
+        assertThat(tsx("const e = <div></div;").refusals()).extracting(Refusal::reason)
+                .containsExactly("JSX: expected '>' to end the closing tag </div");
+        assertThat(tsx("const e = <div / >;").refusals()).extracting(Refusal::reason).containsExactly("JSX: unexpected "
+                + "'/' in a tag (a generic arrow function or generic function type starting with '<' is not "
+                + "supported in .tsx files)");
+    }
+
+    @Test
+    void theFirstLineSeparatorNamesTheLine() {
+        assertThat(ts("a;\nb;\n\u2029c;\u2028\n").refusals()).extracting(Refusal::line, Refusal::reason)
+                .containsExactly(tuple(3, "the characters U+2028 and U+2029 are not supported"));
+        assertThat(ts("a;\n\u2028b;\u2029\n").refusals()).extracting(Refusal::line).containsExactly(2);
+    }
+
+    @Test
+    void aCssImportRuleAfterAMultiLineCommentKeepsItsLine() {
+        assertThat(ImportScanner.scanStyle("/* one\ntwo */\n@import 'x.css';\n")).extracting(Refusal::line)
+                .containsExactly(3);
+        assertThat(ImportScanner.scanStyle("@import 'a.css';\n@import 'b.css';\n")).extracting(Refusal::line)
+                .containsExactly(1, 2);
+    }
+
+    @Test
+    void theScanReportsImportsInSourceOrder() {
+        List<SourceImport> imports = ts("export * from './z';\nimport a from './a';\n").imports();
+
+        assertThat(imports).extracting(SourceImport::specifier).containsExactly("./z", "./a");
+    }
+}

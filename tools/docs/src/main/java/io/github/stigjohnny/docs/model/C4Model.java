@@ -34,6 +34,11 @@ public record C4Model(String workspaceName, List<ModelElement> elements, List<Mo
         return elements.stream().filter(e -> "Component".equals(e.type()) && e.contractId().isPresent()).toList();
     }
 
+    /** The web app's parts (components with a {@code web.id}), in model order. */
+    public List<ModelElement> webParts() {
+        return elements.stream().filter(e -> "Component".equals(e.type()) && e.webId().isPresent()).toList();
+    }
+
     public Optional<ModelElement> module(String contractId) {
         return modules().stream().filter(m -> m.contractId().orElseThrow().equals(contractId)).findFirst();
     }

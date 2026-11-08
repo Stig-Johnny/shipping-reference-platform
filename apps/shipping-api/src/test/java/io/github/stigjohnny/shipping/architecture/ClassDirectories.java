@@ -13,22 +13,39 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
- * Where the architecture tests read compiled classes from: explicit class-file directories, as the ArchUnit review
- * requires (security/reviews/maven--archunit--1.5.1.md), never the class path or a package scan.
+ * Where the architecture tests, and the scenario checks' coverage census, read compiled classes from: explicit
+ * class-file directories, as the ArchUnit review requires (security/reviews/maven--archunit--1.5.1.md), never the class
+ * path or a package scan.
  */
-final class ClassDirectories {
+public final class ClassDirectories {
 
     /** Set for the test task by apps/shipping-api/build.gradle.kts: the main source set's class-output directories. */
     static final String MAIN = "shipping.mainClassDirectories";
+
+    /**
+     * Set for the test task by apps/shipping-api/build.gradle.kts: the test source set's class-output directories,
+     * read by the external-import policy and the scenario checks' census.
+     */
+    static final String TEST = "shipping.testClassDirectories";
 
     private ClassDirectories() {
     }
 
     /** Every class-output directory of the API's main source set, as Gradle passes them to the test task. */
-    static List<Path> main() {
-        String directories = System.getProperty(MAIN, "");
+    public static List<Path> main() {
+        return directories(MAIN);
+    }
+
+    /** Every class-output directory of the API's test source set, as Gradle passes them to the test task. */
+    public static List<Path> test() {
+        return directories(TEST);
+    }
+
+    private static List<Path> directories(String property) {
+        String directories = System.getProperty(property, "");
         if (directories.isBlank()) {
-            throw new IllegalStateException("The system property " + MAIN + " is not set: run the tests with Gradle.");
+            throw new IllegalStateException("The system property " + property + " is not set: run the tests with "
+                    + "Gradle.");
         }
         return Stream.of(directories.split(Pattern.quote(File.pathSeparator), -1)).map(Path::of).toList();
     }
@@ -37,7 +54,7 @@ final class ClassDirectories {
      * The classes under the directories, read with ArchUnit from their class files: nothing is loaded, and nothing
      * missing is resolved from the class path, so the result depends only on the directories, as in c4-contract-kit.
      */
-    static JavaClasses read(List<Path> directories) {
+    public static JavaClasses read(List<Path> directories) {
         return ArchConfiguration.withThreadLocalScope(configuration -> {
             configuration.unsetClassResolver();
             configuration.setResolveMissingDependenciesFromClassPath(false);

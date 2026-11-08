@@ -138,6 +138,13 @@ What is built, and where it differs from the decision above. The decision stands
   `java base/tools/policy/PolicyCheck.java pr`. Nothing from `pr/` is executed. The JDK comes from the base branch's
   `tools/ci/stage-temurin.sh`, which checks its SHA-256. Pull requests from forks fail the job. Exit 1 (findings)
   and exit 2 (could not complete) fail it too.
+- **Bootstrap transport (2026-11-08).** JDK staging uses two bounded official HTTPS attempts, verifies the reviewed
+  size and SHA-256 before publishing its output, and fails immediately on wrong bytes. A mirror-first path exists
+  with an empty committed base URL; enabling a source requires amended reviews and renewed acceptance. URLs and
+  expected identities cannot be overridden at runtime. Gradle retains the reviewed official wrapper URL/checksum
+  and empty CI home, with a 60-second network timeout, three retries and initial one-second backoff. First-use
+  signature evidence is unchanged. Repeated offline signatures and a staged Gradle launcher remain later work.
+  Local download fixtures run in `java` after base policy validation, never under `pull_request_target`.
 - **An acceptance digest, not an approval bound to a head SHA.** The owner's acceptance is recorded in
   `security/allowlist.json` as `acceptance.reviewedSetSha256`: a SHA-256 over every entry in canonical JSON and every
   review record's bytes. The checker recomputes it on every run, so an entry or review that changes after acceptance

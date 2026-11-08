@@ -1,0 +1,38 @@
+%% Generated—do not hand-edit. Source: architecture/workspace.dsl, view WebComponents.
+flowchart LR
+    accTitle: Components of the Web app
+    accDescr: Component view with 7 elements and 14 relationships. The tables on the page list every one of them.
+    subgraph 5 ["Shipping reference platform"]
+        style 5 fill:#ffffff,stroke:#475569,color:#475569
+        subgraph 6 ["Web app"]
+            style 6 fill:#ffffff,stroke:#64748b,color:#64748b
+            10["Quote feature [Component] (planned)"]
+            style 10 fill:#f1f5f9,stroke:#64748b,color:#334155
+            11["Shipment feature [Component] (planned)"]
+            style 11 fill:#f1f5f9,stroke:#64748b,color:#334155
+            12["UI [Component] (planned)"]
+            style 12 fill:#f1f5f9,stroke:#64748b,color:#334155
+            7["App shell [Component] (planned)"]
+            style 7 fill:#f1f5f9,stroke:#64748b,color:#334155
+            8["Auth [Component] (planned)"]
+            style 8 fill:#f1f5f9,stroke:#64748b,color:#334155
+            9["API adapter [Component] (planned)"]
+            style 9 fill:#f1f5f9,stroke:#64748b,color:#334155
+        end
+        13["API [Container]"]
+        style 13 fill:#115e59,stroke:#475569,color:#ffffff
+    end
+    7 ==>|"1 REQUIRED"| 8
+    7 ==>|"2 REQUIRED"| 10
+    7 ==>|"3 REQUIRED"| 11
+    7 ==>|"4 REQUIRED"| 12
+    7 -.->|"5 PERMITTED"| 9
+    8 ==>|"6 REQUIRED"| 9
+    8 ==>|"7 REQUIRED"| 12
+    10 ==>|"8 REQUIRED"| 9
+    10 ==>|"9 REQUIRED"| 12
+    10 -.->|"10 PERMITTED"| 11
+    11 ==>|"11 REQUIRED"| 9
+    11 ==>|"12 REQUIRED"| 12
+    11 -.->|"13 PERMITTED"| 8
+    9 -->|"14"| 13

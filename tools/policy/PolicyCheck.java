@@ -535,7 +535,7 @@ public final class PolicyCheck {
                     "a5a04eeb3ed92b691ac8e6444b5ce392caedab4ea8a3e587a9361767aec97e66"),
             // The API test JVM's argument provider, carrying the reviewed architecture-test input.
             Map.entry("apps/shipping-api/build.gradle.kts",
-                    "9ada331fb9eaa3b00f3dacfd3b96ffddda854c0c7a20a854e8a2959cbebf2d39"),
+                    "1ad590a5a8f77f42bce58f96feee8a0ddb9c6511456731323d0108932c707b2c"),
             // The docs JavaExec tasks and literal git revision read.
             Map.entry("tools/docs/build.gradle.kts",
                     "593953cc08fb15c25a3666d63a64cb5a4e0bc1532ed12c6bca7012b8f013e564"),

@@ -10,9 +10,9 @@ updated: 2026-11-08
 
 # Brain: shipping-reference-platform
 
-A reference monorepo that shows how a Java and TypeScript product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. The application's first code exists, without HTTP or a database: the pricing and quotes of the API's quotes module, booking in its shipments module, and the tenant context both need; most of the application is still planned. The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions, a dependency allowlist check and a documentation tool.
+A reference monorepo that shows how a Java and TypeScript product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. The application's first code exists: the API's pricing and quotes and its demo authentication, served over HTTP in tests, and booking in its shipments module, without HTTP yet. No database exists yet, and most of the application is still planned. The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions, a labelled partial check of detected TypeScript imports in the web app, a dependency allowlist check and a documentation tool.
 
-**State at this commit.** 27 capabilities: 2 shipped, 4 partial, 21 planned; 17 controls: 10 shipped, 1 partial, 6 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
+**State at this commit.** 27 capabilities: 2 shipped, 7 partial, 18 planned; 19 controls: 10 shipped, 5 partial, 4 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
 
 ## Read first
 
@@ -35,7 +35,7 @@ From `architecture/workspace.dsl`. Arrows in the model point from the module who
 | `tracking` | planned | 3 | shipments (PERMITTED, planned) | [tracking](docs/brain/tracking.md) | [docs/modules/tracking.md](docs/modules/tracking.md) |
 | `returns` | planned | 3 | shipments (PERMITTED, planned) | [returns](docs/brain/returns.md) | [docs/modules/returns.md](docs/modules/returns.md) |
 
-The web app is a container, not a checked module: 4 capabilities, specified in [docs/ui/workbench.md](docs/ui/workbench.md).
+The web app is a container, not an API module: 4 capabilities, specified in [docs/ui/workbench.md](docs/ui/workbench.md). Its 6 parts are in the model (6 planned), and the partial web import check compares only detected TypeScript imports with them (ADR 0015).
 
 ## Controls
 
@@ -51,10 +51,12 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | `control.deterministic-reports` | shipped | `java` | ReportDeterminismTest, ConformanceAssertionsTest, SelfConformanceTest |
 | `control.modulith-verification` | shipped | `java` | ModularityTest |
 | `control.hexagonal-layering` | shipped | `java` | HexagonalLayeringTest |
+| `control.scenario-conformance` | partial | `java` | QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, ReachabilityTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest, CoverageLedgerTest |
+| `control.external-imports` | partial | `java` | ExternalImportPolicyTest |
 | `control.table-ownership` | planned | `java` | none yet |
 | `control.migrations` | planned | `java` | none yet |
-| `control.http-contract` | planned | `java` | none yet |
-| `control.web-import-boundaries` | planned | `java` | none yet |
+| `control.http-contract` | partial | `java` | QuotesHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest |
+| `control.web-import-boundaries` | partial | `java` | ImportScannerTest, SourceReaderTest, JsonTest, AppConfigurationTest, WebModelValidationTest, WebConformanceTest, WebReportDeterminismTest, WebArchitectureConformanceTest |
 | `control.dependency-allowlist` | partial | `java` | ContainerEngineWorkflowTest |
 | `control.risk-classification` | planned | `risk-approval` | none yet |
 | `control.mutation-testing` | planned | `mutation` | none yet |
@@ -77,6 +79,9 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | [ADR 0010: Documentation as code with a generated brain](docs/adr/0010-documentation-as-code-with-a-generated-brain.md) | superseded by ADR 0011 | not enforced yet |
 | [ADR 0011: A Java documentation tool, a static site and a scanned publication](docs/adr/0011-java-documentation-tool-and-publication.md) | accepted | java, pages |
 | [ADR 0012: First runnable slice with a plain TypeScript workbench and Spring JDBC](docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md) | accepted | java |
+| [ADR 0013: Scenario views are checked against recorded interactions](docs/adr/0013-scenario-views-are-checked-against-recorded-interactions.md) | accepted | java |
+| [ADR 0014: Partial web import lint and planned authoritative controls](docs/adr/0014-partial-web-import-lint-and-authoritative-controls.md) | accepted | not enforced yet |
+| [ADR 0015: Partial web import lint and planned authoritative controls](docs/adr/0015-partial-web-import-lint-and-authoritative-controls.md) | accepted | not enforced yet |
 
 ## Third-party components
 

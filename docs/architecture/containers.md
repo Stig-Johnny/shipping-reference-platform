@@ -28,21 +28,21 @@ flowchart LR
     style 4 fill:#64748b,stroke:#475569,color:#ffffff
     subgraph 5 ["Shipping reference platform"]
         style 5 fill:#ffffff,stroke:#475569,color:#475569
-        15[("Database [Container] (planned)")]
-        style 15 fill:#f1f5f9,stroke:#64748b,color:#334155
+        13["API [Container]"]
+        style 13 fill:#115e59,stroke:#475569,color:#ffffff
+        21[("Database [Container] (planned)")]
+        style 21 fill:#f1f5f9,stroke:#64748b,color:#334155
         6["Web app [Container] (planned)"]
         style 6 fill:#f1f5f9,stroke:#64748b,color:#334155
-        7["API [Container]"]
-        style 7 fill:#115e59,stroke:#475569,color:#ffffff
     end
     1 -->|"1"| 3
     1 -->|"2"| 6
     2 -.->|"3 — planned"| 6
-    2 -->|"4"| 15
-    6 -->|"5"| 7
-    3 -.->|"6 — planned"| 7
-    7 -->|"7"| 15
-    7 -->|"8"| 4
+    2 -->|"4"| 21
+    6 -->|"5"| 13
+    3 -.->|"6 — planned"| 13
+    13 -->|"7"| 21
+    13 -->|"8"| 4
 ```
 
 The same definition is in [containers.mmd](containers.mmd).
@@ -65,8 +65,8 @@ The same definition is in [containers.mmd](containers.mmd).
 | 3 | Webshop | Software System |  | external | A merchant's online shop (simulated). Source of the orders that need shipping. |
 | 4 | Carrier (simulated) | Software System |  | external, simulated | A fictional parcel carrier. v0.1 simulates its tariff, tracking numbers and labels inside the API; no network calls. |
 | 6 | Web app | Container | Plain TypeScript SPA (no framework), TypeScript 5.9.3 | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
-| 7 | API | Container | Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient) | Not covered by module conformance | Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. |
-| 15 | Database | Container | PostgreSQL 18.6 | Planned; not covered by module conformance | One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data. |
+| 13 | API | Container | Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient) | Not covered by module conformance | Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. |
+| 21 | Database | Container | PostgreSQL 18.6 | Planned; not covered by module conformance | One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data. |
 
 ## Relationships
 
@@ -83,5 +83,5 @@ The same definition is in [containers.mmd](containers.mmd).
 
 ## What this view cannot show
 
-- A diagram shows the model, not the code. Only the API's modules are checked against the code (docs/gaps.md, section 1).
+- A diagram shows the model, not the code. The API's modules are checked against its compiled classes and the web app's parts against detected TypeScript imports using partial lint (docs/gaps.md, section 1).
 - Relationships of people, software systems and containers are documentation: they carry no contract mode, and module conformance does not cover them. The planned contract and end-to-end tests are to cover the web app's calls.

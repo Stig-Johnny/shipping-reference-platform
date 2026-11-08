@@ -24,49 +24,49 @@ flowchart LR
     style 4 fill:#64748b,stroke:#475569,color:#ffffff
     subgraph 5 ["Shipping reference platform"]
         style 5 fill:#ffffff,stroke:#475569,color:#475569
-        subgraph 7 ["API"]
-            style 7 fill:#ffffff,stroke:#475569,color:#475569
-            10["Tenants [Component] (built)"]
-            style 10 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
-            11["Audit [Component] (planned)"]
-            style 11 fill:#f1f5f9,stroke:#64748b,color:#334155
-            12["Orders [Component] (planned)"]
-            style 12 fill:#f1f5f9,stroke:#64748b,color:#334155
-            13["Tracking [Component] (planned)"]
-            style 13 fill:#f1f5f9,stroke:#64748b,color:#334155
-            14["Returns [Component] (planned)"]
-            style 14 fill:#f1f5f9,stroke:#64748b,color:#334155
-            8["Quotes [Component] (built)"]
-            style 8 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
-            9["Shipments [Component] (built)"]
-            style 9 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+        subgraph 13 ["API"]
+            style 13 fill:#ffffff,stroke:#475569,color:#475569
+            14["Quotes [Component] (built)"]
+            style 14 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            15["Shipments [Component] (built)"]
+            style 15 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            16["Tenants [Component] (built)"]
+            style 16 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            17["Audit [Component] (planned)"]
+            style 17 fill:#f1f5f9,stroke:#64748b,color:#334155
+            18["Orders [Component] (planned)"]
+            style 18 fill:#f1f5f9,stroke:#64748b,color:#334155
+            19["Tracking [Component] (planned)"]
+            style 19 fill:#f1f5f9,stroke:#64748b,color:#334155
+            20["Returns [Component] (planned)"]
+            style 20 fill:#f1f5f9,stroke:#64748b,color:#334155
         end
-        15[("Database [Container] (planned)")]
-        style 15 fill:#f1f5f9,stroke:#64748b,color:#334155
+        21[("Database [Container] (planned)")]
+        style 21 fill:#f1f5f9,stroke:#64748b,color:#334155
         6["Web app [Container] (planned)"]
         style 6 fill:#f1f5f9,stroke:#64748b,color:#334155
     end
-    6 -->|"1"| 10
-    6 -->|"2"| 8
-    6 -->|"3"| 9
-    3 -.->|"4 — planned"| 12
-    8 -->|"5"| 15
-    9 -->|"6"| 15
-    10 -->|"7"| 15
-    11 -->|"8"| 15
-    8 -->|"9"| 4
-    9 -->|"10"| 4
-    13 -.->|"11 — planned"| 4
-    8 ==>|"12 REQUIRED"| 10
-    9 ==>|"13 REQUIRED"| 10
-    9 ==>|"14 REQUIRED"| 8
-    11 ==>|"15 REQUIRED"| 9
-    11 ==>|"16 REQUIRED"| 10
-    11 -.->|"17 PERMITTED"| 8
-    12 -.->|"18 PERMITTED — planned"| 8
-    12 -.->|"19 PERMITTED — planned"| 9
-    13 -.->|"20 PERMITTED — planned"| 9
-    14 -.->|"21 PERMITTED — planned"| 9
+    6 -->|"1"| 16
+    6 -->|"2"| 14
+    6 -->|"3"| 15
+    3 -.->|"4 — planned"| 18
+    14 -->|"5"| 21
+    15 -->|"6"| 21
+    16 -->|"7"| 21
+    17 -->|"8"| 21
+    14 -->|"9"| 4
+    15 -->|"10"| 4
+    19 -.->|"11 — planned"| 4
+    14 ==>|"12 REQUIRED"| 16
+    15 ==>|"13 REQUIRED"| 16
+    15 ==>|"14 REQUIRED"| 14
+    17 ==>|"15 REQUIRED"| 15
+    17 ==>|"16 REQUIRED"| 16
+    17 -.->|"17 PERMITTED"| 14
+    18 -.->|"18 PERMITTED — planned"| 14
+    18 -.->|"19 PERMITTED — planned"| 15
+    19 -.->|"20 PERMITTED — planned"| 15
+    20 -.->|"21 PERMITTED — planned"| 15
 ```
 
 The same definition is in [api-components.mmd](api-components.mmd).
@@ -90,14 +90,14 @@ The same definition is in [api-components.mmd](api-components.mmd).
 | 3 | Webshop | Software System |  | external | A merchant's online shop (simulated). Source of the orders that need shipping. |
 | 4 | Carrier (simulated) | Software System |  | external, simulated | A fictional parcel carrier. v0.1 simulates its tariff, tracking numbers and labels inside the API; no network calls. |
 | 6 | Web app | Container | Plain TypeScript SPA (no framework), TypeScript 5.9.3 | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
-| 8 | Quotes | Component | Spring Modulith module | built | Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes. |
-| 9 | Shipments | Component | Spring Modulith module | built | Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled. |
-| 10 | Tenants | Component | Spring Modulith module | built | Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags. |
-| 11 | Audit | Component | Spring Modulith module | planned | Appends one tenant-scoped audit entry per shipment event, deduplicated by event ID; replayed from the publication registry after failures. |
-| 12 | Orders | Component | Spring Modulith module | planned | Planned: imports webshop orders and turns them into quote and booking requests. |
-| 13 | Tracking | Component | Spring Modulith module | planned | Planned: receives carrier tracking events and moves shipments through transit states. |
-| 14 | Returns | Component | Spring Modulith module | planned | Planned: creates return shipments for delivered shipments. |
-| 15 | Database | Container | PostgreSQL 18.6 | Planned; not covered by module conformance | One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data. |
+| 14 | Quotes | Component | Spring Modulith module | built | Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes. |
+| 15 | Shipments | Component | Spring Modulith module | built | Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled. |
+| 16 | Tenants | Component | Spring Modulith module | built | Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags. |
+| 17 | Audit | Component | Spring Modulith module | planned | Appends one tenant-scoped audit entry per shipment event, deduplicated by event ID; replayed from the publication registry after failures. |
+| 18 | Orders | Component | Spring Modulith module | planned | Planned: imports webshop orders and turns them into quote and booking requests. |
+| 19 | Tracking | Component | Spring Modulith module | planned | Planned: receives carrier tracking events and moves shipments through transit states. |
+| 20 | Returns | Component | Spring Modulith module | planned | Planned: creates return shipments for delivered shipments. |
+| 21 | Database | Container | PostgreSQL 18.6 | Planned; not covered by module conformance | One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data. |
 
 ## Relationships
 
@@ -127,6 +127,6 @@ The same definition is in [api-components.mmd](api-components.mmd).
 
 ## What this view cannot show
 
-- A diagram shows the model, not the code. Only the API's modules are checked against the code (docs/gaps.md, section 1).
+- A diagram shows the model, not the code. The API's modules are checked against its compiled classes and the web app's parts against detected TypeScript imports using partial lint (docs/gaps.md, section 1).
 - Arrows between modules are static code dependencies, not runtime data flow: an event listener's arrow points to the module whose event type it uses.
 - A REQUIRED arrow specifies an obligation; where both modules are built, a passing conformance check establishes a static reference, not runtime behaviour.

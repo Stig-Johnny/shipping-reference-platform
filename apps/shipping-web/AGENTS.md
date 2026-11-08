@@ -1,6 +1,7 @@
 # AGENTS.md: apps/shipping-web (npm workspace `@shipping-reference-platform/web`)
 
-Adds to the root `AGENTS.md`. Decision: ADR 0012, which supersedes ADR 0009. Screen specification:
+Adds to the root `AGENTS.md`. Decisions: ADR 0012 supersedes ADR 0009; ADR 0014 labels the current web reader as
+partial lint and records the authoritative controls that follow. Screen specification:
 `docs/ui/workbench.md` (binding for visual design, behaviour, states and accessibility; changes require an explicit
 design decision recorded there; its amendment of 2026-11-07 sets the scope of the first runnable slice).
 
@@ -38,17 +39,37 @@ src/
 e2e/                   Playwright specs                                                  (risk level 2)
 ```
 
-The model declares the six parts (issue #64). The JDK import checker of `libs/c4-contract-kit` holds `src/` to them
-in the `java` check (`WebArchitectureConformanceTest`); `tools/web-imports/check-imports.mjs` is not built. The rules:
+The model declares the six parts (issue #64), all planned. `WebArchitectureConformanceTest` uses the JDK reader
+of `libs/c4-contract-kit` as partial static lint over `src/`, the `e2e/` test root, the public root and app
+configuration in the `java` check. The gate runs in every build; the source and test roots contain no real files yet.
+`tools/web-imports/check-imports.mjs` is not built. The intended rules:
 
 - `src/ui/` imports nothing from `app`, `auth`, `api` or `features`.
 - A feature imports another feature only through that feature's `index.ts`.
 - `src/auth/` imports nothing from `features`.
 - No import cycles.
+- No package: no part's `web.packages` lists one. A bare specifier fails unless its part lists the package,
+  `package.json` pins it in `dependencies`, and `security/allowlist.json` approves that version for
+  `apps/shipping-web` in `dependencies`; a review for `devDependencies` does not cover code that runs in the browser.
+- No built-in module of Node.js in browser code, in any form. A test may import `node:assert/strict`, `node:test`
+  and `node:fs` (the model's `web.testBuiltins`), written with `node:`, under the review of the Node.js that
+  `engines.node` names.
+- Tests are held to the rules of their part, but never count as an import a REQUIRED relationship needs, and no
+  production file imports a test.
+- No URL, `data:` or computed import; no CSS `@import` (link each style sheet from `index.html`) and no style sheet
+  imported from TypeScript; no path alias, `baseUrl` or import map.
 
-The checker enforces import boundaries and cycles, and requires a direct import for each REQUIRED relationship whose
-endpoints are built. Relationships touching planned parts are not evaluated. The HTTP calls to the API stay outside
-the check; the end-to-end tests are their evidence.
+The gate compares detected imports for boundaries, cycles and a detected direct import for each REQUIRED relationship
+whose endpoints are built. It cannot guarantee complete detection: imports, `require` and unsupported `import.meta`
+immediately after spread syntax can pass unseen in object, array, call and nested-template expressions, including
+whitespace, comments and line breaks after `...`, across TS/TSX and source/test placements. See `docs/gaps.md`,
+section 6, for the reviewed examples. Relationships touching planned parts are not evaluated. The HTTP calls to the
+API stay outside the check; the end-to-end tests are their evidence for the operations they exercise.
+
+Per the owner's decision of 2026-11-08 (ADR 0014), this reader ships as a labelled partial lint. Authoritative
+controls follow: the reviewed TypeScript compiler's import graph for import dependencies, and a strict
+Content-Security-Policy in the web app enforced by the browser for runtime loading and execution. Neither control is
+implemented by the reader; passing lint is not proof of runtime safety.
 
 ## Rules
 

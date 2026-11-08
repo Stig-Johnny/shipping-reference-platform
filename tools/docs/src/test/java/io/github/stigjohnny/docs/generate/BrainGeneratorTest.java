@@ -48,7 +48,10 @@ class BrainGeneratorTest {
                 "docs/architecture/api-components.md", "docs/architecture/api-components.mmd",
                 "docs/architecture/containers.md", "docs/architecture/containers.mmd",
                 "docs/architecture/quote-book-label.md", "docs/architecture/quote-book-label.mmd",
+                "docs/architecture/scenario-quote.md", "docs/architecture/scenario-quote.mmd",
+                "docs/architecture/scenario-tenant-denial.md", "docs/architecture/scenario-tenant-denial.mmd",
                 "docs/architecture/system-context.md", "docs/architecture/system-context.mmd",
+                "docs/architecture/web-components.md", "docs/architecture/web-components.mmd",
                 "docs/brain/audit.md", "docs/brain/orders.md", "docs/brain/quotes.md", "docs/brain/returns.md",
                 "docs/brain/shipments.md", "docs/brain/tenants.md", "docs/brain/tracking.md");
     }
@@ -92,9 +95,9 @@ class BrainGeneratorTest {
         assertThat(definition).startsWith("flowchart LR\n");
         assertThat(page).contains("```mermaid\n" + definition + "```")
                 .contains("## Elements", "## Relationships", "## What this view cannot show")
-                .contains("| 8 | Quotes | Component | Spring Modulith module | built |",
-                        "| 9 | Shipments | Component | Spring Modulith module | built |",
-                        "| 11 | Audit | Component | Spring Modulith module | planned |")
+                .contains("| 14 | Quotes | Component | Spring Modulith module | built |",
+                        "| 15 | Shipments | Component | Spring Modulith module | built |",
+                        "| 17 | Audit | Component | Spring Modulith module | planned |")
                 .contains("| Quotes | Tenants | Resolves the caller's tenant (tenants.api: CurrentTenant, TenantId) "
                         + "| Java | thick: REQUIRED dependency |");
     }
@@ -103,7 +106,8 @@ class BrainGeneratorTest {
     void eachGeneratedDiagramLinksItsFigureOnTheSiteRightBeforeItsFence() {
         Map<String, String> files = GeneratedFiles.generate(sources());
 
-        for (String slug : List.of("system-context", "containers", "api-components", "quote-book-label")) {
+        for (String slug : List.of("system-context", "containers", "api-components", "web-components",
+                "quote-book-label")) {
             String page = file(files, "docs/architecture/" + slug + ".md");
             String link = "[Open this diagram on the documentation site for enlargement and its text equivalent]("
                     + "https://stig-johnny.github.io/" + "shipping-reference-platform/model/" + slug + ".html#figure-"
@@ -111,6 +115,28 @@ class BrainGeneratorTest {
             assertThat(page).as(slug).contains(link + "\n\n```mermaid\n");
             assertThat(page.split("```mermaid", -1)).as(slug).hasSize(2);
         }
+    }
+
+    @Test
+    void theWebViewSaysWhatTheWebImportCheckCoversInsteadOfTheClassChecker() {
+        Map<String, String> files = GeneratedFiles.generate(sources());
+        String web = file(files, "docs/architecture/web-components.md");
+
+        assertThat(web).contains("- A thick line is a REQUIRED import between parts of the web app. Where both parts "
+                + "are built, the partial web import check in libs/c4-contract-kit fails without a detected direct "
+                + "import from one to the other.\n", "- A dotted line labelled PERMITTED is an import between parts of the web app "
+                + "that the sources may have; the check requires none for it and reports one without a detected import as \"no "
+                + "static evidence\".\n", "- The check does not evaluate a line that touches a planned part until both "
+                + "parts are built; a file in a planned part fails it.\n", "- Arrows between the web app's parts are "
+                + "static imports of TypeScript files, read from apps/shipping-web/src with a restricted import "
+                + "grammar, not runtime calls.\n", "This is labelled partial lint over detected imports; spread-syntax "
+                + "bypasses remain open. The authoritative tsc import graph and browser-enforced strict "
+                + "Content-Security-Policy are planned in the web app pull request (ADR 0015).")
+                .doesNotContain("compiled classes have no static reference");
+        assertThat(file(files, "BRAIN.md")).contains("the partial web import check compares only detected TypeScript "
+                + "imports with them (ADR 0015).");
+        assertThat(file(files, "docs/architecture/api-components.md"))
+                .doesNotContain("REQUIRED import between parts of the web app");
     }
 
     @Test
@@ -137,15 +163,15 @@ class BrainGeneratorTest {
     void aPlannedCapabilityIsNeverShownAsShipped() {
         Map<String, String> files = GeneratedFiles.generate(sources());
 
-        // quotes is built and has shipped capabilities; its planned one lists no evidence. tenants is built, but none
-        // of its capabilities has a passing test yet.
-        assertThat(file(files, "docs/brain/quotes.md")).contains("| `quotes.get-quote` | planned | "
-                + "QuotesModuleIntegrationTest, QuotesHttpContractTest | none yet |", "| `quotes.synthetic-tariff` | shipped | "
+        // quotes is built and has shipped capabilities. tenants is built and none of its capabilities is shipped; its
+        // planned ones list no evidence.
+        assertThat(file(files, "docs/brain/quotes.md")).contains("| `quotes.synthetic-tariff` | shipped | "
                 + "SyntheticTariffTest, SyntheticTariffPropertiesTest, MoneyTest, ParcelTest | SyntheticTariffTest, "
                 + "SyntheticTariffPropertiesTest, MoneyTest, ParcelTest |", "| `quotes.create-quote` | partial | RatingTest, "
-                + "CreateQuoteTest, QuotesHttpContractTest | RatingTest, CreateQuoteTest |");
-        assertThat(file(files, "docs/brain/tenants.md")).contains("- **Status in the model:** built")
-                .doesNotContain("| shipped |", "| partial |");
+                + "CreateQuoteTest, QuotesHttpContractTest | RatingTest, CreateQuoteTest, QuotesHttpContractTest |");
+        assertThat(file(files, "docs/brain/tenants.md")).contains("- **Status in the model:** built",
+                "| `tenants.prototype-flags` | planned | PrototypeFlagsTest, PrototypeFlagExpiryTest, "
+                        + "prototype-flag.spec.ts | none yet |").doesNotContain("| shipped |");
         Capability planned = sources().capabilities().controls().stream()
                 .filter(c -> c.status() == Capability.Status.PLANNED).findFirst().orElseThrow();
         assertThat(file(files, "BRAIN.md")).contains("| `control.brain-check` | shipped | `java` | "

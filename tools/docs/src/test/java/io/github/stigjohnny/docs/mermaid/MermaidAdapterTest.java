@@ -34,7 +34,7 @@ class MermaidAdapterTest {
 
     @Test
     void everyViewBecomesAValidatedPlainTextFlowchart() {
-        assertThat(WORKSPACE.exports()).hasSize(4).allSatisfy(raw -> {
+        assertThat(WORKSPACE.exports()).hasSize(7).allSatisfy(raw -> {
             MermaidDiagram diagram = MermaidAdapter.adapt(raw, MODEL, STATUS);
 
             assertThat(MermaidValidator.validate(diagram.definition(), raw.viewKey())).isEqualTo(diagram.definition());
@@ -53,29 +53,29 @@ class MermaidAdapterTest {
                 .containsExactly("1>3", "1>5", "2>5", "3>5", "5>4");
         String definition = components.definition();
         assertThat(definition).contains("    subgraph 5 [\"Shipping reference platform\"]\n")
-                .contains("        subgraph 7 [\"API\"]\n");
-        assertThat(definition.indexOf("subgraph 7")).isGreaterThan(definition.indexOf("subgraph 5"));
+                .contains("        subgraph 13 [\"API\"]\n");
+        assertThat(definition.indexOf("subgraph 13")).isGreaterThan(definition.indexOf("subgraph 5"));
     }
 
     @Test
     void requiredDependenciesAreThickAndPermittedOnesDotted() {
         List<Edge> edges = adapt("ApiComponents").edges();
 
-        assertThat(edge(edges, "8", "10").arrow()).isEqualTo(Arrow.REQUIRED);
-        assertThat(edge(edges, "8", "10").label()).isEqualTo("12 REQUIRED");
-        assertThat(edge(edges, "11", "8").arrow()).isEqualTo(Arrow.DOTTED);
-        assertThat(edge(edges, "11", "8").label()).isEqualTo("17 PERMITTED");
-        assertThat(edge(edges, "12", "8").label()).isEqualTo("18 PERMITTED \u2014 planned");
-        assertThat(edge(edges, "6", "10").arrow()).isEqualTo(Arrow.SOLID);
-        assertThat(edge(edges, "6", "10").label()).isEqualTo("1");
-        assertThat(adapt("ApiComponents").definition()).contains("    8 ==>|\"12 REQUIRED\"| 10\n");
+        assertThat(edge(edges, "14", "16").arrow()).isEqualTo(Arrow.REQUIRED);
+        assertThat(edge(edges, "14", "16").label()).isEqualTo("12 REQUIRED");
+        assertThat(edge(edges, "17", "14").arrow()).isEqualTo(Arrow.DOTTED);
+        assertThat(edge(edges, "17", "14").label()).isEqualTo("17 PERMITTED");
+        assertThat(edge(edges, "18", "14").label()).isEqualTo("18 PERMITTED \u2014 planned");
+        assertThat(edge(edges, "6", "16").arrow()).isEqualTo(Arrow.SOLID);
+        assertThat(edge(edges, "6", "16").label()).isEqualTo("1");
+        assertThat(adapt("ApiComponents").definition()).contains("    14 ==>|\"12 REQUIRED\"| 16\n");
     }
 
     @Test
     void plannedElementsAreLabelledInWordsInsteadOfFaded() {
         MermaidDiagram components = adapt("ApiComponents");
 
-        assertThat(components.nodes()).filteredOn(n -> List.of("6", "8", "9", "10", "11", "15").contains(n.id()))
+        assertThat(components.nodes()).filteredOn(n -> List.of("6", "14", "15", "16", "17", "21").contains(n.id()))
                 .extracting(Node::label).containsExactlyInAnyOrder("Web app [Container] (planned)",
                         "Quotes [Component] (built)", "Shipments [Component] (built)", "Tenants [Component] (built)",
                         "Audit [Component] (planned)", "Database [Container] (planned)");
@@ -95,7 +95,7 @@ class MermaidAdapterTest {
         MermaidDiagram dynamic = adapt("QuoteBookLabel");
 
         assertThat(dynamic.nodes()).extracting(Node::id).doesNotHaveDuplicates()
-                .containsExactlyInAnyOrder("1", "4", "6", "8", "9", "10", "11", "15");
+                .containsExactlyInAnyOrder("1", "4", "6", "14", "15", "16", "17", "21");
         assertThat(dynamic.edges()).hasSize(15);
         assertThat(dynamic.edges().get(0).label()).isEqualTo("1");
         assertThat(dynamic.edges().get(14).label()).isEqualTo("15");

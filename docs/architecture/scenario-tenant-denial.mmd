@@ -1,0 +1,28 @@
+%% Generated—do not hand-edit. Source: architecture/workspace.dsl, view ScenarioTenantDenial.
+flowchart LR
+    accTitle: Executable scenario: another tenant's quote is not found
+    accDescr: Dynamic view with 6 elements and 6 relationships. The tables on the page list every one of them.
+    1["Shipping clerk [Person]"]
+    style 1 fill:#0f766e,stroke:#475569,color:#ffffff
+    subgraph 5 ["Shipping reference platform"]
+        style 5 fill:#ffffff,stroke:#475569,color:#475569
+        subgraph 13 ["API"]
+            style 13 fill:#ffffff,stroke:#475569,color:#475569
+            14["Quotes [Component] (built)"]
+            style 14 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            15["Shipments [Component] (built)"]
+            style 15 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            16["Tenants [Component] (built)"]
+            style 16 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+        end
+        21[("Database [Container] (planned)")]
+        style 21 fill:#f1f5f9,stroke:#64748b,color:#334155
+        6["Web app [Container] (planned)"]
+        style 6 fill:#f1f5f9,stroke:#64748b,color:#334155
+    end
+    1 -->|"1"| 6
+    6 -->|"2"| 15
+    15 ==>|"3 REQUIRED"| 16
+    15 -->|"4"| 21
+    15 ==>|"5 REQUIRED"| 14
+    14 -->|"6"| 21
