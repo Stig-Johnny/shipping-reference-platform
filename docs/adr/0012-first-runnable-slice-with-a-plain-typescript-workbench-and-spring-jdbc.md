@@ -293,15 +293,16 @@ one.
   media type, malformed JSON, an unknown member, a request refused before routing and an unexpected exception: the
   correct type, no stack trace, a correlation ID. They start the application with test doubles for the adapters to
   the database, so they prove the HTTP edge, not persistence. Planned, `java`: `ShipmentsHttpContractTest`.
-- Planned, `java`: `RowLevelSecurityCatalogTest` queries `pg_class`, `pg_policy` and `pg_roles`: every table with a
+- Implemented, CI evidence pending for V1/V2, `java` through `databaseTest`: `RowLevelSecurityCatalogTest` queries `pg_class`, `pg_policy` and `pg_roles`: every table with a
   `tenant_id` column has row-level security enabled and forced and at least one policy, except the four identity
   tables, on which `shipping_app` has no privileges; `shipping_app` is not superuser, lacks `BYPASSRLS` and owns
   nothing. `RowLevelSecurityIntegrationTest` uses plain JDBC as `shipping_app`: a foreign tenant sees and changes
   nothing; no bound tenant sees nothing and cannot insert; with a pool of size 1, tenant A's transaction followed by
-  tenant B's sees only B's rows. `CrossTenantAccessTest` calls the HTTP API with Tenant Beta's token and Tenant
+  tenant B's sees only B's rows. The planned `CrossTenantAccessTest` calls the HTTP API with Tenant Beta's token and Tenant
   Alpha's quote and shipment IDs and expects `404` problems for read, book, cancel and label.
   `MigrationsIntegrationTest` migrates an empty database as `shipping_owner` and asserts that `shipping_app` cannot
-  run DDL.
+  run DDL. ADR 0016 adds matching down scripts and MigrationRoundTripTest; the application's tenant binding,
+  shipments/audit schemas and demo seeds remain planned.
 - Planned, `java`: `TableOwnershipTest` asserts that every statement of each module's adapters touches only that
   module's schema, and fails on the fixture above.
 - `java`: `WebArchitectureConformanceTest` runs the partial JDK import check over `apps/shipping-web/src`, the test root

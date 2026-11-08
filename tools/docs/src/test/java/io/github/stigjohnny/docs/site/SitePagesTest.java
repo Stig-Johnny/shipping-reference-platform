@@ -213,10 +213,10 @@ class SitePagesTest {
         String page = site.text("model/api-components.html");
 
         assertThat(page).contains("Audit [Component] (planned)", "Shipments [Component] (built)",
-                "Quotes [Component] (built)", "Web app [Container] (planned)", "Database [Container] (planned)",
+                "Quotes [Component] (built)", "Web app [Container] (planned)", "Database [Container]",
                 "Planned");
         assertThat(site.text("model/containers.html")).contains("Web app [Container] (planned)",
-                "Database [Container] (planned)").doesNotContain("API [Container] (planned)");
+                "Database [Container]").doesNotContain("API [Container] (planned)", "Database [Container] (planned)");
         for (String path : site.pages()) {
             assertThat(site.text(path)).as(path).doesNotContainIgnoringCase("faded").doesNotContain("opacity");
         }
@@ -434,9 +434,9 @@ class SitePagesTest {
                 "<td>Built in part: booking from an offer, idempotent per tenant and key, without HTTP or a "
                         + "database</td>",
                 "<td>Built in part: tariff, rating, quote creation and reading, and offer lookup, over HTTP in tests; "
-                        + "no database yet</td>",
+                        + "V2 schema exists, database execution evidence pending</td>",
                 "<td>Built in part: demo authentication over HTTP, <code>GET /api/v1/me</code> and the tenant bound "
-                        + "for each request; the database adapter, row-level security and prototype flags are planned"
+                        + "for each request; V1 schema exists, RLS execution evidence pending; database adapter and prototype flags planned"
                         + "</td>")
                 .doesNotContain("<td>built</td>", "<td>built (minimal)</td>", "v0.1 target, not implemented");
     }

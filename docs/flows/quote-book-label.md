@@ -13,7 +13,8 @@ document adds order, alternatives and failures, and names the acceptance tests f
 test becomes evidence only once it exists, passes and asserts the step; each row says what it must assert. Rating and
 expiry logic have passing Java tests. Signing in and creating and reading a quote pass over HTTP, in the application
 started by the tests with test doubles for the token lookup and the quote store; so storage is tested in memory, and so
-are booking and its replay. The database and the rest of the flow remain planned.
+are booking and its replay. The tenants and quotes schemas now have paired up and down migrations (ADR 0016),
+but their CI database evidence is pending. Application persistence and the rest of the flow remain planned.
 Parts of the flow are also executable scenarios, checked against what the code does when they run
 ([Executable scenarios](#executable-scenarios)).
 
@@ -76,7 +77,7 @@ sequenceDiagram
 |---|---|---|
 | 1 to 4: sign in as a synthetic user | A valid demo token resolves to exactly one membership; tenant hints cannot override membership; unknown body members are rejected; unknown token `401`, user without tenant `403`. | Passing, with a test double for the token lookup: `DemoTokenAuthenticationTest`, `TenantsHttpContractTest`. The lookup in PostgreSQL is planned. |
 | 5 to 6: submit the parcel form | The form sends a contract-valid `QuoteRequest`; invalid input is labelled before sending. | Planned: `ParcelForm.test.tsx` |
-| Note after 6: tenant binding | Every transaction carries the authenticated tenant and only that tenant. | Planned: `RowLevelSecurityIntegrationTest`, `TenantScopeTest` |
+| Note after 6: tenant binding | Every transaction carries the authenticated tenant and only that tenant. | `RowLevelSecurityIntegrationTest` is implemented for plain JDBC and awaits CI evidence; application tenant binding and `TenantScopeTest` remain planned. |
 | 7: rating | Prices equal the golden table; bands, ordering, rounding and availability rules hold. | Passing: `SyntheticTariffTest`, `SyntheticTariffPropertiesTest`, `RatingTest` |
 | 8 to 9: store and publish | Only offered quotes are stored, under the caller's tenant; `QuoteIssued` is published once. | Passing, in memory: `CreateQuoteTest`. Planned: `QuotesModuleIntegrationTest` |
 | 10: quote response | `201` with `Location`, offers in level order and `expiresAt = issuedAt + 30 min`, conforming to the contract. | Passing, with the store in memory: `QuotesHttpContractTest`. Planned: `QuoteCardList.test.tsx` |

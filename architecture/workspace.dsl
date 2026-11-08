@@ -246,7 +246,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
                 }
             }
 
-            db = container "Database" "One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data." "PostgreSQL 18.6" "Database,Planned"
+            db = container "Database" "One schema per v0.1 module plus the event publication registry, with forced row-level security on tenant data. Built: the schemas tenants and quotes (migrations V1 and V2; CI verification pending). Planned: shipments, audit and the registry." "PostgreSQL 18.6" "Database"
         }
 
         // System context relationships.

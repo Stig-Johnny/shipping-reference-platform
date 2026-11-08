@@ -35,8 +35,8 @@ flowchart LR
             17["Audit [Component] (planned)"]
             style 17 fill:#f1f5f9,stroke:#64748b,color:#334155
         end
-        21[("Database [Container] (planned)")]
-        style 21 fill:#f1f5f9,stroke:#64748b,color:#334155
+        21[("Database [Container]")]
+        style 21 fill:#115e59,stroke:#475569,color:#ffffff
         6["Web app [Container] (planned)"]
         style 6 fill:#f1f5f9,stroke:#64748b,color:#334155
     end
@@ -80,7 +80,7 @@ The same definition is in [quote-book-label.mmd](quote-book-label.mmd).
 | 15 | Shipments | Component | Spring Modulith module | built | Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled. |
 | 16 | Tenants | Component | Spring Modulith module | built | Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags. |
 | 17 | Audit | Component | Spring Modulith module | planned | Appends one tenant-scoped audit entry per shipment event, deduplicated by event ID; replayed from the publication registry after failures. |
-| 21 | Database | Container | PostgreSQL 18.6 | Planned; not covered by module conformance | One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data. |
+| 21 | Database | Container | PostgreSQL 18.6 | Not covered by module conformance | One schema per v0.1 module plus the event publication registry, with forced row-level security on tenant data. Built: the schemas tenants and quotes (migrations V1 and V2; CI verification pending). Planned: shipments, audit and the registry. |
 
 ## Relationships
 

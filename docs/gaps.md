@@ -30,7 +30,10 @@ closes it.
   `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for them is still to
   be written (red first), except `ShipmentTest`, which exists for booking and does not yet assert cancellation.
   The shipping API's database harness exists too: in CI, `PostgresHarnessIntegrationTest` starts the reviewed
-  PostgreSQL 18.6 image under the runner review's conditions and queries it; no schema exists yet.
+  PostgreSQL 18.6 image under the runner review's conditions and queries it. V1 (tenants), V2 (quotes), their down
+  scripts and the role bootstrap now exist. MigrationFilesTest supplies only file-pairing evidence; the merged tree's
+  up/down execution and RLS proof are pending CI, so control.migrations is partial and tenants.row-level-security
+  remains planned. All four database test classes are tagged database and required in the reviewed harness window.
 - **The application starts in its tests only, without a database.** The HTTP tests start `ShippingApplication` with
   test doubles for the two ports that have no adapter yet: the tenants module's membership directory, which holds the
   synthetic users of `docs/modules/tenants.md`, and the quotes module's store, in memory. They leave out the data
@@ -143,8 +146,13 @@ closes it.
 - **The event publication table is not tenant-scoped.** It stores event payloads, which contain identifiers only.
 - **One runtime role for all modules.** The database does not stop one module's SQL from reading another module's
   schema.
-- **Owner role and superusers bypass the application's guarantees** when used directly. Only Flyway uses the owner
-  role.
+- **The owner role can change the policies, and superusers bypass row-level security.** Forced row-level security
+  holds the owner role's queries to the bound tenant, but not its DDL: it can disable, change or drop a policy. Only
+  Flyway uses the owner role, and every migration is level 3.
+- **Row-level security awaits database evidence for this merged tree.** The implemented tests bind a tenant with `set_config` over
+  plain JDBC. Nothing in the application binds one yet: `TenantBindingTransactionManager`, the HTTP checks of
+  `CrossTenantAccessTest` and the listeners' tenant scope are planned, and so are the tables of shipments and audit.
+  A session that can call `set_config` chooses its tenant: the setting scopes a connection, it authenticates nobody.
 - **Tracking numbers come from one global sequence.** A tenant can infer the platform's total booking volume.
 - **Labels are SVG.** They are served as attachments with a restrictive Content Security Policy and contain no
   active content, but SVG remains a document format that some viewers treat as active.
@@ -398,6 +406,9 @@ closes it.
   jsdom. They stay acceptance targets, so the capabilities that name them stay unshipped; until they exist, only
   logic tests under `node --test` and the Playwright specs test the web app.
 - The CI time target of 8 to 12 minutes is a target, not a measurement.
+- The migration round trip (ADR 0016) compares catalogs, not data, and runs on empty databases. It covers only
+  the object kinds listed by CatalogSnapshot, not operators, casts, collations, text search objects, foreign data
+  objects, publications or event triggers. It does not establish that down scripts restore rows from a release.
 - **The scenario checks prove one run, within what the recorder sees** (`control.scenario-conformance`, partial). A
   run without detected gaps can show its evaluated steps conformed for one exercised run, not every path, schedule
   or input. Today's two reports instead say `COVERAGE_INCOMPLETE`, "coverage incomplete: 77 known gaps".

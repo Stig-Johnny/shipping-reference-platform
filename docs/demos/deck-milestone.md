@@ -2,7 +2,7 @@
 title: "Milestone: from slides to code"
 description: "The milestone deck: what is built and checked, what is still planned, one change the gate rejects, who approves what, and a proposed first 30 days with a new team."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 kind: deck
 lang: en
 milestone: 2026-11-10
@@ -210,4 +210,4 @@ Java 25, strict builds and static analysis.
 
 ### Notes
 
-- The Spring Boot dependencies are declared; a running app and a database are planned
+- The API runs in tests. Paired migrations for tenants and quotes exist; their merged-tree PostgreSQL evidence awaits CI

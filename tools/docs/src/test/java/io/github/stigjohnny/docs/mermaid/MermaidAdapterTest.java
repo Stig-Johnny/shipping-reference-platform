@@ -78,7 +78,7 @@ class MermaidAdapterTest {
         assertThat(components.nodes()).filteredOn(n -> List.of("6", "14", "15", "16", "17", "21").contains(n.id()))
                 .extracting(Node::label).containsExactlyInAnyOrder("Web app [Container] (planned)",
                         "Quotes [Component] (built)", "Shipments [Component] (built)", "Tenants [Component] (built)",
-                        "Audit [Component] (planned)", "Database [Container] (planned)");
+                        "Audit [Component] (planned)", "Database [Container]");
         MermaidDiagram context = adapt("SystemContext");
         assertThat(context.nodes()).extracting(Node::label).containsExactlyInAnyOrder("Shipping clerk [Person]",
                 "Platform administrator [Person]", "Webshop [Software System] (external)",

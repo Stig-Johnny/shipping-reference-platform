@@ -26,7 +26,9 @@ adapter yet. So `QuotesHttpContractTest` proves the HTTP edge, not persistence. 
 is stored in PostgreSQL yet. `quotes.get-quote` and `quotes.offer-lookup` are partial too: `QuotesModuleIntegrationTest`
 is planned.
 
-Planned: the JDBC adapter, the migration and the demo fixture, and the `demo` profile that runs the application
+Built: migration `V2__quotes.sql` and its down script (ADR 0016); their database verification is pending CI.
+
+Planned: the JDBC adapter and the demo fixture, and the `demo` profile that runs the application
 against PostgreSQL; until then the application starts in tests only. No transaction manager exists yet, so the
 `@Transactional` of `CreateQuote` and `GetQuote` has no effect, and nothing yet shows that `QuoteIssued` is published
 inside the quote's transaction.
@@ -209,16 +211,19 @@ Worked example (the contract's example): `NO 0150` to `SE 11122`, 1200 g, 300 x 
 
 ## Data: schema `quotes` (migration `V2__quotes.sql`)
 
+`V2__quotes.sql` exists in `apps/shipping-api/src/main/resources/db/migration`, with its down script
+`db/down/V2__quotes.down.sql` (ADR 0016).
+
 | Table | Columns | Keys and checks |
 |---|---|---|
-| `quotes.quote` | `tenant_id uuid`, `quote_id uuid`, `issued_at timestamptz`, `expires_at timestamptz`, `weight_grams int`, `length_mm int`, `width_mm int`, `height_mm int`, `billable_weight_grams int`, `zone text`, `origin_country char(2)`, `origin_postcode varchar(10)`, `destination_country char(2)`, `destination_postcode varchar(10)`; all `not null` | PK `(tenant_id, quote_id)`; checks on every bound in the contract; `expires_at = issued_at + interval '30 minutes'` |
+| `quotes.quote` | `tenant_id uuid`, `quote_id uuid`, `issued_at timestamptz`, `expires_at timestamptz`, `weight_grams int`, `length_mm int`, `width_mm int`, `height_mm int`, `billable_weight_grams int`, `zone text`, `origin_country char(2)`, `origin_postcode varchar(10)`, `destination_country char(2)`, `destination_postcode varchar(10)`; all `not null` | PK `(tenant_id, quote_id)`; checks on every bound in the contract; `expires_at = issued_at + interval '30 minutes'`; `billable_weight_grams = max(weight_grams, ceil(length_mm x width_mm x height_mm / 5000))`; `zone` is `DOMESTIC` exactly when the two countries are equal |
 | `quotes.quote_offer` | `tenant_id uuid`, `quote_id uuid`, `offer_id uuid`, `service_level text`, `amount numeric(11,2)`, `currency char(3)`, `transit_min_days smallint`, `transit_max_days smallint`; all `not null` | PK `(tenant_id, offer_id)`; unique `(tenant_id, quote_id, service_level)`; FK `(tenant_id, quote_id)` to `quotes.quote`; `amount >= 0`; `currency = 'EUR'` |
 
 Both tables: row-level security enabled and forced, policy `tenant_isolation` (ADR 0012). Grants to
 `shipping_app`: `USAGE` on the schema, `SELECT, INSERT` on both tables (quotes are immutable). No foreign keys to
 other modules' schemas.
 
-**Demo fixture** (`db/demo/V1001__expired_quote_fixture.sql`, `demo` profile and tests only): an already expired
+**Demo fixture** (`db/demo/V1001__expired_quote_fixture.sql`, `demo` profile and tests only; not written yet): an already expired
 quote for Tenant Alpha, used by `expired-quote.spec.ts`. The script binds Tenant Alpha with
 `set_config('app.tenant_id', '11111111-1111-4111-8111-111111111111', true)` before inserting.
 

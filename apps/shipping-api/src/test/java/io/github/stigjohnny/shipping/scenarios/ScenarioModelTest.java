@@ -85,7 +85,7 @@ class ScenarioModelTest {
         assertThat(model.module("audit").orElseThrow().built()).isFalse();
         assertThat(model.moduleOf("io.github.stigjohnny.shipping.quotes.internal.application.CreateQuote"))
                 .contains("quotes");
-        assertThat(model.element("db").orElseThrow().tags()).containsExactly("Database", "Planned");
+        assertThat(model.element("db").orElseThrow().tags()).containsExactly("Database");
     }
 
     /**

@@ -9,8 +9,8 @@
 #                    "web" for the Web app container. Controls use `where` instead.
 #   status           The truth at the current commit:
 #                      shipped  every acceptance test exists and passes in the required checks;
-#                      partial  at least one acceptance test exists and passes, others are missing;
-#                      planned  no acceptance test exists yet.
+#                      partial  at least one acceptance test exists and passes; the remaining proof is pending;
+#                      planned  no passing acceptance evidence is claimed yet.
 #   target           v0.1 (committed for the first release) or later.
 #   evidence         Test class names (Java) or test file names (TypeScript, JavaScript) that exist and pass at this
 #                    commit, or the string "none yet". Must be "none yet" when status is planned. tools/docs counts a
@@ -48,8 +48,9 @@
 # booking from an offer and idempotent booking are partial, since their HTTP and database tests are planned.
 # ShipmentTest passes, but it asserts only what booking produces, not cancellation, so shipments.cancel-shipment stays
 # planned. The HTTP contract control is partial, since the shipments operations are planned. The dependency control
-# is partial, with runtime workflow evidence; check 8 is a PARTIAL static lint. Every other status is planned and its
-# evidence is "none yet".
+# is partial, with runtime workflow evidence; check 8 is a PARTIAL static lint. The migration control is partial:
+# MigrationFilesTest checks paired SQL files, while up/down execution and RLS await CI database evidence.
+# Every other status is planned and its evidence is "none yet".
 
 schemaVersion: 1
 
@@ -179,6 +180,8 @@ capabilities:
   - id: tenants.row-level-security
     module: tenants
     title: Forced PostgreSQL row-level security on every tenant-owned table, with a runtime role that cannot bypass it.
+    # Tests for V1/V2 are implemented and mandatory in databaseTest; CI evidence for this merged tree is pending.
+    # Application tenant binding and the tables of shipments and audit remain planned.
     status: planned
     target: v0.1
     evidence: none yet
@@ -426,15 +429,17 @@ controls:
     negativeFixture: An audit adapter statement that reads shipments.shipment.
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.migrations
-    title: Migrations apply cleanly to an empty database as the owner role; the runtime role cannot run DDL.
+    title: Migrations apply cleanly to an empty database as the owner role, each down script restores the previous catalog, and the runtime role cannot run DDL.
     where: apps/shipping-api
     check: java
-    status: planned
+    # Only file pairing is local evidence; the implemented database proofs await CI.
+    status: partial
     target: v0.1
-    evidence: none yet
-    acceptanceTests: [MigrationsIntegrationTest]
-    negativeFixture: A DDL statement attempted as shipping_app.
-    docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
+    evidence: [MigrationFilesTest]
+    evidenceLabel: Paired SQL files only; up/down execution and runtime-role DDL denial await CI.
+    acceptanceTests: [MigrationFilesTest, MigrationsIntegrationTest, MigrationRoundTripTest]
+    negativeFixture: DDL statements attempted as shipping_app; an applied migration edited afterwards; a down script without its last statement.
+    docs: docs/adr/0016-down-scripts-proven-in-ci-production-rolls-forward.md
   - id: control.http-contract
     title: Exercised HTTP responses, including framework problems, conform to contracts/shipping.openapi.yaml.
     where: apps/shipping-api

@@ -46,8 +46,10 @@ Only exact reviewed debt can pass the build; new, changed or disappeared finding
 
 Planned: the JDBC adapter `JdbcMembershipDirectory` that calls `tenants.resolve_demo_token`, the `demo` profile's
 database configuration (until then the application starts in tests only), `TenantScope`, the transaction manager
-that sets `app.tenant_id`, prototype flags (until then every flag is off and `enabledFlags` is empty) and the schema.
-`tenants.row-level-security`, `tenants.cross-tenant-denial`, `tenants.tenant-scope-for-events` and
+that sets `app.tenant_id`, prototype flags (until then every flag is off and `enabledFlags` is empty) and the demo seed.
+The V1 schema, role bootstrap and database RLS tests exist; their execution against the merged tree is pending CI.
+Until that evidence exists, `tenants.row-level-security` remains planned.
+`tenants.cross-tenant-denial`, `tenants.tenant-scope-for-events` and
 `tenants.prototype-flags` are planned.
 
 ## Responsibilities
@@ -181,13 +183,16 @@ Items marked built exist; the rest is planned.
 
 ## Data: schema `tenants` (migration `V1__tenants.sql`; seed `db/demo/V1000__synthetic_tenants.sql`)
 
+`V1__tenants.sql` exists in `apps/shipping-api/src/main/resources/db/migration`, with its down script
+`db/down/V1__tenants.down.sql` (ADR 0016). The seed does not exist yet. Every column is `not null`.
+
 | Table | Columns | Notes |
 |---|---|---|
-| `tenants.tenant` | `tenant_id uuid pk`, `display_name varchar(70)` | Identity table: no RLS; `shipping_app` has no privileges. |
-| `tenants.app_user` | `user_id uuid pk`, `handle varchar(40) unique` (pattern `^[a-z0-9-]{3,40}$`), `display_name varchar(70)` | Identity table: no RLS; no privileges. |
+| `tenants.tenant` | `tenant_id uuid pk`, `display_name varchar(70)` (not empty) | Identity table: no RLS; `shipping_app` has no privileges. |
+| `tenants.app_user` | `user_id uuid pk`, `handle varchar(40) unique` (pattern `^[a-z0-9-]{3,40}$`), `display_name varchar(70)` (not empty) | Identity table: no RLS; no privileges. |
 | `tenants.membership` | `user_id uuid pk` (one membership per user in v0.1), `tenant_id uuid`, `role text` (`CLERK`) | Identity table: no RLS; no privileges. FKs to `tenant` and `app_user`. |
-| `tenants.demo_token` | `token_sha256 bytea pk` (32 bytes), `user_id uuid` | Identity table: no RLS; no privileges. |
-| `tenants.prototype_flag` | `tenant_id uuid`, `flag_key varchar(40)`, `enabled boolean default false` | PK `(tenant_id, flag_key)`; RLS enabled and forced; `shipping_app`: `SELECT`. |
+| `tenants.demo_token` | `token_sha256 bytea pk` (32 bytes), `user_id uuid` | Identity table: no RLS; no privileges. FK to `app_user`. |
+| `tenants.prototype_flag` | `tenant_id uuid`, `flag_key varchar(40)`, `enabled boolean default false` | PK `(tenant_id, flag_key)`; FK `tenant_id` to `tenant`; RLS enabled and forced; `shipping_app`: `SELECT`. |
 
 Function `tenants.resolve_demo_token(p_token_sha256 bytea)` returns
 `table (user_id uuid, user_display_name varchar, tenant_id uuid, tenant_display_name varchar, role text)`:
@@ -201,7 +206,11 @@ inside the migration's transaction.
 
 Database roles (created by `apps/shipping-api/postgres/init-roles.sql`, not by Flyway): `shipping_owner` (login,
 owns everything, used only by Flyway) and `shipping_app` (login, `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-owns nothing).
+owns nothing). Both are also `NOINHERIT` and `NOREPLICATION`, and neither is a member of any role. A superuser runs
+the script through JDBC in each database before its first migration; running it again is safe. It also revokes
+`CONNECT` and `TEMPORARY` on the database from PUBLIC, grants `CONNECT` to both roles and `CREATE` (for schemas) to
+`shipping_owner` only, and sets no passwords. Flyway keeps its history in schema `flyway`, on which `shipping_app` has
+no privileges.
 
 ## Invariants and the tests that assert them
 

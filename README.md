@@ -4,8 +4,8 @@ A reference monorepo that shows how a Java and TypeScript product can be built w
 API contract and the documentation lead and the code follows, and when each claim about the code is backed by a
 check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is
 synthetic and the carrier is simulated. The application's first code exists: the API's pricing and quotes and its
-demo authentication, served over HTTP in tests, and booking in its shipments module, without HTTP yet. No database
-exists yet, and most of the application is still planned.
+demo authentication, served over HTTP in tests, and booking in its shipments module, without HTTP yet. The tenants and quotes schemas have paired migrations; application persistence and most of the
+application are still planned.
 The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions,
 a labelled partial check of detected TypeScript imports in the web app, a dependency allowlist check and a
 documentation tool.
@@ -43,7 +43,7 @@ Built and running:
   `QuotesHttpContractTest`, `TenantsHttpContractTest` and `ProblemDetailsHttpContractTest` validate every response
   they exercise against the contract. The tests use test doubles and stores in memory, a fixed clock and deterministic
   IDs, and booking is tested against real quotes: the ports to the database have no adapter yet, so the tests prove
-  the HTTP edge and the domain, not persistence. No database exists yet, and the application does not start outside
+  the HTTP edge and the domain, not persistence. The schema migrations exist, but the application does not start outside
   its tests. In `java`, `ArchitectureConformanceTest` checks the API's classes against the model with the checker,
   `ModularityTest` runs Spring Modulith's verification and `HexagonalLayeringTest` the layering rules, and each of the
   three also fails on fixtures that break it.
@@ -62,18 +62,23 @@ Built and running:
   check 8 is a PARTIAL static lint: direct container findings and registered-file pin mismatches block, while
   unregistered launch/reflection capabilities warn. Literal/data class names are not use (ADR 0007). The harness validates its PostgreSQL instance,
   and CI checks subsequent engine activity. Privileged code could undo the guard; it is not a hostile-code sandbox.
-  No schema exists yet.
+  The tenants and quotes migrations use its opaque JDBC handle; only the harness uses container libraries.
 - **The documentation tool**, `tools/docs`, with its tests. It generates the C4 view pages, `BRAIN.md` and a static
   site. In `java`, it checks committed generated files for drift, repository-local links and anchors for validity,
   and shipped or partial capability claims against passing test evidence. The `pages` workflow scans the site before
   each upload and publishes it from `main` at <https://stig-johnny.github.io/shipping-reference-platform/>.
   The site's use case overview shows each capability's actors and what its tests showed, not a runtime trace.
+- **The first database migrations**, `V1__tenants.sql` and `V2__quotes.sql`, with matching down scripts (ADR 0016),
+  forced row-level security and the role bootstrap `apps/shipping-api/postgres/init-roles.sql`. `MigrationFilesTest`
+  checks their pairing without a database. `MigrationsIntegrationTest`, `MigrationRoundTripTest`,
+  `RowLevelSecurityCatalogTest` and `RowLevelSecurityIntegrationTest` run in the mandatory CI `databaseTest` task.
+  The merged tree's database evidence is pending; no local up/down execution or RLS proof is claimed.
 
 The specification is in place too: the model, the API contract, the decisions, the module specifications, the risk
 policy and the agent rules, with the reviewed toolchain.
 
 Planned, with no code yet: the API's other four modules, everything of quotes, shipments and tenants that needs the
-database, the shipments operations over HTTP, the workbench, a plain TypeScript app (ADR 0012), and the checks that
+application database adapters, the shipments operations over HTTP, the workbench, a plain TypeScript app (ADR 0012), and the checks that
 need them; the generated API client is deferred. In
 [docs/capabilities/capabilities.yaml](docs/capabilities/capabilities.yaml), the source of truth for status and
 evidence, the quotes module's tariff and quote expiry are shipped; quote creation, quote reading, the offer lookup,
@@ -214,9 +219,9 @@ see each other's data, enforced in queries and by forced PostgreSQL row-level se
 
 | Module | Implementation state | Depends on (from the model) |
 |---|---|---|
-| `quotes` | Built in part: tariff, rating, quote creation and reading, and offer lookup, over HTTP in tests; no database yet | `tenants` (REQUIRED) |
+| `quotes` | Built in part: tariff, rating, quote creation and reading, and offer lookup, over HTTP in tests; V2 schema exists, database execution evidence pending | `tenants` (REQUIRED) |
 | `shipments` | Built in part: booking from an offer, idempotent per tenant and key, without HTTP or a database | `quotes`, `tenants` (REQUIRED) |
-| `tenants` | Built in part: demo authentication over HTTP, `GET /api/v1/me` and the tenant bound for each request; the database adapter, row-level security and prototype flags are planned | nothing |
+| `tenants` | Built in part: demo authentication over HTTP, `GET /api/v1/me` and the tenant bound for each request; V1 schema exists, RLS execution evidence pending; database adapter and prototype flags planned | nothing |
 | `audit` | Minimal implementation planned for v0.1; no code yet | `shipments`, `tenants` (REQUIRED); `quotes` (PERMITTED, not evaluated) |
 | `orders` | planned, no code | `quotes`, `shipments` (PERMITTED, not evaluated) |
 | `tracking` | planned, no code | `shipments` (PERMITTED, not evaluated) |
@@ -235,7 +240,7 @@ it runs) and which part is **planned**.
 | Module boundaries and layering | Access to another module's internal packages, module cycles, Spring in domain code, unexpected packages. | Coupling through shared data or timing. | `java`: `ModularityTest`, `HexagonalLayeringTest` | **enforced** for the built modules, each rule with a fixture that fails it |
 | External imports of the API | A dependency reported by ArchUnit 1.5.1 from an API main or test class targets a JDK internal or a package its JDK module does not export; has no unique provider on the caller's compile classpath; lacks an unexpired approval for the project, configuration and file, with SHA-256 comparison where the review records a hash; or is absent from the caller's layer whitelist. Artifacts colliding with actual main/test outputs also fail. Internal ownership comes from those outputs; only verified repository-owned project outputs are exempt from Maven review (currently the contract kit, with root-build identity and an exact registered output path). | Compiler-erased references such as inlined constants; retained bytecode that ArchUnit does not report, including casts and type-use annotations; reflection, `ServiceLoader`, framework wiring and native loading; another artifact at run time; artifacts no API class uses; the kit's and the tools' code (`docs/gaps.md`). | `java`: `ExternalImportPolicyTest`, through build-logic's `ProviderIndexTask`; `ProviderIdentityTest` checks build identity | **partial**: enforced for dependencies reported by ArchUnit 1.5.1 from the API's main and test outputs, including the isolated HTTP edge, web adapters and separately whitelisted HTTP tests, scenario tests and named scenario fixtures; source analysis and the scope of every locked artifact are planned |
 | API contract | A response deviates from the OpenAPI schema. | Operations and status codes no test exercises; the web app's hand-written types drifting from the contract, because the generated client is deferred (ADR 0012). | `java`: `*HttpContractTest` | **partial**: the quote and membership operations and the HTTP edge's problems are validated in `java`, with negative fixtures in `ContractTest`; the shipments operations are planned |
-| Tenant isolation | A tenant table lacks forced row-level security; the runtime role could bypass it; another tenant's IDs are readable through SQL or HTTP. | SQL run as the owner role; the shared event publication table; strength of the demo authentication. | `java`: `RowLevelSecurityCatalogTest`, `RowLevelSecurityIntegrationTest`, `CrossTenantAccessTest` | planned |
+| Tenant isolation | A tenant table lacks forced row-level security; the runtime role could bypass it; another tenant's IDs are readable through SQL or HTTP. | Policy changes by the owner role; superusers; the shared event publication table; strength of the demo authentication. | `java`: `RowLevelSecurityCatalogTest`, `RowLevelSecurityIntegrationTest`, `CrossTenantAccessTest` | database tests for V1/V2 implemented, CI evidence pending; application tenant binding and cross-tenant HTTP proof planned |
 | Domain invariants | Golden tariff prices, monotonicity and rounding properties, idempotent booking, expiry rules. | Wrong requirements. | `java` (parameterized property tests included: `SyntheticTariffPropertiesTest`) | partial: the tariff, expiry and booking tests run in `java`, booking with stores in memory; idempotent booking against the database is planned |
 | Event delivery | A failed audit write is lost, or a replay has a second effect. | Consumers nobody has written yet. | `java`: `AuditReplayIntegrationTest` | planned |
 | Mutation testing | Fewer than 80 % of mutants on changed lines are killed (90 % for pricing and checker code). | Tests that consistently assert the wrong thing; hand-reviewed equivalent mutants. | `mutation` | planned (today the `mutation` job runs PIT on the contract kit and fails under 90 % killed; it is not a required check) |

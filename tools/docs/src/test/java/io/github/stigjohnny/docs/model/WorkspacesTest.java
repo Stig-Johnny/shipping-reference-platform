@@ -36,11 +36,11 @@ class WorkspacesTest {
     }
 
     @Test
-    void theWebAppAndTheDatabaseAreTaggedPlannedAndTheApiIsNot() {
+    void theWebAppIsPlannedAndTheApiAndFirstDatabaseSchemasAreBuilt() {
         // Their planned label comes from the model, not from every capability being planned.
         assertThat(WORKSPACE.model().elements()).filteredOn(e -> e.type().equals("Container"))
                 .extracting(e -> e.name() + (e.planned() ? ": planned" : ""))
-                .containsExactlyInAnyOrder("Web app: planned", "API", "Database: planned");
+                .containsExactlyInAnyOrder("Web app: planned", "API", "Database");
     }
 
     @Test

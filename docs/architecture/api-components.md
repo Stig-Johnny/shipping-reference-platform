@@ -41,8 +41,8 @@ flowchart LR
             20["Returns [Component] (planned)"]
             style 20 fill:#f1f5f9,stroke:#64748b,color:#334155
         end
-        21[("Database [Container] (planned)")]
-        style 21 fill:#f1f5f9,stroke:#64748b,color:#334155
+        21[("Database [Container]")]
+        style 21 fill:#115e59,stroke:#475569,color:#ffffff
         6["Web app [Container] (planned)"]
         style 6 fill:#f1f5f9,stroke:#64748b,color:#334155
     end
@@ -97,7 +97,7 @@ The same definition is in [api-components.mmd](api-components.mmd).
 | 18 | Orders | Component | Spring Modulith module | planned | Planned: imports webshop orders and turns them into quote and booking requests. |
 | 19 | Tracking | Component | Spring Modulith module | planned | Planned: receives carrier tracking events and moves shipments through transit states. |
 | 20 | Returns | Component | Spring Modulith module | planned | Planned: creates return shipments for delivered shipments. |
-| 21 | Database | Container | PostgreSQL 18.6 | Planned; not covered by module conformance | One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data. |
+| 21 | Database | Container | PostgreSQL 18.6 | Not covered by module conformance | One schema per v0.1 module plus the event publication registry, with forced row-level security on tenant data. Built: the schemas tenants and quotes (migrations V1 and V2; CI verification pending). Planned: shipments, audit and the registry. |
 
 ## Relationships
 
