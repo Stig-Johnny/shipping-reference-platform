@@ -73,7 +73,7 @@ class ExternalImportPolicyTest {
         ExternalImportReport.write(result, ExternalImportReport.DIRECTORY, inputs());
         assertThat(lines(result.denied())).isEmpty();
         assertThat(result.uses()).extracting(Use::area).contains("module tests", "architecture tests",
-                "architecture fixtures", "http tests");
+                "architecture fixtures", "http tests", "scenario tests", "scenario fixtures");
     }
 
     @Test
@@ -84,6 +84,41 @@ class ExternalImportPolicyTest {
         assertThat(ExternalImportWhitelists.area(Scope.TEST, ExternalImportPolicy.API, http + ".extra")).isEmpty();
         assertThat(ExternalImportWhitelists.area(Scope.MAIN, ExternalImportPolicy.API, http)
                 .map(ExternalImportWhitelists.Area::label)).contains("module root and api");
+    }
+
+    @Test
+    void theScenarioTestAreaCoversOnlyTheTwoExactTestPackages() {
+        String scenarios = ExternalImportPolicy.API + ".scenarios";
+        for (String packageName : List.of(scenarios, scenarios + ".support")) {
+            assertThat(ExternalImportWhitelists.area(Scope.TEST, ExternalImportPolicy.API, packageName)
+                    .map(ExternalImportWhitelists.Area::label)).contains("scenario tests");
+            assertThat(ExternalImportWhitelists.area(Scope.TEST, ExternalImportPolicy.API, packageName + ".extra"))
+                    .isEmpty();
+        }
+        assertThat(ExternalImportWhitelists.area(Scope.MAIN, ExternalImportPolicy.API, scenarios)
+                .map(ExternalImportWhitelists.Area::label)).contains("module root and api");
+        assertThat(ExternalImportWhitelists.area(Scope.MAIN, ExternalImportPolicy.API, scenarios + ".support"))
+                .isEmpty();
+    }
+
+    @Test
+    void scenarioFixturesHaveTheirOwnTestAreaWithoutGrantingTheirModulePackages() {
+        for (String fixture : List.of("quotes.internal.application.ScenarioAlterations",
+                "quotes.internal.application.GatedQuoteStore", "tenants.api.TenantBadge",
+                "tenants.internal.application.ScenarioReference")) {
+            String name = ExternalImportPolicy.API + "." + fixture;
+            for (String className : List.of(name, name + "$Nested")) {
+                assertThat(ExternalImportWhitelists.areaOfClass(Scope.TEST, ExternalImportPolicy.API, className)
+                        .map(ExternalImportWhitelists.Area::label)).contains("scenario fixtures");
+                assertThat(ExternalImportWhitelists.areaOfClass(Scope.MAIN, ExternalImportPolicy.API, className))
+                        .isEqualTo(ExternalImportWhitelists.area(Scope.MAIN, ExternalImportPolicy.API,
+                                ExternalImportPolicy.packageOf(className)));
+            }
+            assertThat(ExternalImportWhitelists.areaOfClass(Scope.TEST, ExternalImportPolicy.API, name + "Extra")
+                    .map(ExternalImportWhitelists.Area::label)).contains("module tests");
+            assertThat(ExternalImportWhitelists.areaOfClass(Scope.TEST, ExternalImportPolicy.API,
+                    name + ".Extra")).isEmpty();
+        }
     }
 
     @Test

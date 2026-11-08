@@ -34,7 +34,9 @@
 # same commit; `:tools:docs:checkGenerated` rejects a shipped or partial status whose evidence does not exist or did
 # not pass, and never shows a planned capability as available because its package exists. The docs tool's own
 # controls are shipped, and so are the controls of libs/c4-contract-kit, divergence and absence included now that
-# ArchitectureConformanceTest checks :apps:shipping-api, and the two module checks of the API. Of the product, the
+# ArchitectureConformanceTest checks :apps:shipping-api, and the two module checks of the API. The API's scenario checks
+# are partial: their in-process scenarios and negative fixtures pass, while the first booking, replay and label
+# scenarios and the observation of HTTP and SQL are planned. Of the product, the
 # synthetic tariff and quote expiry are shipped. Creating and reading a quote, the offer lookup, demo authentication
 # and the current membership are partial: their HTTP contract tests run the whole application with test doubles for
 # the ports that have no database adapter yet, so they prove the HTTP edge, not persistence. That is why creating a
@@ -385,6 +387,18 @@ controls:
     acceptanceTests: [HexagonalLayeringTest]
     negativeFixture: A domain class annotated with a Spring stereotype; one fixture for each other rule (fixtures of HexagonalLayeringTest).
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
+  - id: control.scenario-conformance
+    title: A scenario view's evaluated steps are checked against one recording; missing steps, recorded unexpected interactions, wrong order and drift from exact known coverage debt fail the build; known gaps prevent conformance.
+    where: apps/shipping-api, architecture/scenarios
+    check: java
+    status: partial
+    target: v0.1
+    evidence: [QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, ReachabilityTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest, CoverageLedgerTest]
+    acceptanceTests: [QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, ReachabilityTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest, CoverageLedgerTest, FirstBookingScenarioTest, BookingReplayScenarioTest, LabelScenarioTest]
+    negativeFixture: CoverageLedgerTest rejects new Spring accesses, removed ledger entries, changed descriptors, disappeared gaps and duplicates; CoverageBypassTest rejects an additional Spring access with an already ledgered owner/member. Altered implementations in ScenarioFixturesTest, a removed call that keeps the outcome (missing step), an added call along a permitted relationship (unexpected interaction), two swapped interactions (order violation), a disabled call observer and a disabled publication observer (coverage gaps), an AFTER_COMMIT publication that runs before any commit (coverage gap), and two interleaved runs that must pass; nine implementations in CoverageBypassTest (coverage gaps), including virtual-thread and pre-existing-executor work released after close; shared receivers and containers in both module traversal orders in ReachabilityTest; a repeated signature with a varying cardinality in SidecarValidationTest (refused).
+    enforcedSubset: In process on the built modules, four declared steps of the quote and tenant-denial scenarios are verified against recorded interactions (three module API calls and one event publication); the other eight steps are counted as not evaluated. Reports say COVERAGE_INCOMPLETE with 77 known gaps (75 Spring accesses and two factory parameters), retained as refusals; an exact classified ledger tagged phase 3 / option 2 rejects new, changed, duplicate and disappeared findings, while all other bounded refusals remain build blockers; unexamined code, transient receivers, driver-supplied references and work after close remain limits (docs/gaps.md section 6). The tenant-denial outcome (rejected as an unknown quote, nothing stored for the other tenant) is asserted by the test apart from step verification.
+    plannedRemainder: Phase 3 / option 2 closes the 77 known gaps through production factory witnesses and concrete Spring receiver/callback coverage; the first booking, booking replay and label scenarios, HTTP exchanges, database steps observed through JDBC, listener executions, and commits observed so that AFTER_COMMIT steps are evaluated instead of refused.
+    docs: docs/adr/0013-scenario-views-are-checked-against-recorded-interactions.md
   - id: control.external-imports
     title: External dependencies reported by ArchUnit 1.5.1 from API main or test outputs have an approved provider or a verified repository-owned project provider, and are on the caller's layer whitelist.
     where: apps/shipping-api, build-logic

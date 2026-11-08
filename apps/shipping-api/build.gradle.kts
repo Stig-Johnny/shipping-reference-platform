@@ -89,13 +89,34 @@ tasks.processTestResources {
 // The architecture tests read the model and the compiled classes as files. ArchitectureConformanceTest checks every
 // main class-output directory against architecture/workspace.dsl, and HexagonalLayeringTest imports the same
 // directories, which reach them as the system property shipping.mainClassDirectories. Declared as an input, a change
-// to the model reruns the tests instead of reusing their earlier result, as in libs/c4-contract-kit.
+// to the model reruns the tests instead of reusing their earlier result, as in libs/c4-contract-kit. The scenario
+// checks (package scenarios) also read the sidecars in architecture/scenarios/, and their reports in
+// build/reports/scenarios/ name the revision they ran on: GITHUB_SHA in CI, the checked-out commit locally.
+val revision: Provider<String> = providers.environmentVariable("GITHUB_SHA").orElse(
+    providers.exec {
+        commandLine("git", "-C", rootDir.absolutePath, "rev-parse", "HEAD")
+        isIgnoreExitValue = true
+    }.standardOutput.asText.map { it.trim() },
+)
+
 tasks.test {
     inputs.files(rootDir.resolve("architecture/workspace.dsl")).withPathSensitivity(PathSensitivity.RELATIVE)
         .withPropertyName("model")
+    inputs.dir(rootDir.resolve("architecture/scenarios")).withPathSensitivity(PathSensitivity.RELATIVE)
+        .withPropertyName("scenarios")
+    // ScenarioModelTest compares the scenario reader with Structurizr's reading of the views, as the docs tool renders
+    // it into the generated pages that :tools:docs:checkGenerated holds to the model in the same build.
+    inputs.dir(rootDir.resolve("docs/architecture")).withPathSensitivity(PathSensitivity.RELATIVE)
+        .withPropertyName("viewPages")
+    // The scenario coverage census reads the main classes and the test classes, since a run can wire altered
+    // implementations, stores and fixtures from either.
     val mainClassDirectories: FileCollection = sourceSets.main.get().output.classesDirs
+    val testClassDirectories: FileCollection = sourceSets.test.get().output.classesDirs
+    val scenarioRevision = revision
     jvmArgumentProviders.add(CommandLineArgumentProvider {
-        listOf("-Dshipping.mainClassDirectories=" + mainClassDirectories.files.joinToString(File.pathSeparator))
+        listOf("-Dshipping.mainClassDirectories=" + mainClassDirectories.files.joinToString(File.pathSeparator),
+            "-Dshipping.testClassDirectories=" + testClassDirectories.files.joinToString(File.pathSeparator),
+            "-Dshipping.revision=" + scenarioRevision.get())
     })
 }
 

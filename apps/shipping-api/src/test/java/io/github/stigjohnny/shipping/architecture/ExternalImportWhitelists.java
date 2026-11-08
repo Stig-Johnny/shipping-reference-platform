@@ -27,6 +27,8 @@ final class ExternalImportWhitelists {
         ADAPTER_OUT_JDBC("internal.adapter.out.jdbc"),
         MODULE_TESTS("module tests"),
         HTTP_TESTS("http tests"),
+        SCENARIO_TESTS("scenario tests"),
+        SCENARIO_FIXTURES("scenario fixtures"),
         ARCHITECTURE_TESTS("architecture tests"),
         FIXTURES("architecture fixtures");
 
@@ -50,6 +52,9 @@ final class ExternalImportWhitelists {
     }
 
     private static final String NULL_MARKED = "org.jspecify.annotations.NullMarked";
+    private static final List<String> SCENARIO_FIXTURE_TYPES = List.of(
+            "quotes.internal.application.ScenarioAlterations", "quotes.internal.application.GatedQuoteStore",
+            "tenants.api.TenantBadge", "tenants.internal.application.ScenarioReference");
     private static final Map<Area, List<Allowed>> WHITELISTS = whitelists(List.of(
             // The root package: the isolated bootstrap, correlation filter and fallback problem handler.
             types(Area.ROOT, "the Spring Boot entry point", "org.springframework.boot.SpringApplication",
@@ -498,6 +503,168 @@ final class ExternalImportWhitelists {
             types(Area.HTTP_TESTS, "Contract: read the local OpenAPI document with the default YAML factory",
                     "tools.jackson.dataformat.yaml.YAMLMapper", "tools.jackson.dataformat.yaml.YAMLMapper$Builder"),
 
+            // Scenario drivers and support: exact classes only, in the two exact test packages below.
+            types(Area.SCENARIO_TESTS, "Coverage: inspect compiled dependencies and exact access-site descriptors",
+                    "com.tngtech.archunit.core.domain.AccessTarget$CodeUnitAccessTarget",
+                    "com.tngtech.archunit.core.domain.AccessTarget$FieldAccessTarget",
+                    "com.tngtech.archunit.core.domain.Dependency", "com.tngtech.archunit.core.domain.JavaClass",
+                    "com.tngtech.archunit.core.domain.JavaClasses", "com.tngtech.archunit.core.domain.JavaCodeUnit",
+                    "com.tngtech.archunit.core.domain.JavaCodeUnitAccess",
+                    "com.tngtech.archunit.core.domain.JavaFieldAccess",
+                    "com.tngtech.archunit.core.domain.SourceCodeLocation"),
+            types(Area.SCENARIO_TESTS, "ScenarioModel and ScenarioRun: cross-check modules against the kit's public API",
+                    "io.github.stigjohnny.c4contractkit.api.ComponentResult",
+                    "io.github.stigjohnny.c4contractkit.api.ComponentStatus",
+                    "io.github.stigjohnny.c4contractkit.api.Conformance",
+                    "io.github.stigjohnny.c4contractkit.api.Report"),
+            types(Area.SCENARIO_TESTS, "Scenario files: propagate failures reading local inputs or writing reports",
+                    "java.io.IOException", "java.io.UncheckedIOException"),
+            types(Area.SCENARIO_TESTS, "Scenario records, enums, boxed report values and exhaustive outcome switches",
+                    "java.lang.Object", "java.lang.Record", "java.lang.Enum", "java.lang.String",
+                    "java.lang.Boolean", "java.lang.Integer", "java.lang.Long", "java.lang.MatchException"),
+            types(Area.SCENARIO_TESTS, "Scenario validation and assertions: fail malformed inputs and retain failures",
+                    "java.lang.AssertionError", "java.lang.Exception", "java.lang.IllegalArgumentException",
+                    "java.lang.IllegalStateException", "java.lang.RuntimeException", "java.lang.Throwable"),
+            types(Area.SCENARIO_TESTS, "ValueTypes: recognize boxed primitive and exact numeric value leaves",
+                    "java.lang.Byte", "java.lang.Short", "java.lang.Float", "java.lang.Double",
+                    "java.math.BigDecimal", "java.math.BigInteger", "java.util.Currency"),
+            types(Area.SCENARIO_TESTS, "ScenarioModel and Sidecar: validate text characters and value types",
+                    "java.lang.Character"),
+            types(Area.SCENARIO_TESTS, "ScenarioRun: close each isolated application context after recording",
+                    "java.lang.AutoCloseable"),
+            types(Area.SCENARIO_TESTS, "ScenarioRun: retain outcome assertions until recording ends",
+                    "java.lang.Runnable"),
+            types(Area.SCENARIO_TESTS, "ScenarioRun: read the revision supplied by Gradle",
+                    "java.lang.System"),
+            types(Area.SCENARIO_TESTS, "Scenario text: construct bounded sidecar diagnostics and JSON/Markdown reports",
+                    "java.lang.StringBuilder"),
+            types(Area.SCENARIO_TESTS, "Comparison: bound matched interaction counts and optional order positions",
+                    "java.lang.Math", "java.util.OptionalInt"),
+            types(Area.SCENARIO_TESTS, "Coverage and Sidecar: resolve named classes and refuse unavailable types",
+                    "java.lang.Class", "java.lang.ClassNotFoundException", "java.lang.LinkageError"),
+            types(Area.SCENARIO_TESTS, "Reachability: report inaccessible fields and failed class initialization",
+                    "java.lang.IllegalAccessException", "java.lang.ExceptionInInitializerError",
+                    "java.lang.reflect.InaccessibleObjectException"),
+            types(Area.SCENARIO_TESTS, "Coverage: retain exact JVM descriptors for ledger comparisons",
+                    "java.lang.constant.ClassDesc"),
+            types(Area.SCENARIO_TESTS, "Reachability and ValueTypes: inspect fields, arrays and generic value shapes",
+                    "java.lang.reflect.Array", "java.lang.reflect.Field", "java.lang.reflect.GenericArrayType",
+                    "java.lang.reflect.Modifier", "java.lang.reflect.ParameterizedType",
+                    "java.lang.reflect.RecordComponent", "java.lang.reflect.Type"),
+            types(Area.SCENARIO_TESTS, "Recorder, Coverage and Sidecar: identify API methods and test provenance",
+                    "java.lang.reflect.Method"),
+            types(Area.SCENARIO_TESTS, "Recorder: attribute interactions to the first application stack frame",
+                    "java.lang.StackWalker", "java.lang.StackWalker$StackFrame"),
+            types(Area.SCENARIO_TESTS, "Recorder: track stimulus threads and diagnose newly observed platform threads",
+                    "java.lang.Thread", "java.lang.ThreadGroup", "java.lang.ThreadLocal"),
+            types(Area.SCENARIO_TESTS, "ValueTypes: inspect scoped containers for value-only type arguments",
+                    "java.lang.ScopedValue", "java.util.SortedMap", "java.util.SortedSet"),
+            types(Area.SCENARIO_TESTS, "Scenario files: read local model, sidecar and ledger; write UTF-8 reports",
+                    "java.nio.charset.StandardCharsets", "java.nio.file.Files", "java.nio.file.Path"),
+            types(Area.SCENARIO_TESTS, "ScenarioRun: hash model, sidecar and main class bytes for report provenance",
+                    "java.security.MessageDigest", "java.security.NoSuchAlgorithmException", "java.util.HexFormat"),
+            types(Area.SCENARIO_TESTS, "Scenario wiring and outcomes: fixed UTC clocks, quote lifetimes and synthetic IDs",
+                    "java.time.Clock", "java.time.Duration", "java.time.Instant", "java.time.ZoneOffset",
+                    "java.util.UUID"),
+            types(Area.SCENARIO_TESTS, "Scenario support: collect and compare steps, interactions, findings and values",
+                    "java.util.ArrayDeque", "java.util.ArrayList", "java.util.Arrays", "java.util.Collection",
+                    "java.util.Comparator", "java.util.Deque", "java.util.EnumMap", "java.util.HashMap",
+                    "java.util.HashSet", "java.util.Iterator", "java.util.LinkedHashMap", "java.util.LinkedHashSet",
+                    "java.util.List", "java.util.Locale", "java.util.Map", "java.util.Map$Entry", "java.util.Objects",
+                    "java.util.Optional", "java.util.Set", "java.util.TreeMap", "java.util.TreeSet",
+                    "java.util.stream.Collectors", "java.util.stream.IntStream", "java.util.stream.Stream"),
+            types(Area.SCENARIO_TESTS, "Reachability: track object identity separately for each owning module",
+                    "java.util.IdentityHashMap"),
+            types(Area.SCENARIO_TESTS, "Coverage: recognize task-capable types so their dispatch remains refused",
+                    "java.util.Timer", "java.util.TimerTask", "java.util.concurrent.CompletionStage",
+                    "java.util.concurrent.Executor", "java.util.concurrent.ThreadFactory"),
+            types(Area.SCENARIO_TESTS, "Recorder: retain stimulus thread identities across interleaved runs",
+                    "java.util.concurrent.ConcurrentHashMap"),
+            types(Area.SCENARIO_TESTS, "CoverageBypassTest: warm virtual threads and the pool before late-task fixtures",
+                    "java.lang.Thread$Builder$OfVirtual", "java.util.concurrent.ForkJoinPool"),
+            types(Area.SCENARIO_TESTS, "Scenario concurrency fixtures: bounded waits and propagation of interruption",
+                    "java.lang.InterruptedException", "java.util.concurrent.CountDownLatch",
+                    "java.util.concurrent.TimeUnit"),
+            types(Area.SCENARIO_TESTS, "ScenarioFixturesTest: interleave two isolated runs and await their completion",
+                    "java.util.concurrent.ExecutorService", "java.util.concurrent.Executors",
+                    "java.util.concurrent.Future"),
+            types(Area.SCENARIO_TESTS, "Reachability: identify atomic value holders and inspect reference holders",
+                    "java.util.concurrent.atomic.AtomicBoolean", "java.util.concurrent.atomic.AtomicInteger",
+                    "java.util.concurrent.atomic.AtomicLong", "java.util.concurrent.atomic.AtomicReference"),
+            types(Area.SCENARIO_TESTS, "Recorder and ScenarioRun: execute supplied stimuli and create the multicaster",
+                    "java.util.function.Supplier"),
+            types(Area.SCENARIO_TESTS, "ScenarioModel and Sidecar: parse restricted DSL syntax and cardinalities",
+                    "java.util.regex.Matcher", "java.util.regex.Pattern"),
+            types(Area.SCENARIO_TESTS, "Recorder: intercept module API calls and publication attempts",
+                    "org.aopalliance.intercept.MethodInterceptor", "org.aopalliance.intercept.MethodInvocation",
+                    "org.springframework.aop.Advisor", "org.springframework.aop.framework.ProxyFactory"),
+            types(Area.SCENARIO_TESTS, "Coverage and ScenarioRun: inspect observed proxies and their real targets",
+                    "org.springframework.aop.TargetSource", "org.springframework.aop.framework.Advised"),
+            types(Area.SCENARIO_TESTS, "Scenario tests: assert outcomes, findings, ledger drift and report claims",
+                    "org.assertj.core.api.AbstractBooleanAssert", "org.assertj.core.api.AbstractCollectionAssert",
+                    "org.assertj.core.api.AbstractComparableAssert", "org.assertj.core.api.AbstractInstantAssert",
+                    "org.assertj.core.api.AbstractListAssert", "org.assertj.core.api.AbstractPathAssert",
+                    "org.assertj.core.api.AbstractStringAssert", "org.assertj.core.api.AbstractThrowableAssert",
+                    "org.assertj.core.api.Assertions", "org.assertj.core.api.ListAssert",
+                    "org.assertj.core.api.MapAssert", "org.assertj.core.api.ObjectAssert",
+                    "org.assertj.core.api.OptionalAssert"),
+            types(Area.SCENARIO_TESTS, "JUnit: run scenarios, name reports from test metadata and isolate file fixtures",
+                    "org.junit.jupiter.api.Test", "org.junit.jupiter.api.TestInfo", "org.junit.jupiter.api.io.TempDir"),
+            types(Area.SCENARIO_TESTS, "CoverageBypassTest: register an unobserved singleton that coverage must refuse",
+                    "org.springframework.beans.factory.config.BeanFactoryPostProcessor"),
+            types(Area.SCENARIO_TESTS, "Recorder and ScenarioRun: install observers before scenario beans initialize",
+                    "org.springframework.beans.factory.config.BeanPostProcessor",
+                    "org.springframework.beans.factory.config.ConfigurableListableBeanFactory"),
+            types(Area.SCENARIO_TESTS, "Coverage: inspect bean definitions and ready singletons for observer bypasses",
+                    "org.springframework.beans.factory.support.DefaultListableBeanFactory"),
+            types(Area.SCENARIO_TESTS, "Scenario wiring: explicit test configurations excluded from HTTP component scans",
+                    "org.springframework.boot.test.context.TestConfiguration", "org.springframework.context.annotation.Bean"),
+            types(Area.SCENARIO_TESTS, "Reachability: distinguish the run's context from unobserved event publishers",
+                    "org.springframework.context.ApplicationContext", "org.springframework.context.ApplicationEventPublisher"),
+            types(Area.SCENARIO_TESTS, "Recorder: unwrap application event payloads without recording their contents",
+                    "org.springframework.context.PayloadApplicationEvent"),
+            types(Area.SCENARIO_TESTS, "ScenarioRun and coverage fixtures: create and inspect isolated bean contexts",
+                    "org.springframework.context.annotation.AnnotationConfigApplicationContext",
+                    "org.springframework.context.support.GenericApplicationContext"),
+            types(Area.SCENARIO_TESTS, "ScenarioRun and Recorder: install and observe the context's event multicaster",
+                    "org.springframework.context.event.ApplicationEventMulticaster",
+                    "org.springframework.context.event.SimpleApplicationEventMulticaster"),
+            types(Area.SCENARIO_TESTS, "Coverage: discover listener methods and refuse their unobserved executions",
+                    "org.springframework.context.event.EventListener",
+                    "org.springframework.core.annotation.AnnotatedElementUtils", "org.springframework.util.ReflectionUtils"),
+            types(Area.SCENARIO_TESTS, "Recorder: discover all module API interfaces implemented by each bean",
+                    "org.springframework.util.ClassUtils"),
+            types(Area.SCENARIO_TESTS, "Sidecar: parse strict local JSON trees and reject duplicate or trailing input",
+                    "tools.jackson.core.JacksonException", "tools.jackson.core.StreamReadFeature",
+                    "tools.jackson.databind.DeserializationFeature", "tools.jackson.databind.JsonNode",
+                    "tools.jackson.databind.json.JsonMapper", "tools.jackson.databind.json.JsonMapper$Builder"),
+
+            // Named scenario fixtures retain module packages for caller attribution; no module area gains these grants.
+            types(Area.SCENARIO_FIXTURES, "Scenario fixture records, outcomes and invariant failures",
+                    "java.lang.Object", "java.lang.Record", "java.lang.String", "java.lang.MatchException",
+                    "java.lang.IllegalStateException", "java.lang.Throwable", "java.util.Objects"),
+            types(Area.SCENARIO_FIXTURES, "Altered quote implementations: reuse the injected clock and lookup instant",
+                    "java.time.Clock", "java.time.Instant"),
+            types(Area.SCENARIO_FIXTURES, "GatedQuoteStore: preserve the real store's optional lookup result",
+                    "java.util.Optional"),
+            types(Area.SCENARIO_FIXTURES, "Async bypass fixtures: gate late calls and restore interruption on bounded waits",
+                    "java.lang.InterruptedException", "java.lang.Thread", "java.util.concurrent.CountDownLatch",
+                    "java.util.concurrent.TimeUnit"),
+            types(Area.SCENARIO_FIXTURES, "Async bypass fixtures: tolerate the expected missing tenant on their worker",
+                    "java.lang.RuntimeException"),
+            types(Area.SCENARIO_FIXTURES, "LateTenantQuote: deliberately dispatch a platform thread for coverage to refuse",
+                    "java.lang.Thread$Builder$OfPlatform"),
+            types(Area.SCENARIO_FIXTURES, "VirtualTenantQuote: deliberately dispatch virtual work for coverage to refuse",
+                    "java.lang.Thread$Builder$OfVirtual"),
+            types(Area.SCENARIO_FIXTURES, "ExecutorTenantQuote: dispatch to a pre-existing pool for coverage to refuse",
+                    "java.util.concurrent.ForkJoinPool"),
+            types(Area.SCENARIO_FIXTURES, "CapturedTenantQuote: retain an unwrapped tenant callback the walk must find",
+                    "java.util.function.Supplier"),
+            types(Area.SCENARIO_FIXTURES, "Altered quote implementations: keep event outcomes while changing interactions",
+                    "org.springframework.context.ApplicationEventPublisher"),
+            types(Area.SCENARIO_FIXTURES, "UnledgeredSpringAccess: prove a new access to a ledgered owner still fails",
+                    "org.springframework.http.ResponseEntity", "org.springframework.http.ResponseEntity$BodyBuilder"),
+
             // The architecture tests: they read class files, models, the provider index and the allowlist.
             packages(Area.ARCHITECTURE_TESTS, "ArchUnit: importing explicit class directories and the rule API "
                     + "(not the library or freeze packages, which its review excludes)",
@@ -593,12 +760,27 @@ final class ExternalImportWhitelists {
     }
 
     /**
+     * The area for one compiled class, including test fixtures that must retain a module package for the recorder.
+     */
+    static Optional<Area> areaOfClass(Scope scope, String root, String className) {
+        if (scope == Scope.TEST && SCENARIO_FIXTURE_TYPES.stream().anyMatch(type ->
+                className.equals(root + "." + type) || className.startsWith(root + "." + type + "$"))) {
+            return Optional.of(Area.SCENARIO_FIXTURES);
+        }
+        return area(scope, root, ExternalImportPolicy.packageOf(className));
+    }
+
+    /**
      * The area of a package below {@code root}. Main classes: the root package, a module's root or {@code api}
      * package, and the four internal layers. Test classes: the architecture tests, their fixtures, the exact http
-     * package and the tests in a module's packages. Any other package has no area, and every class it uses fails.
+     * package, the exact scenarios and scenarios.support packages, and the tests in a module's packages. Named
+     * scenario fixtures are handled by areaOfClass. Any other package has no area, and every class it uses fails.
      */
     static Optional<Area> area(Scope scope, String root, String packageName) {
         if (scope == Scope.TEST) {
+            if (packageName.equals(root + ".scenarios") || packageName.equals(root + ".scenarios.support")) {
+                return Optional.of(Area.SCENARIO_TESTS);
+            }
             if (packageName.equals(root + ".http")) {
                 return Optional.of(Area.HTTP_TESTS);
             }

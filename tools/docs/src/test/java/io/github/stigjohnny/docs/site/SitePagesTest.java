@@ -437,7 +437,8 @@ class SitePagesTest {
             }
         });
         assertThat(targets).containsExactlyInAnyOrder("model/api-components.html", "model/containers.html",
-                "model/quote-book-label.html", "model/system-context.html");
+                "model/quote-book-label.html", "model/scenario-quote.html", "model/scenario-tenant-denial.html",
+                "model/system-context.html");
     }
 
     @Test
@@ -504,7 +505,7 @@ class SitePagesTest {
                         + "current head.</li>");
         assertThat(repository.indexOf("<li>An issue states the change.</li>"))
                 .isGreaterThan(repository.indexOf("Workflow source"));
-        assertThat(site.text("trust/third-party-notices.html")).contains("seven diagram pages");
+        assertThat(site.text("trust/third-party-notices.html")).contains("nine diagram pages");
     }
 
     @Test

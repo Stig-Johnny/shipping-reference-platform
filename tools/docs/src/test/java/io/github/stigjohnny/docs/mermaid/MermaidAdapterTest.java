@@ -34,7 +34,7 @@ class MermaidAdapterTest {
 
     @Test
     void everyViewBecomesAValidatedPlainTextFlowchart() {
-        assertThat(WORKSPACE.exports()).hasSize(4).allSatisfy(raw -> {
+        assertThat(WORKSPACE.exports()).hasSize(6).allSatisfy(raw -> {
             MermaidDiagram diagram = MermaidAdapter.adapt(raw, MODEL, STATUS);
 
             assertThat(MermaidValidator.validate(diagram.definition(), raw.viewKey())).isEqualTo(diagram.definition());

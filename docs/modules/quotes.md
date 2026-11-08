@@ -2,7 +2,7 @@
 title: "Module: quotes"
 description: "Prices parcels with the synthetic tariff and issues tenant-scoped quotes whose offers expire after 30 minutes."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 module: quotes
 moduleStatus: built
 riskLevel: 3
@@ -30,6 +30,17 @@ Planned: the JDBC adapter, the migration and the demo fixture, and the `demo` pr
 against PostgreSQL; until then the application starts in tests only. No transaction manager exists yet, so the
 `@Transactional` of `CreateQuote` and `GetQuote` has no effect, and nothing yet shows that `QuoteIssued` is published
 inside the quote's transaction.
+
+Scenario tests wire these classes explicitly with `@TestConfiguration`, so application component scanning in the
+HTTP tests does not discover the scenario fixtures. `CoverageBypassTest` keeps three quote outcome assertions for
+each altered quote implementation, including value behaviour and work held on virtual threads or pre-existing
+executor workers until after close. The latter fixtures are refused by their dispatch sites in the census.
+`ReachabilityTest` checks shared raw tenant references and containers in both owning-module traversal orders.
+The scenario reports retain 77 known gaps as `COVERAGE_INCOMPLETE`, including two unwitnessed
+`QuotesConfiguration` factory parameters and the Spring HTTP accesses. The exact classified ledger, tagged
+"phase 3 / option 2", rejects additions, changes and stale entries (`CoverageLedgerTest`); `CoverageBypassTest`
+also rejects a new Spring access with a previously ledgered owner/member. Passing this gate proves no framework
+coverage. These are bounded coverage checks, not proof of every receiver or task lifetime; see [known gaps](../gaps.md#6-tests-and-quality-gates).
 
 ## Responsibilities
 

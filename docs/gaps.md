@@ -36,18 +36,22 @@ closes it.
   that `QuoteIssued` is published inside the quote's transaction is unproven until `QuotesModuleIntegrationTest`
   exists. Outside its tests the application does not start yet: its ports have no production adapters, and the
   `demo` profile has no database configuration.
+  The scenario checks wire the quotes and tenants classes as beans of a plain Spring context of their own,
+  which is not the application's wiring (section 6).
 - **The shipments module runs in its tests only.** No class of it is a Spring bean, and no endpoint, database or
   running application exists. `BookShipment`'s `@Transactional` has no effect yet, and that `ShipmentBooked` is
   published inside the booking's transaction is unproven until `ShipmentEventsIntegrationTest` exists. Requests with
   the same `Idempotency-Key` are not serialized yet: the advisory lock, the recheck under it and the handling of
   unique-key failures belong to the planned JDBC adapter, and `BookingIdempotencyIntegrationTest`, which is to show
   that concurrent duplicates create one shipment, is planned. The stores and the tracking numbers its tests use are in
-  memory.
+  memory. The scenario checks wire `BookShipment` as a bean of their own plain Spring context, not the application's
+  wiring (section 6).
 - The versions in the ADRs were checked against their sources on 2026-11-06. Their combination (JDK 25, Gradle
   9.8.2, Spring Boot 4.1.2, Spring Modulith 2.1.2, Error Prone 2.51.0, NullAway 0.14.3, JUnit 6.0.3 (property
   tests as `@ParameterizedTest` in the normal test task), PIT 1.30.2 with its JUnit 5 plugin 1.2.3) now compiles the
   API and runs its tests, and Spring Modulith 2.1.2's verification passes on ArchUnit 1.5.1; the application context
-  starts in the HTTP tests, without a database. In particular,
+  starts in the HTTP tests, without a database, while the scenario checks start a separate plain Spring context.
+  In particular,
   PIT's JUnit 5 plugin with JUnit 6 is unverified; the fallback is running PIT against a JUnit 5.14.4 test task.
   The library runs PIT with JUnit 5.14.4, and that combination works.
 
@@ -68,12 +72,13 @@ closes it.
   to it.
 - **Ordering and timing.** The model says who may depend on whom, not in which order things happen or whether they
   happen in the same transaction. The dynamic view and `docs/flows/quote-book-label.md` describe order; tests
-  assert it.
-- **Scenario diagrams are not compared with what runs.** The dynamic view and the site's use case overview (sheet
+  assert it. The scenario checks compare the order of one run's module API calls and publications with a scenario
+  view, in process only (section 6).
+- **The use case overview is not compared with what runs.** The dynamic view and the site's use case overview (sheet
   M-07) show who takes part in what, as the model and `docs/capabilities/capabilities.yaml` declare it. A use case's
   stamp there says that its named acceptance tests passed in the build that made the site, not that an actor started
-  it or that its interactions happened as drawn. The next increment is to compare the interactions that a scenario
-  executes with its dynamic view, step by step.
+  it or that its interactions happened as drawn. Only the scenario views (sheets M-08 and M-09) are compared with a
+  run, and only for the steps that their reports count as evaluated (section 6).
 - **Only direct references.** A transitive path neither satisfies nor violates an edge. Two modules can be coupled
   through a third without any report.
 - **Only what the class file records, as ArchUnit 1.5.1 reads it.** javac copies compile-time constants
@@ -181,6 +186,11 @@ closes it.
   through the provider index or the JDK's module descriptors and checked against the caller's layer whitelist.
   The isolated root HTTP classes and the quotes and tenants web adapters have exact class grants; the shared
   `io.github.stigjohnny.shipping.http` test package has its own exact-class whitelist, separate from module tests.
+  The exact `scenarios` and `scenarios.support` test packages have a separate exact-class whitelist. A second
+  scenario area covers only the named test fixtures `ScenarioAlterations`, `GatedQuoteStore`, `TenantBadge` and
+  `ScenarioReference`, including their nested classes; they retain module packages for the recorder's attribution.
+  These grants do not apply to main output or other module tests. They permit the harness to inspect and exercise
+  deliberately refused behavior; they do not close any of the 77 scenario coverage gaps in section 6.
   No package grants cover these additions, and every whitelist entry must be used by the current compiled outputs.
   The JDBC adapter whitelist stays empty until an adapter exists.
   Maven providers need unexpired approval for the project, configuration and exact file, with SHA-256 comparison
@@ -264,6 +274,50 @@ closes it.
   jsdom. They stay acceptance targets, so the capabilities that name them stay unshipped; until they exist, only
   logic tests under `node --test` and the Playwright specs test the web app.
 - The CI time target of 8 to 12 minutes is a target, not a measurement.
+- **The scenario checks prove one run, within what the recorder sees** (`control.scenario-conformance`, partial). A
+  run without detected gaps can show its evaluated steps conformed for one exercised run, not every path, schedule
+  or input. Today's two reports instead say `COVERAGE_INCOMPLETE`, "coverage incomplete: 77 known gaps".
+  Four of their twelve steps are evaluated. They run in process on the built modules with test wiring; the HTTP
+  tests separately use the application's wiring: HTTP exchanges, database steps and listener executions are not
+  observed yet, and steps that touch a person, a simulated system or a planned module are never evaluated; the report
+  counts each one with its reason. Outcomes, such as the tenant denial's rejection and absence of stored data, are
+  test assertions, not verified steps.
+  - **Known coverage debt, still refused:** 75 Spring accesses in the HTTP adapters and two foreign-service
+    factory parameters remain `COVERAGE_GAP`, with `coverage.verified=false`. The source-controlled exact ledger
+    `apps/shipping-api/src/test/resources/scenario-coverage-gaps.tsv` records owner, member/JVM descriptor,
+    origin signature/descriptor, access kind and source line where available, plus classification and
+    "phase 3 / option 2". Only exact matches may pass the build as incomplete. New/changed findings, removed
+    entries, duplicate findings and disappeared findings without a ledger update fail; generation never updates it.
+    This is an explicit change in build acceptance, not proof that framework calls are safe. The ledger's classes
+    and counts are in ADR 0013. Production factory invocations, ambient security state, inherited credential-erasure
+    callbacks, interface implementations and builder callback graphs remain unproved until phase 3 / option 2.
+  - **Refused, not passed** (each is a coverage gap or a refused sidecar): an `AFTER_COMMIT` step that would be
+    evaluated, since no run observes commits; task-capable APIs found by the census (thread creation/builders,
+    executors, futures, timers and explicit parallel dispatch), since tasks are not tracked to completion; a recorded
+    interaction on a thread other than the stimulus's, a new non-system platform thread present at the final snapshot,
+    and a late interaction observed by close; a sidecar that repeats one signature with a varying cardinality; a raw
+    receiver found by the walk; reflection,
+    method handles and Spring lookups from module code; an `api` method that takes or returns anything but values; a
+    listener method; a module object registered as a ready singleton; a walk beyond 200,000 object/owning-module pairs; a model
+    line where a comment opens or closes beside other text.
+  - **Still unsound, without a gap:** the walk checks receivers only through what is reachable from module beans and
+    from static fields before and after the run, so a reference obtained and dropped during the run is seen only
+    through the census of the code that used it. The census reads all main module classes and the dependency closure
+    of reached test module classes, not arbitrary external helpers or test code outside that closure. References
+    that the test passes into a stimulus are not walked; async dispatch hidden in unexamined code can escape the
+    dispatch checks. The thread snapshot excludes virtual threads and does not track tasks on pre-existing executors;
+    close checks late calls only once, so work released later cannot change a completed verdict. The virtual-thread
+    and pre-existing-executor fixtures are refused by their examined dispatch sites before close, not by those
+    snapshots. Calls are told apart by interface and method name, not by overload; the caller is the
+    first application frame on the stack, mapped by `contract.packages`; whether a type holds values only is judged
+    from its declared field types.
+  - **The model reader** is a restricted text reader, since Structurizr's review covers only the kit's and the docs
+    tool's parsers. It refuses what it does not read exactly; `ScenarioModelTest` compares its reading of the
+    repository's dynamic views with Structurizr's generated pages. Accepted/refused syntax fixtures use a fabricated
+    kit report and assert against `ScenarioModel` alone; they have no independent Structurizr oracle. This is not
+    equivalence for every possible DSL text.
+  - A report's revision is the checked-out commit. Its digests cover the model, sidecar and main classes, not test
+    support or wiring; uncommitted changes to the latter are not identified by report provenance.
 
 ## 7. Documentation
 

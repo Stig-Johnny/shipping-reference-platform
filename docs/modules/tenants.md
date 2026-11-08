@@ -2,7 +2,7 @@
 title: "Module: tenants"
 description: "Demo authentication for synthetic users, tenant derivation from membership, tenant binding for row-level security, and tenant-scoped prototype flags."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 module: tenants
 moduleStatus: built
 riskLevel: 3
@@ -32,6 +32,17 @@ These tests start the whole application, but the `MembershipDirectory` port has 
 double holds the synthetic users below. So they prove the HTTP edge, the 401 and 403 problems and that the tenant
 comes from the membership only, not the lookup in PostgreSQL. That is why `tenants.demo-authentication` and
 `tenants.current-membership` are partial although every test they name passes.
+
+In the scenario coverage fixtures, `ReachabilityTest` shares one raw `ThreadTenantContext` between tenant-owned and
+quote-owned roots, directly and through shared containers, and requires a bypass gap in both traversal orders.
+Visits track object identity and owning module. This checks boundary snapshots, not every runtime reference
+([known gaps](../gaps.md#6-tests-and-quality-gates)). Scenario configurations use `@TestConfiguration` and are wired
+explicitly, so the HTTP tests do not discover them through application component scanning.
+Both scenarios retain the full-main census and report `COVERAGE_INCOMPLETE`, "coverage incomplete: 77 known gaps".
+The exact ledger includes the Spring authentication/security accesses and two quotes factory parameters; each is
+classified and tagged "phase 3 / option 2". Ambient security state and framework callbacks remain unproved.
+Only exact reviewed debt can pass the build; new, changed or disappeared findings require an explicit ledger update
+(ADR 0013). Separate HTTP tests do not make scenario HTTP exchanges observed.
 
 Planned: the JDBC adapter `JdbcMembershipDirectory` that calls `tenants.resolve_demo_token`, the `demo` profile's
 database configuration (until then the application starts in tests only), `TenantScope`, the transaction manager

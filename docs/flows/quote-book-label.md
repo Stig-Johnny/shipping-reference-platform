@@ -2,7 +2,7 @@
 title: "Flow: quote, book and download a simulated label"
 description: "The main v0.1 flow from parcel form to label, step by step, with the acceptance tests for each step and their status."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 modules: [tenants, quotes, shipments, audit]
 ---
 
@@ -14,6 +14,8 @@ test becomes evidence only once it exists, passes and asserts the step; each row
 expiry logic have passing Java tests. Signing in and creating and reading a quote pass over HTTP, in the application
 started by the tests with test doubles for the token lookup and the quote store; so storage is tested in memory, and so
 are booking and its replay. The database and the rest of the flow remain planned.
+Parts of the flow are also executable scenarios, checked against what the code does when they run
+([Executable scenarios](#executable-scenarios)).
 
 Actors: a shipping clerk of Tenant Alpha signed in as the synthetic user `clerk-alpha`. All data is synthetic.
 
@@ -99,6 +101,98 @@ sequenceDiagram
 | Audit write fails | Booking stays committed; the publication stays incomplete and is replayed. | Planned: `AuditReplayIntegrationTest` |
 | Audit listener deleted | `ArchitectureConformanceTest` fails: absence of REQUIRED `audit -> shipments`. | `ArchitectureConformanceTest` runs in every build; shipments is built, and it evaluates this arrow once audit is built too. |
 | Audit listener present but writes nothing | Architecture check passes (its documented limit); the integration test fails. | Planned: `ShipmentAuditIntegrationTest` |
+
+## Executable scenarios
+
+The dynamic view `QuoteBookLabel` is this flow's documentation overview and is not executable: some of its steps
+combine several actions. Focused views whose keys start with `Scenario` are run instead (ADR 0013). Each has a
+sidecar, `architecture/scenarios/<key in kebab case>.json`, that gives every step of the view a stable id, a kind, its
+endpoints, an operation (interface and method, event type, HTTP operation or schema), a phase, a cardinality and the
+steps it must follow; the sidecar is validated against the view, step by step and in both directions. A test runs the
+scenario on the code. A test-only recorder, which knows nothing of the steps, records two kinds of boundary
+interaction: calls through an interface of a module's `api` package (Spring's `ProxyFactory` around every bean that
+implements one, the caller found on the stack and mapped by `contract.packages`) and events published through the
+application context. It records nothing else, so a coverage contract, below, decides which steps a run can evaluate at
+all. A comparator then reports MISSING_STEP, UNEXPECTED_INTERACTION, ORDER_VIOLATION and COVERAGE_GAP; outcomes are
+asserted separately.
+
+| Scenario | Test | Evaluated today | Not evaluated today, with the reason in the report |
+|---|---|---|---|
+| `ScenarioQuote` | `QuoteScenarioTest` | `CurrentTenant.require()` once, then `QuoteIssued` published once | the clerk, the HTTP exchange, the simulated carrier, the database write |
+| `ScenarioTenantDenial` | `TenantDenialScenarioTest` | shipments' `CurrentTenant.require()` once, then `QuoteOffers.findOffer` once, through the real `BookShipment` | the clerk, the HTTP exchange, the two database reads |
+| First booking, booking replay, label | Planned: `FirstBookingScenarioTest`, `BookingReplayScenarioTest`, `LabelScenarioTest` | | |
+
+Both current reports say `COVERAGE_INCOMPLETE`: "coverage incomplete: 77 known gaps". They retain all 75 Spring
+access findings and two factory-parameter findings, failed coverage checks and `coverage.verified=false`. The exact
+ledger is `apps/shipping-api/src/test/resources/scenario-coverage-gaps.tsv`; every entry is classified and tagged
+"phase 3 / option 2". No scenario conformance is established while those gaps remain. A matching ledger and held
+outcomes permit the build, not a claim of complete coverage. New, changed, duplicate or disappeared findings fail
+unless the ledger is explicitly updated and reviewed; tests and documentation generation never refresh it.
+
+What a report claims follows its verdict. A run without coverage gaps that conforms says that its evaluated steps, counted, conformed in one
+exercised run within the recorder's coverage, and that the steps not evaluated were neither checked nor assumed; it
+does not cover all paths, schedules or inputs. A step that touches a person, a simulated system or a planned module, or
+whose kind the run cannot observe (HTTP and SQL until this recorder observes them, listener executions until a module
+has one), is NOT_EVALUATED and counted. The separate HTTP contract tests do not make a scenario's HTTP steps observed.
+A run that evaluates no step is NO_STEP_EVALUATED, never CONFORMS, and its
+report says that no declared step was verified. A run with build blockers says that it does not conform. The tenant-denial
+outcomes (Beta's booking is rejected as for an unknown quote, nothing is stored for Beta, Alpha's offer stays
+bookable) are assertions of the test, apart from the step verdict.
+
+Detected coverage gaps remain COVERAGE_GAP findings and prevent conformance. Exact known debt is separated from
+build blockers; interaction failures, unledgered findings and stale ledger entries fail the build. The checks below do not prove every runtime receiver or task
+lifetime; the unexamined cases in [known gaps](../gaps.md#6-tests-and-quality-gates) can still escape detection.
+
+- **Receivers.** The census classifies interface signatures as interceptable; a separate bounded walk checks the
+  objects reachable before and after the run from module beans and census static fields, including captured lambda
+  arguments, records, collections and nested references. Visits track object identity and owning module, including
+  shared containers; visiting a receiver through its own module does not exempt it through another. Another module's
+  object that no proxy wraps, an event publisher other than the context, an application class outside every module,
+  or a library object the walk cannot look into is a gap. A module object registered as a ready singleton, which no
+  post-processor sees, is a gap, and circular references are off, so no bean can see another's raw instance.
+- **Call sites.** All main module classes, reached test module classes and their module dependency closure are read.
+  A cross-module use that is not an `api` interface
+  call with value-only parameters and results, reflection, method handles, Spring lookups from module code, a method
+  other than a constructor that takes another module's service as a parameter, and a listener method while listener
+  executions are not observed are gaps. Values are exempt only through constructors, accessors and
+  built-ins of value-only types: records, enums and sealed types of values, JDK value classes and JDK containers of
+  them.
+- **Time.** The census refuses task-capable APIs in its examined code: thread creation/builders, executors, futures,
+  timers and explicit parallel dispatch, with a narrow set of synchronous thread/concurrency operations allowed.
+  It does not try to prove those tasks finish. The virtual-thread and pre-existing-pool fixtures are refused even
+  when their work is released only after close. A recorded interaction on another thread, a new non-system platform
+  thread still present at the final snapshot, or a late interaction seen by close is also a gap. These snapshots do
+  not enumerate virtual tasks, track tasks on existing workers, or detect interactions occurring after close.
+- **Phases and repeats.** No run observes commits yet, so a step declared `AFTER_COMMIT` that would be evaluated is
+  refused as a gap. A sidecar that repeats one signature with a varying cardinality is refused, since an interaction
+  could belong to more than one step; repeats need exact cardinalities.
+
+The model's views are read by a restricted text reader that rejects unsupported syntax, including the tested comment
+forms. `ScenarioModelTest` compares the repository's dynamic views with Structurizr's generated view pages. Its
+accepted/refused syntax fixtures assert against the restricted reader alone, using a fabricated kit report.
+
+The negative fixtures run altered code. `ScenarioFixturesTest`: a removed call that keeps the outcome, an added call
+along a permitted relationship, two swapped interactions, a disabled call observer, a disabled publication observer
+and an `AFTER_COMMIT` publication that runs before any commit each fail for their reason, and two runs interleaved on
+two threads pass. `CoverageBypassTest`: a captured `Supplier`, a nested reference, a static field, a singleton
+registered as an object, a lookup after the recording ends, a test-only implementation and a value type with behaviour
+each reach another module unobserved, keep three asserted outcomes, and fail with a coverage gap. Two more fixtures
+hold virtual-thread and pre-existing-executor work until after close; both keep three outcomes and fail on dispatch.
+`CoverageLedgerTest` checks exact debt, additions, removed entries, changed descriptors, disappeared gaps and
+multiplicity. `CoverageBypassTest` also introduces a new Spring access whose owner and member are already ledgered;
+it still fails, while the three quote outcomes hold. `ReachabilityTest` checks a shared raw receiver and shared containers in both module traversal orders, including a
+container cycle. `SidecarValidationTest` refuses
+the repeated-signature case A (0..*), B (1), C (1..*).
+
+Each run writes `apps/shipping-api/build/reports/scenarios/<key in kebab case>.json` and `.md`, negative fixtures under
+`fixtures/`, before the test asserts anything. The JSON (schema `shipping-scenarios/report/v1`) is for the
+documentation site: `verdict`, `buildAcceptable`, `buildBlockers`, `outcomesHeld`, `claim`, `scenario`, `test`, `provenance` (the revision, and SHA-256
+digests of the model, the sidecar and the main classes), `summary`, `observers`, `coverage`, `stimuli`, `steps` (each
+with its status, its reason and its interactions as `run:seq`), `interactions`, `findings` and `outcomes`.
+Coverage includes `knownGapCount`, classified `knownGaps`, `staleEntries` and the ledger path, alongside every raw gap.
+`findings[].fails` and `summary.failingFindings` still mean failure to establish conformance, even for known gaps;
+`buildBlockers` describes the narrower build policy. Operations
+are types and methods; no argument, return value or payload is recorded.
 
 ## What this flow does not show
 

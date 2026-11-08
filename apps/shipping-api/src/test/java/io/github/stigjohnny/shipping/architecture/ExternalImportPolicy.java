@@ -126,7 +126,7 @@ final class ExternalImportPolicy {
         Map<String, Use> uses = new HashMap<>();
         Set<Allowed> entriesUsed = new LinkedHashSet<>();
         for (JavaClass caller : classes) {
-            Optional<Area> area = ExternalImportWhitelists.area(scope, root, caller.getPackageName());
+            Optional<Area> area = ExternalImportWhitelists.areaOfClass(scope, root, caller.getName());
             for (Dependency dependency : caller.getDirectDependenciesFromSelf()) {
                 JavaClass target = dependency.getTargetClass().isArray()
                         ? dependency.getTargetClass().getBaseComponentType() : dependency.getTargetClass();
