@@ -544,7 +544,7 @@ public final class PolicyCheck {
                     "1da58928c02952dfdc89c77731202f8e3a2e97cb66d48c448a0b938a23a05ba3"),
             // The JDK-only checker launcher, timeout and process cleanup tests.
             Map.entry("tools/policy/PolicyCheckTest.java",
-                    "52e0b8c10978733b735a1d36ccba194e6f72b88f40acb4118e3de7c0120b5a8a"),
+                    "4988990ff2721f8d727d18b5f6b48e21bb3151b65dff0a6929e60244db458664"),
             // Runtime access solely for the fixture-directory cleanup shutdown hook.
             Map.entry("libs/c4-contract-kit/src/test/java/io/github/stigjohnny/c4contractkit/testing/FixtureCompiler.java",
                     "954f4b9152ee3e786aea9d8b374bd8863f5771a947dc6b58952634738172fd8b"),
@@ -2455,7 +2455,7 @@ public final class PolicyCheck {
                     int j = i + 3;
                     while (j < n && !text.startsWith(delimiter, j)) {
                         int close = language == Language.KOTLIN && text.startsWith("${", j)
-                                ? closing(text, j + 1, '{', '}') : -1;
+                                ? closing(text, j + 1, '{', '}', true) : -1;
                         j = close >= 0 ? close + 1 : j + (escapes && text.charAt(j) == '\\' ? 2 : 1);
                     }
                     String content = text.substring(i + 3, Math.min(j, n));
@@ -2469,7 +2469,7 @@ public final class PolicyCheck {
                     int j = i + 1;
                     while (j < n && text.charAt(j) != quote && text.charAt(j) != '\n') {
                         int close = language == Language.KOTLIN && quote == '"' && text.startsWith("${", j)
-                                ? closing(text, j + 1, '{', '}') : -1;
+                                ? closing(text, j + 1, '{', '}', true) : -1;
                         j = close >= 0 ? close + 1 : j + (text.charAt(j) == '\\' ? 2 : 1);
                     }
                     literals.add(new Literal(decoded(text.substring(i + 1, Math.min(j, n)), language), i + 1));
@@ -2488,7 +2488,7 @@ public final class PolicyCheck {
                 if (escapes && text.charAt(i) == '\\') {
                     i++;
                 } else if (text.startsWith("${", i)) {
-                    int close = closing(text, i + 1, '{', '}');
+                    int close = closing(text, i + 1, '{', '}', true);
                     if (close < 0 || close >= to) return; // Opaque templates still receive the capability warning.
                     String expression = of(text.substring(i + 2, close), Language.KOTLIN).bare();
                     bare.replace(i + 2, close, expression);
@@ -2602,10 +2602,29 @@ public final class PolicyCheck {
     }
 
     static int closing(String text, int open, char left, char right) {
+        return closing(text, open, left, right, false);
+    }
+
+    /** Kotlin templates are scanned before comments are blanked, unlike the other callers. */
+    static int closing(String text, int open, char left, char right, boolean kotlinComments) {
         int depth = 0;
         for (int i = open; i < text.length(); i++) {
             char c = text.charAt(i);
-            if (c == '"' || c == '\'') {
+            if (kotlinComments && text.startsWith("//", i)) {
+                while (i + 1 < text.length() && text.charAt(i + 1) != '\n' && text.charAt(i + 1) != '\r') i++;
+            } else if (kotlinComments && text.startsWith("/*", i)) {
+                int comments = 1;
+                for (i += 2; i < text.length() && comments > 0; ) {
+                    if (text.startsWith("/*", i)) {
+                        comments++;
+                        i += 2;
+                    } else if (text.startsWith("*/", i)) {
+                        comments--;
+                        i += 2;
+                    } else i++;
+                }
+                i--;
+            } else if (c == '"' || c == '\'') {
                 for (i++; i < text.length() && text.charAt(i) != c; i++) {
                     if (text.charAt(i) == '\\') i++;
                 }

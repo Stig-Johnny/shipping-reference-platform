@@ -1752,6 +1752,21 @@ public final class PolicyCheckTest {
         test("lint scope: Kotlin template container with quoted argument stays blocking", () -> expectFinding(Repo.clean()
                 .write("tools/run/Probe.kt", "val value = \"${org.testcontainers.containers.GenericContainer(\"image\")}\"")
                 .findings(), "images", "uses Testcontainers or docker-java"));
+        for (String delimiter : List.of("\"", "\"\"\"")) {
+            for (String comment : List.of("/* } */", "/* { */", "/* outer /* inner */ } */", "/* outer /* inner */ { */",
+                    "// }\n", "// {\n")) {
+                String source = "val value = " + delimiter + "${ " + comment
+                        + " org.testcontainers.DockerClientFactory.instance().client() }" + delimiter;
+                String name = "Kotlin " + (delimiter.length() == 1 ? "ordinary" : "raw") + " template " + show(comment);
+                test("lint scope: " + name + " keeps container use blocking", () -> expectFinding(Repo.clean()
+                        .write("tools/run/Probe.kt", source).findings(), "images", "uses Testcontainers or docker-java"));
+                test("cli: " + name + " exits 1", () -> {
+                    Repo repo = Repo.clean().write("tools/run/Probe.kt", source).save();
+                    Run run = launch(repo.root.toString());
+                    expect(run.exit() == 1 && run.output().contains("uses Testcontainers or docker-java"), run.toString());
+                });
+            }
+        }
         test("lint scope: escaped Kotlin template is literal data", () -> expectClean(Repo.clean()
                 .write("tools/run/Probe.kt", "val value = \"\\${org.testcontainers.containers.GenericContainer(image)}\"")
                 .findings()));
