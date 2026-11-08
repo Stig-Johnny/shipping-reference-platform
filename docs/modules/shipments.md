@@ -2,7 +2,7 @@
 title: "Module: shipments"
 description: "Books shipments from quote offers with tenant-scoped idempotency, cancels them, renders simulated SVG labels and publishes shipment events."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 module: shipments
 moduleStatus: built
 riskLevel: 3
@@ -33,6 +33,11 @@ class of the module is a Spring bean: `BookShipment`'s `@Transactional` has no e
 `ShipmentBooked` is published inside the booking's transaction, and requests with the same key are not serialized.
 The advisory lock, the recheck under it and the handling of unique-key failures (the concurrency paragraph under
 Booking rules) belong to the planned JDBC adapter, and so does the tracking number sequence; the tests count in memory.
+
+`TenantDenialScenarioTest` separately asserts Beta's booking rejection, no stored shipment for Beta, and Alpha's
+still-bookable offer. Two declared API calls are evaluated, but the full-main census retains 77 known coverage gaps
+from the HTTP edge and quotes factories. Its verdict is `COVERAGE_INCOMPLETE`; exact ledger matching is build
+acceptance with known debt, not proof of conformance. Closing the classified gaps is phase 3 / option 2 (ADR 0013).
 
 ## Responsibilities
 

@@ -14,7 +14,7 @@ tests:
 ## What changed
 
 The web import rules ship as a **labelled partial static check**, as accepted by the owner on 2026-11-08
-(ADR 0013). The library compares only the imports the partial reader detects with the model, without running the
+(ADR 0015). The library compares only the imports the partial reader detects with the model, without running the
 web app. The recorded hidden-import, loader-alias, ambiguous-page-attribute and package-stylesheet cases fail that
 comparison using the reader fixes from pull request #70. The conformance fixtures prove that those refusals reach
 the gate, including the tested computed imports and approved stylesheet packages in browser sources and tests.
@@ -172,7 +172,7 @@ review findings from a non-exhaustive probe set, not new fixtures or output reru
 
 Authoritative controls are planned: the reviewed TypeScript compiler's import graph for import dependencies and a
 strict Content-Security-Policy in the web app enforced by the browser for runtime loading and execution
-([ADR 0013](../adr/0013-partial-web-import-lint-and-authoritative-controls.md)). Neither is implemented by this
+([ADR 0015](../adr/0015-partial-web-import-lint-and-authoritative-controls.md)). Neither is implemented by this
 library or proved by these fixtures. The graph does not prove general runtime behaviour, and CSP does not enforce
 module boundaries. See also [the known gaps](../gaps.md#6-tests-and-quality-gates).
 

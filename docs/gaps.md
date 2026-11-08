@@ -19,28 +19,39 @@ closes it.
   documentation site, which `.github/workflows/pages.yml` publishes from `main` after the publication scan. Its own
   controls, `control.brain-check` and `control.publication-scan`, are shipped with their tests as evidence. The
   library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. The first
-  application code exists: the domain and application layers of the `quotes` module and of booking in the `shipments`
-  module, and the tenant context of the `tenants` module, checked by `ArchitectureConformanceTest`, `ModularityTest`
-  and `HexagonalLayeringTest`. Six capabilities have passing tests: two of the quotes module are shipped, and two of
-  it and two of the shipments module are partial. Every other capability in `docs/capabilities/capabilities.yaml` is
-  `planned` with no evidence, and every test class named for them is still to be written (red first), except
-  `ShipmentTest`, which exists for booking and does not yet assert cancellation.
-- **The quotes module runs in its tests only.** No class of it is a Spring bean, and no endpoint, database or running
-  application exists. `CreateQuote`'s `@Transactional` has no effect yet, and that `QuoteIssued` is published inside
-  the quote's transaction is unproven until `QuotesModuleIntegrationTest` exists. The store its tests use is in
-  memory, so nothing yet shows that another tenant's quote is not found in the database.
+  application code exists, checked by `ArchitectureConformanceTest`, `ModularityTest` and `HexagonalLayeringTest`: the
+  `quotes` module with its two HTTP operations, booking in the `shipments` module, in its domain and application layers,
+  the `tenants` module's demo authentication with `GET /api/v1/me`, and the HTTP edge. Nine capabilities have passing
+  tests: two of the quotes module are shipped, and three of it, two of the tenants module and two of the shipments
+  module are partial, and so is the HTTP contract control. Every other capability in
+  `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for them is still to
+  be written (red first), except `ShipmentTest`, which exists for booking and does not yet assert cancellation.
+- **The application starts in its tests only, without a database.** The HTTP tests start `ShippingApplication` with
+  test doubles for the two ports that have no adapter yet: the tenants module's membership directory, which holds the
+  synthetic users of `docs/modules/tenants.md`, and the quotes module's store, in memory. They leave out the data
+  source and Spring Modulith's event publication registry, which need PostgreSQL. So they prove the HTTP edge, the
+  problems, and that the tenant comes from the membership only. They do not prove that a token is resolved through
+  `tenants.resolve_demo_token`, that a quote is stored in PostgreSQL, or that the database hides another tenant's
+  quote. No transaction manager exists, so the `@Transactional` of `CreateQuote` and `GetQuote` has no effect, and
+  that `QuoteIssued` is published inside the quote's transaction is unproven until `QuotesModuleIntegrationTest`
+  exists. Outside its tests the application does not start yet: its ports have no production adapters, and the
+  `demo` profile has no database configuration.
+  The scenario checks wire the quotes and tenants classes as beans of a plain Spring context of their own,
+  which is not the application's wiring (section 6).
 - **The shipments module runs in its tests only.** No class of it is a Spring bean, and no endpoint, database or
   running application exists. `BookShipment`'s `@Transactional` has no effect yet, and that `ShipmentBooked` is
   published inside the booking's transaction is unproven until `ShipmentEventsIntegrationTest` exists. Requests with
   the same `Idempotency-Key` are not serialized yet: the advisory lock, the recheck under it and the handling of
   unique-key failures belong to the planned JDBC adapter, and `BookingIdempotencyIntegrationTest`, which is to show
   that concurrent duplicates create one shipment, is planned. The stores and the tracking numbers its tests use are in
-  memory.
+  memory. The scenario checks wire `BookShipment` as a bean of their own plain Spring context, not the application's
+  wiring (section 6).
 - The versions in the ADRs were checked against their sources on 2026-11-06. Their combination (JDK 25, Gradle
   9.8.2, Spring Boot 4.1.2, Spring Modulith 2.1.2, Error Prone 2.51.0, NullAway 0.14.3, JUnit 6.0.3 (property
   tests as `@ParameterizedTest` in the normal test task), PIT 1.30.2 with its JUnit 5 plugin 1.2.3) now compiles the
-  API and runs its tests, and Spring Modulith 2.1.2's verification passes on ArchUnit 1.5.1; no Spring application
-  context has been started yet. In particular,
+  API and runs its tests, and Spring Modulith 2.1.2's verification passes on ArchUnit 1.5.1; the application context
+  starts in the HTTP tests, without a database, while the scenario checks start a separate plain Spring context.
+  In particular,
   PIT's JUnit 5 plugin with JUnit 6 is unverified; the fallback is running PIT against a JUnit 5.14.4 test task.
   The library runs PIT with JUnit 5.14.4, and that combination works.
 
@@ -61,12 +72,13 @@ closes it.
   to it.
 - **Ordering and timing.** The model says who may depend on whom, not in which order things happen or whether they
   happen in the same transaction. The dynamic view and `docs/flows/quote-book-label.md` describe order; tests
-  assert it.
-- **Scenario diagrams are not compared with what runs.** The dynamic view and the site's use case overview (sheet
+  assert it. The scenario checks compare the order of one run's module API calls and publications with a scenario
+  view, in process only (section 6).
+- **The use case overview is not compared with what runs.** The dynamic view and the site's use case overview (sheet
   M-07) show who takes part in what, as the model and `docs/capabilities/capabilities.yaml` declare it. A use case's
   stamp there says that its named acceptance tests passed in the build that made the site, not that an actor started
-  it or that its interactions happened as drawn. The next increment is to compare the interactions that a scenario
-  executes with its dynamic view, step by step.
+  it or that its interactions happened as drawn. Only the scenario views (sheets M-08 and M-09) are compared with a
+  run, and only for the steps that their reports count as evaluated (section 6).
 - **Only direct references.** A transitive path neither satisfies nor violates an edge. Two modules can be coupled
   through a third without any report.
 - **Only what the class file records, as ArchUnit 1.5.1 reads it.** javac copies compile-time constants
@@ -126,6 +138,14 @@ closes it.
 
 ## 5. Supply chain and approvals
 
+- **The download mirror is disabled.** JDK staging has bounded retries, size/SHA-256 checks on every successful
+  retrieval and a tested mirror-first path, but its committed mirror URL is empty. Gradle retains its official
+  wrapper URL and checksum with longer timeouts and retries. Local shell fixtures substitute transport and sleep;
+  they prove branching, retry budgets and integrity refusal, not live DNS/TLS, throughput or outage recovery.
+  Enabling a new source still needs review amendments and renewed owner acceptance, infrastructure and publication
+  evidence. A staged Gradle launcher and repeated offline signature checks are not built; the existing first-use
+  signature record remains unchanged. Issue #82 tracks the later rollout. These fixtures run separately in CI and
+  produce no JUnit evidence, so they do not change capability status.
 - **Pre-use enforcement covers the sanctioned CI path only.** It controls declared dependencies on that path. It
   cannot stop arbitrary build code downloading executables, compromised approved artifacts, runner compromise or
   local-agent bypass. Those need stronger execution isolation and egress controls.
@@ -149,9 +169,53 @@ closes it.
   human accepted it: the owner and the AI agents use the same GitHub account, and the agent that records the
   acceptance also computes the digest. The record quotes the owner's words and their timestamp from the chat
   transcript.
-- **Scope is recorded, not enforced.** The allowlist check matches coordinate, version and checksum. Which projects
-  and configurations a review approved is a condition the code owner checks in review: a reviewed library added to a
-  project its review does not cover passes CI.
+- **Scope is recorded, and enforced only for the classes the API uses.** The allowlist check matches coordinate,
+  version and checksum. Which projects and configurations a review approved is a condition the code owner checks in
+  review: a reviewed library added to a project its review does not cover passes `preflight`. `ExternalImportPolicyTest`
+  checks the scope of an artifact only when a class of the API uses one of its classes (next entry). On 2026-11-07,
+  23 artifacts across 26 configuration pairs on the API's classpaths had no entry for `:apps:shipping-api` and the configuration they are on, and
+  nothing failed: among them ArchUnit 1.5.1 on `runtimeClasspath`, which Spring Modulith brings and its review
+  approves for the API's test classpaths only, and the contract kit's own dependencies on `testRuntimeClasspath`,
+  approved for `:libs:c4-contract-kit`. Enforcing scope for every locked artifact first needs the entries' scope
+  migrated to one machine-readable form, with the owner's acceptance: today they name the API three ways
+  (`:apps:shipping-api`, `apps/shipping-api` and the first design's `:example-app`) and write configurations with
+  and without a project prefix.
+- **The external-import check covers dependencies reported by ArchUnit 1.5.1 only.** `ExternalImportPolicyTest`
+  reads the API's main and test outputs. Internal ownership comes from the actual classes in those outputs, not a
+  package prefix; an artifact colliding with any of them fails even without a use. External targets are classified
+  through the provider index or the JDK's module descriptors and checked against the caller's layer whitelist.
+  The isolated root HTTP classes and the quotes and tenants web adapters have exact class grants; the shared
+  `io.github.stigjohnny.shipping.http` test package has its own exact-class whitelist, separate from module tests.
+  The exact `scenarios` and `scenarios.support` test packages have a separate exact-class whitelist. A second
+  scenario area covers only the named test fixtures `ScenarioAlterations`, `GatedQuoteStore`, `TenantBadge` and
+  `ScenarioReference`, including their nested classes; they retain module packages for the recorder's attribution.
+  These grants do not apply to main output or other module tests. They permit the harness to inspect and exercise
+  deliberately refused behavior; they do not close any of the 77 scenario coverage gaps in section 6.
+  No package grants cover these additions, and every whitelist entry must be used by the current compiled outputs.
+  The JDBC adapter whitelist stays empty until an adapter exists.
+  Maven providers need unexpired approval for the project, configuration and exact file, with SHA-256 comparison
+  where the review records a hash. The first-party exemption from Maven review requires root-build identity and an
+  exact registered repository-owned output (currently the contract kit); other project providers are rejected.
+  Included-build identity is retained. The check treats `:example-app` as the API only while the current acceptance
+  is `accepted` and the exact PR #10 `projectPathConfirmed` text remains in that record or `acceptance.previous`.
+  History is read newest first in its stored order. Historical snapshots may omit `status`, as PR #73's rollover
+  does; an explicit status must be `accepted`. A newer changed or negated confirmation, or non-accepted status,
+  stops the search before any older affirmation; missing confirmation fails too. This reads the preserved owner
+  record without granting new scope. It does not see:
+  - compiler-erased references such as inlined constants, or retained bytecode that ArchUnit 1.5.1 does not report.
+    Casts, local variable types, explicit type arguments and array creation are not reported
+    (`BytecodeEvidenceTest` pins these), nor are retained type-use annotations such as JSpecify's `@Nullable`
+    (`ExternalImportPolicyTest` pins this). A source-level pass with the JDK's compiler is planned
+    (`ExternalImportSourceTest`);
+  - use at run time: reflection, `ServiceLoader`, Spring's wiring and auto-configuration, class names in
+    configuration, native libraries. The whitelists name what the API's code refers to, not what its frameworks load;
+  - the classes that run: a main class is checked against `compileClasspath` and a test class against
+    `testCompileClasspath`, and the artifact that provides a class at run time can differ (jackson-annotations is
+    2.21 when the tests compile and 2.22 when they run, and only the kit's entry approves 2.22);
+  - the code of the contract kit, the docs tool, the policy checker and the build logic;
+  - review conditions below the class: a whitelist names classes and packages, not methods, so a condition such as
+    ArchUnit's ban on `importClasspath` or AssertJ's on `isXmlEqualTo` is still the reviewer's to check;
+  - which JDK runs: the reports name the JDK reviews of the running version, and another version fails nothing.
 - **A vendored file is checked by hash only.** The check proves the file is the reviewed one. How a page may load it
   (Mermaid's `strict` mode, the Content Security Policy, the diagram validator) is a review condition that the docs
   generator's tests enforce, not the allowlist check.
@@ -179,6 +243,8 @@ closes it.
 
 - Contract conformance covers only the responses that tests exercise. Not enforced yet: a check that every
   documented operation and status code is exercised, and OpenAPI style linting.
+- The HTTP tests run on MockMvc, with the servlet filters that the application registers, in their order. No servlet
+  container starts, so the container's own request parsing and error pages are not exercised.
 - Mutation testing runs for `libs/c4-contract-kit` only, in CI (the `mutation` job), over all its production classes,
   at a 90 % threshold. The planned measure per change (80 % of mutants on changed lines, 90 % for pricing and checker
   code) is not built yet, and equivalent-mutant exclusions are reviewed by hand. So the pricing code of the `quotes`
@@ -186,8 +252,9 @@ closes it.
   `:apps:shipping-api`.
 - `ModularityTest` sees the modules as Spring Modulith finds them, from the class path without the test classes;
   `ArchitectureConformanceTest` and `HexagonalLayeringTest` read the API's main class-output directories only.
-- Mockito is on the API's test class path, but no test uses it, so nothing loads it or attaches an agent. The
-  `-javaagent` wiring that its review requires for every test task arrives with the first test that uses it.
+- Mockito is on the API's test class path, and Spring's test framework initialises it in every Spring test, even
+  though no test uses it. Every test task of the API therefore loads it as an explicit `-javaagent`, as its review
+  requires; without that, the first HTTP test attached the agent to the running JVM itself.
 - PIT runs only on disposable CI workers. Its parent JVM listens on all network interfaces and accepts its workers'
   first connection without authentication, so its review forbids developer machines whose firewall lets inbound
   connections reach `java`. On 2026-11-06 the library's development ran PIT on such a machine (firewall off) before
@@ -195,11 +262,11 @@ closes it.
 - axe-core finds a subset of accessibility problems; manual keyboard and screen reader checks are required and
   recorded by hand.
 - The planned web conformance gate uses a **partial static lint** for import boundaries and cycles, and a direct
-  detected import for each REQUIRED relationship whose endpoints are built (ADRs 0012 and 0013). Relationships
+  detected import for each REQUIRED relationship whose endpoints are built (ADRs 0012 and 0015). Relationships
   touching planned parts are not evaluated, a direct import proves a reference and not behaviour, and a part that no
   REQUIRED relationship reaches can be unused without a report. dependency-cruiser is deferred.
 - **The web reader and conformance rules ship as a labelled partial static check, not authoritative enforcement.**
-  The owner accepted this scope for pull requests #70 and #71 on 2026-11-08 (ADR 0013). The reader and conformance
+  The owner accepted this scope for pull requests #70 and #71 on 2026-11-08 (ADR 0015). The reader and conformance
   library are implemented and tested on synthetic fixtures;
   the repository's web conformance gate is still planned. The reader can miss imports and unsupported constructs
   without a refusal. `WebConformanceTest` proves that the tested reader refusals fail the model comparison,
@@ -236,7 +303,7 @@ closes it.
   remains planned until `WebArchitectureConformanceTest` exists and passes against the repository's web app.
 - **Authoritative web controls are planned, not delivered by the reader.** The reviewed TypeScript compiler's
   import graph is to supply import dependencies, and a strict Content-Security-Policy in the web app is to be
-  enforced by the browser for runtime loading and execution (ADR 0013). The compiler graph is not a proof of general
+  enforced by the browser for runtime loading and execution (ADR 0015). The compiler graph is not a proof of general
   runtime behaviour, and CSP does not enforce module boundaries. Neither control is implemented in this slice;
   reader fixtures are not evidence of either one.
 - The first runnable slice defers the generated client and the component tests (ADR 0012). So there is no
@@ -248,6 +315,50 @@ closes it.
   jsdom. They stay acceptance targets, so the capabilities that name them stay unshipped; until they exist, only
   logic tests under `node --test` and the Playwright specs test the web app.
 - The CI time target of 8 to 12 minutes is a target, not a measurement.
+- **The scenario checks prove one run, within what the recorder sees** (`control.scenario-conformance`, partial). A
+  run without detected gaps can show its evaluated steps conformed for one exercised run, not every path, schedule
+  or input. Today's two reports instead say `COVERAGE_INCOMPLETE`, "coverage incomplete: 77 known gaps".
+  Four of their twelve steps are evaluated. They run in process on the built modules with test wiring; the HTTP
+  tests separately use the application's wiring: HTTP exchanges, database steps and listener executions are not
+  observed yet, and steps that touch a person, a simulated system or a planned module are never evaluated; the report
+  counts each one with its reason. Outcomes, such as the tenant denial's rejection and absence of stored data, are
+  test assertions, not verified steps.
+  - **Known coverage debt, still refused:** 75 Spring accesses in the HTTP adapters and two foreign-service
+    factory parameters remain `COVERAGE_GAP`, with `coverage.verified=false`. The source-controlled exact ledger
+    `apps/shipping-api/src/test/resources/scenario-coverage-gaps.tsv` records owner, member/JVM descriptor,
+    origin signature/descriptor, access kind and source line where available, plus classification and
+    "phase 3 / option 2". Only exact matches may pass the build as incomplete. New/changed findings, removed
+    entries, duplicate findings and disappeared findings without a ledger update fail; generation never updates it.
+    This is an explicit change in build acceptance, not proof that framework calls are safe. The ledger's classes
+    and counts are in ADR 0013. Production factory invocations, ambient security state, inherited credential-erasure
+    callbacks, interface implementations and builder callback graphs remain unproved until phase 3 / option 2.
+  - **Refused, not passed** (each is a coverage gap or a refused sidecar): an `AFTER_COMMIT` step that would be
+    evaluated, since no run observes commits; task-capable APIs found by the census (thread creation/builders,
+    executors, futures, timers and explicit parallel dispatch), since tasks are not tracked to completion; a recorded
+    interaction on a thread other than the stimulus's, a new non-system platform thread present at the final snapshot,
+    and a late interaction observed by close; a sidecar that repeats one signature with a varying cardinality; a raw
+    receiver found by the walk; reflection,
+    method handles and Spring lookups from module code; an `api` method that takes or returns anything but values; a
+    listener method; a module object registered as a ready singleton; a walk beyond 200,000 object/owning-module pairs; a model
+    line where a comment opens or closes beside other text.
+  - **Still unsound, without a gap:** the walk checks receivers only through what is reachable from module beans and
+    from static fields before and after the run, so a reference obtained and dropped during the run is seen only
+    through the census of the code that used it. The census reads all main module classes and the dependency closure
+    of reached test module classes, not arbitrary external helpers or test code outside that closure. References
+    that the test passes into a stimulus are not walked; async dispatch hidden in unexamined code can escape the
+    dispatch checks. The thread snapshot excludes virtual threads and does not track tasks on pre-existing executors;
+    close checks late calls only once, so work released later cannot change a completed verdict. The virtual-thread
+    and pre-existing-executor fixtures are refused by their examined dispatch sites before close, not by those
+    snapshots. Calls are told apart by interface and method name, not by overload; the caller is the
+    first application frame on the stack, mapped by `contract.packages`; whether a type holds values only is judged
+    from its declared field types.
+  - **The model reader** is a restricted text reader, since Structurizr's review covers only the kit's and the docs
+    tool's parsers. It refuses what it does not read exactly; `ScenarioModelTest` compares its reading of the
+    repository's dynamic views with Structurizr's generated pages. Accepted/refused syntax fixtures use a fabricated
+    kit report and assert against `ScenarioModel` alone; they have no independent Structurizr oracle. This is not
+    equivalence for every possible DSL text.
+  - A report's revision is the checked-out commit. Its digests cover the model, sidecar and main classes, not test
+    support or wiring; uncommitted changes to the latter are not identified by report provenance.
 
 ## 7. Documentation
 

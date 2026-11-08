@@ -2,7 +2,7 @@
 title: "Documentation site: visual design"
 description: "How the documentation site is drawn: a drawing set with sheet codes, a title block on every sheet and a status ledger that keeps accepted design, planned implementation and verified evidence apart."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 # Documentation site: visual design
@@ -69,7 +69,8 @@ definitions, and a drawing must read the same wherever it is shown.
    record's number or a demonstration's pull request number, never from a page's position.
 2. **Status ledger.** One ruled list with three named rows: accepted design, planned implementation, verified
    evidence. Each row has a state in words and its scope. Passing evidence is a count and what it does not prove; the
-   test names are in a disclosure, never in the first line.
+   test names are in a disclosure, never in the first line. A decision's partial control summary supplements its
+   passing evidence and planned enforcement; it must not hide the decision's other checks (`SitePagesTest`).
 3. **Drawing register.** The navigation: each row is the sheet code in a fixed column, 56 px wide so that seven
    characters such as `X-GUIDE` fit, and the title beside it, with a state word where a sheet has one. The current
    row has a 3 px link-coloured rule and `aria-current`. The theme choice stays three native radio buttons in a
@@ -183,7 +184,9 @@ what a stamp means.
 ## Diagrams
 
 Mermaid draws with `theme: 'base'` under the reviewed strict settings, with ink lines, the light sheet as background
-and 18 px labels. Node colours come from the generated definitions and are not themed. Node recolouring, dashed
+and 18 px labels. Group titles reserve 16 px above and 32 px below in the drawing's coordinates; relationship labels
+have an opaque light-sheet backing so arrows do not cross their text. These settings apply to every diagram.
+Node colours come from the generated definitions and are not themed. Node recolouring, dashed
 borders for planned elements and a dark drawing theme wait for a design decision here.
 
 ## Accessibility

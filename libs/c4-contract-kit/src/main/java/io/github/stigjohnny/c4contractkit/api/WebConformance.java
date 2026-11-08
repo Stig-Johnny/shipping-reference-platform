@@ -29,7 +29,7 @@ import java.util.List;
  * approved in the dependency allowlist. Sources, tests, public files and configuration are read as data; nothing is
  * executed, compiled or installed. Reported reader refusals fail the check, but imports and unsupported constructs
  * can be missed silently, including loaders after spread syntax. A passing report is not a complete import graph
- * or proof of runtime safety (ADR 0013); application integration and authoritative controls remain planned.
+ * or proof of runtime safety (ADR 0015); application integration and authoritative controls remain planned.
  */
 public final class WebConformance {
 

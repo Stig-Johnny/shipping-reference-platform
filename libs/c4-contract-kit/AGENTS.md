@@ -15,7 +15,7 @@ import grammar, and resolves the imports it detects to a file or a package (sect
 imports and unsupported constructs. The web conformance library compares those detected imports with the web
 container of the same model in both directions and reports file, line and specifier evidence. The reader and
 conformance library are implemented and tested on synthetic fixtures; the repository's web-app gate is still
-planned, as are the authoritative controls in ADR 0013.
+planned, as are the authoritative controls in ADR 0015.
 
 ## Boundaries
 
@@ -137,7 +137,7 @@ Validation (each is a `ModelException` entry with element identifiers):
 
 ## Web imports
 
-**Partial static lint, accepted by the owner on 2026-11-08 (ADR 0013).** The reader's restrictions below describe
+**Partial static lint, accepted by the owner on 2026-11-08 (ADR 0015).** The reader's restrictions below describe
 recognized forms and tested cases. They are not a guarantee that all imports are found or unsupported constructs
 refused. Known open bypass: `import("unlisted")`, `import(name)`, `require("unlisted")` and
 `import.meta.glob("./*.ts")` immediately after `...` can yield no imports and no refusals. The review found object,
@@ -148,7 +148,7 @@ closing the bypass. No other open bypass class was reported by that non-exhausti
 The planned authoritative controls are the reviewed TypeScript compiler's import graph for import dependencies and
 a strict Content-Security-Policy in the web app enforced by the browser for runtime loading and execution. Neither
 exists in this reader. Do not present the lint or its passing tests as complete enforcement or runtime safety.
-The limits are recorded in `docs/gaps.md`, section 6, and ADR 0013.
+The limits are recorded in `docs/gaps.md`, section 6, and ADR 0015.
 
 The web vocabulary (on the container `web.root`, `web.testRoots`, `web.publicRoots`, `web.testBuiltins` and
 `web.testPackages`; on its components `web.id`, `web.paths`, `web.status`, `web.entry` and `web.packages`; on their

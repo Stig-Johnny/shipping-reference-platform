@@ -17,7 +17,7 @@ line and specifier evidence: the web import check, below ([`AGENTS.md`](AGENTS.m
 conformance library are tested on synthetic fixtures; the repository's web-app gate is still planned. The reader
 refuses some recognized unsupported or ambiguous forms; it does not guarantee that every import is found or every
 unsupported construct is refused. The owner accepted this scope for the reader and conformance rules on
-2026-11-08 (ADR 0013).
+2026-11-08 (ADR 0015).
 
 Known open bypass: directly after spread syntax, `import("unlisted")`, `import(name)`, `require("unlisted")` and
 `import.meta.glob("./*.ts")` can produce no imports and no refusals. The review found this in object, array, call
@@ -30,7 +30,7 @@ Authoritative controls are planned: the reviewed TypeScript compiler's import gr
 strict Content-Security-Policy in the web app, enforced by the browser, for runtime loading and execution. Neither
 is implemented by this library. Passing this check does not prove a complete import graph or runtime safety; see
 [`docs/gaps.md`](../../docs/gaps.md#6-tests-and-quality-gates) and
-[ADR 0013](../../docs/adr/0013-partial-web-import-lint-and-authoritative-controls.md).
+[ADR 0015](../../docs/adr/0015-partial-web-import-lint-and-authoritative-controls.md).
 
 The reader also refuses a slash after `>`: a closing type argument can end a value, while a comparison operator
 starts an expression. Parenthesize the value before dividing; `=>` still starts an arrow-function expression.
