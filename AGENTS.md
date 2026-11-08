@@ -76,6 +76,11 @@ Unknown paths are level 3. Details: `docs/risk-levels.md`, `policy/risk.json`.
 - Install npm packages only with `npm ci --ignore-scripts`. Never run `npm install`, `npx <package>` or a package's
   scripts unless the allowlist entry's conditions name that command.
 - Never use remote `!include`, scripts or plugins in DSL files, or remote Gradle scripts.
+- CI JDK staging uses bounded retries and verifies the pinned size and SHA-256 before use. The mirror base URL in
+  `tools/ci/stage-temurin.sh` stays empty until a source-review amendment and renewed owner acceptance permit it.
+  Never introduce runtime URL/hash overrides or fall back after an integrity failure. Preserve the first-use
+  signature evidence. Gradle keeps its reviewed official URL/checksum and empty CI home; its wrapper retries are
+  transport settings, not permission to change the source. Run `bash tools/ci/stage-temurin-test.sh` for staging edits.
 - Never run pull request code in a `pull_request_target` workflow: such a workflow runs in the base repository's
   context, which can expose secrets and a write-capable token. It may check out the pull request only as data,
   into a directory of its own and without persisted credentials, for the base branch's tools to read; nothing from
@@ -114,6 +119,7 @@ The commands that exist today. The others arrive with their code; until then, sa
 | Purpose | Command |
 |---|---|
 | Dependency allowlist (the JDK alone) | `java tools/policy/PolicyCheck.java .` |
+| CI JDK download fixtures (no network) | `bash tools/ci/stage-temurin-test.sh` |
 | All Java checks | `./gradlew check` |
 | Web import check (the JDK alone, part of `./gradlew check`) | `./gradlew :libs:c4-contract-kit:test --tests '*WebArchitectureConformanceTest'` |
 | Web type check and tests | not built yet |

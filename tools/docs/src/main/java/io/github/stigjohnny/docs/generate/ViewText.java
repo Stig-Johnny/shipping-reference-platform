@@ -146,7 +146,7 @@ public final class ViewText {
                     + "network calls, which no static check sees.");
             limits.add("This is labelled partial lint over detected imports; spread-syntax bypasses remain open. "
                     + "The authoritative tsc import graph and browser-enforced strict Content-Security-Policy "
-                    + "are planned in the web app pull request (ADR 0013).");
+                    + "are planned in the web app pull request (ADR 0015).");
             return List.copyOf(limits);
         }
         switch (view.kind()) {

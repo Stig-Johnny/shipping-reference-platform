@@ -1,5 +1,5 @@
 ---
-title: "ADR 0013: Partial web import lint and planned authoritative controls"
+title: "ADR 0015: Partial web import lint and planned authoritative controls"
 description: "The JDK web reader, conformance rules and repository gate ship as a labelled partial check with known spread-syntax bypasses; the tsc import graph and browser-enforced strict CSP are planned in the web app pull request."
 status: accepted
 updated: 2026-11-08
@@ -12,11 +12,12 @@ plannedEnforcement:
   - "Web app pull request: strict Content-Security-Policy, enforced by the browser for runtime loading and execution"
 ---
 
-# ADR 0013: Partial web import lint and planned authoritative controls
+# ADR 0015: Partial web import lint and planned authoritative controls
 
-Adds the implementation scope for the web import control specified in ADR 0012. That record's intended application
-design and confirmation checks remain in place; this record labels the incomplete coverage of the current reader
-and conformance rules and the controls that follow. It changes no module dependency, HTTP contract or application
+Extends ADR 0014's reader-only scope to the conformance rules in pull request #71 and the repository gate in
+pull request #72 for the web import control specified in ADR 0012. ADR 0012's intended application design and
+confirmation checks remain in place; this record labels the incomplete coverage of the current reader,
+conformance rules and repository gate and the controls that follow. It changes no module dependency, HTTP contract or application
 behaviour.
 
 ## Context and Problem Statement

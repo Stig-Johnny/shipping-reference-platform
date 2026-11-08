@@ -171,6 +171,14 @@ class SiteAssetsTest {
     }
 
     @Test
+    void diagramTitlesHaveRoomAndRelationshipLabelsMaskTheirLines() {
+        // Shared Mermaid settings reserve space around group titles and give SVG relationship labels an opaque
+        // sheet-coloured backing, including in the scenario views. The model's wording and arrows stay unchanged.
+        assertThat(js).contains("subGraphTitleMargin: { top: 16, bottom: 32 }");
+        assertThat(js).contains("themeCSS: '.edgeLabel .label rect { fill: #FFFDF7; opacity: 1; }'");
+    }
+
+    @Test
     void theModelPagesWideTablesKeepAMinimumWidthAndTheirHintShowsOnlyWhileTheyScroll() {
         assertThat(css).contains(".table-wide-model,\n.table-wide-flow {\n  container-type: inline-size;\n}")
                 .contains(".table-wide-model table {\n  min-width: 60rem;\n}")

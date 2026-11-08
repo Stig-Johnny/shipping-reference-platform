@@ -18,7 +18,7 @@ part fails it, and so does a detected import of a package or a Node.js built-in 
 dependency allowlist does not approve. No part lists a package, and browser code may import no Node.js built-in. The gate reads the source root,
 `e2e` test root, public root and app configuration; adding, editing or removing an `e2e` file reruns it. ADR 0012
 lists this gate as implemented partial lint: no real web imports exist yet, and the reader can silently miss imports
-and unsupported constructs (ADR 0013). The owner accepted this labelled partial scope for pull request #72 on
+and unsupported constructs (ADR 0015). The owner accepted this labelled partial scope for pull request #72 on
 2026-11-08; `control.web-import-boundaries` stays partial. ADR 0012, the known gaps, the generated brain and the
 model and module pages distinguish detected imports from a complete import graph.
 
@@ -94,7 +94,7 @@ enforcement. Reviewed in pull request #72.
   not output rerun by the publishing build, and the probe set was not exhaustive.
 - A passing gate does not establish complete boundary or cycle coverage or runtime safety. The authoritative
   `tsc` import graph and browser-enforced strict Content-Security-Policy remain planned in the web app pull
-  request (ADRs 0012 and 0013; known gaps, section 6). The compiler graph does not prove general runtime
+  request (ADRs 0012 and 0015; known gaps, section 6). The compiler graph does not prove general runtime
   behaviour, and CSP does not enforce module boundaries.
 - A detected import shows a reference, not behaviour, and the web app's calls to the API are network calls that the
   check does not see. Its other limits are in the known gaps, section 1.

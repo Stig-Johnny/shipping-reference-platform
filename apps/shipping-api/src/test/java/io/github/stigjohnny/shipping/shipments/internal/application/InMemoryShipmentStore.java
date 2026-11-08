@@ -12,9 +12,10 @@ import java.util.function.Predicate;
 /**
  * The {@link ShipmentStore} port in memory, for tests: shipments by tenant, and an insert that would break one of the
  * planned table's keys fails as that key would: (tenant, shipment), (tenant, idempotency key), (tenant, quote) and
- * (tenant, tracking number).
+ * (tenant, tracking number). Public, so that the scenario checks (scenarios package) can wire it; it is never database
+ * evidence.
  */
-final class InMemoryShipmentStore implements ShipmentStore {
+public final class InMemoryShipmentStore implements ShipmentStore {
 
     private final List<Shipment> shipments = new ArrayList<>();
 
@@ -42,7 +43,7 @@ final class InMemoryShipmentStore implements ShipmentStore {
     }
 
     /** Every stored shipment, in insertion order. */
-    List<Shipment> all() {
+    public List<Shipment> all() {
         return List.copyOf(shipments);
     }
 

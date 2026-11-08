@@ -15,7 +15,7 @@ import org.junit.jupiter.api.io.TempDir;
  * Partial lint of the repository's detected web imports against the web container of architecture/workspace.dsl,
  * run by {@code ./gradlew check} on every pull request. It writes its reports to
  * libs/c4-contract-kit/build/reports/c4-contract-web/. Detected disagreements and reported refusals fail the
- * {@code java} check; silent misses remain, including loaders after spread syntax (ADR 0013).
+ * {@code java} check; silent misses remain, including loaders after spread syntax (ADR 0015).
  */
 class WebArchitectureConformanceTest {
 

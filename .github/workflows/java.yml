@@ -58,6 +58,7 @@ jobs:
           token: ''
 
       - name: Check the candidate against the allowlist before any of its code runs
+        id: allowlist
         # 1 = findings and 2 = the check could not complete both fail the job (pipefail).
         run: java base/tools/policy/PolicyCheck.java candidate | tee -a "$GITHUB_STEP_SUMMARY"
 
@@ -72,12 +73,31 @@ jobs:
         working-directory: candidate
         run: echo "3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  gradle/wrapper/gradle-wrapper.jar" | sha256sum --check --strict
 
+      - name: Test the generated-password scan with negative fixtures
+        working-directory: candidate
+        run: bash tools/ci/check-generated-password-test.sh
+
+      - name: Test JDK staging with local download fixtures
+        working-directory: candidate
+        run: bash tools/ci/stage-temurin-test.sh
+
       - name: Build and test
         working-directory: candidate
         env:
           GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
           TESTCONTAINERS_RYUK_DISABLED: 'true'
-        run: ./gradlew --no-daemon --console=plain check
+        # The output is also kept for the next step's scan. pipefail (the default shell above) keeps Gradle's exit
+        # status, so a failed build or test still fails this step.
+        run: ./gradlew --no-daemon --console=plain check 2>&1 | tee "$RUNNER_TEMP/gradle-check.log"
+
+      - name: Refuse Spring Boot's generated security password in any build or test output
+        # Spring Security's review, condition 3 (security/reviews/maven--spring-security--7.1.2.md): Spring Boot's
+        # generated user must never exist, and Boot logs its password at WARN. The scan reads the build's console output
+        # and every file of every test result and test report, which hold the tests' own output. It also runs after a
+        # failed build, and it can only fail the job, never make a failed build pass. The candidate's script may run
+        # only after the base branch's allowlist check has passed.
+        if: ${{ !cancelled() && steps.allowlist.outcome == 'success' }}
+        run: bash candidate/tools/ci/check-generated-password.sh candidate "$RUNNER_TEMP/gradle-check.log"
 
       - name: Refuse symbolic links before uploading reports
         # Any link under libs/ or apps/, the report directories themselves included: the upload follows links.

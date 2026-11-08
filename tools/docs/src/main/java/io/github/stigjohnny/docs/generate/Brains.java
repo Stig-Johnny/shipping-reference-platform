@@ -101,7 +101,7 @@ public final class Brains {
                 .append(" capabilities, specified in [docs/ui/workbench.md](docs/ui/workbench.md). Its ")
                 .append(parts.size()).append(" parts are in the model (").append(plannedParts)
                 .append(" planned), and the partial web import check compares only detected TypeScript imports with ")
-                .append("them (ADR 0013).\n\n");
+                .append("them (ADR 0015).\n\n");
         out.append("## Controls\n\nFrom ").append(code("docs/capabilities/capabilities.yaml"))
                 .append(". Evidence is a test that exists and passed in this build.\n\n")
                 .append("| Control | Status | Check | Evidence |\n").append("|---|---|---|---|\n");

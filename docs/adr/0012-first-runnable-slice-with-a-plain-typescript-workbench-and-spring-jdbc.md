@@ -10,9 +10,10 @@ enforcedBy:
   - "java: HexagonalLayeringTest (ArchUnit)"
   - "java: ArchitectureConformanceTest (C4 edges)"
   - "java: compilation with Error Prone and NullAway"
-  - "java: WebArchitectureConformanceTest, partial JDK lint over detected imports in apps/shipping-web: boundaries, cycles, a detected direct import for each REQUIRED relationship whose endpoints are built, and every detected package and Node.js built-in import whitelisted in the model and approved in security/allowlist.json (ADR 0013). It scans src, e2e, public and app configuration in every build; with all six parts planned and source and test roots empty, it evaluates no import yet (control.web-import-boundaries, partial)"
+  - "java: QuotesHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest (HTTP contract, with test doubles for the database adapters)"
+  - "java: WebArchitectureConformanceTest, partial JDK lint over detected imports in apps/shipping-web: boundaries, cycles, a detected direct import for each REQUIRED relationship whose endpoints are built, and every detected package and Node.js built-in import whitelisted in the model and approved in security/allowlist.json (ADR 0015). It scans src, e2e, public and app configuration in every build; with all six parts planned and source and test roots empty, it evaluates no import yet (control.web-import-boundaries, partial)"
 plannedEnforcement:
-  - "java: QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest"
+  - "java: ShipmentsHttpContractTest"
   - "java: RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, CrossTenantAccessTest"
   - "java: MigrationsIntegrationTest, and TableOwnershipTest on the SQL of each module's adapters"
   - "web: type check and emit with TypeScript 5.9.3, and the logic tests under node --test"
@@ -26,8 +27,9 @@ plannedEnforcement:
 Supersedes ADR 0003, ADR 0004, ADR 0005 and ADR 0009. What they decided carries forward here unchanged, except where
 this record says otherwise; their text stays as it was accepted.
 
-**Web import scope, 2026-11-08:** the owner's decision extends ADR 0013's labelled partial check to the repository
-gate in pull request #72, alongside the reader in #70 and conformance rules in #71.
+**Web import scope, 2026-11-08:** ADR 0014 records the owner's reader decision for pull request #70; ADR 0015
+extends it to the conformance rules in pull request #71. This record extends that labelled partial check to the
+repository gate in pull request #72.
 `control.web-import-boundaries` stays partial. The gate compares only detected imports and reported refusals;
 its passing verdict cannot establish complete boundary or cycle coverage or runtime safety.
 
@@ -113,7 +115,7 @@ one.
   profile on PostgreSQL. Their reviews approve them for that job only, so browser automation does not run on developer
   machines.
 - **Import rules.** The JDK import checker in `libs/c4-contract-kit` (issues #62 to #64) supplies partial lint over
-  detected imports (ADR 0013); `tools/web-imports/check-imports.mjs` is not built. The model declares the web app's
+  detected imports (ADR 0015); `tools/web-imports/check-imports.mjs` is not built. The model declares the web app's
   six parts, `app`, `auth`, `api`, `quote-feature`, `shipment-feature` and `ui`, and `WebArchitectureConformanceTest` checks
   `apps/shipping-web/src` against them in the `java` check. It also scans `apps/shipping-web/e2e` as a test root,
   the public root and app configuration. The rules are listed in `apps/shipping-web/AGENTS.md`.
@@ -272,10 +274,11 @@ one.
   `package-info.java` annotated `@NullMarked` in every package; each rule also fails on a fixture that breaks it) and
   `ArchitectureConformanceTest` (ADR 0002). Compilation fails on Error Prone errors and NullAway findings;
   `@SuppressWarnings("NullAway")` is a level 3 behaviour signal in `policy/risk.json`.
-- Planned, `java`: `QuotesHttpContractTest`, `ShipmentsHttpContractTest` and `TenantsHttpContractTest` validate
-  responses against the contract; `ProblemDetailsHttpContractTest` covers an unknown path, a wrong method, a wrong
-  media type, malformed JSON, an unknown member and an unexpected exception: the correct type, no stack trace, a
-  correlation ID.
+- `java` runs `QuotesHttpContractTest` and `TenantsHttpContractTest`, which validate every response they exercise
+  against the contract, and `ProblemDetailsHttpContractTest`, which covers an unknown path, a wrong method, a wrong
+  media type, malformed JSON, an unknown member, a request refused before routing and an unexpected exception: the
+  correct type, no stack trace, a correlation ID. They start the application with test doubles for the adapters to
+  the database, so they prove the HTTP edge, not persistence. Planned, `java`: `ShipmentsHttpContractTest`.
 - Planned, `java`: `RowLevelSecurityCatalogTest` queries `pg_class`, `pg_policy` and `pg_roles`: every table with a
   `tenant_id` column has row-level security enabled and forced and at least one policy, except the four identity
   tables, on which `shipping_app` has no privileges; `shipping_app` is not superuser, lacks `BYPASSRLS` and owns
@@ -292,7 +295,7 @@ one.
   a cycle of detected imports, and a REQUIRED relationship between built parts without a detected direct import each
   fail it. A synthetic fixture using the repository model proves that an unapproved import under `e2e` fails the gate. All six web parts
   are planned and the source and test roots contain no real files, so no real web imports are checked yet;
-  `control.web-import-boundaries` remains partial. The reader does not supply a complete graph (ADR 0013).
+  `control.web-import-boundaries` remains partial. The reader does not supply a complete graph (ADR 0015).
 - Planned, `web`: `npm ci --ignore-scripts` from the reviewed lockfile; `tsc` type-checks and emits; `node --test`
   runs the logic tests.
 - Planned, `contract-e2e`: `quote-book-label.spec.ts`, `expired-quote.spec.ts`, `tenant-denial.spec.ts` and

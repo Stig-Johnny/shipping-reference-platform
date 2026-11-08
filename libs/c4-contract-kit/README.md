@@ -18,7 +18,7 @@ conformance library are tested on synthetic fixtures; `WebArchitectureConformanc
 gate in every build, with all six parts planned and no real source or test files yet. The reader
 refuses some recognized unsupported or ambiguous forms; it does not guarantee that every import is found or every
 unsupported construct is refused. The owner accepted this scope for the reader, conformance rules and repository gate
-in pull requests #70, #71 and #72 on 2026-11-08 (ADR 0013); the capability remains partial.
+in pull requests #70, #71 and #72 on 2026-11-08 (ADR 0015); the capability remains partial.
 
 Known open bypass: directly after spread syntax, `import("unlisted")`, `import(name)`, `require("unlisted")` and
 `import.meta.glob("./*.ts")` can produce no imports and no refusals. The review found this in object, array, call
@@ -32,7 +32,7 @@ graph for import dependencies, and a strict Content-Security-Policy enforced by 
 and execution. Neither is implemented by this library. Passing this check does not prove a complete import graph
 or runtime safety; see
 [`docs/gaps.md`](../../docs/gaps.md#6-tests-and-quality-gates) and
-[ADR 0013](../../docs/adr/0013-partial-web-import-lint-and-authoritative-controls.md).
+[ADR 0015](../../docs/adr/0015-partial-web-import-lint-and-authoritative-controls.md).
 
 The reader also refuses a slash after `>`: a closing type argument can end a value, while a comparison operator
 starts an expression. Parenthesize the value before dividing; `=>` still starts an arrow-function expression.

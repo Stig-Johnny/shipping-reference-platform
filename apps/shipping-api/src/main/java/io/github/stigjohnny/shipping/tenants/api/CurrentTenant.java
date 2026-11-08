@@ -9,8 +9,8 @@ public interface CurrentTenant {
     /**
      * The tenant bound to the current thread.
      *
-     * @throws MissingTenantContextException when none is bound: a programming error, since the planned HTTP filter
-     *     binds a tenant before any controller runs, and a listener binds the event's tenant before its work
+     * @throws MissingTenantContextException when none is bound: a programming error, since the HTTP filter binds a
+     *     tenant before any controller runs, and a listener is to bind the event's tenant before its work
      */
     TenantId require();
 }

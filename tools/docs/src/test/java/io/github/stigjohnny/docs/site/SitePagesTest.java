@@ -63,16 +63,17 @@ class SitePagesTest {
                     "Verified evidence");
         }
         assertThat(site.text("brain/index.html")).contains("BrainGeneratorTest", "BrainCheckTest");
-        // quotes has passing tests for four of its five capabilities and shipments for two of its six; tenants is
-        // built, but none of its own has one.
+        // quotes has passing tests for all five of its capabilities, shipments for two of its six and tenants for two
+        // of its six.
         assertThat(site.text("modules/quotes.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
-                + "</span> 2 capabilities shipped, 2 capabilities partial, 1 capability planned.",
-                "<span class=\"badge badge-shipped\">Passing</span> 7 evidence test classes passed");
+                + "</span> 2 capabilities shipped, 3 capabilities partial.",
+                "<span class=\"badge badge-shipped\">Passing</span> 8 evidence test classes passed");
         assertThat(site.text("modules/shipments.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
                 + "</span> 2 capabilities partial, 4 capabilities planned.",
                 "<span class=\"badge badge-shipped\">Passing</span> 3 evidence test classes passed");
-        assertThat(site.text("modules/tenants.html")).contains("<span class=\"badge badge-planned\">Planned</span> 6 "
-                + "capabilities planned.", "<span class=\"badge badge-none\">None yet</span>");
+        assertThat(site.text("modules/tenants.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
+                + "</span> 2 capabilities partial, 4 capabilities planned.",
+                "<span class=\"badge badge-shipped\">Passing</span> 3 evidence test classes passed");
     }
 
     @Test
@@ -421,9 +422,11 @@ class SitePagesTest {
                 + "clerk", "<td>Minimal implementation planned for v0.1; no code yet</td>",
                 "<td>Built in part: booking from an offer, idempotent per tenant and key, without HTTP or a "
                         + "database</td>",
-                "<td>Built in part: tariff, rating, quote creation and offer lookup, without HTTP or a database</td>",
-                "<td>Built in part: the tenant's identity and the tenant bound to the current thread; the rest of the "
-                        + "minimal implementation is planned</td>")
+                "<td>Built in part: tariff, rating, quote creation and reading, and offer lookup, over HTTP in tests; "
+                        + "no database yet</td>",
+                "<td>Built in part: demo authentication over HTTP, <code>GET /api/v1/me</code> and the tenant bound "
+                        + "for each request; the database adapter, row-level security and prototype flags are planned"
+                        + "</td>")
                 .doesNotContain("<td>built</td>", "<td>built (minimal)</td>", "v0.1 target, not implemented");
     }
 
@@ -440,9 +443,9 @@ class SitePagesTest {
             assertThat(site.text(page)).as(page).contains(evidence).doesNotContain(">Passing</span>",
                     "It is not implemented yet", "The planned conformance check", "the planned check");
         }
-        // The flow page keeps its own evidence: the quotes and shipments modules' tests that pass.
+        // The flow page keeps its own evidence: the quotes, shipments and tenants modules' tests that pass.
         assertThat(site.text("model/flow-quote-book-label.html"))
-                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> 10 "
+                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> 14 "
                         + "evidence test classes passed")
                 .doesNotContain("Checker tests passing", "Conformance tests passing");
         String index = site.text("model/index.html");
@@ -471,7 +474,8 @@ class SitePagesTest {
             }
         });
         assertThat(targets).containsExactlyInAnyOrder("model/api-components.html", "model/containers.html",
-                "model/quote-book-label.html", "model/system-context.html", "model/web-components.html");
+                "model/quote-book-label.html", "model/scenario-quote.html", "model/scenario-tenant-denial.html",
+                "model/system-context.html", "model/web-components.html");
     }
 
     @Test
@@ -538,7 +542,7 @@ class SitePagesTest {
                         + "current head.</li>");
         assertThat(repository.indexOf("<li>An issue states the change.</li>"))
                 .isGreaterThan(repository.indexOf("Workflow source"));
-        assertThat(site.text("trust/third-party-notices.html")).contains("eight diagram pages");
+        assertThat(site.text("trust/third-party-notices.html")).contains("ten diagram pages");
     }
 
     @Test
@@ -566,20 +570,44 @@ class SitePagesTest {
             assertThat(site.text("decisions/" + old + ".html")).as(old).contains("<span class=\"badge "
                     + "badge-neutral\">Superseded</span> Superseded by <a href=\"" + successor + "\">ADR 0012</a>.");
         }
-        // The implemented web gate joins the three structure checks, with its fixture-only scope explicit.
+        // Scope the combined HTTP and web claims to the panel, not mentions in the record's body.
         String panel = record.substring(record.indexOf("<section class=\"status-panel\""));
         panel = panel.substring(0, panel.indexOf("</section>"));
-        assertThat(panel).contains("<span class=\"badge badge-shipped\">Passing</span> 4 evidence test classes passed "
-                + "in the build that generated this site. This verifies the structure of the built modules and the "
-                + "web import gate on synthetic fixtures, not runtime behaviour; no real web imports are checked yet.")
+        assertThat(panel).contains("<span class=\"badge badge-shipped\">Passing</span> 7 evidence test classes passed "
+                + "in the build that generated this site. This verifies the structure of the built modules, their "
+                + "exercised HTTP responses and the web import gate on synthetic fixtures; persistence and runtime "
+                + "behaviour beyond those HTTP tests remain unverified, and no real web imports are checked yet.")
                 .doesNotContain(Statuses.TOOLING);
-        // A partial control the record documents adds its two sentences; it never hides the record's passing tests.
-        assertThat(panel).contains("<span class=\"badge badge-partial\">Partly enforced</span> Each rule fails its "
-                + "synthetic negative fixture, and WebArchitectureConformanceTest runs the check on apps/shipping-web in "
-                + "every build, where a file under src in no part or in a planned part fails it; e2e tests are scanned "
-                + "and need declared and approved imports.", "All six web parts "
-                + "are planned, so no import of the web app is evaluated yet; the rules apply to its real imports once "
-                + "the parts are built.");
+        assertThat(panel).contains("<span class=\"badge badge-partial\">Partly enforced</span> Every response that "
+                + "the HTTP tests exercise", "on the application with test doubles for its database adapters.",
+                "Each rule fails its synthetic negative fixture, and WebArchitectureConformanceTest runs the check "
+                + "on apps/shipping-web in every build, where a file under src in no part or in a planned part fails "
+                + "it; e2e tests are scanned and need declared and approved imports.",
+                "The shipments operations (ShipmentsHttpContractTest)", "PostgreSQL-backed application remain.",
+                "All six web parts are planned, so no import of the web app is evaluated yet; the rules apply to "
+                + "its real imports once the parts are built.",
+                "RowLevelSecurityCatalogTest", "RowLevelSecurityIntegrationTest", "CrossTenantAccessTest",
+                "MigrationsIntegrationTest", "TableOwnershipTest", "web: type check and emit", "node --test",
+                "contract-e2e: Playwright and axe-core");
+        List<String> implemented = List.of("ModularityTest", "HexagonalLayeringTest", "ArchitectureConformanceTest",
+                "WebArchitectureConformanceTest", "QuotesHttpContractTest", "TenantsHttpContractTest",
+                "ProblemDetailsHttpContractTest");
+        String evidence = panel.substring(panel.indexOf("<details class=\"evidence-tests\""));
+        evidence = evidence.substring(0, evidence.indexOf("</details>"));
+        assertThat(evidence).contains("Evidence test classes (7)");
+        assertThat(evidence.substring(evidence.indexOf("<p>") + 3, evidence.indexOf("</p>")).split(", "))
+                .containsExactlyInAnyOrderElementsOf(implemented);
+        String confirmation = record.substring(record.indexOf("<h3 id=\"confirmation\">Confirmation</h3>"));
+        confirmation = confirmation.substring(0, confirmation.indexOf("<h2 id=\"more-information\""));
+        var adr = sources.docsUnder("docs/adr/").stream().filter(doc -> doc.path().contains("/0012-"))
+                .findFirst().orElseThrow();
+        for (String test : implemented) {
+            assertThat(confirmation).contains("<code>" + test + "</code>");
+            assertThat(adr.frontmatter().strings("enforcedBy"))
+                    .anySatisfy(entry -> assertThat(entry).contains(test));
+            assertThat(adr.frontmatter().strings("plannedEnforcement"))
+                    .noneSatisfy(entry -> assertThat(entry).contains(test));
+        }
         assertThat(site.text("api/index.html")).contains("The contract is the authority for the HTTP interface "
                 + "(ADR 0012).", "Contract-first (ADR 0012): OpenAPI 3.1.2").doesNotContain("ADR 0004");
         assertThat(site.text("modules/index.html")).contains("<a href=\"../decisions/" + successor + "\">ADR 0012: "

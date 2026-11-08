@@ -48,6 +48,8 @@ class BrainGeneratorTest {
                 "docs/architecture/api-components.md", "docs/architecture/api-components.mmd",
                 "docs/architecture/containers.md", "docs/architecture/containers.mmd",
                 "docs/architecture/quote-book-label.md", "docs/architecture/quote-book-label.mmd",
+                "docs/architecture/scenario-quote.md", "docs/architecture/scenario-quote.mmd",
+                "docs/architecture/scenario-tenant-denial.md", "docs/architecture/scenario-tenant-denial.mmd",
                 "docs/architecture/system-context.md", "docs/architecture/system-context.mmd",
                 "docs/architecture/web-components.md", "docs/architecture/web-components.mmd",
                 "docs/brain/audit.md", "docs/brain/orders.md", "docs/brain/quotes.md", "docs/brain/returns.md",
@@ -129,10 +131,10 @@ class BrainGeneratorTest {
                 + "static imports of TypeScript files, read from apps/shipping-web/src with a restricted import "
                 + "grammar, not runtime calls.\n", "This is labelled partial lint over detected imports; spread-syntax "
                 + "bypasses remain open. The authoritative tsc import graph and browser-enforced strict "
-                + "Content-Security-Policy are planned in the web app pull request (ADR 0013).")
+                + "Content-Security-Policy are planned in the web app pull request (ADR 0015).")
                 .doesNotContain("compiled classes have no static reference");
         assertThat(file(files, "BRAIN.md")).contains("the partial web import check compares only detected TypeScript "
-                + "imports with them (ADR 0013).");
+                + "imports with them (ADR 0015).");
         assertThat(file(files, "docs/architecture/api-components.md"))
                 .doesNotContain("REQUIRED import between parts of the web app");
     }
@@ -161,15 +163,15 @@ class BrainGeneratorTest {
     void aPlannedCapabilityIsNeverShownAsShipped() {
         Map<String, String> files = GeneratedFiles.generate(sources());
 
-        // quotes is built and has shipped capabilities; its planned one lists no evidence. tenants is built, but none
-        // of its capabilities has a passing test yet.
-        assertThat(file(files, "docs/brain/quotes.md")).contains("| `quotes.get-quote` | planned | "
-                + "QuotesModuleIntegrationTest, QuotesHttpContractTest | none yet |", "| `quotes.synthetic-tariff` | shipped | "
+        // quotes is built and has shipped capabilities. tenants is built and none of its capabilities is shipped; its
+        // planned ones list no evidence.
+        assertThat(file(files, "docs/brain/quotes.md")).contains("| `quotes.synthetic-tariff` | shipped | "
                 + "SyntheticTariffTest, SyntheticTariffPropertiesTest, MoneyTest, ParcelTest | SyntheticTariffTest, "
                 + "SyntheticTariffPropertiesTest, MoneyTest, ParcelTest |", "| `quotes.create-quote` | partial | RatingTest, "
-                + "CreateQuoteTest, QuotesHttpContractTest | RatingTest, CreateQuoteTest |");
-        assertThat(file(files, "docs/brain/tenants.md")).contains("- **Status in the model:** built")
-                .doesNotContain("| shipped |", "| partial |");
+                + "CreateQuoteTest, QuotesHttpContractTest | RatingTest, CreateQuoteTest, QuotesHttpContractTest |");
+        assertThat(file(files, "docs/brain/tenants.md")).contains("- **Status in the model:** built",
+                "| `tenants.prototype-flags` | planned | PrototypeFlagsTest, PrototypeFlagExpiryTest, "
+                        + "prototype-flag.spec.ts | none yet |").doesNotContain("| shipped |");
         Capability planned = sources().capabilities().controls().stream()
                 .filter(c -> c.status() == Capability.Status.PLANNED).findFirst().orElseThrow();
         assertThat(file(files, "BRAIN.md")).contains("| `control.brain-check` | shipped | `java` | "

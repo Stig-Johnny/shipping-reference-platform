@@ -135,13 +135,23 @@ class UseCasePageTest {
                 "<span class=\"badge badge-shipped\">All passed</span> All 4 named tests passed in this build.",
                 "SyntheticTariffTest: passed", "<span class=\"badge badge-shipped\">Shipped</span>",
                 "Relies on Carrier (simulated)").doesNotContain("Shipping clerk");
-        // Two of its three tests passed; QuotesHttpContractTest is not written yet.
+        // All named tests passed, but implementation status still comes from the registry.
         assertThat(row("use-cases", "quotes.create-quote")).contains(
+                "<span class=\"badge badge-shipped\">All passed</span> All 3 named tests passed in this build.",
+                "RatingTest: passed", "CreateQuoteTest: passed", "QuotesHttpContractTest: passed",
+                "<span class=\"badge badge-partial\">Partial</span>", "Started by Shipping clerk");
+        // Two of its three tests passed; ShipmentsHttpContractTest is not written yet.
+        assertThat(row("use-cases", "shipments.book-from-offer")).contains(
                 "<span class=\"badge badge-none\">Not run or missing</span> 2 of 3 named tests passed in this build; 1 "
-                        + "not in the repository yet.", "QuotesHttpContractTest: not in the repository yet",
+                        + "not in the repository yet.", "ShipmentsHttpContractTest: not in the repository yet",
                 "<span class=\"badge badge-partial\">Partial</span>", "Started by Shipping clerk")
                 .doesNotContain("badge-shipped");
-        assertThat(row("use-cases", "quotes.get-quote")).contains("<span class=\"badge badge-none\">No tests "
+        assertThat(row("use-cases", "quotes.get-quote")).contains(
+                "<span class=\"badge badge-none\">Not run or missing</span> 1 of 2 named tests passed in this build; 1 "
+                        + "not in the repository yet.", "QuotesModuleIntegrationTest: not in the repository yet",
+                "QuotesHttpContractTest: passed", "<span class=\"badge badge-partial\">Partial</span>")
+                .doesNotContain("badge-shipped");
+        assertThat(row("use-cases", "shipments.list-and-read")).contains("<span class=\"badge badge-none\">No tests "
                 + "yet</span> None of its 2 named tests is in the repository yet.",
                 "<span class=\"badge badge-planned\">Planned</span>");
     }

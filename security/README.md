@@ -2,7 +2,7 @@
 title: "The dependency allowlist"
 description: "How third-party code gets into this repository: a recorded security review per component, an allowlist the build enforces before anything runs, and the owner's acceptance."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 # The dependency allowlist
@@ -31,7 +31,7 @@ without a review record and an allowlist entry, and both of those files belong t
 | `tools/policy/PolicyCheck.java` | A locked Maven coordinate, npm package or Action that is not approved, expired, rejected or missing its review; a downloaded jar whose SHA-256 differs from its review; a Gradle wrapper or distribution that is not the reviewed one; an Action not pinned to an allowlisted commit; a file under a `vendor/` directory that is not byte-identical to an approved vendored artifact; an owner's acceptance that no longer matches the reviewed set. | The `preflight` workflow, a required status check. It runs the main branch's copy of the checker on the pull request's files as data, without running any build tool, so a pull request cannot weaken the check that judges it. The `java` job runs the same base-branch checker on the candidate before Gradle starts. |
 | Gradle dependency locking (strict) | A resolved version that differs from the committed lockfile. | Every build. In CI, the `java` workflow, a required status check. |
 | Gradle dependency verification (strict) | A downloaded artifact whose SHA-256 is not in `gradle/verification-metadata.xml`. CI never writes that file. | Every build. In CI, the `java` workflow, a required status check. |
-| `tools/ci/stage-temurin.sh` | A JDK archive whose SHA-256 differs from its review. | Every CI job, before `actions/setup-java` installs it. |
+| `tools/ci/stage-temurin.sh` | An unavailable JDK after bounded attempts, or an archive whose size or SHA-256 differs from its review; integrity failure never falls back. | Every CI job, before `actions/setup-java` installs it. |
 | GitHub's allowed-actions setting (applied) | An Action that is not on the repository's list. The setting allows selected actions only, requires SHA pinning and lists six allowed patterns, with no wildcard for GitHub-owned or verified actions. It is set through OpenTofu in the operator's infrastructure repository. | GitHub, before the workflow starts. |
 | `.github/CODEOWNERS` (**not enforced yet**) | A change to `security/`, the lockfiles, the build logic or the workflows that the owner has not approved. | Pull request review, once GitHub can require code owner review (see below). |
 
@@ -78,6 +78,28 @@ symbolic link anywhere (exit 2). `--report-only` prints the findings and exits 0
 that an acceptance must record (see [Acceptance](#acceptance)). Its regression tests need only the JDK too:
 `java tools/policy/PolicyCheckTest.java`. The `java` job runs them on every pull request, after the checker has passed
 it.
+
+## CI bootstrap downloads
+
+The trusted JDK script's committed mirror base URL is empty. It uses the existing official HTTPS URL, with two
+attempts for transient failures, a 10-second connect timeout, a 90-second transfer timeout and a two-second backoff.
+The Pages build, like preflight and Java, pins the JDK review's `ubuntu-24.04` runner instead of `ubuntu-latest`.
+The dormant mirror path tries two 45-second transfers first, using `sha256/<digest>/<filename>` keys, and falls
+back only on unavailability. Mirror redirects are refused; official redirects are limited to five and HTTPS only.
+Every successful response must match the reviewed size and SHA-256. A mismatch or oversized response stops the
+job without trying another source. Only verified bytes are promoted from the private temporary file and announced
+to `setup-java`; failed transfers are discarded. Logs contain source labels and status codes, not response bodies.
+
+Gradle still downloads through the official wrapper URL with its pinned checksum and an empty CI home. Its network
+timeout is 60 seconds, with three retries and an initial one-second backoff. Neither these transport settings nor
+the empty mirror constant changes the accepted artifact identities or sources. The recorded first-use signatures
+in `verifications/2026-11-06-toolchain.md` remain unchanged; CI does not yet repeat offline signature verification.
+Before enabling any mirror, amend the source reviews and affected allowlist entries and obtain renewed acceptance
+of the exact reviewed set. The Gradle staging launcher, signature material and live mirror tests are later work.
+
+`tools/ci/stage-temurin-test.sh` exercises synthetic transport outcomes with real SHA-256 checks and no network.
+The `java` job runs it after base policy validation, like the existing build-output scan tests. `preflight` continues
+to execute only base-branch tooling, never these candidate tests.
 
 ## Adding a dependency
 

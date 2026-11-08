@@ -14,7 +14,7 @@ tests:
 
 ## What changed
 
-The web import reader is a **partial static lint**, accepted with this label by the owner on 2026-11-08 (ADR 0013).
+The web import reader is a **partial static lint**, accepted with this label by the owner on 2026-11-08 (ADR 0014).
 It reads sources and configuration without running them. In the tested cases, a generic type assertion could hide an
 import, an alias could hide a loader, and encoded or repeated HTML attributes could conceal a remote script or an
 import map. Quoted destructuring keys and escaped or computed property keys could also conceal a loader; URL tabs,
@@ -95,7 +95,7 @@ bypass. That review reported the numeric-token issue fixed and no other open byp
 was not exhaustive. This is a review finding, not a new fixture or output rerun by this publishing build.
 
 Authoritative controls are planned: the reviewed TypeScript compiler's import graph for import dependencies, and a
-strict Content-Security-Policy in the web app enforced by the browser for runtime loading and execution (ADR 0013).
+strict Content-Security-Policy in the web app enforced by the browser for runtime loading and execution (ADR 0014).
 Neither is implemented in this slice or proved by these reader fixtures. The graph does not prove general runtime
 behaviour, and CSP does not check module boundaries.
 
