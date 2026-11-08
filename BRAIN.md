@@ -2,7 +2,7 @@
 title: "Brain: shipping-reference-platform"
 description: "The generated entry point for agents: what the repository is, what is built and what is only planned, and where each module, decision, control and limit is written down."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 > Generated—do not hand-edit. Sources: `README.md`, `architecture/workspace.dsl`, `docs/`, `contracts/`, `policy/risk.json` and `security/allowlist.json`.
@@ -51,7 +51,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | `control.deterministic-reports` | shipped | `java` | ReportDeterminismTest, ConformanceAssertionsTest, SelfConformanceTest |
 | `control.modulith-verification` | shipped | `java` | ModularityTest |
 | `control.hexagonal-layering` | shipped | `java` | HexagonalLayeringTest |
-| `control.scenario-conformance` | partial | `java` | QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, SidecarValidationTest, ScenarioModelTest |
+| `control.scenario-conformance` | partial | `java` | QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest |
 | `control.table-ownership` | planned | `java` | none yet |
 | `control.migrations` | planned | `java` | none yet |
 | `control.http-contract` | planned | `java` | none yet |

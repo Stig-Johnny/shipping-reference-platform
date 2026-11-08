@@ -2,7 +2,7 @@
 title: "C4 view: Executable scenario: another tenant's quote is not found"
 description: "Dynamic view of the API. Executable scenario: another tenant's quote is not found. TenantDenialScenarioTest runs it on the code and checks its steps (architecture/scenarios/scenario-tenant-denial.json)."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 > Generated—do not hand-edit. Source: `architecture/workspace.dsl`, view `ScenarioTenantDenial`. Regenerate with

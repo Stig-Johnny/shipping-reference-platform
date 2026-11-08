@@ -93,6 +93,8 @@ tasks.test {
     // it into the generated pages that :tools:docs:checkGenerated holds to the model in the same build.
     inputs.dir(rootDir.resolve("docs/architecture")).withPathSensitivity(PathSensitivity.RELATIVE)
         .withPropertyName("viewPages")
+    // The scenario coverage census reads the main classes and the test classes, since a run can wire altered
+    // implementations, stores and fixtures from either.
     val mainClassDirectories: FileCollection = sourceSets.main.get().output.classesDirs
     val testClassDirectories: FileCollection = sourceSets.test.get().output.classesDirs
     val scenarioRevision = revision

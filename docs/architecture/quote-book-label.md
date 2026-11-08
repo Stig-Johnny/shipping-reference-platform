@@ -2,7 +2,7 @@
 title: "C4 view: Quote, book and download a simulated label"
 description: "Dynamic view of the API. Quote, book and download a simulated label. The documentation overview of the whole flow: it is not executable, and the views whose keys start with Scenario are the ones run against the code. Steps and their tests: docs/flows/quote-book-label.md."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 > Generated—do not hand-edit. Source: `architecture/workspace.dsl`, view `QuoteBookLabel`. Regenerate with

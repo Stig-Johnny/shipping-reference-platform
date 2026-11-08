@@ -1,17 +1,19 @@
 ---
 title: "ADR 0013: Scenario views are checked against recorded interactions"
-description: "Each executable scenario view has a validated sidecar of machine-readable steps; a test runs the scenario, a test-only recorder observes every interaction that crosses a module boundary, and a comparator checks the run against the steps, with the outcome asserted separately."
+description: "Each executable scenario view has a validated sidecar of machine-readable steps; a test runs the scenario, a test-only recorder observes module API calls and event publications under a coverage contract that fails closed, and a comparator checks the run against the steps, with the outcome asserted separately."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 date: 2026-11-07
 decision-makers: repository owner
 enforcedBy:
   - "java: QuoteScenarioTest and TenantDenialScenarioTest compare one in-process run of their scenarios with the views (partial, see Implementation status)"
   - "java: ScenarioFixturesTest runs altered implementations that must fail, and two interleaved runs that must pass"
-  - "java: SidecarValidationTest and ScenarioModelTest reject sidecars and model text that do not match the views"
+  - "java: CoverageBypassTest runs implementations that reach another module unobserved, each of which must be a coverage gap"
+  - "java: SidecarValidationTest and ScenarioModelTest reject sidecars and model text that do not match the views, and ScenarioModelTest compares the reader with Structurizr"
+  - "java: ScenarioReportTest holds each verdict to its claim"
 plannedEnforcement:
   - "java: FirstBookingScenarioTest, BookingReplayScenarioTest and LabelScenarioTest"
-  - "java: HTTP exchanges observed at the API's edge, database steps observed through JDBC, listener executions observed after commit"
+  - "java: HTTP exchanges observed at the API's edge, database steps observed through JDBC, listener executions and commits observed, so that AFTER_COMMIT steps can be evaluated"
 ---
 
 # ADR 0013: Scenario views are checked against recorded interactions
@@ -37,8 +39,9 @@ does at run time, without claiming more than one run shows?
 
 ## Considered Options
 
-1. Executable scenario views, each with a validated sidecar of machine-readable steps; a test-only recorder that
-   observes every boundary interaction; a comparator; all in the API's test code.
+1. Executable scenario views, each with a validated sidecar of machine-readable steps; a test-only recorder of
+   boundary interactions, with a coverage contract that refuses what it cannot see; a comparator; all in the API's
+   test code.
 2. Literal trace equality with the overview view `QuoteBookLabel`.
 3. Matching step descriptions against log lines or traces.
 4. Outcome assertions only.
@@ -69,10 +72,24 @@ Chosen option 1.
   interface of a module's `api` package record each call of it, and a wrapped event multicaster records each event
   published through the application context. The caller is the first frame of the application on the stack, mapped to
   a module by `contract.packages`. It records without knowing the steps.
-- **Coverage is verified before each run.** Every bean that implements an `api` interface must be wrapped; no field of
-  a module's bean may hold another module's `api` implementation unwrapped, or an event publisher other than the
-  context; a probe event must reach the publication observer. A listener method, while listener executions are not
-  observed, and a cross-module call that no proxy can intercept, found by reading the main class files, are gaps.
+- **Coverage fails closed, before and after each run.** A call counts as intercepted only where its receiver is
+  proven to be an observer's proxy; whatever cannot be proven is a `COVERAGE_GAP`, never a pass.
+  - Every bean that implements an `api` interface must be wrapped, and a probe event must reach the publication
+    observer.
+  - A walk follows everything reachable from the module beans and from the static fields of the run's classes:
+    fields, captured lambda arguments, records, JDK collections and nested references. Another module's object that
+    no proxy wraps, an event publisher other than the context, an application class outside every module, or an
+    object it cannot look into is a gap. A module object registered as a ready singleton, which no post-processor
+    sees, is a gap, and circular references are off.
+  - The main and test classes of the run are read. A cross-module use other than a call of an `api` interface whose
+    parameters and results are values, reflection, method handles and Spring lookups from module code, a method other
+    than a constructor that takes another module's service as a parameter, and a listener method while listener
+    executions are not observed, are gaps. Values are exempt only through constructors,
+    accessors and built-ins of value-only types.
+  - An interaction on a thread other than the stimulus's, a thread that outlives the run, and an interaction after the
+    recording has ended are gaps; the last fails the test when the run closes.
+  - No run observes commits yet, so an `AFTER_COMMIT` step that would be evaluated is a gap. A sidecar that repeats
+    one signature with a varying cardinality is refused, since an interaction could belong to more than one step.
 - **The comparator** reports `MISSING_STEP`, `UNEXPECTED_INTERACTION`, `ORDER_VIOLATION` and `COVERAGE_GAP`, each of
   which fails the scenario, and `NOT_EVALUATED`, which is counted and does not: a step that touches a person, a
   simulated system or a planned module, or whose kind the run cannot observe. A run without a stimulus fails. Outcomes
@@ -80,9 +97,10 @@ Chosen option 1.
 - **Reports.** Each run writes `build/reports/scenarios/<view slug>.json`, schema `shipping-scenarios/report/v1`, and a
   Markdown version, before the test asserts anything. They name the revision and the SHA-256 digests of the model, the
   sidecar and the main classes, and hold no argument, return value or payload.
-- **The claim.** Every report states it: one exercised run of the scenario conforms to its declared steps, within the
-  recorder's coverage; not all paths, schedules or inputs. A run that evaluates no step reports `NO_STEP_EVALUATED`,
-  never `CONFORMS`.
+- **The claim** follows the verdict. `CONFORMS`: in one exercised run, the evaluated steps, counted, conformed within
+  the recorder's coverage, the others were neither checked nor assumed, and not all paths, schedules or inputs are
+  covered. `NO_STEP_EVALUATED`, never `CONFORMS`, for a run that evaluates no step: no declared step was verified.
+  `DOES_NOT_CONFORM`: the run does not conform, with its findings.
 - **Placement.** The scenario support is test code of `:apps:shipping-api` (package `scenarios`). Moving its model,
   comparator and reports into c4-contract-kit, free of Spring and under an entry point of their own, is later work.
 
@@ -94,11 +112,12 @@ Chosen option 1.
 - Bad, because each scenario view needs a sidecar kept in step with it. Validation finds the drift; a person writes
   the fix.
 - Bad, because the model's views are read by a restricted text reader: the review of Structurizr covers only the
-  kit's and the docs tool's parsers. The reader refuses what it does not read exactly, and every run cross-checks its
-  modules with the kit's parse.
-- Limit: the recorder sees calls through `api` interfaces of Spring beans and events published through the context.
-  Static calls, references kept outside a bean's own fields, and overloads with one name are outside what it tells
-  apart (`docs/gaps.md`, section 6).
+  kit's and the docs tool's parsers. The reader refuses what it does not read exactly, including every comment form
+  that Structurizr could read differently; every run cross-checks its modules with the kit's parse, and
+  `ScenarioModelTest` compares its reading of every dynamic view with Structurizr's.
+- Limit: the recorder sees calls through `api` interfaces of Spring beans and events published through the context;
+  the coverage contract refuses what it can find outside that, and what it cannot find is listed in `docs/gaps.md`,
+  section 6.
 - Limit: a passing run shows one schedule with one input. Concurrency, other inputs and failure paths need runs of
   their own.
 
@@ -107,12 +126,16 @@ Chosen option 1.
 - `java` runs `./gradlew check`. In `:apps:shipping-api`, `QuoteScenarioTest` and `TenantDenialScenarioTest` run their
   scenarios, and `ScenarioFixturesTest` runs altered code: a removed call that keeps the outcome is a missing step, an
   added call along a permitted relationship an unexpected interaction, two swapped interactions an order violation,
-  a disabled call observer and a disabled publication observer coverage gaps, never missing steps, and a run without
-  a stimulus fails; two runs that interleave on two threads pass. `SidecarValidationTest` and `ScenarioModelTest`
-  reject sidecars and model text that do not match.
+  a disabled call observer and a disabled publication observer coverage gaps, never missing steps, an `AFTER_COMMIT`
+  publication that runs before any commit a coverage gap, and a run without a stimulus fails; two runs that interleave
+  on two threads pass. `CoverageBypassTest` runs seven implementations that reach another module unobserved (a
+  captured `Supplier`, a nested reference, a static field, a registered singleton, a lookup after the recording, a
+  test-only implementation, a value type with behaviour), each a coverage gap. `SidecarValidationTest` and
+  `ScenarioModelTest` reject sidecars and model text that do not match, `ScenarioModelTest` compares the reader with
+  Structurizr, and `ScenarioReportTest` holds each verdict to its claim.
 - `control.scenario-conformance` in `docs/capabilities/capabilities.yaml` records the status.
 
-## Implementation status (2026-11-07)
+## Implementation status (2026-11-08)
 
 What is built, and where it differs from the decision above. The decision stands; the differences are open work.
 
@@ -122,8 +145,11 @@ What is built, and where it differs from the decision above. The decision stands
   report says why.
 - **Two of five scenarios.** `ScenarioQuote` evaluates two of its six steps: `CurrentTenant.require()` once, then
   `QuoteIssued` published once. `ScenarioTenantDenial` evaluates two of its six, through the real booking use case:
-  shipments' `CurrentTenant.require()`, then `QuoteOffers.findOffer`. First booking, booking replay and label are
-  planned.
+  shipments' `CurrentTenant.require()`, then `QuoteOffers.findOffer`. Its outcomes (the booking is rejected as for an
+  unknown quote, nothing is stored for Beta, Alpha's offer stays bookable) are asserted by the test, apart from the
+  steps. First booking, booking replay and label are planned.
+- **Refused, not evaluated.** `AFTER_COMMIT` steps, asynchronous work and repeated signatures with varying
+  cardinalities are refused until commits and other threads are observed (`docs/gaps.md`, section 6).
 
 ## More Information
 

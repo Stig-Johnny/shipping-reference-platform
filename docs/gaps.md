@@ -2,7 +2,7 @@
 title: "Known gaps and limits"
 description: "What v0.1 does not do, what each control cannot prove, and which decisions are still unverified. Read this before trusting a green build."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 # Known gaps and limits
@@ -207,17 +207,31 @@ closes it.
   logic tests under `node --test` and the Playwright specs test the web app.
 - The CI time target of 8 to 12 minutes is a target, not a measurement.
 - **The scenario checks prove one run, within what the recorder sees** (`control.scenario-conformance`, partial). A
-  passing scenario shows that one exercised run conforms to its declared steps, not that every path, schedule or input
-  does. They run in process on the built modules: HTTP exchanges, database steps and listener executions are not
+  passing scenario shows that the steps it evaluated conformed in one exercised run, not that every path, schedule or
+  input does. Four of the two scenarios' twelve steps are evaluated. They run in process on the built modules, wired
+  by the tests, as the application's wiring is planned: HTTP exchanges, database steps and listener executions are not
   observed yet, and steps that touch a person, a simulated system or a planned module are never evaluated; the report
-  counts each one with its reason. The recorder sees calls through `api` interfaces of Spring beans and events published
-  through the application context. Its coverage verification reads only the beans' own fields, so a reference kept
-  elsewhere (deeper, or in a static field) is not checked; calls are told apart by interface and method name, not by
-  overload; a static call across modules is caught only as a call site that no proxy can intercept. The modules are
-  wired by the tests, as the application's wiring is planned. The model's scenario views are read by a restricted text
-  reader, since Structurizr's review covers only the kit's and the docs tool's parsers; the reader refuses what it does
-  not read exactly and is cross-checked with the kit's components, not with Structurizr's step numbering. A report's
-  revision is the checked-out commit; uncommitted changes show only in its digests.
+  counts each one with its reason. Outcomes, such as the tenant denial's rejection and absence of stored data, are
+  test assertions, not verified steps.
+  - **Refused, not passed** (each is a coverage gap or a refused sidecar): an `AFTER_COMMIT` step that would be
+    evaluated, since no run observes commits; an interaction on a thread other than the stimulus's, a thread that
+    outlives the run, and an interaction after the recording ends, since asynchronous work is not followed; a sidecar
+    that repeats one signature with a varying cardinality; a receiver the walk cannot prove to be a proxy; reflection,
+    method handles and Spring lookups from module code; an `api` method that takes or returns anything but values; a
+    listener method; a module object registered as a ready singleton; an object graph beyond 200,000 objects; a model
+    line where a comment opens or closes beside other text.
+  - **Still unsound, without a gap:** the walk proves receivers only through what is reachable from module beans and
+    from static fields before and after the run, so a reference obtained and dropped during the run is seen only
+    through the census of the code that used it; the census reads the module classes the walk reaches, so a class of
+    the same module that is created and dropped within the run is not read; references that the test passes into a
+    stimulus are not walked; calls are told apart by interface and method name, not by overload; the caller is the
+    first application frame on the stack, mapped by `contract.packages`; whether a type holds values only is judged
+    from its declared field types.
+  - **The model reader** is a restricted text reader, since Structurizr's review covers only the kit's and the docs
+    tool's parsers. It refuses what it does not read exactly; `ScenarioModelTest` compares its reading of the
+    repository's dynamic views, and of the refused and accepted forms in its fixtures, with Structurizr's, not of every
+    possible DSL text.
+  - A report's revision is the checked-out commit; uncommitted changes show only in its digests.
 
 ## 7. Documentation
 

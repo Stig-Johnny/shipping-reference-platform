@@ -30,7 +30,10 @@ Built and running:
   checks the API's classes against the model with the checker, `ModularityTest` runs Spring Modulith's verification
   and `HexagonalLayeringTest` the layering rules, and each of the three also fails on fixtures that break it.
 - **The scenario checks** (`control.scenario-conformance`, partial): two scenario views run in process on the built
-  modules, and what the code did is compared with their steps
+  modules. Of their twelve declared steps, four are verified against what the code did (three module API calls and one
+  event publication); the rest are counted as not evaluated, and what the recorder cannot see is refused as a coverage
+  gap. The tenant-denial test separately asserts the outcome, a rejection as for an unknown
+  quote with nothing stored for the other tenant; that assertion is not a verified step
   ([Executable scenarios](docs/flows/quote-book-label.md#executable-scenarios)).
 - **The documentation tool**, `tools/docs`, with its tests. It generates the C4 view pages, `BRAIN.md` and a static
   site. In `java`, it checks committed generated files for drift, repository-local links and anchors for validity,

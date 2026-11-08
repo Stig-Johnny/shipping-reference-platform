@@ -357,11 +357,11 @@ controls:
     check: java
     status: partial
     target: v0.1
-    evidence: [QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, SidecarValidationTest, ScenarioModelTest]
-    acceptanceTests: [QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, SidecarValidationTest, ScenarioModelTest, FirstBookingScenarioTest, BookingReplayScenarioTest, LabelScenarioTest]
-    negativeFixture: Altered implementations in ScenarioFixturesTest, a removed call that keeps the outcome (missing step), an added call along a permitted relationship (unexpected interaction), two swapped interactions (order violation), a disabled call observer and a disabled publication observer (coverage gaps), and two interleaved runs that must pass.
-    enforcedSubset: In process on the built modules, the module API calls and event publications of the quote and tenant-denial scenarios are compared with their views.
-    plannedRemainder: The first booking, booking replay and label scenarios, HTTP exchanges, database steps observed through JDBC and listener executions.
+    evidence: [QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest]
+    acceptanceTests: [QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest, FirstBookingScenarioTest, BookingReplayScenarioTest, LabelScenarioTest]
+    negativeFixture: Altered implementations in ScenarioFixturesTest, a removed call that keeps the outcome (missing step), an added call along a permitted relationship (unexpected interaction), two swapped interactions (order violation), a disabled call observer and a disabled publication observer (coverage gaps), an AFTER_COMMIT publication that runs before any commit (coverage gap), and two interleaved runs that must pass; seven implementations in CoverageBypassTest that reach another module unobserved (coverage gaps); a repeated signature with a varying cardinality in SidecarValidationTest (refused).
+    enforcedSubset: In process on the built modules, four declared steps of the quote and tenant-denial scenarios are verified (three module API calls and one event publication) under a coverage contract that refuses what the recorder cannot see; the other eight steps are counted as not evaluated. The tenant-denial outcome (rejected as an unknown quote, nothing stored for the other tenant) is asserted by the test apart from step verification.
+    plannedRemainder: The first booking, booking replay and label scenarios, HTTP exchanges, database steps observed through JDBC, listener executions, and commits observed so that AFTER_COMMIT steps are evaluated instead of refused.
     docs: docs/adr/0013-scenario-views-are-checked-against-recorded-interactions.md
   - id: control.table-ownership
     title: Each module's adapters run SQL only against tables in its own schema.
