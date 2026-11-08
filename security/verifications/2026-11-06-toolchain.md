@@ -2,7 +2,7 @@
 title: "Toolchain verification, 2026-11-06"
 description: "Checksums, signatures and code signing of the Gradle distribution and wrapper and the two Temurin JDK archives, checked before first use as their reviews require."
 status: recorded
-updated: 2026-11-06
+updated: 2026-11-07
 ---
 
 # Toolchain verification, 2026-11-06
@@ -58,7 +58,7 @@ installs it with `distribution: jdkfile`.
 | Integrity | `sha512-V6K3C8EBdEsPFZXSKMJe6ppQOENxuHARr9GvHX4hh47lAbhMRD9qf4oEK7LoaRQxULMa80/qt5gHO73aCleBBg==`: the registry's attested `dist.integrity` and the computed value agree |
 | Vendored file | `package/dist/mermaid.min.js`, 3,572,661 bytes, SHA-256 `581ed7d74bd9048d0e3a91363927d72ef22942d7722546b27f7cc29e35390eb8`: equals its review; CI re-checks it on every run |
 
-## Not yet verified
+## Verified later
 
-- Node.js 26.13.0 (local and CI): its review requires a `gpgv` check of `SHASUMS256.txt.asc` before first use. It is
-  done when the frontend is built.
+- Node.js 26.13.0 (local and CI): its review requires a `gpgv` check of `SHASUMS256.txt.asc` before first use. Done
+  on 2026-11-07, together with the recording of the Chrome Headless Shell hash: `2026-11-07-frontend-toolchain.md`.
