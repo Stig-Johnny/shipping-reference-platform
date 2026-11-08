@@ -2,7 +2,7 @@
 title: "ADR 0007: Dependency allowlist with pre-use enforcement"
 description: "Every third-party component is reviewed and listed in security/allowlist.json before any build can download or run it; a base-branch preflight enforces this."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
@@ -146,25 +146,36 @@ What is built, and where it differs from the decision above. The decision stands
   transcript. Nothing binds an approval to a head SHA.
 - **Container images: recognized declarations as text before the build, the engine around the tests.** The checker
   rejects recognized container declarations. The harness validates its PostgreSQL instance, and CI checks subsequent
-  engine activity. These controls do not isolate arbitrary build code. Check 8 reads the sources and resources of
-  every project, every Java, Kotlin and Groovy file outside the checker's own directory (the build scripts included),
-  the workflows and the shell scripts, those without the `.sh` extension by their `#!` line. It normalises the syntax
-  it supports before it matches: Java after its Unicode escapes; Java, Kotlin and Groovy without comments and with the
-  string literals it parses (plain and character literals, Java text blocks, Kotlin raw strings, Groovy single, double
-  and triple quotes) decoded; shell text as bash splits it into words, with quotes, backslash escapes, line
-  continuations and adjacent parts joined, and the words of command substitutions, `${...}` values, heredocs and
-  `bash -c` or `eval` strings read too. Within that syntax it rejects a digest that no approved `container-image` entry
-  has, a tag in place of or next to a digest, an image name built in code, any reference it reads to Testcontainers or
-  docker-java outside the harness `ReviewedPostgres`, any container there but the reviewed PostgreSQL one, the
-  Testcontainers features the reviews forbid (Compose, host binds, copies into a container, host access, privileged
-  mode, reuse, a network mode and create-command modifiers) in every file it reads as code, a container runtime named
-  in code, a string or a resource, Testcontainers configuration files and image settings, and in workflows and scripts
-  docker as a command word with anything but a pull by digest, reads and removals, docker in a word it cannot read as
-  a command, a command that a command substitution names, `$'...'` quoting, escaped YAML strings, GitHub expressions
-  that build text, and job and service containers written as plain, quoted, flow, escaped or explicit YAML keys. What
-  it does not parse stays outside it: text assembled at run time from variables or expressions, reflection, a library
-  that starts a container of its own, and Groovy slashy strings, for which it reads Groovy files with their comments
-  too. The `java` job runs the candidate's copy of the checker as well, after the base branch's and before any other
+  engine activity. These controls do not isolate arbitrary build code. Check 8 fails closed: it matches only in the
+  forms it decodes completely and refuses every other form, whatever it holds. It reads every file under a project's
+  `src/` directory whatever its extension, every Java, Kotlin and Groovy file outside the checker's own directory (the
+  build scripts included), `gradle.properties`, the workflows and action files, and every shell script, by its `.sh`
+  extension, its `#!` line or its executable bit; in the whole tree it refuses executables and archives other than the
+  wrapper JAR, and container build and compose files. It decodes Java after its Unicode escapes; Java and Kotlin
+  without comments, with every string literal decoded, alone and joined with its neighbours; YAML scalars on one line
+  and literal blocks, their indentation removed as YAML removes it; and shell text as bash splits it into words, with
+  the place of every command known. It refuses what it cannot decode: any heredoc in a script, a workflow or a
+  resource, and one with a body in a string literal; `$'...'` quoting; a YAML scalar over lines, a folded block, an
+  escape in a double-quoted scalar, anchors, aliases, tags, merge keys and explicit keys, a GitHub expression in a run
+  step, a shell other than bash or sh, and an action that is not composite; a command that is an expansion or a glob,
+  brace expansion, a shell that reads its commands from its input, an awk program that runs commands, an interpreter
+  or build tool whose programs it does not read (Python, Node.js and npm, make and others) and a file of the tree run
+  as a script that it does not read as one; a backquoted Kotlin name, and every Groovy file; a runtime's name split
+  across string literals; the variables that make bash, the loader or a runtime run other code (`BASH_ENV`,
+  `LD_PRELOAD`, `JAVA_TOOL_OPTIONS` and others) and JVM options that run a command or load an agent; a Unix socket
+  opened from code outside the harness; and a file under `src/` that is not UTF-8 text. Within what it decodes it
+  rejects a digest that no approved `container-image` entry has, a tag in place of or next to a digest, an image name
+  built in code, any reference to Testcontainers or docker-java outside the harness `ReviewedPostgres`, any container
+  there but the reviewed PostgreSQL one, the Testcontainers features the reviews forbid (Compose, host binds, copies
+  into a container, host access, privileged mode, reuse, a network mode and create-command modifiers), a container
+  runtime named in code, a string or a resource, Testcontainers configuration files and image settings, and in
+  workflows and scripts docker as a command word with anything but a pull by digest, reads and removals, docker in a
+  word it cannot read as a command, and job and service containers written as plain, quoted, flow, escaped or explicit
+  YAML keys. What it cannot see stays outside it: text assembled at run time (from variables, a file's contents, a
+  program's output or a method call such as `format`), reflection, the programs that a command it allows runs in turn
+  (sed, git's configuration, `find -exec`), and a library that starts a container of its own; for those, the engine
+  checks after the tests are what find a container. The web check that ADR 0012 plans runs Node.js and npm, which
+  check 8 refuses until it decodes JavaScript and TypeScript or a review allows them. The `java` job runs the candidate's copy of the checker as well, after the base branch's and before any other
   code of the candidate, so that a rule a pull request adds applies to that pull request. At run time,
   `tools/ci/container-engine.sh` checks the runner, the engine and runc versions against the runner review, makes the
   daemon publish on 127.0.0.1 only, stages the image by digest, and afterwards checks that no other image appeared,

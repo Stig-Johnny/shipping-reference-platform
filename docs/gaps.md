@@ -2,7 +2,7 @@
 title: "Known gaps and limits"
 description: "What v0.1 does not do, what each control cannot prove, and which decisions are still unverified. Read this before trusting a green build."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 # Known gaps and limits
@@ -170,18 +170,24 @@ closes it.
   parsing assembles for an empty group (for example with a `$` group separator) stays in the parser's own table:
   no element carries it, so it is not checked and cannot reach a report.
 
-- **The container image check rejects what it recognizes.** The checker rejects recognized container declarations.
-  The harness validates its PostgreSQL instance, and CI checks subsequent engine activity. These controls do not
-  isolate arbitrary build code. Check 8 normalises the syntax it supports (shell words after quotes, escapes and
-  substitutions; Java, Kotlin and Groovy without comments, with the string forms it parses decoded) and then matches,
-  in the files it reads (sources, resources, Java, Kotlin and Groovy files, build scripts, workflows and scripts).
-  Text assembled at run time is outside it: a command or a name built from variables, expressions, `printf` output or
-  other programs, a call through reflection or a method handle, a library that starts a container of its own, and a
-  file it does not read (documents, review records, binary resources, and its own directory, `tools/policy/`, whose
-  tests hold every refused spelling as data; a change there is reviewed as the checker). At run time CI sees which images
-  appeared and which images containers were made from, and whether anything was copied into one; it does not see how
-  another container was configured, its privileges, mounts or networks. Only the harness's own container is checked
-  for those.
+- **The container image check rejects what it recognizes, and refuses what it cannot decode.** The checker rejects
+  recognized container declarations. The harness validates its PostgreSQL instance, and CI checks subsequent engine
+  activity. These controls do not isolate arbitrary build code. Check 8 matches only in the forms it decodes (shell
+  words with each command in its place; YAML scalars on one line and literal blocks; Java and Kotlin without comments,
+  with their string literals decoded, alone and joined) and refuses the rest: heredocs, `$'...'`, YAML scalars over
+  lines, folded blocks, anchors, tags and expressions in run steps, a command that is an expansion or a glob, brace
+  expansion, a shell that reads its input, awk programs that run commands, interpreters and build tools it does not
+  read (Python, Node.js and npm, make), backquoted Kotlin names, Groovy, binaries under `src/`, executables, container
+  files, the variables that make a shell or the JVM run other code, and Unix sockets opened from code outside the
+  harness. Text assembled at run time is outside it: a command or a name built from variables, a file's contents,
+  `printf` output, a method call or another program (sed, git's configuration, `find -exec`), a call through
+  reflection or a method handle, a library that starts a container of its own, and a file it does not read (documents
+  outside `src/`, review records, and its own directory, `tools/policy/`, whose tests hold every refused spelling as
+  data; a change there is reviewed as the checker). At run time CI sees which images appeared and which images
+  containers were made from, and whether anything was copied into one; it does not see how another container was
+  configured, its privileges, mounts or networks. Only the harness's own container is checked for those. The web
+  check that ADR 0012 plans runs Node.js and npm, which the checker refuses until it decodes JavaScript and TypeScript
+  or a review allows them.
 - **The platform image is inferred, not read back.** The runner's engine keeps an image's index digest, not the
   digest of the platform manifest it pulled. That the tests ran the linux/amd64 image `sha256:e923a22a…` follows
   from the pinned index, whose platforms the review lists, and from the image's reported platform; nothing compares

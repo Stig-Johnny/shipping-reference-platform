@@ -20,8 +20,9 @@
 //   7. the owner has accepted exactly this reviewed set: every entry, field by field, and every review record, byte
 //      for byte;
 //   8. every container image that Testcontainers code, its configuration, a workflow or a script names is an approved
-//      container-image entry, by its digest alone, in the only forms the reviews allow, so that nothing else can be
-//      pulled: see checkContainerImages.
+//      container-image entry, by its digest alone, in the only forms the reviews allow; a form it cannot decode is
+//      refused. It reads files as data, so what is assembled at run time stays outside it: the engine checks after the
+//      tests (tools/ci/container-engine.sh) are what see a container started that way. See checkContainerImages.
 // Exit codes: 0 = clean, 1 = findings, 2 = the check could not complete (a broken check never reads as a pass).
 // With --report-only, findings are printed and the exit code is 0 (new checks start report-only, then block).
 
@@ -455,8 +456,16 @@ public final class PolicyCheck {
      *     lines and a run or shell key inside one; a GitHub expression (${{ }}) in a run step, whose value GitHub writes
      *     into the script before bash reads it; a shell other than bash or sh; an action that is not composite;
      *   - in shell text: a command that is an expansion (a variable, a substitution, ${...}) or holds a glob, brace
-     *     expansion anywhere, an interpreter whose programs it does not read (INTERPRETERS), and a file of this tree run
-     *     as a script that it does not read as one; in a file, a #! line that names anything but bash or sh;
+     *     expansion anywhere, a shell that reads its commands from its input (a pipe, a redirection, a process
+     *     substitution), an awk program that runs commands or comes from a file, an interpreter or build tool whose
+     *     programs it does not read (INTERPRETERS: Python, Node.js and npm, make and others), --unix-socket, and a file of
+     *     this tree run as a script that it does not read as one; in a file, a #! line that names anything but bash or sh.
+     *     An executable file without a #! line is read as a script, since sh runs it when its name is run;
+     *   - anywhere it reads: a variable that makes bash, the loader or a runtime run code it does not read
+     *     (STARTUP_VARIABLE: BASH_ENV, LD_PRELOAD, JAVA_TOOL_OPTIONS and others), as a YAML key, a shell word or a string
+     *     literal, and a JVM option that runs a command or loads an agent (JVM_COMMAND);
+     *   - in Java and Kotlin outside the harness and its test: opening a Unix socket (ENGINE_SOCKET), which is how code
+     *     reaches the engine without naming a runtime;
      *   - in Kotlin: a backquoted identifier. Groovy sources and build scripts altogether, whose slashy and dollar-slashy
      *     strings and GString templates it does not decode;
      *   - in string literals: a container runtime's name in a literal with shell metacharacters, once its quotes,
@@ -488,8 +497,8 @@ public final class PolicyCheck {
      *     service containers as plain, quoted, flow, escaped or explicit YAML keys.
      * What stays outside it: what is decided at run time (a command or a name assembled from variables, from a file's
      * contents or by a program's output, a string built by a method call such as format), reflection, the programs that
-     * a command it allows runs in turn (an awk or sed program, git's configuration), and a library that starts a
-     * container of its own. For those the static check is no guarantee: the runner's checks of the engine's images and
+     * a command it allows runs in turn (sed, git's configuration, find -exec), and a library that starts a container
+     * of its own. For those the static check is no guarantee: the runner's checks of the engine's images and
      * events after the tests (tools/ci/container-engine.sh) are what find a container started that way. The checker's
      * own directory (CHECKER_DIRECTORY) is not read: its tests hold every refused spelling as data, and a change there is
      * reviewed as a change to the checker.
@@ -499,6 +508,9 @@ public final class PolicyCheck {
     static final String CHECKER_DIRECTORY = "tools/policy/";
     /** The database harness: the only source that may use Testcontainers or docker-java. */
     static final String HARNESS = "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/ReviewedPostgres.java";
+    /** The harness's own test, which may name the engine's socket as the harness does. */
+    static final String HARNESS_TEST =
+            "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/ReviewedPostgresTest.java";
     /** The Gradle wrapper script, not read while it is byte for byte the one Gradle 9.2.0 generates: it starts java. */
     static final String WRAPPER_SCRIPT = "gradlew";
     static final String WRAPPER_SCRIPT_SHA256 = "a5a5c199ba02189ae8c46a334223371a20599d9c298ef65e7540ede4a3f72d59";
@@ -562,12 +574,26 @@ public final class PolicyCheck {
     /** The shells whose -c string is a command, and the commands that run a file as a script. */
     static final Set<String> SHELLS = Set.of("bash", "sh", "dash", "zsh", "ksh", "source", ".");
     /** Interpreters whose programs this check does not read: refused in the place of a command. */
-    static final Set<String> INTERPRETERS = Set.of("python", "python2", "python3", "node", "nodejs", "perl", "ruby",
-            "php", "deno", "bun", "lua", "pwsh", "powershell", "osascript", "Rscript", "tclsh", "jshell", "jbang",
-            "groovy", "kotlin", "kotlinc");
+    static final Set<String> INTERPRETERS = Set.of("python", "python2", "python3", "node", "nodejs", "npm", "npx",
+            "yarn", "pnpm", "tsc", "perl", "ruby", "php", "deno", "bun", "lua", "pwsh", "powershell", "osascript",
+            "Rscript", "tclsh", "jshell", "jbang", "groovy", "kotlin", "kotlinc", "make", "gmake", "just", "rake", "ant",
+            "mvn", "sbt", "socat", "ncat");
+    static final Set<String> AWKS = Set.of("awk", "gawk", "mawk", "nawk");
+    /** An awk program that runs a command: system(), a pipe, or getline from one. */
+    static final Pattern AWK_COMMAND = Pattern.compile("\\bsystem\\s*\\(|\\||\\bgetline\\b");
+    /** The variables that make bash, the dynamic loader or a runtime load or run code this check does not read. */
+    static final Pattern STARTUP_VARIABLE = Pattern.compile("(BASH_ENV|ENV|PROMPT_COMMAND|PS4|SHELLOPTS|BASHOPTS|"
+            + "BASH_FUNC_[^=\\s]*|LD_PRELOAD|LD_AUDIT|JAVA_TOOL_OPTIONS|JDK_JAVA_OPTIONS|_JAVA_OPTIONS|NODE_OPTIONS)");
+    /** A JVM option that runs a command or loads an agent. */
+    static final Pattern JVM_COMMAND = Pattern.compile("-XX:\\+?On(?:OutOfMemory)?Error\\b|-javaagent\\b|-agentpath\\b"
+            + "|-agentlib\\b");
+    /** The JDK's way to reach a Unix socket, such as the engine's, from code. */
+    static final Pattern ENGINE_SOCKET = Pattern.compile(
+            "\\bUnixDomainSocketAddress\\b|\\bStandardProtocolFamily\\s*\\.\\s*UNIX\\b");
     /** The interpreters that a string literal may not name on its own (node, kotlin and groovy are also ordinary words). */
-    static final Set<String> LITERAL_INTERPRETERS = Set.of("python", "python2", "python3", "nodejs", "perl", "ruby",
-            "php", "deno", "pwsh", "powershell", "osascript", "Rscript", "tclsh", "jshell", "jbang", "kotlinc");
+    static final Set<String> LITERAL_INTERPRETERS = Set.of("python", "python2", "python3", "nodejs", "npx", "yarn",
+            "pnpm", "tsc", "perl", "ruby", "php", "deno", "pwsh", "powershell", "osascript", "Rscript", "tclsh", "jshell",
+            "jbang", "kotlinc", "gmake", "mvn", "sbt", "socat", "ncat");
     /** A #! line that names bash or sh: the only interpreters whose scripts this check reads. */
     static final Pattern SHELL_SHEBANG = Pattern.compile(
             "#!\\s*(?:/usr/bin/env\\s+(?:bash|sh)|(?:/usr)?/bin/(?:bash|sh))(?:[ \\t].*)?");
@@ -630,7 +656,9 @@ public final class PolicyCheck {
                 for (Literal literal : views.literals()) imageNames(file, text, literal.value(), literal.offset(), 1);
             }
             boolean workflow = workflowFile(rel, name);
-            boolean script = !workflow && (name.endsWith(".sh") || text.startsWith("#!"));
+            // An executable without #! is run by sh when its name is run: a script too.
+            boolean script = !workflow && (name.endsWith(".sh") || text.startsWith("#!")
+                    || language.isEmpty() && Files.isExecutable(file));
             if (workflow) {
                 checkWorkflow(file, text);
             } else if (script) {
@@ -642,7 +670,9 @@ public final class PolicyCheck {
                 checkScript(file, text, 1);
             }
             if (views != null) checkImageCode(file, text, views, language.orElseThrow(), rel.equals(HARNESS));
-            if (views == null && !script && !workflow && ("/" + rel).contains("/src/")) checkResource(file, text);
+            if (views == null && !script && !workflow && (("/" + rel).contains("/src/") || name.equals("gradle.properties"))) {
+                checkResource(file, text);
+            }
         }
     }
 
@@ -660,6 +690,10 @@ public final class PolicyCheck {
         for (Matcher m = TC_JDBC_URL.matcher(view); m.find(); ) {
             add("images", place(file, text, view, start, literal, m.start())
                     + ": a Testcontainers JDBC URL (jdbc:tc:) names an image by tag");
+        }
+        for (Matcher m = JVM_COMMAND.matcher(view); m.find(); ) {
+            add("images", "%s: a JVM option that runs a command or loads an agent (%s); this check cannot read what it "
+                    .formatted(place(file, text, view, start, literal, m.start()), m.group()) + "runs");
         }
         for (Matcher m = IMAGE_SETTING.matcher(view); m.find(); ) {
             add("images", "%s: %s configures an image for Testcontainers".formatted(
@@ -688,7 +722,7 @@ public final class PolicyCheck {
         String name = p.getFileName().toString();
         return ("/" + rel).contains("/src/") || name.endsWith(".sh") || name.equals("gradle.properties")
                 || name.endsWith("testcontainers.properties") || Language.of(name).isPresent() || containerFile(name)
-                || workflowFile(rel, name) || startsWithShebang(p);
+                || workflowFile(rel, name) || startsWithShebang(p) || Files.isExecutable(p);
     }
 
     /** A workflow, or an action's definition (a composite action runs its steps as a workflow does). */
@@ -794,6 +828,11 @@ public final class PolicyCheck {
         for (String view : List.of(text, views.code())) {
             codeRules(file, text, view, harness);
         }
+        String rel = repo.relativize(file).toString();
+        if (!harness && !rel.equals(HARNESS_TEST)) {
+            find(file, text, views.code(), ENGINE_SOCKET, "opens a Unix socket, which is how code reaches the engine "
+                    + "without naming a runtime; only the harness talks to the engine");
+        }
         if (language == Language.KOTLIN) {
             find(file, text, views.bare(), Pattern.compile("`"), "a backquoted Kotlin identifier; this check reads names "
                     + "as they are written, so write the name plainly");
@@ -828,6 +867,10 @@ public final class PolicyCheck {
             }
             String stripped = value.strip();
             String interpreter = stripped.substring(stripped.lastIndexOf('/') + 1);
+            Matcher startup = STARTUP_VARIABLE.matcher(stripped);
+            if (startup.lookingAt() && (startup.end() == stripped.length() || stripped.charAt(startup.end()) == '=')) {
+                startupVariable(file, line, startup.group(1));
+            }
             if (LITERAL_INTERPRETERS.contains(interpreter)) {
                 add("images", "%s:%d: runs %s, an interpreter whose programs this check does not read"
                         .formatted(relative(file), line, interpreter));
@@ -859,6 +902,11 @@ public final class PolicyCheck {
     static String literalSkeleton(String value) {
         return value.replaceAll("\\$\\{[^}]*\\}|\\$\\([^)]*\\)|`[^`]*`|\\$(?:[A-Za-z_][A-Za-z0-9_]*|[0-9@*#?$!-])", "")
                 .replaceAll("[\"'\\\\]", "");
+    }
+
+    void startupVariable(Path file, int line, String name) {
+        add("images", "%s:%d: sets %s, which makes a shell, the loader or a runtime run code this check does not read"
+                .formatted(relative(file), line, safe(name)));
     }
 
     void runtime(Path file, int line, String runtime) {
@@ -1036,6 +1084,7 @@ public final class PolicyCheck {
             }
             int keyColumn = column;
             boolean run = "run".equals(key);
+            if (key != null && STARTUP_VARIABLE.matcher(key).matches()) startupVariable(file, n + 1, key);
             if (value.startsWith("|") || value.startsWith(">")) {
                 boolean literal = value.matches("\\|[-+]?");
                 if (!literal) {
@@ -1186,6 +1235,14 @@ public final class PolicyCheck {
                 }
                 continue;
             }
+            Matcher startup = STARTUP_VARIABLE.matcher(word.text());
+            if (startup.lookingAt() && word.text().startsWith(startup.group(1) + "=")) {
+                startupVariable(file, word.line(), startup.group(1));
+            }
+            if (word.text().startsWith("--unix-socket")) {
+                add("images", where + ": talks to a Unix socket directly (--unix-socket); only the engine's own commands "
+                        + "may reach the engine");
+            }
             if (word.kind() == Shell.Kind.QUOTED) continue;
             Matcher name = RUNTIME_NAME.matcher(word.text());
             if (!name.matches()) {
@@ -1243,6 +1300,7 @@ public final class PolicyCheck {
             boolean scriptRead;
             boolean optionValue;
             boolean strictNext;
+            int line;
 
             State copy() {
                 State s = new State();
@@ -1257,6 +1315,7 @@ public final class PolicyCheck {
                 s.scriptRead = scriptRead;
                 s.optionValue = optionValue;
                 s.strictNext = strictNext;
+                s.line = line;
                 return s;
             }
         }
@@ -1282,6 +1341,18 @@ public final class PolicyCheck {
                     lastWasOperator = false;
                 }
             }
+            endCommand();
+            while (!stack.isEmpty()) pop();
+        }
+
+        /** The end of a command: a shell given no script and no -c string reads its commands from its input. */
+        private void endCommand() {
+            if (s.command == null || s.scriptRead || s.commandString) return;
+            String name = s.command.substring(s.command.lastIndexOf('/') + 1);
+            if (SHELLS.contains(name) && !name.equals("source") && !name.equals(".")) {
+                add("images", "%s:%d: a shell that reads its commands from its input (a pipe, a redirection or a process "
+                        .formatted(relative(file), s.line) + "substitution); this check cannot read them");
+            }
         }
 
         private boolean commands() {
@@ -1299,10 +1370,12 @@ public final class PolicyCheck {
         }
 
         private void pop() {
+            endCommand();
             if (!stack.isEmpty()) s = stack.pop();
         }
 
         private void separate() {
+            endCommand();
             s.commandNext = true;
             s.wrapped = false;
             s.target = false;
@@ -1443,6 +1516,7 @@ public final class PolicyCheck {
                 return;
             }
             s.command = t;
+            s.line = w.line();
             s.commandNext = false;
             s.wrapped = false;
             s.previous = t;
@@ -1474,6 +1548,23 @@ public final class PolicyCheck {
             if (command.equals("trap") && s.previous != null && s.previous.equals(s.command)) {
                 if (w.kind() == Shell.Kind.QUOTED) s.strictNext = true;
                 else commandWord(w, where);
+                return;
+            }
+            if (AWKS.contains(command) && !s.scriptRead) {
+                if (s.optionValue) {
+                    s.optionValue = false;
+                } else if (t.equals("-f") || t.startsWith("--file")) {
+                    s.scriptRead = true;
+                    add("images", where + ": an awk program in a file, which this check does not read");
+                } else if (t.equals("-F") || t.equals("-v")) {
+                    s.optionValue = true;
+                } else if (!t.startsWith("-") || w.kind() == Shell.Kind.QUOTED) {
+                    s.scriptRead = true;
+                    if (AWK_COMMAND.matcher(t).find()) {
+                        add("images", where + ": an awk program that runs commands (system, a pipe or getline); this "
+                                + "check does not read what it runs");
+                    }
+                }
                 return;
             }
             if (!SHELLS.contains(command) || s.scriptRead) return;
@@ -1511,7 +1602,7 @@ public final class PolicyCheck {
             String rel = repo.relativize(target).toString();
             String name = target.getFileName().toString();
             if (rel.startsWith(CHECKER_DIRECTORY) || name.endsWith(".sh") || startsWithShebang(target)
-                    || Language.of(name).isPresent()) {
+                    || Language.of(name).isPresent() || Files.isExecutable(target)) {
                 return;
             }
             add("images", "%s: runs %s, a file this check does not read as a script; give it the .sh extension or a #! "

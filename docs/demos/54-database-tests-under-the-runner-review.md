@@ -2,7 +2,7 @@
 title: "Database tests start only the reviewed PostgreSQL image, on the reviewed engine"
 description: "The database tests use the one reviewed PostgreSQL image, only on the container engine its review approves: the checker rejects other container declarations it recognizes, and CI checks what the engine did."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 pr: 54
 kind: gate
 recorded: 2026-11-07
@@ -72,16 +72,21 @@ the tests of the CI scripts failed where a failed engine query read as an empty 
 1.3.3 passed (run 42416220034). After the second review, the checker's tests failed on 20 spellings that bash, the
 compilers or YAML read as docker or Testcontainers (run 42420154660), then on 6 of 8 more that this pull request wrote
 against its own first normalising version (run 42421241319), and the engine script's tests failed where a failing
-grep read as 0 events (run 42421521416); run 42421869779 passed all of them. The runs before the rework show the harness failing closed without the engine's
+grep read as 0 events (run 42421521416); run 42421869779 passed all of them. After the third review, which found
+heredocs, multi-line YAML scalars, a Kotlin escaped name, a constant concatenation and resources that got through,
+the check was made to refuse every form it cannot decode: its tests failed on those 12 examples (run 42428264126),
+then on 7 of 10 evasions that this pull request tried against the fail-closed version (run 42428525277). The runs before the rework show the harness failing closed without the engine's
 preparation (run 42410083958) and passing with it (run 42410533646), whose job summary records the runner image
 20261101.360.1 on Ubuntu 24.04.5, Docker Engine 28.0.4, containerd v2.4.2 and runc 1.5.2, and one container, made
 from the reviewed image. The test classes named above check the harness and the publishing workflow in every build.
 
 ## Limits
 
-- The checker rejects recognized container declarations, after normalising the shell, Java, Kotlin, Groovy and YAML
-  syntax it supports. An image that a library names itself, a call made through reflection or a command assembled at
-  run time from variables or other programs is outside it. These controls do not isolate arbitrary build code.
+- The checker rejects recognized container declarations in the shell, Java, Kotlin and YAML forms it decodes, and
+  refuses every form it cannot decode: heredocs, YAML scalars over lines, Groovy, backquoted Kotlin names, a command
+  it cannot read, interpreters it does not read (Node.js among them, which ADR 0012's planned web check needs). An
+  image that a library names itself, a call made through reflection or a command assembled at run time from
+  variables or other programs is outside it. These controls do not isolate arbitrary build code.
 - At run time CI sees which images appeared, which images containers were made from and whether anything was copied
   into one. It does not see how another container was configured; only the harness's own container is checked for
   privileges, mounts, networks and published ports.

@@ -978,8 +978,8 @@ public final class PolicyCheckTest {
                     "echo \"the engine runs\"", "docker version --format \"$(printf '%s' '{{.Server.Version}}')\"")) {
                 expectClean(withImages().write(STAGING, staging(command)).findings());
             }
-            expectClean(withImages().write(OTHER_TEST, "class OtherTest {\n    // A comment may say that a docker run is "
-                    + "refused.\n}\n").findings());
+            expectClean(withImages().write(OTHER_TEST, "class OtherTest {\n    String socket = \"unix:///var/run/docker.sock\";"
+                    + "\n    // A comment may say that a docker run is refused.\n}\n").findings());
         });
     }
 
@@ -1121,7 +1121,7 @@ public final class PolicyCheckTest {
                 expectFinding(withImages().write("tools/ci/steps.txt", "docker run alpine:3.17\n").write(WORKFLOW,
                         "name: ci\non: push\njobs:\n  x:\n    runs-on: ubuntu-24.04\n    env:\n      BASH_ENV: "
                                 + "tools/ci/steps.txt\n    steps:\n      - run: echo x\n").findings(), "images",
-                        WORKFLOW + ":7: ", "BASH_ENV"));
+                        WORKFLOW + ":7: sets BASH?ENV"));
         test("own evasion 16: an awk program runs the command", () -> expectFinding(withImages().write(STAGING,
                 staging("awk 'BEGIN { system(\"d\" \"ocker run alpine:3.17\") }'")).findings(), "images", STAGING + ":4: ",
                 "an awk program that runs commands"));
@@ -1137,7 +1137,7 @@ public final class PolicyCheckTest {
         test("own evasion 19: a test talks to the engine's socket, naming no runtime", () -> expectFinding(withImages()
                 .write(OTHER_TEST, "class OtherTest {\n    Object engine() throws Exception {\n        return java.nio.channels"
                         + ".SocketChannel.open(java.net.UnixDomainSocketAddress.of(\"/var/run/docker.sock\"));\n    }\n}\n")
-                .findings(), "images", OTHER_TEST + ":3: ", "socket"));
+                .findings(), "images", OTHER_TEST + ":3: opens a Unix socket"));
         test("own evasion 20: a JVM option in gradle.properties runs the command", () -> expectFinding(withImages()
                 .write("gradle.properties", "org.gradle.jvmargs=-XX:OnError=d''ocker run alpine:3.17\n").findings(),
                 "images", "gradle.properties:1: "));
