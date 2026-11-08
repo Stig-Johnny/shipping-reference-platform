@@ -75,6 +75,12 @@ for timer arguments whose function prefix did not determine the final value. All
 classes passed after correction. The retained red/green outputs include each new fixture's failing baseline. These
 counts describe recorded runs; the publishing build checks the test classes named above.
 
+The numeric-boundary follow-up added 660 failing scanner and file-reader cases before changing production code.
+All 660 then passed, and all 1,203 tests in the three reader classes passed together. The cases cover TS and TSX,
+source and test roots, and test-named files in source roots. Numeric literals now leave constructor property chains
+visible; uncertain numeric continuations and unsupported regex flags produce explicit refusals. These counts are
+recorded runs, separate from the publishing build's evidence.
+
 ## Limits
 
 This slice does not yet check a real web application against the model. It does not execute TypeScript, simulate
@@ -83,4 +89,5 @@ computed indexing, callback aliases, a slash after a comparison and literal ampe
 Non-literal computed access/binding keys are refused even when a person can evaluate their constant value. URL
 attributes accept only a conservative ASCII syntax subset; some valid browser URLs are refused, including IP
 literals, credentials and non-ASCII paths. Reflective calls and general runtime behaviour are outside these fixtures.
+Legacy leading-zero numbers and Unicode-set regex flags (`v`) are outside the supported lexical subset too.
 Passing reader tests proves these cases, not general runtime safety.

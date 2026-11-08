@@ -83,6 +83,9 @@ final class SourceLexer {
             + "dependencies in comments";
     static final String JSX_PRAGMA = "JSX pragmas (@jsx, @jsxImportSource, @jsxFrag, @jsxRuntime) are not supported: "
             + "they change which module JSX imports";
+    static final String NUMBER = "a numeric literal or its continuation is outside the supported grammar";
+    static final String REGEX_FLAGS = "regular expression flags must be distinct letters from dgimsuy; "
+            + "Unicode sets (v) and escaped or unknown flags are not supported";
 
     /** What a slash, or in .tsx a {@code <}, right after a token is. */
     private enum Next {
@@ -255,7 +258,7 @@ final class SourceLexer {
                 punctuator(1);
             } else if (isIdentifierStart(text.codePointAt(position))) {
                 identifier();
-            } else if (isDigit(c)) {
+            } else if (isDigit(c) || (c == '.' && isDigit(peek(1)))) {
                 number();
             } else if (c == '\\') {
                 throw new Stop(line, "a backslash outside a string, template or regular expression is not supported");
@@ -426,15 +429,27 @@ final class SourceLexer {
                 inClass = false;
             } else if (c == '/' && !inClass) {
                 position++;
-                while (position < text.length() && isIdentifierPart(text.codePointAt(position))) {
-                    position += Character.charCount(text.codePointAt(position));
-                }
+                regexFlags();
                 add(TokenType.REGEX, "/", start, false);
                 return;
             }
             position++;
         }
         throw new Stop(start, "unterminated regular expression");
+    }
+
+    /** Never swallow an arbitrary identifier as flags. Unicode-set bodies need a different character-class reader. */
+    private void regexFlags() throws Stop {
+        int seen = 0;
+        while (position < text.length()
+                && (isIdentifierPart(text.codePointAt(position)) || peek(0) == '\\')) {
+            int flag = "dgimsuy".indexOf(peek(0));
+            if (flag < 0 || (seen & (1 << flag)) != 0) {
+                throw new Stop(line, REGEX_FLAGS);
+            }
+            seen |= 1 << flag;
+            position++;
+        }
     }
 
     /** A JSX element or fragment, from its {@code <} to the end of its closing tag. */
@@ -589,17 +604,70 @@ final class SourceLexer {
         add(TokenType.IDENTIFIER, text.substring(from, position), line, false);
     }
 
-    /** A numeric literal; a dot belongs to it, so a decimal or a member access after it is no expression start. */
-    private void number() {
-        while (position < text.length()) {
-            char c = text.charAt(position);
-            if (Character.isLetterOrDigit(c) || c == '_' || c == '.') {
+    /** Read only the literal; a following property dot and name must remain visible to the import scanner. */
+    private void number() throws Stop {
+        int radix = peek(0) == '0' ? switch (peek(1)) {
+            case 'x', 'X' -> 16;
+            case 'b', 'B' -> 2;
+            case 'o', 'O' -> 8;
+            default -> 10;
+        } : 10;
+        boolean integer = true;
+        if (radix != 10) {
+            position += 2;
+            numericDigits(radix);
+        } else {
+            if (peek(0) != '.') {
+                int from = position;
+                numericDigits(10);
+                if (text.charAt(from) == '0' && position > from + 1) {
+                    throw new Stop(line, NUMBER); // Legacy leading-zero forms are deliberately unsupported.
+                }
+            }
+            if (peek(0) == '.') {
+                integer = false;
                 position++;
-            } else {
-                break;
+                if (isDigit(peek(0))) {
+                    numericDigits(10);
+                }
+            }
+            if (peek(0) == 'e' || peek(0) == 'E') {
+                integer = false;
+                position++;
+                if (peek(0) == '+' || peek(0) == '-') {
+                    position++;
+                }
+                numericDigits(10);
             }
         }
+        if (integer && peek(0) == 'n') {
+            position++;
+        }
+        if (position < text.length() && (isIdentifierPart(text.codePointAt(position)) || peek(0) == '\\')) {
+            throw new Stop(line, NUMBER);
+        }
         add(TokenType.NUMBER, "0", line, false);
+    }
+
+    /** A separator is allowed only between two digits of the same radix, never at either end or doubled. */
+    private void numericDigits(int radix) throws Stop {
+        if (!numericDigit(peek(0), radix)) {
+            throw new Stop(line, NUMBER);
+        }
+        do {
+            position++;
+            if (peek(0) == '_') {
+                position++;
+                if (!numericDigit(peek(0), radix)) {
+                    throw new Stop(line, NUMBER);
+                }
+            }
+        } while (numericDigit(peek(0), radix));
+    }
+
+    private static boolean numericDigit(char c, int radix) {
+        int value = "0123456789abcdef".indexOf(Character.toLowerCase(c));
+        return value >= 0 && value < radix;
     }
 
     /** Keep {@code =>} distinct from a closing type argument or comparison operator. */

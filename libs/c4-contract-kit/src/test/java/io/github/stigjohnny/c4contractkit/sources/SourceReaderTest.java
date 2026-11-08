@@ -3,15 +3,18 @@ package io.github.stigjohnny.c4contractkit.sources;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -21,6 +24,23 @@ import org.junit.jupiter.params.provider.MethodSource;
  * file system's case rules. Whatever cannot be resolved with certainty is unresolved or unsupported, never guessed.
  */
 class SourceReaderTest {
+
+    @ParameterizedTest(name = "file reader lexical boundary: {0}, {1}, {2}")
+    @MethodSource("lexicalBoundaries")
+    void literalBoundaryRefusalsReachSourceAndTestRoots(LexicalBoundaryFixtures.Fixture fixture, String file,
+            RootKind kind, @TempDir Path root) throws IOException {
+        write(root, file, "// synthetic fixture\n" + fixture.source());
+        SourceSet set = SourceReader.read(root, "src", kind);
+        assertThat(set.imports()).isEmpty();
+        assertThat(set.refusals()).containsExactlyElementsOf(fixture.reasons().stream()
+                .map(reason -> new FileRefusal(file, fixture.line(), reason)).toList());
+    }
+
+    static Stream<Arguments> lexicalBoundaries() {
+        return LexicalBoundaryFixtures.cases().flatMap(fixture -> Stream.of(
+                "app.ts", "view.tsx", "app.test.ts", "view.test.tsx").flatMap(file ->
+                Stream.of(RootKind.SOURCE, RootKind.TEST).map(kind -> arguments(fixture, file, kind))));
+    }
 
     @ParameterizedTest(name = "package style sheet: {0}, {1}")
     @CsvSource({"allowed/theme.css, SOURCE", "@scope/allowed/theme.css, SOURCE",
