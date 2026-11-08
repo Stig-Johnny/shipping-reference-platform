@@ -164,9 +164,48 @@ closes it.
   human accepted it: the owner and the AI agents use the same GitHub account, and the agent that records the
   acceptance also computes the digest. The record quotes the owner's words and their timestamp from the chat
   transcript.
-- **Scope is recorded, not enforced.** The allowlist check matches coordinate, version and checksum. Which projects
-  and configurations a review approved is a condition the code owner checks in review: a reviewed library added to a
-  project its review does not cover passes CI.
+- **Scope is recorded, and enforced only for the classes the API uses.** The allowlist check matches coordinate,
+  version and checksum. Which projects and configurations a review approved is a condition the code owner checks in
+  review: a reviewed library added to a project its review does not cover passes `preflight`. `ExternalImportPolicyTest`
+  checks the scope of an artifact only when a class of the API uses one of its classes (next entry). On 2026-11-07,
+  23 artifacts across 26 configuration pairs on the API's classpaths had no entry for `:apps:shipping-api` and the configuration they are on, and
+  nothing failed: among them ArchUnit 1.5.1 on `runtimeClasspath`, which Spring Modulith brings and its review
+  approves for the API's test classpaths only, and the contract kit's own dependencies on `testRuntimeClasspath`,
+  approved for `:libs:c4-contract-kit`. Enforcing scope for every locked artifact first needs the entries' scope
+  migrated to one machine-readable form, with the owner's acceptance: today they name the API three ways
+  (`:apps:shipping-api`, `apps/shipping-api` and the first design's `:example-app`) and write configurations with
+  and without a project prefix.
+- **The external-import check covers dependencies reported by ArchUnit 1.5.1 only.** `ExternalImportPolicyTest`
+  reads the API's main and test outputs. Internal ownership comes from the actual classes in those outputs, not a
+  package prefix; an artifact colliding with any of them fails even without a use. External targets are classified
+  through the provider index or the JDK's module descriptors and checked against the caller's layer whitelist.
+  The isolated root HTTP classes and the quotes and tenants web adapters have exact class grants; the shared
+  `io.github.stigjohnny.shipping.http` test package has its own exact-class whitelist, separate from module tests.
+  No package grants cover these additions, and every whitelist entry must be used by the current compiled outputs.
+  The JDBC adapter whitelist stays empty until an adapter exists.
+  Maven providers need unexpired approval for the project, configuration and exact file, with SHA-256 comparison
+  where the review records a hash. The first-party exemption from Maven review requires root-build identity and an
+  exact registered repository-owned output (currently the contract kit); other project providers are rejected.
+  Included-build identity is retained. The check treats `:example-app` as the API only while the current acceptance
+  is `accepted` and the exact PR #10 `projectPathConfirmed` text remains in that record or `acceptance.previous`.
+  History is read newest first in its stored order. Historical snapshots may omit `status`, as PR #73's rollover
+  does; an explicit status must be `accepted`. A newer changed or negated confirmation, or non-accepted status,
+  stops the search before any older affirmation; missing confirmation fails too. This reads the preserved owner
+  record without granting new scope. It does not see:
+  - compiler-erased references such as inlined constants, or retained bytecode that ArchUnit 1.5.1 does not report.
+    Casts, local variable types, explicit type arguments and array creation are not reported
+    (`BytecodeEvidenceTest` pins these), nor are retained type-use annotations such as JSpecify's `@Nullable`
+    (`ExternalImportPolicyTest` pins this). A source-level pass with the JDK's compiler is planned
+    (`ExternalImportSourceTest`);
+  - use at run time: reflection, `ServiceLoader`, Spring's wiring and auto-configuration, class names in
+    configuration, native libraries. The whitelists name what the API's code refers to, not what its frameworks load;
+  - the classes that run: a main class is checked against `compileClasspath` and a test class against
+    `testCompileClasspath`, and the artifact that provides a class at run time can differ (jackson-annotations is
+    2.21 when the tests compile and 2.22 when they run, and only the kit's entry approves 2.22);
+  - the code of the contract kit, the docs tool, the policy checker and the build logic;
+  - review conditions below the class: a whitelist names classes and packages, not methods, so a condition such as
+    ArchUnit's ban on `importClasspath` or AssertJ's on `isXmlEqualTo` is still the reviewer's to check;
+  - which JDK runs: the reports name the JDK reviews of the running version, and another version fails nothing.
 - **A vendored file is checked by hash only.** The check proves the file is the reviewed one. How a page may load it
   (Mermaid's `strict` mode, the Content Security Policy, the diagram validator) is a review condition that the docs
   generator's tests enforce, not the allowlist check.
