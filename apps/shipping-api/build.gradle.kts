@@ -69,6 +69,21 @@ configurations.configureEach {
 tasks.withType<Test>().configureEach {
     // Ryuk (Testcontainers' cleanup container) is rejected: it needs a privileged container holding the Docker socket.
     environment("TESTCONTAINERS_RYUK_DISABLED", "true")
+    // Spring's test framework initialises Mockito in every Spring test (MockitoResetTestExecutionListener), so its
+    // inline mock maker is loaded as an explicit agent, never self-attached, as its review requires
+    // (security/reviews/maven--test-libraries--mockito-5.23.0-byte-buddy-1.18.15-and-assertion-libs.md, condition 3).
+    // The jar is the one the locked, verified test runtime class path already resolves.
+    val mockito: FileCollection = configurations.testRuntimeClasspath.get()
+        .filter { it.name.startsWith("mockito-core-") }
+    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-javaagent:" + mockito.singleFile.absolutePath) })
+}
+
+// The HTTP contract tests read the contract from the test class path (a classpath: IRI), as the json-schema-validator
+// review requires (security/reviews/maven--json-schema-validator--3.0.9.md, condition 3).
+tasks.processTestResources {
+    from(rootDir.resolve("contracts")) {
+        into("contracts")
+    }
 }
 
 // The architecture tests read the model and the compiled classes as files. ArchitectureConformanceTest checks every

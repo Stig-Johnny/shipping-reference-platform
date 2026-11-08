@@ -35,11 +35,15 @@
 # not pass, and never shows a planned capability as available because its package exists. The docs tool's own
 # controls are shipped, and so are the controls of libs/c4-contract-kit, divergence and absence included now that
 # ArchitectureConformanceTest checks :apps:shipping-api, and the two module checks of the API. Of the product, the
-# quotes module's domain and application tests pass: the synthetic tariff and quote expiry are shipped, creating a
-# quote and the offer lookup are partial, since their HTTP and database tests are planned. So do the shipments
-# module's booking tests: booking from an offer and idempotent booking are partial, since their HTTP and database
-# tests are planned. ShipmentTest passes too, but it asserts only what booking produces, not cancellation, so
-# shipments.cancel-shipment stays planned. Every other status is planned and its evidence is "none yet".
+# synthetic tariff and quote expiry are shipped. Creating and reading a quote, the offer lookup, demo authentication
+# and the current membership are partial: their HTTP contract tests run the whole application with test doubles for
+# the ports that have no database adapter yet, so they prove the HTTP edge, not persistence. That is why creating a
+# quote, demo authentication and the current membership stay partial although every test they name passes: no quote
+# or token reaches PostgreSQL yet, and prototype flags are planned. The shipments module's booking tests pass too:
+# booking from an offer and idempotent booking are partial, since their HTTP and database tests are planned.
+# ShipmentTest passes, but it asserts only what booking produces, not cancellation, so shipments.cancel-shipment stays
+# planned. The HTTP contract control is partial, since the shipments operations are planned. Every other status is
+# planned and its evidence is "none yet".
 
 schemaVersion: 1
 
@@ -59,16 +63,16 @@ capabilities:
     title: Issue a tenant-scoped quote with one offer per available service level, or a reasoned refusal.
     status: partial
     target: v0.1
-    evidence: [RatingTest, CreateQuoteTest]
+    evidence: [RatingTest, CreateQuoteTest, QuotesHttpContractTest]
     acceptanceTests: [RatingTest, CreateQuoteTest, QuotesHttpContractTest]
     docs: docs/modules/quotes.md
     actors: [clerk]
   - id: quotes.get-quote
     module: quotes
     title: Read a quote of the caller's tenant with its computed OPEN or EXPIRED status.
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [QuotesHttpContractTest]
     acceptanceTests: [QuotesModuleIntegrationTest, QuotesHttpContractTest]
     docs: docs/modules/quotes.md
     actors: [clerk]
@@ -151,18 +155,18 @@ capabilities:
   - id: tenants.demo-authentication
     module: tenants
     title: Authenticate synthetic users with demo bearer tokens; never derive tenant identity from client-supplied tenant hints.
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [DemoTokenTest, DemoTokenAuthenticationTest]
     acceptanceTests: [DemoTokenTest, DemoTokenAuthenticationTest]
     docs: docs/modules/tenants.md
     actors: [clerk]
   - id: tenants.current-membership
     module: tenants
     title: Return the caller's membership and enabled prototype flags (GET /api/v1/me).
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [TenantsHttpContractTest]
     acceptanceTests: [TenantsHttpContractTest]
     docs: docs/modules/tenants.md
     actors: [clerk]
@@ -405,11 +409,13 @@ controls:
     title: Exercised HTTP responses, including framework problems, conform to contracts/shipping.openapi.yaml.
     where: apps/shipping-api
     check: java
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [QuotesHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest]
     acceptanceTests: [QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest]
-    negativeFixture: A response with an undocumented member fails validation.
+    negativeFixture: A response with an undocumented member, an impossible date-time, an invalid header or a problem title that is not its type's, and a status that the operation does not document and no path may give, fails validation (ContractTest).
+    enforcedSubset: Every response that the HTTP tests exercise, of GET /api/v1/me, both quote operations and the problems that any path can give, is validated against the contract in java, on the application with test doubles for its database adapters.
+    plannedRemainder: The shipments operations (ShipmentsHttpContractTest) and the same responses from the PostgreSQL-backed application remain.
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.web-import-boundaries
     title: Web app import boundaries and cycles, and a direct import for each REQUIRED relationship whose endpoints are built.

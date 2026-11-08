@@ -3,9 +3,9 @@
 A reference monorepo that shows how a Java and TypeScript product can be built when the architecture model, the
 API contract and the documentation lead and the code follows, and when each claim about the code is backed by a
 check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is
-synthetic and the carrier is simulated. The application's first code exists, without HTTP or a database: the pricing
-and quotes of the API's quotes module, booking in its shipments module, and the tenant context both need; most of the
-application is still planned.
+synthetic and the carrier is simulated. The application's first code exists: the API's pricing and quotes and its
+demo authentication, served over HTTP in tests, and booking in its shipments module, without HTTP yet. No database
+exists yet, and most of the application is still planned.
 The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions,
 a dependency allowlist check and a documentation tool.
 
@@ -22,13 +22,22 @@ Built and running:
   requests from forks. Its tests, `tools/policy/PolicyCheckTest.java`, need only the JDK too and run in `java`;
   before them, scripted tamperings (ADR 0007) and two pull requests made to fail on purpose
   ([security/README.md](security/README.md)) showed that it fails.
-- **The shipping API's first code**, `apps/shipping-api`: in the `tenants` module the tenant's identity and the
-  tenant bound to the current thread, in the `quotes` module the synthetic tariff, rating, quote creation and the
-  offer lookup, and in the `shipments` module booking from an offer, idempotent per tenant and `Idempotency-Key`, in
-  the domain and application layers. Their tests use stores in memory, a fixed clock and deterministic IDs, and book
-  against real quotes; no endpoint, database or running application exists yet. In `java`, `ArchitectureConformanceTest`
-  checks the API's classes against the model with the checker, `ModularityTest` runs Spring Modulith's verification
-  and `HexagonalLayeringTest` the layering rules, and each of the three also fails on fixtures that break it.
+- **The shipping API's first code**, `apps/shipping-api`, which starts in its tests:
+  - in the `quotes` module, the synthetic tariff, rating, quote creation, quote reading and the offer lookup, with
+    `POST /api/v1/quotes` and `GET /api/v1/quotes/{quoteId}`;
+  - in the `shipments` module, booking from an offer, idempotent per tenant and `Idempotency-Key`, in the domain and
+    application layers, without HTTP yet;
+  - in the `tenants` module, demo bearer-token authentication with Spring Security, the member's tenant bound for each
+    request, and `GET /api/v1/me`;
+  - the HTTP edge: correlation IDs and the contract's RFC 9457 problems.
+
+  `QuotesHttpContractTest`, `TenantsHttpContractTest` and `ProblemDetailsHttpContractTest` validate every response
+  they exercise against the contract. The tests use test doubles and stores in memory, a fixed clock and deterministic
+  IDs, and booking is tested against real quotes: the ports to the database have no adapter yet, so the tests prove
+  the HTTP edge and the domain, not persistence. No database exists yet, and the application does not start outside
+  its tests. In `java`, `ArchitectureConformanceTest` checks the API's classes against the model with the checker,
+  `ModularityTest` runs Spring Modulith's verification and `HexagonalLayeringTest` the layering rules, and each of the
+  three also fails on fixtures that break it.
 - **The documentation tool**, `tools/docs`, with its tests. It generates the C4 view pages, `BRAIN.md` and a static
   site. In `java`, it checks committed generated files for drift, repository-local links and anchors for validity,
   and shipped or partial capability claims against passing test evidence. The `pages` workflow scans the site before
@@ -38,12 +47,14 @@ Built and running:
 The specification is in place too: the model, the API contract, the decisions, the module specifications, the risk
 policy and the agent rules, with the reviewed toolchain.
 
-Planned, with no code yet: the API's other four modules, everything of quotes, shipments and tenants that needs HTTP
-or the database, the workbench, a plain TypeScript app (ADR 0012), and the checks that need them; the generated API
-client is deferred. In [docs/capabilities/capabilities.yaml](docs/capabilities/capabilities.yaml), the source of truth
-for status and evidence, the quotes module's tariff and quote expiry are shipped and its quote creation and offer
-lookup partial, and the shipments module's booking from an offer and idempotent booking partial; every other product
-capability is `planned`. [docs/gaps.md](docs/gaps.md) lists what a green build does not prove.
+Planned, with no code yet: the API's other four modules, everything of quotes, shipments and tenants that needs the
+database, the shipments operations over HTTP, the workbench, a plain TypeScript app (ADR 0012), and the checks that
+need them; the generated API client is deferred. In
+[docs/capabilities/capabilities.yaml](docs/capabilities/capabilities.yaml), the source of truth for status and
+evidence, the quotes module's tariff and quote expiry are shipped; quote creation, quote reading, the offer lookup,
+demo authentication and the current membership are partial, because their database tests are planned, and so are the
+shipments module's booking from an offer and idempotent booking, whose HTTP and database tests are planned; every
+other product capability is `planned`. [docs/gaps.md](docs/gaps.md) lists what a green build does not prove.
 
 ## The checker
 
@@ -119,8 +130,8 @@ Installing the JDK, or a slower network, adds to the first run.
   explicit relationship, marked `REQUIRED` (the code must reference it) or `PERMITTED` (the code may). The checker
   holds the code to it once the code exists.
 - **The HTTP interface is written down before it is coded.** `contracts/shipping.openapi.yaml` (OpenAPI 3.1.2,
-  RFC 9457 errors) is what the Java controllers are to be tested against, which is planned. Generating the
-  TypeScript client from it is deferred (ADR 0012): the web app's types are written by hand.
+  RFC 9457 errors) is what the Java controllers are tested against, so far the quote and membership operations.
+  Generating the TypeScript client from it is deferred (ADR 0012): the web app's types are written by hand.
 - **Agents write most of the code; checks decide whether it stays.** Under the accepted policy every pull request
   gets a risk level from 0 to 3. Levels 0 to 2 need green checks and a recorded AI review. Level 3 (pricing,
   bookings, personal data, authentication, tenant isolation, migrations, dependencies, and the controls themselves)
@@ -178,9 +189,9 @@ see each other's data, enforced in queries and by forced PostgreSQL row-level se
 
 | Module | Implementation state | Depends on (from the model) |
 |---|---|---|
-| `quotes` | Built in part: tariff, rating, quote creation and offer lookup, without HTTP or a database | `tenants` (REQUIRED) |
+| `quotes` | Built in part: tariff, rating, quote creation and reading, and offer lookup, over HTTP in tests; no database yet | `tenants` (REQUIRED) |
 | `shipments` | Built in part: booking from an offer, idempotent per tenant and key, without HTTP or a database | `quotes`, `tenants` (REQUIRED) |
-| `tenants` | Built in part: the tenant's identity and the tenant bound to the current thread; the rest of the minimal implementation is planned | nothing |
+| `tenants` | Built in part: demo authentication over HTTP, `GET /api/v1/me` and the tenant bound for each request; the database adapter, row-level security and prototype flags are planned | nothing |
 | `audit` | Minimal implementation planned for v0.1; no code yet | `shipments`, `tenants` (REQUIRED); `quotes` (PERMITTED, not evaluated) |
 | `orders` | planned, no code | `quotes`, `shipments` (PERMITTED, not evaluated) |
 | `tracking` | planned, no code | `shipments` (PERMITTED, not evaluated) |
@@ -197,7 +208,7 @@ it runs) and which part is **planned**.
 | C4 conformance: absence | A `REQUIRED` relationship has no static reference in the bytecode. | A reference that exists while the behaviour behind it does nothing. | `java`: `ArchitectureConformanceTest` | **enforced** (as above) |
 | Model validity | Package mappings overlap, are empty or leave classes uncovered; a planned module has code; forbidden DSL directives; tags disagree with contract properties; cycles. | Whether the model describes the right architecture. | `java`: `RepositoryWorkspaceTest` reads `architecture/workspace.dsl` with the library; `ArchitectureConformanceTest` applies the rules that need classes | **enforced**: for the model file, and for the API's classes (uncovered classes, code in a planned module) |
 | Module boundaries and layering | Access to another module's internal packages, module cycles, Spring in domain code, unexpected packages. | Coupling through shared data or timing. | `java`: `ModularityTest`, `HexagonalLayeringTest` | **enforced** for the built modules, each rule with a fixture that fails it |
-| API contract | A response deviates from the OpenAPI schema. | Operations and status codes no test exercises; the web app's hand-written types drifting from the contract, because the generated client is deferred (ADR 0012). | `java`: `*HttpContractTest` | planned |
+| API contract | A response deviates from the OpenAPI schema. | Operations and status codes no test exercises; the web app's hand-written types drifting from the contract, because the generated client is deferred (ADR 0012). | `java`: `*HttpContractTest` | **partial**: the quote and membership operations and the HTTP edge's problems are validated in `java`, with negative fixtures in `ContractTest`; the shipments operations are planned |
 | Tenant isolation | A tenant table lacks forced row-level security; the runtime role could bypass it; another tenant's IDs are readable through SQL or HTTP. | SQL run as the owner role; the shared event publication table; strength of the demo authentication. | `java`: `RowLevelSecurityCatalogTest`, `RowLevelSecurityIntegrationTest`, `CrossTenantAccessTest` | planned |
 | Domain invariants | Golden tariff prices, monotonicity and rounding properties, idempotent booking, expiry rules. | Wrong requirements. | `java` (parameterized property tests included: `SyntheticTariffPropertiesTest`) | partial: the tariff, expiry and booking tests run in `java`, booking with stores in memory; idempotent booking against the database is planned |
 | Event delivery | A failed audit write is lost, or a replay has a second effect. | Consumers nobody has written yet. | `java`: `AuditReplayIntegrationTest` | planned |
@@ -223,8 +234,8 @@ architecture/workspace.dsl       C4 model of the product: the structural authori
 contracts/shipping.openapi.yaml  HTTP contract (ADR 0012)
 libs/c4-contract-kit/            Gradle project :libs:c4-contract-kit, the model-versus-code checker, with its
                                  self-model architecture/self.dsl
-apps/shipping-api/               Gradle project :apps:shipping-api: the first code of the quotes, shipments and tenants
-                                 modules, with their tests and the architecture tests
+apps/shipping-api/               Gradle project :apps:shipping-api: the quotes, shipments and tenants modules and
+                                 the HTTP edge, with their tests, the HTTP contract tests and the architecture tests
 apps/shipping-web/               the workbench's agent rules (AGENTS.md); the workbench itself is planned
 docs/                            Markdown with frontmatter: adr/, modules/, flows/, capabilities/, ui/, demos/ (one
                                  demonstration per pull request, how to write one, and the milestone deck), gaps.md,
@@ -261,7 +272,8 @@ off.
 | Build the documentation site into `tools/docs/build/site/` (open its `index.html`) | `./gradlew :tools:docs:site` |
 
 Not built yet; their commands arrive with their code: a developer toolchain bootstrap script, PostgreSQL 18.6 with
-the two roles, the API with the `demo` profile, the workbench, web checks, and contract and end-to-end tests.
+the two roles, the API with the `demo` profile, the workbench, web checks, and end-to-end tests. The API's HTTP contract
+tests run in `./gradlew check`.
 
 ## Honest limits
 
@@ -271,8 +283,8 @@ the two roles, the API with the `demo` profile, the workbench, web checks, and c
 - "No static evidence" does not mean unused. Reflection, configuration and SQL are invisible to bytecode analysis.
 - The model can be weakened to make a failing build pass. The checker does not understand intent; the owner's
   approval of model changes is the intended control, and it is not enforced yet.
-- The planned authentication is a demo scheme with public, guessable tokens. It is to prove tenant derivation and
-  isolation, not login security.
+- The authentication is a demo scheme with public, guessable tokens. It is to prove tenant derivation and isolation,
+  not login security.
 - Pre-use dependency enforcement covers declared dependencies on the sanctioned CI path only.
 - The tariff, carrier and labels are fictional. Nothing here is production-ready. The application is not deployed
   anywhere; only the documentation site is published.
