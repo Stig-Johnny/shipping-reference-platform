@@ -3,7 +3,7 @@ title: "Book, browse and download a simulated shipment label"
 description: "A clerk can book an offer once, safely retry it, browse only their tenant's shipments and download an escaped SVG label."
 status: accepted
 updated: 2026-11-08
-pr: 0
+pr: 89
 kind: feature
 recorded: 2026-11-08
 tests: [ShipmentsHttpContractTest, SvgLabelRendererTest, ContractTest]
