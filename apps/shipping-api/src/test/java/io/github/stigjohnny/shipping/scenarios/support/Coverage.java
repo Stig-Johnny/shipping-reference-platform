@@ -7,6 +7,7 @@ import com.tngtech.archunit.core.domain.JavaCodeUnit;
 import com.tngtech.archunit.core.domain.JavaCodeUnitAccess;
 import com.tngtech.archunit.core.domain.JavaFieldAccess;
 import io.github.stigjohnny.shipping.architecture.ClassDirectories;
+import java.lang.constant.ClassDesc;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.RecordComponent;
@@ -269,12 +270,16 @@ public final class Coverage {
             String from = model.moduleOf(origin.getName()).orElseThrow();
             for (JavaCodeUnitAccess<?> access : origin.getCodeUnitAccessesFromSelf()) {
                 forbidden(access.getTargetOwner().getName(), access.getName(), access.getOrigin(),
-                        access.getLineNumber(), gaps);
+                        access.getLineNumber(), "(" + access.getTarget().getRawParameterTypes().stream()
+                                .map(Coverage::descriptor).collect(java.util.stream.Collectors.joining()) + ")"
+                                + descriptor(access.getTarget().getRawReturnType()),
+                        access.getClass().getSimpleName(), gaps);
                 site(model, values, from, access).ifPresent(sites::add);
             }
             for (JavaFieldAccess access : origin.getFieldAccessesFromSelf()) {
                 forbidden(access.getTargetOwner().getName(), access.getName(), access.getOrigin(),
-                        access.getLineNumber(), gaps);
+                        access.getLineNumber(), descriptor(access.getTarget().getRawType()),
+                        "field " + access.getAccessType(), gaps);
                 field(model, values, from, access).ifPresent(sites::add);
             }
             for (JavaCodeUnit unit : origin.getCodeUnits()) {
@@ -310,14 +315,16 @@ public final class Coverage {
         }
     }
 
-    private static void forbidden(String owner, String member, JavaCodeUnit origin, int line, List<String> gaps) {
+    private static void forbidden(String owner, String member, JavaCodeUnit origin, int line,
+            String descriptor, String kind, List<String> gaps) {
         if (unsupportedDispatch(owner, member)) {
             gaps.add("call site " + origin.getFullName() + " (line " + line + ") uses " + owner + "#" + member
                     + ": asynchronous dispatch is unsupported; task completion cannot be proven by this recorder");
         }
         if (FORBIDDEN.stream().anyMatch(owner::startsWith) && !PUBLISH.equals(owner + "#" + member)) {
-            gaps.add("call site " + origin.getFullName() + " (line " + line + ") uses " + owner + ", which could reach "
-                    + "an implementation behind its proxy");
+            gaps.add("call site " + origin.getFullName() + " [" + origin.getDescriptor() + "] (line " + line
+                    + ") uses " + owner + "#" + member + descriptor + " [" + kind
+                    + "], which could reach an implementation behind its proxy");
         }
     }
 
@@ -419,15 +426,34 @@ public final class Coverage {
     /** A method of a module that takes another module's api service: its receiver cannot be proven a proxy. */
     private static void serviceParameters(ScenarioModel model, ValueTypes values, String from, JavaCodeUnit unit,
             List<String> gaps) {
-        for (JavaClass parameter : unit.getRawParameterTypes()) {
+        for (int index = 0; index < unit.getRawParameterTypes().size(); index++) {
+            JavaClass parameter = unit.getRawParameterTypes().get(index);
             Optional<Class<?>> type = load(parameter.getName());
             boolean service = type.filter(t -> t.isInterface() && !values.valueOnly(t)).flatMap(model::apiModuleOf)
                     .filter(m -> !m.equals(from)).isPresent();
             if (service) {
-                gaps.add("method " + unit.getFullName() + " takes another module's api service as a parameter, so the "
-                        + "receiver of a call on it cannot be proven to be an observer's proxy");
+                gaps.add("method " + unit.getFullName() + " [" + unit.getDescriptor() + "] (line "
+                        + unit.getSourceCodeLocation().getLineNumber() + ") takes another module's api service as "
+                        + "parameter " + index + ": " + parameter.getName() + " [" + descriptor(parameter)
+                        + "], so the receiver of a call on it cannot be proven to be an observer's proxy");
             }
         }
+    }
+
+    private static String descriptor(JavaClass type) {
+        return switch (type.getName()) {
+            case "void" -> "V";
+            case "boolean" -> "Z";
+            case "byte" -> "B";
+            case "short" -> "S";
+            case "char" -> "C";
+            case "int" -> "I";
+            case "long" -> "J";
+            case "float" -> "F";
+            case "double" -> "D";
+            default -> type.isArray() ? type.getName().replace('.', '/')
+                    : ClassDesc.of(type.getName()).descriptorString();
+        };
     }
 
     private static Optional<Class<?>> load(String name) {

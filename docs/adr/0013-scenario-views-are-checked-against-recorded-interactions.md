@@ -1,6 +1,6 @@
 ---
 title: "ADR 0013: Scenario views are checked against recorded interactions"
-description: "Each executable scenario view has a validated sidecar; a test-only recorder observes module API calls and publications, bounded checks reject detected coverage gaps, and a comparator checks the recording against the steps, with outcomes asserted separately."
+description: "Each executable scenario view has a validated sidecar; a test-only recorder observes module API calls and publications, bounded checks retain detected coverage gaps with an exact debt ledger, and a comparator checks the recording against the steps, with outcomes asserted separately."
 status: accepted
 updated: 2026-11-08
 date: 2026-11-07
@@ -12,6 +12,7 @@ enforcedBy:
   - "java: ReachabilityTest checks shared receivers and containers in both owning-module traversal orders"
   - "java: SidecarValidationTest and ScenarioModelTest reject sidecars and model text that do not match the views, and ScenarioModelTest compares the reader with Structurizr"
   - "java: ScenarioReportTest holds each verdict to its claim"
+  - "java: CoverageLedgerTest rejects new, changed, disappeared and duplicate coverage debt"
 plannedEnforcement:
   - "java: FirstBookingScenarioTest, BookingReplayScenarioTest and LabelScenarioTest"
   - "java: HTTP exchanges observed at the API's edge, database steps observed through JDBC, listener executions and commits observed, so that AFTER_COMMIT steps can be evaluated"
@@ -34,7 +35,8 @@ does at run time, without claiming more than one run shows?
 - A diagram that a reviewer reads should fail the build when the code stops doing what it draws.
 - A step is identified by data, never by matching its prose.
 - Interactions are recorded independently of what the scenario expects, or extra ones stay invisible.
-- Detected coverage gaps must fail; unexamined cases must be disclosed.
+- Detected coverage gaps must prevent conformance; only exact reviewed debt may pass the build as incomplete.
+- Unexamined cases must be disclosed.
 - No new dependency; c4-contract-kit stays free of Spring, and `Conformance.check` keeps its meaning.
 - A claim follows its evidence: one run shows one run.
 
@@ -73,7 +75,7 @@ Chosen option 1.
   interface of a module's `api` package record each call of it, and a wrapped event multicaster records each event
   published through the application context. The caller is the first frame of the application on the stack, mapped to
   a module by `contract.packages`. It records without knowing the steps.
-- **Detected coverage gaps fail, before and after each run.** The census classifies interface signatures as
+- **Detected coverage gaps remain refused, before and after each run.** The census classifies interface signatures as
   interceptable; the walk separately checks reachable receivers. Neither proves all runtime receivers or task
   lifetimes. Unexamined cases remain in `docs/gaps.md`, section 6.
   - Every bean that implements an `api` interface must be wrapped, and a probe event must reach the publication
@@ -99,16 +101,31 @@ Chosen option 1.
   - No run observes commits yet, so an `AFTER_COMMIT` step that would be evaluated is a gap. A sidecar that repeats
     one signature with a varying cardinality is refused, since an interaction could belong to more than one step.
 - **The comparator** reports `MISSING_STEP`, `UNEXPECTED_INTERACTION`, `ORDER_VIOLATION` and `COVERAGE_GAP`, each of
-  which fails the scenario, and `NOT_EVALUATED`, which is counted and does not: a step that touches a person, a
+  which prevents scenario conformance, and `NOT_EVALUATED`, which is counted and does not: a step that touches a person, a
   simulated system or a planned module, or whose kind the run cannot observe. A run without a stimulus fails. Outcomes
   are asserted separately from the interactions.
 - **Reports.** Each run writes `build/reports/scenarios/<view slug>.json`, schema `shipping-scenarios/report/v1`, and a
   Markdown version, before the test asserts anything. They name the revision and the SHA-256 digests of the model, the
   sidecar and the main classes, and hold no argument, return value or payload.
-- **The claim** follows the verdict. `CONFORMS`: in one exercised run, the evaluated steps, counted, conformed within
+- **The claim** follows the verdict. `COVERAGE_INCOMPLETE`: recorded steps matched, but exact known gaps prevent
+  scenario conformance; the report states "coverage incomplete: N known gaps" and lists outcomes separately.
+  `CONFORMS` is available only without detected coverage gaps: in one exercised run, the evaluated steps, counted, conformed within
   the recorder's coverage, the others were neither checked nor assumed, and not all paths, schedules or inputs are
   covered. `NO_STEP_EVALUATED`, never `CONFORMS`, for a run that evaluates no step: no declared step was verified.
-  `DOES_NOT_CONFORM`: the run does not conform, with its findings.
+  `DOES_NOT_CONFORM`: interaction failures, unledgered gaps or ledger drift block the build, with their findings.
+- **Temporary coverage-debt decision (option 5, 2026-11-08).** The build may accept an incomplete run only when
+  its known refusals match `apps/shipping-api/src/test/resources/scenario-coverage-gaps.tsv` exactly, its remaining
+  checks pass and its outcomes hold. This changes build acceptance, not the census, receiver walk or comparison.
+  Every original `COVERAGE_GAP` remains failing in the raw comparison; `coverage.verified` stays false, and failed
+  coverage checks remain visible. A separate `buildBlockers` list and `buildAcceptable` field describe build policy.
+  The ledger stores each finding's target owner/member/JVM descriptor, origin signature/descriptor, access kind and
+  line where available; factory findings include parameter index and type. Each row has its classification and
+  "phase 3 / option 2". Matching uses the entire finding and multiplicity, never a package, owner, pattern or count.
+  A new or changed finding, a removed ledger entry, or a disappeared finding with a stale ledger entry fails.
+  Duplicate entries fail parsing; duplicate findings cannot collapse into one. Generation never updates this ledger.
+  Ledger edits are risk level 3 control changes and require review; a green build is no coverage proof.
+  Phase 3 / option 2 means actual production factory invocation witnesses plus coverage of the concrete Spring
+  receiver/callback graph. No safe-framework classification or production-composition witness is claimed here.
 - **Placement.** The scenario support is test code of `:apps:shipping-api` (package `scenarios`). Moving its model,
   comparator and reports into c4-contract-kit, free of Spring and under an entry point of their own, is later work.
 
@@ -149,17 +166,28 @@ Chosen option 1.
 
 ## Implementation status (2026-11-08)
 
-What is built, and where it differs from the decision above. The decision stands; the differences are open work.
+What is built and what remains open under the temporary coverage-debt decision above.
 
 - **In process, on the built modules.** The scenarios run in a Spring context that the tests wire, with the real
-  classes of tenants, quotes and shipments and the in-memory stores; the application's own wiring is planned. HTTP
-  exchanges, database steps and listener executions are not observed yet, so those steps are not evaluated, and each
-  report says why.
+  classes of tenants, quotes and shipments and the in-memory stores. Their explicit configurations use
+  `@TestConfiguration` so the separate HTTP tests do not discover scenario fixtures through application component
+  scanning. The HTTP tests use the application's wiring; the scenarios call use cases directly. HTTP exchanges,
+  database steps and listener executions are not observed by the scenario recorder yet, so those steps are not
+  evaluated, and each report says why.
 - **Two of five scenarios.** `ScenarioQuote` evaluates two of its six steps: `CurrentTenant.require()` once, then
   `QuoteIssued` published once. `ScenarioTenantDenial` evaluates two of its six, through the real booking use case:
   shipments' `CurrentTenant.require()`, then `QuoteOffers.findOffer`. Its outcomes (the booking is rejected as for an
   unknown quote, nothing is stored for Beta, Alpha's offer stays bookable) are asserted by the test, apart from the
   steps. First booking, booking replay and label are planned.
+- **77 known gaps remain.** The full-main census includes the HTTP adapters even though the direct-use-case
+  scenarios do not instantiate them. It retains 75 Spring accesses and two `QuotesConfiguration` factory parameters;
+  both current scenarios say `COVERAGE_INCOMPLETE`. The factories are not witnessed by the scenario wiring.
+  Classes in the ledger are fixed constants (10), HTTP assembly (23), authentication construction/state (4),
+  credential erasure callback (1), filter superclass construction (1), security builders/callbacks (22), provider
+  composition (1), environment dispatch (1), ambient security state (6), authentication/authority extraction (3),
+  framework dispatch to application callbacks (3), and foreign-service factory parameters (2). These labels describe
+  the missing proof, not exemptions. Ambient state, inherited credential callbacks and unknown implementations
+  remain unproved; closing them is phase 3 / option 2.
 - **Refused, not evaluated.** Evaluatable `AFTER_COMMIT` steps, task-capable dispatch found in the census, and repeated
   signatures with varying cardinalities are refused. Unexamined dispatch remains a limit (`docs/gaps.md`, section 6).
 

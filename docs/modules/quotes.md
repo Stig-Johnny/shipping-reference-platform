@@ -15,21 +15,32 @@ all of its code is pricing.
 
 ## Implementation state
 
-Built: the public API below, the domain model and two application classes with their port: `CreateQuote`,
-`QuoteOffersService` and `QuoteStore`. Their tests use a store in memory, a fixed clock and deterministic IDs.
-`quotes.synthetic-tariff` and `quotes.quote-expiry` are shipped; `quotes.create-quote` and `quotes.offer-lookup`
-are partial, since `QuotesHttpContractTest` and `QuotesModuleIntegrationTest` are planned; `quotes.get-quote` is
-planned.
+Built: the public API below, the domain model, the application layer (`CreateQuote`, `GetQuote`,
+`QuoteOffersService` and the port `QuoteStore`), and the web adapter with both operations. `QuotesConfiguration`
+makes the use cases Spring beans. `QuotesHttpContractTest` starts the whole application and validates every response
+it exercises against the contract, problems included.
 
-Planned: `GetQuote`, both adapters, the migration and the demo fixture, and the wiring into a running application.
-Until then no class of the module is a Spring bean: `CreateQuote`'s `@Transactional` has no effect yet, and nothing
-yet shows that `QuoteIssued` is published inside the quote's transaction.
+The application tests use a store in memory, a fixed clock and deterministic IDs: the `QuoteStore` port has no JDBC
+adapter yet. So `QuotesHttpContractTest` proves the HTTP edge, not persistence. `quotes.synthetic-tariff` and
+`quotes.quote-expiry` are shipped. `quotes.create-quote` stays partial although its three tests pass, since no quote
+is stored in PostgreSQL yet. `quotes.get-quote` and `quotes.offer-lookup` are partial too: `QuotesModuleIntegrationTest`
+is planned.
 
-Scenario tests wire these classes in a test context. `CoverageBypassTest` keeps three quote outcome assertions for
+Planned: the JDBC adapter, the migration and the demo fixture, and the `demo` profile that runs the application
+against PostgreSQL; until then the application starts in tests only. No transaction manager exists yet, so the
+`@Transactional` of `CreateQuote` and `GetQuote` has no effect, and nothing yet shows that `QuoteIssued` is published
+inside the quote's transaction.
+
+Scenario tests wire these classes explicitly with `@TestConfiguration`, so application component scanning in the
+HTTP tests does not discover the scenario fixtures. `CoverageBypassTest` keeps three quote outcome assertions for
 each altered quote implementation, including value behaviour and work held on virtual threads or pre-existing
 executor workers until after close. The latter fixtures are refused by their dispatch sites in the census.
 `ReachabilityTest` checks shared raw tenant references and containers in both owning-module traversal orders.
-These are bounded coverage checks, not proof of every receiver or task lifetime; see [known gaps](../gaps.md#6-tests-and-quality-gates).
+The scenario reports retain 77 known gaps as `COVERAGE_INCOMPLETE`, including two unwitnessed
+`QuotesConfiguration` factory parameters and the Spring HTTP accesses. The exact classified ledger, tagged
+"phase 3 / option 2", rejects additions, changes and stale entries (`CoverageLedgerTest`); `CoverageBypassTest`
+also rejects a new Spring access with a previously ledgered owner/member. Passing this gate proves no framework
+coverage. These are bounded coverage checks, not proof of every receiver or task lifetime; see [known gaps](../gaps.md#6-tests-and-quality-gates).
 
 ## Responsibilities
 
@@ -172,7 +183,8 @@ Worked example (the contract's example): `NO 0150` to `SE 11122`, 1200 g, 300 x 
 - `CreateQuote.handle(QuoteRequest) -> QuoteResult`, `@Transactional`: tenant from `CurrentTenant.require()`;
   `rating.quote(tenant, request, clock.instant())`; on `Offered` insert through the `QuoteStore` port and publish
   `QuoteIssued`; on `Unavailable` store and publish nothing.
-- `GetQuote.handle(QuoteId) -> Optional<Quote>`, read-only, tenant from `CurrentTenant`.
+- `GetQuote.handle(QuoteId) -> Optional<Quote>`, `@Transactional(readOnly = true)`, tenant from `CurrentTenant`; the
+  caller computes the status at the clock's instant.
 - `QuoteOffersService implements QuoteOffers`: loads the quote by tenant and ID and returns the `OfferLookup`.
 - `QuoteStore` port: `void insert(Quote)`, `Optional<Quote> find(TenantId, QuoteId)`.
 - Collaborators are constructor-injected: `Clock`, `IdGenerator`, `CurrentTenant`, `ApplicationEventPublisher`,
@@ -180,11 +192,20 @@ Worked example (the contract's example): `NO 0150` to `SE 11122`, 1200 g, 300 x 
 
 ## Adapters
 
-- `internal.adapter.in.web`: `QuotesController` (both operations), request and response records that mirror the
-  contract, mapping of `QuoteResult` and validation failures to problems (`validation-failed`,
-  `no-offer-available`, `quote-not-found`).
-- `internal.adapter.out.jdbc`: `JdbcQuoteStore` with Spring JDBC's `JdbcClient` (ADR 0012); it writes and reads a
-  `Quote` as one aggregate (quote plus offers).
+- `internal.adapter.in.web`, built: `QuotesController` (both operations), `QuoteRequestBody` and `QuoteBody`, the
+  records that mirror the contract, and `QuoteProblems`, which maps `QuoteResult.Unavailable` to
+  `422 no-offer-available` with its reason and a missing quote to `404 quote-not-found`, with the same detail for
+  another tenant's quote as for an unknown one. Bean Validation on the request records checks the contract's bounds;
+  the HTTP edge's `FallbackProblemHandler` turns their failures, and unknown members and wrong JSON types, into
+  `400 validation-failed` with each invalid value named. An unknown member is named only when its escaped JSON
+  Pointer fits 200 Unicode code points; otherwise it is `400 malformed-request` without `errors`
+  (`ProblemDetailsHttpContractTest`, including supplementary characters at 200 and 201 code points).
+  The optional `serviceLevel` may be absent but never `null`,
+  as the contract's conventions say: `OptionalMember` reads it, and an explicit `null` is `400 validation-failed`
+  naming `/serviceLevel`. Every optional member of a request body is read that way. `QuotesConfiguration` wires the
+  use cases with the application's clock and random UUIDs as the module's IDs.
+- `internal.adapter.out.jdbc`, planned: `JdbcQuoteStore` with Spring JDBC's `JdbcClient` (ADR 0012); it writes and
+  reads a `Quote` as one aggregate (quote plus offers).
 
 ## Data: schema `quotes` (migration `V2__quotes.sql`)
 

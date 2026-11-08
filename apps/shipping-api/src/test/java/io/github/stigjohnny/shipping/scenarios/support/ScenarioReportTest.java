@@ -51,20 +51,44 @@ class ScenarioReportTest {
                 "a-step", 0, "expected 1, observed 0")));
 
         assertThat(report.verdict()).isEqualTo("DOES_NOT_CONFORM");
-        assertThat(report.claim()).isEqualTo("This run does not conform to its declared steps: 1 findings fail it, "
-                + "listed below.");
+        assertThat(report.claim()).isEqualTo("This run does not conform to its declared steps: 1 build blockers, listed below. "
+                + "Known coverage gaps remain refused separately.");
         assertThat(report.markdown()).doesNotContain("conformed to their declarations", "No declared step");
     }
 
+    @Test
+    void knownRefusalsStayInJsonAndNeverClaimConformanceEvenWithoutEvaluatedSteps() {
+        for (Status status : List.of(Status.PASSED, Status.NOT_EVALUATED)) {
+            String gap = "a refused access";
+            List<Finding> findings = List.of(new Finding(FindingType.COVERAGE_GAP, "", "", 0, gap));
+            CoverageLedger.Entry entry = new CoverageLedger.Entry("HTTP response/problem assembly",
+                    "phase 3 / option 2", gap);
+            ScenarioReport report = report(status, findings,
+                    new Coverage.Result(List.of(), List.of(new Coverage.Check("census", false, gap)), List.of(gap),
+                            Set.of(), true), new CoverageLedger.Assessment(List.of(entry), List.of()));
+            assertThat(report.verdict()).isEqualTo("COVERAGE_INCOMPLETE");
+            assertThat(report.claim()).contains("coverage incomplete: 1 known gaps", "No scenario conformance");
+            assertThat(report.markdown()).contains("**Verdict: COVERAGE_INCOMPLETE**", "FAILED: census",
+                    "**COVERAGE_GAP**", "phase 3 / option 2").doesNotContain("**Verdict: CONFORMS**");
+            assertThat(Json.write(report.json())).contains("\"verified\": false", "\"knownGapCount\": 1",
+                    "\"type\": \"COVERAGE_GAP\"", "\"fails\": true", "\"buildAcceptable\": true");
+        }
+    }
+
     private static ScenarioReport report(Status status, List<Finding> findings) {
+        return report(status, findings, new Coverage.Result(List.of(), List.of(), List.of(), Set.of(), true),
+                new CoverageLedger.Assessment(List.of(), List.of()));
+    }
+
+    private static ScenarioReport report(Status status, List<Finding> findings, Coverage.Result coverage,
+            CoverageLedger.Assessment ledger) {
         Sidecar sidecar = new Sidecar("fixture.json", "ScenarioFixture", List.of(STEP));
         Comparison.Result comparison = new Comparison.Result(List.of(new StepResult(STEP, status, "", List.of())),
                 findings, Map.of());
-        Coverage.Result coverage = new Coverage.Result(List.of(), List.of(), List.of(), Set.of(), true);
         ScenarioReport.Provenance provenance = new ScenarioReport.Provenance("revision", "model", "0", "fixture.json",
                 "0", "0");
         return new ScenarioReport(sidecar, "Fixture", "ScenarioReportTest", "report", provenance,
                 Observers.inProcess(), coverage, List.of(new Recorder.Stimulus("run", "a stimulus", "T1", 0, 0)),
-                List.of(), comparison, List.of());
+                List.of(), comparison, List.of(), ledger);
     }
 }

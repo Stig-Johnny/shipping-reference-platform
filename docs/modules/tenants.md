@@ -15,20 +15,40 @@ authentication and tenant isolation. A minimal supporting slice: just enough ide
 
 ## Implementation state
 
-Built: `TenantId`, `CurrentTenant` and `MissingTenantContextException` in `tenants.api`, and `ThreadTenantContext` in
-`internal.application`. It binds a tenant to the current thread for one unit of work with a `ScopedValue`, so the
-binding ends when the work returns or throws and the previous one applies again, and independently started threads do
-not inherit the binding (`ThreadTenantContextTest`); child tasks forked through `StructuredTaskScope` can inherit it.
-The quotes module takes its tenant from `CurrentTenant`.
+Built:
+
+- `TenantId`, `UserId`, `CurrentTenant` and `MissingTenantContextException` in `tenants.api`.
+- `ThreadTenantContext` in `internal.application`. It binds a tenant to the current thread for one unit of work with a
+  `ScopedValue`, so the binding ends when the work returns or throws and the previous one applies again, and
+  independently started threads do not inherit the binding (`ThreadTenantContextTest`); child tasks forked through
+  `StructuredTaskScope` can inherit it. The quotes module takes its tenant from `CurrentTenant`.
+- Demo authentication over HTTP. `DemoToken` checks the format and computes the SHA-256 (`DemoTokenTest`).
+  `ResolveMembership` asks the `MembershipDirectory` port by that hash only. Spring Security's chain and
+  `DemoTokenAuthenticationFilter` authenticate the bearer token and bind the member's tenant for the rest of the
+  request; `GET /api/v1/me` answers from the authenticated membership (`DemoTokenAuthenticationTest`,
+  `TenantsHttpContractTest`).
+
+These tests start the whole application, but the `MembershipDirectory` port has no database adapter yet: a test
+double holds the synthetic users below. So they prove the HTTP edge, the 401 and 403 problems and that the tenant
+comes from the membership only, not the lookup in PostgreSQL. That is why `tenants.demo-authentication` and
+`tenants.current-membership` are partial although every test they name passes.
 
 In the scenario coverage fixtures, `ReachabilityTest` shares one raw `ThreadTenantContext` between tenant-owned and
 quote-owned roots, directly and through shared containers, and requires a bypass gap in both traversal orders.
 Visits track object identity and owning module. This checks boundary snapshots, not every runtime reference
-([known gaps](../gaps.md#6-tests-and-quality-gates)).
+([known gaps](../gaps.md#6-tests-and-quality-gates)). Scenario configurations use `@TestConfiguration` and are wired
+explicitly, so the HTTP tests do not discover them through application component scanning.
+Both scenarios retain the full-main census and report `COVERAGE_INCOMPLETE`, "coverage incomplete: 77 known gaps".
+The exact ledger includes the Spring authentication/security accesses and two quotes factory parameters; each is
+classified and tagged "phase 3 / option 2". Ambient security state and framework callbacks remain unproved.
+Only exact reviewed debt can pass the build; new, changed or disappeared findings require an explicit ledger update
+(ADR 0013). Separate HTTP tests do not make scenario HTTP exchanges observed.
 
-Planned: everything else on this page, demo authentication, the HTTP filter that binds the tenant, `TenantScope`,
-`UserId`, the transaction manager that sets `app.tenant_id`, prototype flags, `GET /api/v1/me` and the schema. Every
-capability of the module is planned.
+Planned: the JDBC adapter `JdbcMembershipDirectory` that calls `tenants.resolve_demo_token`, the `demo` profile's
+database configuration (until then the application starts in tests only), `TenantScope`, the transaction manager
+that sets `app.tenant_id`, prototype flags (until then every flag is off and `enabledFlags` is empty) and the schema.
+`tenants.row-level-security`, `tenants.cross-tenant-denial`, `tenants.tenant-scope-for-events` and
+`tenants.prototype-flags` are planned.
 
 ## Responsibilities
 
@@ -91,17 +111,34 @@ These tokens are public, guessable test fixtures, not secrets. Rules:
 - Known user without membership: `403 no-tenant-membership`.
 - Tenant headers and query hints never affect membership. Unknown JSON members, including tenantId, produce 400
   validation-failed, consistent with OpenAPI. DemoTokenAuthenticationTest verifies both behaviors.
-- The filter chain is registered only with the `demo` Spring profile. Without it, every `/api/**` request returns
-  `401 unauthenticated`.
+- The demo token filter is part of the security chain only with the `demo` Spring profile. Without it nobody
+  authenticates, and every `/api/**` request returns `401 unauthenticated`. Paths outside `/api` serve nothing: the
+  chain denies them, with `401` to anyone unauthenticated, `403` to a user without a tenant and the generic
+  `404 not-found` to a member.
+- A request that Spring Security's firewall refuses, such as a path with `;` or an encoded `/` or a method the
+  server does not accept, is `400 malformed-request` before it is authenticated: the module's
+  `RequestRejectedHandler` hands the rejection to the MVC exception resolvers, and the HTTP edge writes the problem,
+  with the correlation ID and `Cache-Control: no-store`.
+- Spring Boot's generated user never exists, because the module defines its own `AuthenticationManager`
+  (`security/reviews/maven--spring-security--7.1.2.md`, condition 3). `DemoTokenAuthenticationTest` checks the beans
+  and the startup log of the application with and without the `demo` profile, and the `java` workflow fails when
+  "Using generated security password" appears in the build's output or in any test result or test report.
+  `tools/ci/check-generated-password.sh` also refuses missing output, failed file discovery and read errors;
+  `check-generated-password-test.sh` proves these cases with synthetic fixtures in the same workflow.
 - Limits are stated in the contract's `demoBearer` description and in `docs/gaps.md`.
 
 ## Request and transaction flow
 
 1. `CorrelationIdFilter` (isolated root class, highest precedence) sets the correlation ID.
 2. Spring Security's chain (stateless; CSRF protection disabled because the API uses no cookies and accepts only
-   bearer tokens) runs `DemoTokenAuthenticationFilter`: hashes the token, calls `tenants.resolve_demo_token`, sets the
-   `SecurityContext` with a `TenantPrincipal(Membership)` and binds the tenant to the thread. The binding
-   is cleared in a `finally` block.
+   bearer tokens) runs `DemoTokenAuthenticationFilter`. It hands the token to the module's `AuthenticationManager`,
+   whose `DemoTokenAuthenticationProvider` resolves it through `ResolveMembership`: the SHA-256 goes to the
+   `MembershipDirectory` port, whose planned JDBC adapter calls `tenants.resolve_demo_token`. The filter sets the
+   `SecurityContext` with a `TenantPrincipal(Membership)` and runs the rest of the request inside
+   `ThreadTenantContext.runAs(tenant, ...)`, so the binding ends when the request returns or throws. A member has the
+   authority `TENANT_MEMBER`, which every `/api/**` path requires; a user without a tenant has none and gets `403`.
+   The entry point and the access-denied handler hand their exceptions to the MVC exception resolvers, where
+   `AuthenticationProblems` writes the `401` and `403` problems.
 3. Every transaction starts through `TenantBindingTransactionManager` (extends Spring's `JdbcTransactionManager`),
    whose `prepareTransactionalConnection` runs `select set_config('app.tenant_id', ?, true)` with the bound tenant,
    or with `''` when none is bound. The value is transaction-local and vanishes at commit or rollback.
@@ -125,14 +162,20 @@ tells the web app what to show (`Membership.enabledFlags`).
 
 ## Package contents
 
+Items marked built exist; the rest is planned.
+
 - `internal.domain`: `Membership(UserId, TenantId, MembershipRole, String userDisplayName, String tenantDisplayName)`,
-  `MembershipRole` (`CLERK`), `DemoToken` (pattern, `sha256()`), `FlagKey` (`LABEL_PREVIEW("label-preview")`),
-  `FlagDefinition(FlagKey, String owner, LocalDate expiresOn, String purpose)`, `FlagDefinitions`.
+  `MembershipRole` (`CLERK`) and `DemoToken` (pattern, `sha256()`), built; `FlagKey`
+  (`LABEL_PREVIEW("label-preview")`), `FlagDefinition(FlagKey, String owner, LocalDate expiresOn, String purpose)`,
+  `FlagDefinitions`.
 - `internal.application`: `ResolveMembership` (`MembershipResolution`: sealed `Member`, `UnknownToken`,
-  `NoMembership`), `ThreadTenantContext implements CurrentTenant`, `TransactionalTenantScope implements TenantScope`,
-  `PrototypeFlags`, `GetCurrentMembership`; ports `MembershipDirectory`, `FlagSettings`.
-- `internal.adapter.in.web`: `SecurityConfiguration`, `DemoTokenAuthenticationFilter`, `MeController`
-  (`getCurrentMembership`), problem mapping for `unauthenticated` and `no-tenant-membership`.
+  `NoMembership`), the port `MembershipDirectory` and `ThreadTenantContext implements CurrentTenant`, built;
+  `TransactionalTenantScope implements TenantScope`, `PrototypeFlags`, `GetCurrentMembership` (`MeController` reads
+  the membership from the principal until flags exist), the port `FlagSettings`.
+- `internal.adapter.in.web`, built: `SecurityConfiguration` (the chain, the module's beans and its
+  `AuthenticationManager`, so Spring Boot never generates a user), `DemoTokenAuthenticationFilter`,
+  `DemoTokenAuthenticationProvider`, `DemoTokenAuthentication`, `TenantPrincipal`, `MeController`
+  (`getCurrentMembership`) and `AuthenticationProblems`, which maps `unauthenticated` and `no-tenant-membership`.
 - `internal.adapter.out.jdbc`: `TenantBindingTransactionManager`, `JdbcMembershipDirectory` (calls the function),
   `JdbcFlagSettings`.
 

@@ -139,15 +139,15 @@ class BrainGeneratorTest {
     void aPlannedCapabilityIsNeverShownAsShipped() {
         Map<String, String> files = GeneratedFiles.generate(sources());
 
-        // quotes is built and has shipped capabilities; its planned one lists no evidence. tenants is built, but none
-        // of its capabilities has a passing test yet.
-        assertThat(file(files, "docs/brain/quotes.md")).contains("| `quotes.get-quote` | planned | "
-                + "QuotesModuleIntegrationTest, QuotesHttpContractTest | none yet |", "| `quotes.synthetic-tariff` | shipped | "
+        // quotes is built and has shipped capabilities. tenants is built and none of its capabilities is shipped; its
+        // planned ones list no evidence.
+        assertThat(file(files, "docs/brain/quotes.md")).contains("| `quotes.synthetic-tariff` | shipped | "
                 + "SyntheticTariffTest, SyntheticTariffPropertiesTest, MoneyTest, ParcelTest | SyntheticTariffTest, "
                 + "SyntheticTariffPropertiesTest, MoneyTest, ParcelTest |", "| `quotes.create-quote` | partial | RatingTest, "
-                + "CreateQuoteTest, QuotesHttpContractTest | RatingTest, CreateQuoteTest |");
-        assertThat(file(files, "docs/brain/tenants.md")).contains("- **Status in the model:** built")
-                .doesNotContain("| shipped |", "| partial |");
+                + "CreateQuoteTest, QuotesHttpContractTest | RatingTest, CreateQuoteTest, QuotesHttpContractTest |");
+        assertThat(file(files, "docs/brain/tenants.md")).contains("- **Status in the model:** built",
+                "| `tenants.prototype-flags` | planned | PrototypeFlagsTest, PrototypeFlagExpiryTest, "
+                        + "prototype-flag.spec.ts | none yet |").doesNotContain("| shipped |");
         Capability planned = sources().capabilities().controls().stream()
                 .filter(c -> c.status() == Capability.Status.PLANNED).findFirst().orElseThrow();
         assertThat(file(files, "BRAIN.md")).contains("| `control.brain-check` | shipped | `java` | "

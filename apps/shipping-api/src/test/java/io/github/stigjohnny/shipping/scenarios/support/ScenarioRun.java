@@ -46,11 +46,12 @@ public final class ScenarioRun implements AutoCloseable {
 
     /** The result of a run. */
     public record Result(Comparison.Result comparison, List<Outcome> outcomes, List<Recorder.Interaction> interactions,
-            Path markdown, String verdict) {
+            Path markdown, String verdict, List<Comparison.Finding> blocking) {
 
         public Result {
             outcomes = List.copyOf(outcomes);
             interactions = List.copyOf(interactions);
+            blocking = List.copyOf(blocking);
         }
 
         public boolean outcomesHeld() {
@@ -208,18 +209,21 @@ public final class ScenarioRun implements AutoCloseable {
         Comparison.Result comparison = Comparison.compare(sidecar, model, observers, verified, stimuli, interactions);
         Provenance provenance = new Provenance(revision(), MODEL, sha256(REPOSITORY.resolve(MODEL)), sidecar.path(),
                 sha256(sidecarFile), mainClassesSha256());
+        CoverageLedger.Assessment ledger = CoverageLedger.read(CoverageLedger.FILE).assess(verified.gaps());
         ScenarioReport report = new ScenarioReport(sidecar, title(), test.getTestClass().map(Class::getName)
                 .orElse(""), test.getTestMethod().map(Method::getName).orElse(""), provenance, observers, verified,
-                stimuli, interactions, comparison, outcomes);
+                stimuli, interactions, comparison, outcomes, ledger);
         Path markdown = report.write(REPORTS, reportName);
-        return new Result(comparison, outcomes, interactions, markdown, report.verdict());
+        return new Result(comparison, outcomes, interactions, markdown, report.verdict(), ledger.blocking(comparison));
     }
 
-    /** {@link #finish()}, then fails unless the run conforms and every outcome held. */
+    /** Finishes, then requires exact known coverage debt, no other findings and every outcome held.
+     * A passing build with known debt does not establish conformance; the report says COVERAGE_INCOMPLETE.
+     */
     public void verify() {
         Result finished = finish();
         List<String> problems = new ArrayList<>();
-        finished.comparison().failing().forEach(f -> problems.add(f.type() + (f.step().isEmpty() ? "" : " "
+        finished.blocking().forEach(f -> problems.add(f.type() + (f.step().isEmpty() ? "" : " "
                 + f.step()) + ": " + f.message()));
         finished.outcomes().stream().filter(o -> !o.held()).forEach(o -> problems.add("outcome did not hold: "
                 + o.description()));

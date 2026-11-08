@@ -34,8 +34,8 @@ public record Observers(Map<StepKind, String> unobserved, Set<Class<?>> ignoredA
         String database = "no JDBC observation: this run keeps data in an in-memory test double, which is no "
                 + "database evidence";
         return new Observers(Map.of(
-                StepKind.HTTP_EXCHANGE, "the HTTP API is not built yet: this run calls the module's use case "
-                        + "directly",
+                StepKind.HTTP_EXCHANGE, "no HTTP observation: this run calls the module's use case directly; the "
+                        + "separate HTTP contract tests do not observe this scenario's exchanges",
                 StepKind.DATABASE_READ, database,
                 StepKind.DATABASE_WRITE, database,
                 StepKind.LISTENER_EXECUTION, "listener executions are not observed yet: no module has a listener, "

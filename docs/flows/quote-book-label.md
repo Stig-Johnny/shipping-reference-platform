@@ -11,9 +11,11 @@ modules: [tenants, quotes, shipments, audit]
 The structural version of this flow is the dynamic view `QuoteBookLabel` in `architecture/workspace.dsl`. This
 document adds order, alternatives and failures, and names the acceptance tests for each step and their status. A named
 test becomes evidence only once it exists, passes and asserts the step; each row says what it must assert. Rating and
-expiry logic have passing Java tests; quote storage and publication, and booking with its replay, are tested in memory.
-The complete HTTP/database flow remains planned. Parts of the flow are also executable scenarios, checked against what
-the code does when they run ([Executable scenarios](#executable-scenarios)).
+expiry logic have passing Java tests. Signing in and creating and reading a quote pass over HTTP, in the application
+started by the tests with test doubles for the token lookup and the quote store; so storage is tested in memory, and so
+are booking and its replay. The database and the rest of the flow remain planned.
+Parts of the flow are also executable scenarios, checked against what the code does when they run
+([Executable scenarios](#executable-scenarios)).
 
 Actors: a shipping clerk of Tenant Alpha signed in as the synthetic user `clerk-alpha`. All data is synthetic.
 
@@ -72,12 +74,12 @@ sequenceDiagram
 
 | Step (sequence numbers) | What must hold | Acceptance tests and status |
 |---|---|---|
-| 1 to 4: sign in as a synthetic user | A valid demo token resolves to exactly one membership; tenant hints cannot override membership; unknown body members are rejected; unknown token `401`, user without tenant `403`. | Planned: `DemoTokenAuthenticationTest`, `TenantsHttpContractTest` |
+| 1 to 4: sign in as a synthetic user | A valid demo token resolves to exactly one membership; tenant hints cannot override membership; unknown body members are rejected; unknown token `401`, user without tenant `403`. | Passing, with a test double for the token lookup: `DemoTokenAuthenticationTest`, `TenantsHttpContractTest`. The lookup in PostgreSQL is planned. |
 | 5 to 6: submit the parcel form | The form sends a contract-valid `QuoteRequest`; invalid input is labelled before sending. | Planned: `ParcelForm.test.tsx` |
 | Note after 6: tenant binding | Every transaction carries the authenticated tenant and only that tenant. | Planned: `RowLevelSecurityIntegrationTest`, `TenantScopeTest` |
 | 7: rating | Prices equal the golden table; bands, ordering, rounding and availability rules hold. | Passing: `SyntheticTariffTest`, `SyntheticTariffPropertiesTest`, `RatingTest` |
 | 8 to 9: store and publish | Only offered quotes are stored, under the caller's tenant; `QuoteIssued` is published once. | Passing, in memory: `CreateQuoteTest`. Planned: `QuotesModuleIntegrationTest` |
-| 10: quote response | `201` with `Location`, offers in level order and `expiresAt = issuedAt + 30 min`, conforming to the contract. | Planned: `QuotesHttpContractTest`, `QuoteCardList.test.tsx` |
+| 10: quote response | `201` with `Location`, offers in level order and `expiresAt = issuedAt + 30 min`, conforming to the contract. | Passing, with the store in memory: `QuotesHttpContractTest`. Planned: `QuoteCardList.test.tsx` |
 | 11 to 14: book | Checks run in the documented order; the offer must be unexpired and the recipient must match the destination. | Passing, in memory: `BookShipmentTest` (the order of the checks and their rejections, the expiry through `QuoteOffers`, the recipient's country and postcode), `RecipientTest`; quotes' side: `QuoteExpiryTest`, `QuoteOffersServiceTest`. Planned: `BookingForm.test.tsx` |
 | 15 to 17: store, publish, respond | Shipment, key and `ShipmentBooked` publication commit together; `201` conforms to the contract. | Passing, in memory: `BookShipmentTest` (the shipment is stored with its key and fingerprint, and `ShipmentBooked` is published once, not for a replay or a rejection). Planned: `ShipmentEventsIntegrationTest` (in one transaction), `ShipmentsHttpContractTest` |
 | 18 to 21: retry with the same key | Same key and body return the same shipment with `200`; concurrent duplicates create one row; a different body gives `422 idempotency-key-reused`. | Passing, in memory: `RequestFingerprintTest`, `BookShipmentTest` (the same key and body replay the shipment; another body is refused). Planned: `BookingIdempotencyIntegrationTest` (the `200`, the `422` and concurrent duplicates) |
@@ -89,11 +91,12 @@ sequenceDiagram
 
 | Situation | Expected result | Acceptance tests and status |
 |---|---|---|
-| Route not served, parcel too heavy, EXPRESS above 10000 g | `422 no-offer-available` with `reason`; no quote stored; the UI explains the reason. | Passing: `RatingTest` (the reason), `CreateQuoteTest` (nothing stored). Planned: `QuotesHttpContractTest`, `ProblemAlert.test.tsx` |
+| Unknown member in a quote request | `400 validation-failed` names its escaped JSON Pointer through 200 Unicode code points; above that, `400 malformed-request` without `errors`. | Passing: `ProblemDetailsHttpContractTest`, including supplementary characters at both boundaries. |
+| Route not served, parcel too heavy, EXPRESS above 10000 g | `422 no-offer-available` with `reason`; no quote stored; the UI explains the reason. | Passing: `RatingTest` (the reason), `CreateQuoteTest` (nothing stored), `QuotesHttpContractTest` (the problem). Planned: `ProblemAlert.test.tsx` |
 | Offer expired before booking | `422 quote-expired`; the UI shows the expired state and offers a fresh quote. | Passing: `QuoteExpiryTest` (the offer lookup says Expired), `BookShipmentTest` (the booking is refused from the expiry instant on, in memory). Planned: ShipmentsHttpContractTest asserts server rejection with 422; BookingForm.test.tsx asserts the rejection transition; expired-quote.spec.ts verifies the initially expired screen only. |
 | Same quote booked with a different key | `409 quote-already-booked`. | Passing, in memory: `BookShipmentTest` (the second key is refused). Planned: `BookingIdempotencyIntegrationTest` (the `409`, and two keys at once) |
 | Recipient postcode differs from the quote's destination | `422 recipient-does-not-match-quote`. | Passing, in memory: `BookShipmentTest` (the booking is refused). Planned: `ShipmentsHttpContractTest` (the `422`) |
-| Tenant Beta uses Tenant Alpha's quote or shipment ID | `404` exactly as for an unknown ID, for read, book, cancel and label. | Passing, in memory: `QuoteOffersServiceTest` (another tenant's quote is not found), `BookShipmentTest` (Tenant Beta cannot book Tenant Alpha's quote). Planned: `CrossTenantAccessTest`, `tenant-denial.spec.ts` |
+| Tenant Beta uses Tenant Alpha's quote or shipment ID | `404` exactly as for an unknown ID, for read, book, cancel and label. | Passing, in memory: `QuoteOffersServiceTest` (another tenant's quote is not found), `BookShipmentTest` (Tenant Beta cannot book Tenant Alpha's quote) and, for reading a quote over HTTP, `QuotesHttpContractTest`. Planned: `CrossTenantAccessTest`, `tenant-denial.spec.ts` |
 | Shipment cancelled, then label requested | `409 shipment-cancelled`. | Planned: `ShipmentsHttpContractTest` |
 | Audit write fails | Booking stays committed; the publication stays incomplete and is replayed. | Planned: `AuditReplayIntegrationTest` |
 | Audit listener deleted | `ArchitectureConformanceTest` fails: absence of REQUIRED `audit -> shipments`. | `ArchitectureConformanceTest` runs in every build; shipments is built, and it evaluates this arrow once audit is built too. |
@@ -119,16 +122,25 @@ asserted separately.
 | `ScenarioTenantDenial` | `TenantDenialScenarioTest` | shipments' `CurrentTenant.require()` once, then `QuoteOffers.findOffer` once, through the real `BookShipment` | the clerk, the HTTP exchange, the two database reads |
 | First booking, booking replay, label | Planned: `FirstBookingScenarioTest`, `BookingReplayScenarioTest`, `LabelScenarioTest` | | |
 
-What a report claims follows its verdict. A run that conforms says that its evaluated steps, counted, conformed in one
+Both current reports say `COVERAGE_INCOMPLETE`: "coverage incomplete: 77 known gaps". They retain all 75 Spring
+access findings and two factory-parameter findings, failed coverage checks and `coverage.verified=false`. The exact
+ledger is `apps/shipping-api/src/test/resources/scenario-coverage-gaps.tsv`; every entry is classified and tagged
+"phase 3 / option 2". No scenario conformance is established while those gaps remain. A matching ledger and held
+outcomes permit the build, not a claim of complete coverage. New, changed, duplicate or disappeared findings fail
+unless the ledger is explicitly updated and reviewed; tests and documentation generation never refresh it.
+
+What a report claims follows its verdict. A run without coverage gaps that conforms says that its evaluated steps, counted, conformed in one
 exercised run within the recorder's coverage, and that the steps not evaluated were neither checked nor assumed; it
 does not cover all paths, schedules or inputs. A step that touches a person, a simulated system or a planned module, or
-whose kind the run cannot observe (HTTP and SQL until the API and the database run, listener executions until a module
-has one), is NOT_EVALUATED and counted. A run that evaluates no step is NO_STEP_EVALUATED, never CONFORMS, and its
-report says that no declared step was verified. A run with a finding says that it does not conform. The tenant-denial
+whose kind the run cannot observe (HTTP and SQL until this recorder observes them, listener executions until a module
+has one), is NOT_EVALUATED and counted. The separate HTTP contract tests do not make a scenario's HTTP steps observed.
+A run that evaluates no step is NO_STEP_EVALUATED, never CONFORMS, and its
+report says that no declared step was verified. A run with build blockers says that it does not conform. The tenant-denial
 outcomes (Beta's booking is rejected as for an unknown quote, nothing is stored for Beta, Alpha's offer stays
 bookable) are assertions of the test, apart from the step verdict.
 
-Detected coverage gaps fail the run as COVERAGE_GAP. The checks below do not prove every runtime receiver or task
+Detected coverage gaps remain COVERAGE_GAP findings and prevent conformance. Exact known debt is separated from
+build blockers; interaction failures, unledgered findings and stale ledger entries fail the build. The checks below do not prove every runtime receiver or task
 lifetime; the unexamined cases in [known gaps](../gaps.md#6-tests-and-quality-gates) can still escape detection.
 
 - **Receivers.** The census classifies interface signatures as interceptable; a separate bounded walk checks the
@@ -166,15 +178,20 @@ two threads pass. `CoverageBypassTest`: a captured `Supplier`, a nested referenc
 registered as an object, a lookup after the recording ends, a test-only implementation and a value type with behaviour
 each reach another module unobserved, keep three asserted outcomes, and fail with a coverage gap. Two more fixtures
 hold virtual-thread and pre-existing-executor work until after close; both keep three outcomes and fail on dispatch.
-`ReachabilityTest` checks a shared raw receiver and shared containers in both module traversal orders, including a
+`CoverageLedgerTest` checks exact debt, additions, removed entries, changed descriptors, disappeared gaps and
+multiplicity. `CoverageBypassTest` also introduces a new Spring access whose owner and member are already ledgered;
+it still fails, while the three quote outcomes hold. `ReachabilityTest` checks a shared raw receiver and shared containers in both module traversal orders, including a
 container cycle. `SidecarValidationTest` refuses
 the repeated-signature case A (0..*), B (1), C (1..*).
 
 Each run writes `apps/shipping-api/build/reports/scenarios/<key in kebab case>.json` and `.md`, negative fixtures under
 `fixtures/`, before the test asserts anything. The JSON (schema `shipping-scenarios/report/v1`) is for the
-documentation site: `verdict`, `outcomesHeld`, `claim`, `scenario`, `test`, `provenance` (the revision, and SHA-256
+documentation site: `verdict`, `buildAcceptable`, `buildBlockers`, `outcomesHeld`, `claim`, `scenario`, `test`, `provenance` (the revision, and SHA-256
 digests of the model, the sidecar and the main classes), `summary`, `observers`, `coverage`, `stimuli`, `steps` (each
-with its status, its reason and its interactions as `run:seq`), `interactions`, `findings` and `outcomes`. Operations
+with its status, its reason and its interactions as `run:seq`), `interactions`, `findings` and `outcomes`.
+Coverage includes `knownGapCount`, classified `knownGaps`, `staleEntries` and the ledger path, alongside every raw gap.
+`findings[].fails` and `summary.failingFindings` still mean failure to establish conformance, even for known gaps;
+`buildBlockers` describes the narrower build policy. Operations
 are types and methods; no argument, return value or payload is recorded.
 
 ## What this flow does not show

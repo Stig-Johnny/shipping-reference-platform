@@ -32,9 +32,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * The negative fixtures of the scenario checks. Each runs altered code, never an edited record: an implementation with
@@ -59,10 +59,10 @@ class ScenarioFixturesTest {
 
             assertThat(finished.outcomesHeld()).as("the outcome is the real code's").isTrue();
             assertThat(finished.verdict()).isEqualTo("DOES_NOT_CONFORM");
-            assertThat(finished.failing()).extracting(Finding::type, Finding::step)
+            assertThat(finished.blocking()).extracting(Finding::type, Finding::step)
                     .containsExactly(tuple(FindingType.MISSING_STEP, "resolve-tenant"));
             assertThat(finished.markdown()).content().contains("> This run does not conform to its declared steps: 1 "
-                    + "findings fail it, listed below.").doesNotContain("conformed to their declarations");
+                    + "build blockers, listed below. Known coverage gaps remain refused separately.").doesNotContain("conformed to their declarations");
         }
     }
 
@@ -78,7 +78,7 @@ class ScenarioFixturesTest {
 
             assertThat(finished.outcomesHeld()).as("the outcome is the real code's").isTrue();
             assertThat(finished.verdict()).isEqualTo("DOES_NOT_CONFORM");
-            assertThat(finished.failing()).singleElement().satisfies(finding -> {
+            assertThat(finished.blocking()).singleElement().satisfies(finding -> {
                 assertThat(finding.type()).isEqualTo(FindingType.UNEXPECTED_INTERACTION);
                 assertThat(finding.run()).isEqualTo("beta");
                 assertThat(finding.message()).startsWith("MODULE_API_CALL quotes -> tenants "
@@ -98,7 +98,7 @@ class ScenarioFixturesTest {
             ScenarioRun.Result finished = run.finish();
 
             assertThat(finished.outcomesHeld()).as("the outcome is the real code's").isTrue();
-            assertThat(finished.failing()).extracting(Finding::type, Finding::step, Finding::message)
+            assertThat(finished.blocking()).extracting(Finding::type, Finding::step, Finding::message)
                     .containsExactly(tuple(FindingType.ORDER_VIOLATION, "publish-quote-issued", "step "
                             + "publish-quote-issued must come after step resolve-tenant, but seq 1 came before seq 2"));
         }
@@ -115,9 +115,9 @@ class ScenarioFixturesTest {
             ScenarioRun.Result finished = run.finish();
 
             assertThat(finished.outcomesHeld()).isTrue();
-            assertThat(finished.failing()).isNotEmpty().allSatisfy(finding ->
+            assertThat(finished.blocking()).isNotEmpty().allSatisfy(finding ->
                     assertThat(finding.type()).isEqualTo(FindingType.COVERAGE_GAP));
-            assertThat(finished.failing()).extracting(Finding::step, Finding::message).contains(
+            assertThat(finished.blocking()).extracting(Finding::step, Finding::message).contains(
                     tuple("resolve-tenant", "no observed bean implements "
                             + "io.github.stigjohnny.shipping.tenants.api.CurrentTenant in this run, so its calls "
                             + "cannot be seen"),
@@ -138,9 +138,9 @@ class ScenarioFixturesTest {
             ScenarioRun.Result finished = run.finish();
 
             assertThat(finished.outcomesHeld()).isTrue();
-            assertThat(finished.failing()).extracting(Finding::type, Finding::step).containsExactly(
+            assertThat(finished.blocking()).extracting(Finding::type, Finding::step).containsExactly(
                     tuple(FindingType.COVERAGE_GAP, ""), tuple(FindingType.COVERAGE_GAP, "publish-quote-issued"));
-            assertThat(finished.failing().getFirst().message()).startsWith("publications are not observed: a probe "
+            assertThat(finished.blocking().getFirst().message()).startsWith("publications are not observed: a probe "
                     + "event published through the application context did not reach the publication observer");
         }
     }
@@ -176,7 +176,7 @@ class ScenarioFixturesTest {
             ScenarioRun.Result finished = run.finish();
 
             assertThat(finished.verdict()).isEqualTo("DOES_NOT_CONFORM");
-            assertThat(finished.failing()).extracting(Finding::type, Finding::message).containsExactly(tuple(
+            assertThat(finished.blocking()).extracting(Finding::type, Finding::message).containsExactly(tuple(
                     FindingType.MISSING_STEP, "no stimulus of the scenario ran, so nothing could be observed"));
         }
     }
@@ -193,7 +193,7 @@ class ScenarioFixturesTest {
 
             assertThat(finished.outcomesHeld()).isTrue();
             assertThat(finished.verdict()).isEqualTo("DOES_NOT_CONFORM");
-            assertThat(finished.failing()).extracting(Finding::type, Finding::step, Finding::message)
+            assertThat(finished.blocking()).extracting(Finding::type, Finding::step, Finding::message)
                     .containsExactly(tuple(FindingType.COVERAGE_GAP, "publish-quote-issued", "step "
                             + "publish-quote-issued is declared AFTER_COMMIT, but no run observes commits yet, so when "
                             + "it happened cannot be checked: it is refused, not passed"));
@@ -209,7 +209,7 @@ class ScenarioFixturesTest {
     }
 
     /** The quotes module with CreateQuote replaced by one that never asks CurrentTenant. */
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class TenantFixedAtWiring {
 
         @Bean
@@ -225,7 +225,7 @@ class ScenarioFixturesTest {
     }
 
     /** The quotes module with CreateQuote replaced by one that publishes before it resolves the tenant. */
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class PublishesFirst {
 
         @Bean
@@ -242,7 +242,7 @@ class ScenarioFixturesTest {
     }
 
     /** The quotes module with QuoteOffers replaced by one that also asks CurrentTenant. */
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class OffersThatAskForTheTenant {
 
         @Bean
@@ -258,7 +258,7 @@ class ScenarioFixturesTest {
     }
 
     /** The in-memory store behind a gate, to make two runs interleave. */
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class GatedStoreConfiguration {
 
         @Bean

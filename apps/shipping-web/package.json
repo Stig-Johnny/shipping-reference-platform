@@ -1,0 +1,16 @@
+{
+  "name": "@shipping-reference-platform/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shipping workbench: plain TypeScript compiled to native ES modules, no runtime dependencies.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": "26.13.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.65.0",
+    "typescript": "5.9.3"
+  }
+}

@@ -5,6 +5,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.CompositeArchRule;
@@ -33,7 +34,12 @@ class HexagonalLayeringTest {
 
     @Test
     void theApiKeepsItsLayers() {
-        CompositeArchRule.of(rules(API)).check(ClassDirectories.read(ClassDirectories.main()));
+        JavaClasses api = ClassDirectories.read(ClassDirectories.main());
+
+        CompositeArchRule.of(rules(API)).check(api);
+        // The rules see the web adapters of both built modules, and the adapter rule has classes to check.
+        assertThat(api.stream().map(JavaClass::getPackageName).distinct()).contains(
+                API + ".quotes.internal.adapter.in.web", API + ".tenants.internal.adapter.in.web");
     }
 
     @Test
@@ -104,10 +110,13 @@ class HexagonalLayeringTest {
                 .resideInAPackage(root + ".*.internal.adapter..");
     }
 
-    /** No adapter exists yet, so the API's own classes give this rule nothing to check. */
+    /**
+     * The web adapters of quotes and tenants give this rule the API's classes to check, so it no longer allows an empty
+     * set: without any inbound adapter it fails.
+     */
     static ArchRule adapterInDoesNotUseAdapterOut(String root) {
         return noClasses().that().resideInAPackage(root + ".*.internal.adapter.in..").should().dependOnClassesThat()
-                .resideInAPackage(root + ".*.internal.adapter.out..").allowEmptyShould(true);
+                .resideInAPackage(root + ".*.internal.adapter.out..");
     }
 
     static ArchRule everyPackageIsNullMarked(String root) {

@@ -35,10 +35,12 @@ class QuoteScenarioTest {
             QuoteOutcomes.issuedFor(run, "Tenant Alpha's quote", result, ALPHA, BETA);
             run.verify();
 
-            assertThat(run.result().markdown()).content().contains("> In one exercised run, the 2 evaluated steps "
-                    + "conformed to their declarations, within the recorder's coverage. The 4 steps that were not "
-                    + "evaluated were neither checked nor assumed, and this does not cover all paths, schedules or "
-                    + "inputs.");
+            assertThat(run.result().verdict()).isEqualTo("COVERAGE_INCOMPLETE");
+            assertThat(run.result().comparison().conforms()).isFalse();
+            assertThat(run.result().failing()).hasSize(77);
+            assertThat(run.result().markdown()).content().contains("coverage incomplete: 77 known gaps",
+                    "Steps evaluated: 2 of 6, passed: 2, not evaluated: 4", "Outcomes held: 3 of 3")
+                    .doesNotContain("**Verdict: CONFORMS**");
         }
     }
 }

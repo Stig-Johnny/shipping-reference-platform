@@ -30,9 +30,9 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * Negative fixtures for coverage verification: each reaches the tenants module around the observers, so that a call
@@ -46,6 +46,28 @@ class CoverageBypassTest {
 
     private static final String TENANTS_IMPLEMENTATION =
             "io.github.stigjohnny.shipping.tenants.internal.application.ThreadTenantContext";
+
+    @Test
+    void aNewSpringAccessFailsEvenWhenItsOwnerAndMemberAreAlreadyLedgered(TestInfo test) {
+        try (ScenarioRun run = ScenarioRun.fixture("ScenarioQuote", "unledgered-spring", test, Observers.inProcess(),
+                InProcessModules.Core.class, InProcessModules.InMemoryStore.class, InProcessModules.Quotes.class,
+                ExtraSpring.class)) {
+            List<Finding> blocking = quoteAndFinish(run);
+            assertThat(blocking).singleElement().satisfies(f -> assertThat(f.message()).contains(
+                    "ScenarioAlterations$UnledgeredSpringAccess.reply()", "ResponseEntity#status(I)"));
+            assertThat(run.result().failing()).hasSize(78);
+            assertThat(catchThrowable(run::verify)).isInstanceOf(AssertionError.class)
+                    .hasMessageContaining("ResponseEntity#status(I)");
+        }
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class ExtraSpring {
+        @Bean
+        ScenarioAlterations.UnledgeredSpringAccess extraSpringAccess() {
+            return new ScenarioAlterations.UnledgeredSpringAccess();
+        }
+    }
 
     @Test
     void virtualWorkReleasedAfterCloseIsAlreadyRefused(TestInfo test) throws InterruptedException {
@@ -86,7 +108,7 @@ class CoverageBypassTest {
             assertThat(quote.completed()).isFalse();
             assertThat(finished.outcomes()).hasSize(3);
             assertThat(finished.outcomesHeld()).isTrue();
-            assertThat(finished.failing()).anySatisfy(finding -> {
+            assertThat(finished.blocking()).anySatisfy(finding -> {
                 assertThat(finding.type()).isEqualTo(FindingType.COVERAGE_GAP);
                 assertThat(finding.message()).contains(dispatch, "asynchronous dispatch is unsupported");
             });
@@ -188,9 +210,9 @@ class CoverageBypassTest {
 
             assertThat(finished.outcomesHeld()).isTrue();
             assertThat(finished.verdict()).isEqualTo("DOES_NOT_CONFORM");
-            assertThat(finished.failing()).isNotEmpty().allSatisfy(f -> assertThat(f.type())
+            assertThat(finished.blocking()).isNotEmpty().allSatisfy(f -> assertThat(f.type())
                     .isEqualTo(FindingType.COVERAGE_GAP));
-            assertThat(finished.failing()).extracting(Finding::message).anySatisfy(message -> assertThat(message)
+            assertThat(finished.blocking()).extracting(Finding::message).anySatisfy(message -> assertThat(message)
                     .contains("ScenarioAlterations$OffersThatBindTheTenantThemselves.findOffer(")
                     .endsWith("uses " + TENANTS_IMPLEMENTATION + "#<init>, which no proxy can intercept"));
         }
@@ -212,7 +234,7 @@ class CoverageBypassTest {
             assertThat(finished.outcomes()).hasSize(3);
             assertThat(finished.outcomesHeld()).isTrue();
             assertThat(finished.verdict()).isEqualTo("DOES_NOT_CONFORM");
-            assertThat(finished.failing()).singleElement().satisfies(finding -> {
+            assertThat(finished.blocking()).singleElement().satisfies(finding -> {
                 assertThat(finding.type()).isEqualTo(FindingType.COVERAGE_GAP);
                 assertThat(finding.message()).startsWith("call site io.github.stigjohnny.shipping.quotes.internal"
                         + ".application.ScenarioAlterations$BadgeQuote.handle(").endsWith("uses io.github.stigjohnny"
@@ -233,9 +255,9 @@ class CoverageBypassTest {
 
         assertThat(finished.outcomesHeld()).as("the outcome is the real code's").isTrue();
         assertThat(finished.verdict()).isEqualTo("DOES_NOT_CONFORM");
-        assertThat(finished.failing()).isNotEmpty().allSatisfy(f -> assertThat(f.type())
+        assertThat(finished.blocking()).isNotEmpty().allSatisfy(f -> assertThat(f.type())
                 .isEqualTo(FindingType.COVERAGE_GAP));
-        return finished.failing();
+        return finished.blocking();
     }
 
     /** The clock and identifiers of the fixtures that wire the tenants module themselves. */
@@ -253,7 +275,7 @@ class CoverageBypassTest {
     }
 
     /** CurrentTenant's implementation is the bean, which the observer wraps, and CreateQuote also captures it raw. */
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class Captured extends ClockAndIds {
 
         private final ThreadTenantContext unwrapped = new ThreadTenantContext();
@@ -271,7 +293,7 @@ class CoverageBypassTest {
     }
 
     /** As Captured, with the raw reference in a holder. */
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class Nested extends ClockAndIds {
 
         private final ThreadTenantContext unwrapped = new ThreadTenantContext();
@@ -290,7 +312,7 @@ class CoverageBypassTest {
     }
 
     /** As Captured, with the raw reference in a static field. */
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class Static extends ClockAndIds {
 
         private final ThreadTenantContext unwrapped = new ThreadTenantContext();
@@ -309,7 +331,7 @@ class CoverageBypassTest {
     }
 
     /** CurrentTenant's implementation registered as an object, which no post-processor sees. */
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class Singleton extends ClockAndIds {
 
         @Bean
@@ -325,7 +347,7 @@ class CoverageBypassTest {
     }
 
     /** CreateQuote that calls behaviour on a value of the tenants module. */
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class Badge {
 
         @Bean
@@ -336,7 +358,7 @@ class CoverageBypassTest {
     }
 
     /** CreateQuote that leaves a thread behind. */
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class Late {
 
         @Bean
@@ -346,7 +368,7 @@ class CoverageBypassTest {
         }
     }
 
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class Virtual {
 
         @Bean
@@ -356,7 +378,7 @@ class CoverageBypassTest {
         }
     }
 
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class ExistingExecutor {
 
         @Bean
@@ -367,7 +389,7 @@ class CoverageBypassTest {
     }
 
     /** The quotes module with QuoteOffers replaced by one that creates the tenants module's internal class. */
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class OffersThatBindTheTenant {
 
         @Bean

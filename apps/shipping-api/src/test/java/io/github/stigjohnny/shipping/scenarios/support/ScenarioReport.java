@@ -24,9 +24,8 @@ public final class ScenarioReport {
     public static final String SCHEMA = "shipping-scenarios/report/v1";
 
     /**
-     * What the report says the run shows, which depends on its verdict: for CONFORMS, that the evaluated steps
-     * conformed, within the recorder's coverage; for NO_STEP_EVALUATED, that no declared step was verified; for
-     * DOES_NOT_CONFORM, that the run does not conform. Outcomes are reported apart from it.
+     * The claim follows the evidence. Exact ledger matches remain refusals and produce COVERAGE_INCOMPLETE,
+     * never CONFORMS. Outcomes are reported separately.
      */
     String claim() {
         long evaluated = result.steps().stream().filter(s -> s.status() == Status.PASSED).count();
@@ -38,11 +37,15 @@ public final class ScenarioReport {
                     + evaluated + " evaluated steps conformed to their declarations, within the recorder's coverage. "
                     + "The " + notEvaluated + " steps that were not evaluated were neither checked nor assumed, and "
                     + "this does not cover all paths, schedules or inputs.";
+            case "COVERAGE_INCOMPLETE" -> "Recorded steps matched: " + evaluated + "; not evaluated: "
+                    + notEvaluated + "; coverage incomplete: " + ledger.known().size() + " known gaps. "
+                    + "No scenario conformance is established. Outcomes are asserted separately. "
+                    + "Known gaps remain refused, pending phase 3 / option 2.";
             case "NO_STEP_EVALUATED" -> "No declared step was verified: none of the " + sidecar.steps().size()
                     + " steps could be evaluated in this run. It checked only that no interaction crossed a module "
                     + "boundary without being declared, within the recorder's coverage.";
-            default -> "This run does not conform to its declared steps: " + result.failing().size() + " findings fail "
-                    + "it, listed below.";
+            default -> "This run does not conform to its declared steps: " + ledger.blocking(result).size()
+                    + " build blockers, listed below. Known coverage gaps remain refused separately.";
         };
     }
 
@@ -66,10 +69,11 @@ public final class ScenarioReport {
     private final List<Interaction> interactions;
     private final Comparison.Result result;
     private final List<Outcome> outcomes;
+    private final CoverageLedger.Assessment ledger;
 
     ScenarioReport(Sidecar sidecar, String title, String testClass, String testMethod, Provenance provenance,
             Observers observers, Coverage.Result coverage, List<Stimulus> stimuli, List<Interaction> interactions,
-            Comparison.Result result, List<Outcome> outcomes) {
+            Comparison.Result result, List<Outcome> outcomes, CoverageLedger.Assessment ledger) {
         this.sidecar = sidecar;
         this.title = title;
         this.testClass = testClass;
@@ -81,6 +85,7 @@ public final class ScenarioReport {
         this.interactions = List.copyOf(interactions);
         this.result = result;
         this.outcomes = List.copyOf(outcomes);
+        this.ledger = ledger;
     }
 
     /** Writes {@code <name>.json} and {@code <name>.md} under the directory and returns the Markdown file. */
@@ -98,12 +103,15 @@ public final class ScenarioReport {
     }
 
     /**
-     * DOES_NOT_CONFORM with a failing finding; NO_STEP_EVALUATED when nothing failed but no step could be evaluated,
-     * so that only the absence of unexpected interactions was checked; CONFORMS otherwise.
+     * Build blockers yield DOES_NOT_CONFORM; known-only coverage debt yields COVERAGE_INCOMPLETE.
+     * With no gaps, no evaluated step yields NO_STEP_EVALUATED; evaluated steps yield CONFORMS.
      */
     String verdict() {
-        if (!result.conforms()) {
+        if (!ledger.blocking(result).isEmpty()) {
             return "DOES_NOT_CONFORM";
+        }
+        if (!coverage.gaps().isEmpty()) {
+            return "COVERAGE_INCOMPLETE";
         }
         return result.steps().stream().anyMatch(s -> s.status() == Status.PASSED) ? "CONFORMS" : "NO_STEP_EVALUATED";
     }
@@ -116,6 +124,7 @@ public final class ScenarioReport {
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("schema", SCHEMA);
         root.put("verdict", verdict());
+        root.put("buildAcceptable", ledger.blocking(result).isEmpty() && outcomes.stream().allMatch(Outcome::held));
         root.put("outcomesHeld", outcomes.stream().allMatch(Outcome::held));
         root.put("claim", claim());
         root.put("scenario", map("view", sidecar.view(), "title", title, "sidecar", provenance.sidecar(),
@@ -134,6 +143,10 @@ public final class ScenarioReport {
         observers.describe().forEach((kind, entry) -> observed.put(kind.name(), entry));
         root.put("observers", observed);
         root.put("coverage", map("verified", coverage.gaps().isEmpty(),
+                "knownGapCount", ledger.known().size(), "ledger", "apps/shipping-api/" + CoverageLedger.FILE,
+                "knownGaps", ledger.known().stream().map(e -> map("classification", e.classification(),
+                        "followUp", e.followUp(), "finding", e.finding())).toList(),
+                "staleEntries", ledger.stale().stream().map(CoverageLedger.Entry::finding).toList(),
                 "checks", coverage.checks().stream().map(c -> map("check", c.name(), "passed", c.passed(),
                         "detail", c.detail())).toList(),
                 "gaps", coverage.gaps(),
@@ -148,6 +161,8 @@ public final class ScenarioReport {
                 result.matched().getOrDefault(i.seq(), ""))).toList());
         root.put("findings", result.findings().stream().map(f -> map("type", f.type(), "fails", f.type().fails(),
                 "run", f.run(), "step", f.step(), "interaction", f.interaction(), "message", f.message())).toList());
+        root.put("buildBlockers", ledger.blocking(result).stream().map(f -> map("type", f.type(), "message",
+                f.message())).toList());
         root.put("outcomes", outcomes.stream().map(o -> map("description", o.description(), "held", o.held()))
                 .toList());
         return root;
@@ -169,9 +184,13 @@ public final class ScenarioReport {
         long held = outcomes.stream().filter(Outcome::held).count();
         out.append("**Verdict: ").append(verdict()).append("**. Steps evaluated: ").append(evaluated).append(" of ")
                 .append(sidecar.steps().size()).append(", passed: ").append(count(Status.PASSED))
-                .append(", not evaluated: ").append(count(Status.NOT_EVALUATED)).append(". Failing findings: ")
+                .append(", not evaluated: ").append(count(Status.NOT_EVALUATED)).append(". Conformance findings: ")
                 .append(result.failing().size()).append(". Outcomes held: ").append(held).append(" of ")
                 .append(outcomes.size()).append(".\n\n");
+        if (!coverage.gaps().isEmpty() || !ledger.stale().isEmpty()) {
+            out.append("**coverage incomplete: ").append(ledger.known().size()).append(" known gaps**. ")
+                    .append("Build blockers: ").append(ledger.blocking(result).size()).append(".\n\n");
+        }
         out.append("> ").append(claim()).append("\n\n");
         out.append("## Steps\n\n| # | Step | Kind | From -> To | Operation | Description | Status | Observed |\n")
                 .append("|---|---|---|---|---|---|---|---|\n");
@@ -182,8 +201,11 @@ public final class ScenarioReport {
                     .append(code(s.operationText())).append(" | ").append(cell(s.description())).append(" | ")
                     .append(step.status()).append(" | ").append(String.join(", ", step.observed())).append(" |\n");
         }
+        out.append("\n## Build blockers\n\n");
+        ledger.blocking(result).forEach(f -> out.append("- **").append(f.type()).append("**: ")
+                .append(f.message()).append('\n'));
         List<Finding> failing = result.failing();
-        out.append("\n## Findings\n\n");
+        out.append("\n## Findings that prevent conformance\n\n");
         if (failing.isEmpty()) {
             out.append("None that fail the scenario.\n");
         }
@@ -194,6 +216,8 @@ public final class ScenarioReport {
                     .append(finding.message()).append('\n');
         }
         List<StepResult> skipped = result.steps().stream().filter(s -> s.status() == Status.NOT_EVALUATED).toList();
+        ledger.stale().forEach(e -> out.append("- **LEDGER_DRIFT**: ledger entry no longer detected: ")
+                .append(e.finding()).append('\n'));
         out.append("\n## Not evaluated (").append(skipped.size()).append(")\n\n");
         if (skipped.isEmpty()) {
             out.append("Every step was evaluated.\n");
@@ -221,6 +245,9 @@ public final class ScenarioReport {
         coverage.checks().forEach(c -> out.append("- ").append(c.passed() ? "Passed" : "FAILED").append(": ")
                 .append(c.name()).append(" (").append(c.detail()).append(")\n"));
         coverage.gaps().forEach(g -> out.append("- Gap: ").append(g).append('\n'));
+        out.append("\nKnown coverage debt (still refused; exact ledger, never a coverage proof):\n\n");
+        ledger.known().forEach(e -> out.append("- ").append(e.classification()).append("; ")
+                .append(e.followUp()).append(": ").append(e.finding()).append('\n'));
         out.append("\nCross-module uses in the classes of the run:\n\n");
         if (coverage.callSites().isEmpty()) {
             out.append("- none\n");

@@ -18,15 +18,15 @@ import io.github.stigjohnny.shipping.tenants.internal.application.ThreadTenantCo
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * The built modules, tenants, quotes and shipments, wired in a Spring context for the in-process scenarios: their real
  * classes with a fixed clock, deterministic identifiers, the in-memory stores and tracking numbers counted in memory.
- * The application's own wiring is planned, so the scenarios wire the modules here; each part is a configuration of its
- * own, so that a negative fixture can replace one part with an altered implementation.
+ * The HTTP tests use the application's wiring separately; these scenarios call the use cases directly. Each part is
+ * a configuration of its own, so that a negative fixture can replace one part with an altered implementation.
  */
 final class InProcessModules {
 
@@ -37,7 +37,7 @@ final class InProcessModules {
     }
 
     /** The clock, the identifiers and the tenants module's CurrentTenant. */
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class Core {
 
         @Bean
@@ -57,7 +57,7 @@ final class InProcessModules {
     }
 
     /** The quotes module's store: the in-memory test double, which is never database evidence. */
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class InMemoryStore {
 
         @Bean
@@ -67,7 +67,7 @@ final class InProcessModules {
     }
 
     /** The shipments module's store and tracking numbers, in memory; never database evidence. */
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class InMemoryShipments {
 
         @Bean
@@ -87,7 +87,7 @@ final class InProcessModules {
     }
 
     /** The shipments module's booking use case as main code defines it. */
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class Shipments {
 
         @Bean
@@ -99,7 +99,7 @@ final class InProcessModules {
     }
 
     /** The quotes module's use cases as main code defines them. */
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class Quotes {
 
         @Bean

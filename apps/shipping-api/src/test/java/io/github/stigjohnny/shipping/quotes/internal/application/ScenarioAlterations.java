@@ -355,4 +355,11 @@ public final class ScenarioAlterations {
             return result;
         }
     }
+    /** A new Spring access is still refused, even if its owner already occurs in the committed ledger. */
+    public static final class UnledgeredSpringAccess {
+        public org.springframework.http.ResponseEntity.BodyBuilder reply() {
+            return org.springframework.http.ResponseEntity.status(204);
+        }
+    }
+
 }
