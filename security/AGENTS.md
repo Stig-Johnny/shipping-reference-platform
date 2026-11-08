@@ -31,8 +31,8 @@ Every exact component the project downloads or runs, one allowlist entry per art
      recent ownership or maintainer changes.
    - **Execution:** install and lifecycle scripts, Gradle plugin actions at configuration time, native code,
      network or file system access, obfuscated or minified code that does not match the source.
-   - **Contents:** bundled or shaded third-party code (each needs its own entry), unexpected files, size jumps since
-     the previous version, suspicious recent changes.
+   - **Contents:** bundled or shaded third-party code (each needs its own entry, of kind `bundled`, naming the file
+     that carries it), unexpected files, size jumps since the previous version, suspicious recent changes.
    - **Advisories:** known vulnerabilities at the review date, with the source you checked.
    - **Maintenance:** release history, open security issues.
    - **Licence:** SPDX identifier. Acceptable without conditions: Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause,
