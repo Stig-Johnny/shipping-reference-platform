@@ -3,7 +3,7 @@ title: "The workbench has tested shipping logic and a strict resource policy"
 description: "Parcel, quote and booking sources now have logic tests and checked imports, while the record makes missing browser and server evidence explicit."
 status: accepted
 updated: 2026-11-08
-pr: 60
+pr: 87
 kind: feature
 recorded: 2026-11-08
 tests: [WebArchitectureConformanceTest]
