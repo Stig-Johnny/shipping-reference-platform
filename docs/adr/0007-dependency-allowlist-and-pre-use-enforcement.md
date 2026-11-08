@@ -195,14 +195,7 @@ What is built, and where it differs from the decision above. The decision stands
   for `apps/shipping-web`. This does not attest which executable is installed: archive verification, version assertions
   and the other toolchain conditions still apply before use.
 
-  | Exact command | Working directory |
-  |---|---|
-  | `node --version`, `npm --version` | Repository root or `apps/shipping-web` |
-  | `npm ci --ignore-scripts` | Repository root |
-  | `tsc -p apps/shipping-web` | Repository root |
-  | `node --test` | Declared workspace `apps/shipping-web`; Node's default discovery rooted there, for repository-owned logic tests |
-  | `npm run build:web --ignore-scripts` | Repository root; root script `build:web` must be exactly `tsc -p apps/shipping-web` |
-  | `npm run test:unit --ignore-scripts` | `apps/shipping-web`; workspace script `test:unit` must be exactly `node --test` |
+  The exact command forms and their working directories are listed [below](#reviewed-web-command-forms).
 
   The same predicate applies to workflow run steps, shell scripts and recognized command vectors inside registered
   Java/Kotlin launch sites: `ProcessBuilder`, `Runtime.exec` and Gradle `commandLine`/`setCommandLine`. A matching
@@ -251,6 +244,19 @@ What is built, and where it differs from the decision above. The decision stands
   web predicate is unchanged, and registered source command vectors still receive its exact-form decision.
   Hashes freeze the reviewed launchers, including their dynamic JavaExec arguments; they do not prove their logic
   safe or isolate the repository code, approved libraries or tools those launchers execute.
+
+### Reviewed web command forms
+
+These forms are subject to the predicate and limits in the implementation status above.
+
+| Exact command | Working directory |
+|---|---|
+| `node --version`, `npm --version` | Repository root or `apps/shipping-web` |
+| `npm ci --ignore-scripts` | Repository root |
+| `tsc -p apps/shipping-web` | Repository root |
+| `node --test` | Declared workspace `apps/shipping-web`; Node's default discovery rooted there, for repository-owned logic tests |
+| `npm run build:web --ignore-scripts` | Repository root; root script `build:web` must be exactly `tsc -p apps/shipping-web` |
+| `npm run test:unit --ignore-scripts` | `apps/shipping-web`; workspace script `test:unit` must be exactly `node --test` |
 
 ### Known static-lint gaps from the two PR #54 reviews
 

@@ -24,6 +24,11 @@ PARTIAL static lint. [ADR 0007](../adr/0007-dependency-allowlist-and-pre-use-enf
 The reviewed harness still checks its PostgreSQL instance and CI audits engine activity. This is not a sandbox
 against code that deliberately uses the hosted runner's privileges to re-enable an engine.
 
+The owner renewed acceptance of the reviewed set for pull request #54 (issue #51) at
+2026-11-08T09:46:29.393Z, recorded in `security/allowlist.json`. The accepted amendment records containerd v2.4.2
+and runc 1.5.2 from run 42410533646 and acceptance before merging the harness. It does not claim that advisories
+for those versions were reviewed. The earlier acceptance for pull request #73 remains in the history.
+
 ## See it
 
 - [ADR 0012](../adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md), which carries
@@ -103,8 +108,8 @@ ok   web forms: ProcessBuilder npm run plus manifest docker is refused at both s
 
 These are excerpts, not the complete suite result: 611 in-process cases passed, but the run still exited 1 because
 13 child-process cases could not complete the sandbox's process inspection (`Operation not permitted (sysctl failed)`).
-They were not skipped or changed. The real-tree checker reported only the pending renewed acceptance of the merged
-reviewed set; the documentation build also refused that stale acceptance. These fixture results do not establish
+They were not skipped or changed. Before the renewal recorded above, the real-tree checker and documentation build
+refused the reviewed set because it differed from the earlier acceptance. These fixture results do not establish
 web execution, database evidence or a successful publishing build. The JDK-only fixtures produce no JUnit evidence
 for the page's current-build test ledger.
 
@@ -130,9 +135,9 @@ ok   launch registry: any registered edit fails its hash
 
 All 61 new in-process cases and all 611 earlier in-process cases passed. The complete run still exited 1:
 13 existing child-process cases hit the sandbox's `sysctl` restriction, with no assertion skipped. The real-tree
-checker still reported only the pending acceptance-digest mismatch. The requested Java and generated-docs build
-also exited 1: all 62 documentation-test failures were caused by that same mismatch; the generated-docs task and
-rendered-demo review remain blocked behind it. These are recorded local results, not a passing publishing build.
+checker reported the earlier acceptance-digest mismatch. That Java and generated-docs build also exited 1:
+all 62 documentation-test failures were caused by the mismatch, which prevented generation and rendered-demo
+review at that time. These results predate the renewal above and are not a passing publishing build.
 
 Additional capture on 2026-11-08 for the runtime decision: the shell regression executes the workflow guard blocks
 with fake commands, never Docker or sudo. Before the workflow change it exited 1:
@@ -166,8 +171,23 @@ then exited 0:
 ```
 
 The resumed Java check passed all 3 workflow-guard tests and all 16 publishing-workflow tests. Its 62 documentation
-failures still trace to the known acceptance-digest mismatch, so generated documentation and rendered-page review
-remain pending. No failing assertion was skipped or relaxed.
+failures traced to the earlier acceptance-digest mismatch, before the renewal recorded above. No failing assertion
+was skipped or relaxed.
+
+Acceptance supplement recorded 2026-11-08 on macOS with Temurin 25.0.5+8. After recording the owner's renewal,
+the digest remained `03d8223632a17e66bf31d5b2d0c0bdbc7d5f3837a7f3a032080343bb46517e8d`.
+`java tools/policy/PolicyCheck.java .` exited 0:
+
+```text
+## Dependency allowlist: clean
+
+Checked against `security/allowlist.json` (519 entries) on 2026-11-08.
+```
+
+All 519 entries and all 81 tracked review files were unchanged. `AllowlistTest`, the acceptance-page test in
+`SitePagesTest` and `SiteAccessibilityTest` passed. ADR 0007's command table now sits outside its list so the
+renderer supplies the labelled, keyboard-reachable scroll region required by the unchanged accessibility test.
+These are local acceptance and presentation checks, not database or hosted CI evidence.
 
 ## Limits
 

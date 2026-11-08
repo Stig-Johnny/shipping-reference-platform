@@ -189,7 +189,8 @@ class SitePagesTest {
         String page = site.text("trust/allowlist.html");
         Allowlist allowlist = sources.allowlist();
 
-        assertThat(page).contains(allowlist.current().reviewedSetSha256(), "pull request #73",
+        assertThat(page).contains(allowlist.current().reviewedSetSha256(), "pull request #54",
+                "2026-11-08T09:46:29.393Z", "pull request #73",
                 "2026-11-07T23:45:39.135Z", "pull request #10", "2026-11-06T20:03:16.131Z",
                 "pull request #7", "pull request #3", "entriesSha256",
                 "Recomputed by this build", "Matches");
@@ -316,21 +317,26 @@ class SitePagesTest {
 
     @Test
     void trustKeepsTheEnforcedSubsetApartFromThePlannedControl() {
-        String planned = "Schema validation, policy tests and approval binding remain planned.";
-        String enforced = "Current enforcement covers preflight, dependency verification, acceptance-digest checks and "
-                + "container image digests.";
+        String planned = "Static gaps include CR comment handling, reflective and Groovy launch APIs, implicit Gradle "
+                + "tasks, wrappers/aliases/mutations and indirect execution; trusted pin transitions, schema validation "
+                + "and approval binding remain open.";
+        String enforced = "Runtime CI guards enforce engine availability outside the reviewed harness window; check 8 "
+                + "remains a PARTIAL static lint of recognized declarations and pinned launch sites.";
         String allowlist = site.text("trust/allowlist.html");
         String trust = site.text("trust/index.html");
         String adr = site.text("decisions/0007-dependency-allowlist-and-pre-use-enforcement.html");
 
         for (String page : List.of(allowlist, trust)) {
             String status = page.substring(page.indexOf("status-grid"), page.indexOf("</dl>", page.indexOf("status-grid")));
-            assertThat(status).contains(planned, enforced, "Partly enforced").doesNotContain(">Shipped<");
+            assertThat(status).contains(planned, "Partly shipped", "Tooling tests passing",
+                    "ContainerEngineWorkflowTest", "These tests verify repository tooling, not shipping behaviour.")
+                    .doesNotContain(">Shipped<");
         }
         String adrStatus = adr.substring(adr.indexOf("status-grid"), adr.indexOf("</dl>", adr.indexOf("status-grid")));
         assertThat(adrStatus).contains("<a href=\"#implementation-status-2026-11-06\">" + planned + "</a>",
                 "<a href=\"#implementation-status-2026-11-06\">" + enforced + "</a>")
-                .doesNotContain("pull_request_target workflow on the pull request");
+                .contains("Partly enforced")
+                .doesNotContain(">Shipped<", "pull_request_target workflow on the pull request");
     }
 
     @Test
