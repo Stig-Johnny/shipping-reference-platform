@@ -16,9 +16,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * The repository's real model, architecture/workspace.dsl, parses and validates. Two components are built, quotes and
- * tenants, and the other five are planned; ArchitectureConformanceTest in :apps:shipping-api checks the model against
- * the API's classes.
+ * The repository's real model, architecture/workspace.dsl, parses and validates. Three components are built, quotes,
+ * shipments and tenants, and the other four are planned; ArchitectureConformanceTest in :apps:shipping-api checks the
+ * model against the API's classes.
  */
 class RepositoryWorkspaceTest {
 
@@ -37,7 +37,7 @@ class RepositoryWorkspaceTest {
         assertThat(model.components()).extracting(ContractComponent::id, ContractComponent::status).containsExactly(
                 tuple("audit", ComponentStatus.PLANNED), tuple("orders", ComponentStatus.PLANNED),
                 tuple("quotes", ComponentStatus.BUILT), tuple("returns", ComponentStatus.PLANNED),
-                tuple("shipments", ComponentStatus.PLANNED), tuple("tenants", ComponentStatus.BUILT),
+                tuple("shipments", ComponentStatus.BUILT), tuple("tenants", ComponentStatus.BUILT),
                 tuple("tracking", ComponentStatus.PLANNED));
         assertThat(model.components()).allSatisfy(component -> assertThat(component.packages())
                 .containsExactly("io.github.stigjohnny.shipping." + component.id()));
@@ -55,21 +55,24 @@ class RepositoryWorkspaceTest {
     }
 
     @Test
-    void withoutClassesTheBuiltComponentsAreEmptyAndTheirRequiredEdgeIsAbsent() {
-        // The model now asks for code: a check without classes fails for quotes and tenants, and only for them.
+    void withoutClassesTheBuiltComponentsAreEmptyAndTheirRequiredEdgesAreAbsent() {
+        // The model asks for code: a check without classes fails for quotes, shipments and tenants, and only for them.
         Report report = Conformance.check(RepositoryFiles.root().resolve("architecture/workspace.dsl"), List.of());
 
         assertThat(report.passed()).isFalse();
         assertThat(report.modelPath()).isEqualTo("../../architecture/workspace.dsl");
         assertThat(report.violations()).extracting(Violation::type, Violation::identifiers).containsExactly(
                 tuple(ViolationType.ABSENCE, List.of("quotes", "tenants")),
+                tuple(ViolationType.ABSENCE, List.of("shipments", "quotes")),
+                tuple(ViolationType.ABSENCE, List.of("shipments", "tenants")),
                 tuple(ViolationType.BUILT_COMPONENT_EMPTY, List.of("quotes")),
+                tuple(ViolationType.BUILT_COMPONENT_EMPTY, List.of("shipments")),
                 tuple(ViolationType.BUILT_COMPONENT_EMPTY, List.of("tenants")));
         assertThat(report.components()).hasSize(7).allSatisfy(component ->
                 assertThat(component.classCount()).as(component.id()).isZero());
         assertThat(report.components()).filteredOn(component -> component.status()
                 == io.github.stigjohnny.c4contractkit.api.ComponentStatus.BUILT)
-                .extracting(ComponentResult::id).containsExactly("quotes", "tenants");
+                .extracting(ComponentResult::id).containsExactly("quotes", "shipments", "tenants");
         assertThat(report.edges()).extracting(EdgeResult::source, EdgeResult::target, EdgeResult::mode,
                 EdgeResult::status).containsExactly(
                 tuple("audit", "quotes", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED),
@@ -79,8 +82,8 @@ class RepositoryWorkspaceTest {
                 tuple("orders", "shipments", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED),
                 tuple("quotes", "tenants", Mode.REQUIRED, EdgeStatus.ABSENCE),
                 tuple("returns", "shipments", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED),
-                tuple("shipments", "quotes", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
-                tuple("shipments", "tenants", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
+                tuple("shipments", "quotes", Mode.REQUIRED, EdgeStatus.ABSENCE),
+                tuple("shipments", "tenants", Mode.REQUIRED, EdgeStatus.ABSENCE),
                 tuple("tracking", "shipments", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED));
         assertThat(report.edges()).allSatisfy(edge -> assertThat(edge.evidence()).isEmpty());
     }

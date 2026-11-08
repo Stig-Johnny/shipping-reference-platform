@@ -2,7 +2,7 @@
 title: "Brain: tenants"
 description: "Generated summary of module tenants for agents: status, dependencies, HTTP operations, capabilities with their evidence, decisions, flows and gaps."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 > Generated—do not hand-edit. Sources: `architecture/workspace.dsl`, `docs/modules/tenants.md`, `docs/capabilities/capabilities.yaml`, `contracts/shipping.openapi.yaml` and `docs/`.
@@ -46,7 +46,7 @@ Authenticates synthetic users, derives the tenant from membership, binds it to e
 
 ## Decisions its specification names
 
-- [ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security](../adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md) (accepted)
+- [ADR 0012: First runnable slice with a plain TypeScript workbench and Spring JDBC](../adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md) (accepted)
 
 ## Flows
 
@@ -54,5 +54,5 @@ Authenticates synthetic users, derives the tenant from membership, binds it to e
 
 ## Gaps that name it
 
-- 0. State of this commit: The specification, the reviewed toolchain and the dependency allowlist with its enforcement are in place, and so are the reviewed dependencies of the docs generator and of the shipping API. The docs generator itself, `tools/docs`, exists: it generates the C4 view pages, `BRAIN.md` and the module brains, and builds the documentation site, which `.github/workflows/pages.yml` publishes from `main` after the publication scan. Its own controls, `control.brain-check` and `control.publication-scan`, are shipped with their tests as evidence. The library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. The first application code exists: the domain and application layers of the `quotes` module and the tenant context of the `tenants` module, checked by `ArchitectureConformanceTest`, `ModularityTest` and `HexagonalLayeringTest`. Four capabilities of the quotes module have passing tests: two are shipped and two partial. The shipping API's database harness exists too: in CI, `PostgresHarnessIntegrationTest` starts the reviewed PostgreSQL 18.6 image under the runner review's conditions and queries it; no schema exists yet. Every other capability in `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for them is still to be written (red first).
+- 0. State of this commit: The specification, the reviewed toolchain and the dependency allowlist with its enforcement are in place, and so are the reviewed dependencies of the docs generator and of the shipping API. The docs generator itself, `tools/docs`, exists: it generates the C4 view pages, `BRAIN.md` and the module brains, and builds the documentation site, which `.github/workflows/pages.yml` publishes from `main` after the publication scan. Its own controls, `control.brain-check` and `control.publication-scan`, are shipped with their tests as evidence. The library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. The first application code exists: the domain and application layers of the `quotes` module and of booking in the `shipments` module, and the tenant context of the `tenants` module, checked by `ArchitectureConformanceTest`, `ModularityTest` and `HexagonalLayeringTest`. Six capabilities have passing tests: two of the quotes module are shipped, and two of it and two of the shipments module are partial. The shipping API's database harness exists too: in CI, `PostgresHarnessIntegrationTest` starts the reviewed PostgreSQL 18.6 image under the runner review's conditions and queries it; no schema exists yet. Every other capability in `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for them is still to be written (red first), except `ShipmentTest`, which exists for booking and does not yet assert cancellation.
 - 2. Security and identity: **Demo authentication only.** Tokens are public, guessable fixtures (`docs/modules/tenants.md`). No expiry, rotation, revocation, multi-factor authentication, rate limiting or lockout. Local runs use plain HTTP. Production identity (for example OpenID Connect through Spring Security's resource server) is not designed yet.

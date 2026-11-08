@@ -19,17 +19,25 @@ closes it.
   documentation site, which `.github/workflows/pages.yml` publishes from `main` after the publication scan. Its own
   controls, `control.brain-check` and `control.publication-scan`, are shipped with their tests as evidence. The
   library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. The first
-  application code exists: the domain and application layers of the `quotes` module and the tenant context of the
-  `tenants` module, checked by `ArchitectureConformanceTest`, `ModularityTest` and `HexagonalLayeringTest`. Four
-  capabilities of the quotes module have passing tests: two are shipped and two partial. The shipping API's database
-  harness exists too: in CI, `PostgresHarnessIntegrationTest` starts the reviewed PostgreSQL 18.6 image under the
-  runner review's conditions and queries it; no schema exists yet. Every other capability in
-  `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for them is still to
-  be written (red first).
+  application code exists: the domain and application layers of the `quotes` module and of booking in the `shipments`
+  module, and the tenant context of the `tenants` module, checked by `ArchitectureConformanceTest`, `ModularityTest`
+  and `HexagonalLayeringTest`. Six capabilities have passing tests: two of the quotes module are shipped, and two of
+  it and two of the shipments module are partial. The shipping API's database harness exists too: in CI,
+  `PostgresHarnessIntegrationTest` starts the reviewed PostgreSQL 18.6 image under the runner review's conditions and
+  queries it; no schema exists yet. Every other capability in `docs/capabilities/capabilities.yaml` is `planned` with
+  no evidence, and every test class named for them is still to be written (red first), except `ShipmentTest`, which
+  exists for booking and does not yet assert cancellation.
 - **The quotes module runs in its tests only.** No class of it is a Spring bean, and no endpoint, database or running
   application exists. `CreateQuote`'s `@Transactional` has no effect yet, and that `QuoteIssued` is published inside
   the quote's transaction is unproven until `QuotesModuleIntegrationTest` exists. The store its tests use is in
   memory, so nothing yet shows that another tenant's quote is not found in the database.
+- **The shipments module runs in its tests only.** No class of it is a Spring bean, and no endpoint, database or
+  running application exists. `BookShipment`'s `@Transactional` has no effect yet, and that `ShipmentBooked` is
+  published inside the booking's transaction is unproven until `ShipmentEventsIntegrationTest` exists. Requests with
+  the same `Idempotency-Key` are not serialized yet: the advisory lock, the recheck under it and the handling of
+  unique-key failures belong to the planned JDBC adapter, and `BookingIdempotencyIntegrationTest`, which is to show
+  that concurrent duplicates create one shipment, is planned. The stores and the tracking numbers its tests use are in
+  memory.
 - The versions in the ADRs were checked against their sources on 2026-11-06. Their combination (JDK 25, Gradle
   9.8.2, Spring Boot 4.1.2, Spring Modulith 2.1.2, Error Prone 2.51.0, NullAway 0.14.3, JUnit 6.0.3 (property
   tests as `@ParameterizedTest` in the normal test task), PIT 1.30.2 with its JUnit 5 plugin 1.2.3) now compiles the
@@ -50,18 +58,26 @@ closes it.
 - **"No static evidence" is not "unused".** Reflection, Spring wiring by type or name, serialisation, configuration
   properties and string-built class names create runtime use that bytecode analysis does not see.
 - **Invisible channels.** SQL that reads another module's schema, shared database rows, HTTP calls, message
-  payloads, files and environment variables are not dependencies to the checker. `TableOwnershipTest` covers only
-  mapped `@Table` entities, not SQL strings.
+  payloads, files and environment variables are not dependencies to the checker. `TableOwnershipTest`, planned, is to
+  check the SQL of each module's adapters against the module's schema (ADR 0012); SQL anywhere else stays invisible
+  to it.
 - **Ordering and timing.** The model says who may depend on whom, not in which order things happen or whether they
   happen in the same transaction. The dynamic view and `docs/flows/quote-book-label.md` describe order; tests
   assert it.
+- **Scenario diagrams are not compared with what runs.** The dynamic view and the site's use case overview (sheet
+  M-07) show who takes part in what, as the model and `docs/capabilities/capabilities.yaml` declare it. A use case's
+  stamp there says that its named acceptance tests passed in the build that made the site, not that an actor started
+  it or that its interactions happened as drawn. The next increment is to compare the interactions that a scenario
+  executes with its dynamic view, step by step.
 - **Only direct references.** A transitive path neither satisfies nor violates an edge. Two modules can be coupled
   through a third without any report.
 - **Only what the class file records, as ArchUnit 1.5.1 reads it.** javac copies compile-time constants
   (`static final` primitives and strings) into the class that uses them, so using another module's constant leaves
   no reference. Casts, the types of local variables, explicit type arguments of method calls and array creation
   (`new T[n]`) are not reported either. A module that uses another only in these ways shows no divergence, and such
-  a use does not satisfy a REQUIRED edge. `BytecodeEvidenceTest` pins this list.
+  a use does not satisfy a REQUIRED edge. `BytecodeEvidenceTest` pins this list. Type patterns in a `switch`
+  (`case T t`, `case T _`) compile to an `invokedynamic` type switch whose bootstrap arguments hold the classes; they
+  are not reported either, and `BytecodeEvidenceTest` does not pin that yet (issue #69).
 - **Granularity.** Mapping is by package root. A class placed in the wrong module's package is attributed to that
   module. Encapsulation inside a module (which internal class may call which) is Spring Modulith's and ArchUnit's
   job, and both see the same static references only.
@@ -189,7 +205,8 @@ closes it.
 - Mutation testing runs for `libs/c4-contract-kit` only, in CI (the `mutation` job), over all its production classes,
   at a 90 % threshold. The planned measure per change (80 % of mutants on changed lines, 90 % for pricing and checker
   code) is not built yet, and equivalent-mutant exclusions are reviewed by hand. So the pricing code of the `quotes`
-  module is not mutation-tested yet: PIT is not reviewed for `:apps:shipping-api`.
+  module and the booking code of the `shipments` module are not mutation-tested yet: PIT is not reviewed for
+  `:apps:shipping-api`.
 - `ModularityTest` sees the modules as Spring Modulith finds them, from the class path without the test classes;
   `ArchitectureConformanceTest` and `HexagonalLayeringTest` read the API's main class-output directories only.
 - Mockito is on the API's test class path, but no test uses it, so nothing loads it or attaches an agent. The
@@ -213,8 +230,18 @@ closes it.
   another transport, such as an artifact download, needs its own review first.
 - axe-core finds a subset of accessibility problems; manual keyboard and screen reader checks are required and
   recorded by hand.
-- The web app's static checks cover import boundaries and cycles only. dependency-cruiser and required frontend
-  edges are deferred.
+- The web app's static checks are to cover import boundaries and cycles, and a direct import for each REQUIRED
+  relationship whose endpoints are built (ADR 0012). Relationships touching planned parts are not evaluated, a direct
+  import proves a reference and not behaviour, and a part that no REQUIRED relationship reaches can be unused without
+  a report. dependency-cruiser is deferred.
+- The first runnable slice defers the generated client and the component tests (ADR 0012). So there is no
+  generated-client drift guarantee: the web app's request and response types are written by hand in
+  `apps/shipping-web/src/api` and can drift from `contracts/shipping.openapi.yaml` without failing a build. The
+  server's HTTP contract tests and the Playwright tests catch drift only for the operations and fields they exercise.
+  The component tests (`ParcelForm.test.tsx`, `QuoteCardList.test.tsx`, `BookingForm.test.tsx`,
+  `ShipmentDrawer.test.tsx`, `ProblemAlert.test.tsx`, `ThemeToggle.test.tsx`) wait for Vitest, Testing Library and
+  jsdom. They stay acceptance targets, so the capabilities that name them stay unshipped; until they exist, only
+  logic tests under `node --test` and the Playwright specs test the web app.
 - The CI time target of 8 to 12 minutes is a target, not a measurement.
 
 ## 7. Documentation

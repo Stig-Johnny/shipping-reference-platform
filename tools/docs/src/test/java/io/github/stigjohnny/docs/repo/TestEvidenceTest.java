@@ -103,4 +103,38 @@ class TestEvidenceTest {
         assertThatThrownBy(() -> TestEvidence.read(fixture.root(), List.of(fixture.reports())))
                 .isInstanceOf(DocsException.class).hasMessageContaining("cannot be read");
     }
+
+    @Test
+    void aSuiteThatTwoProducersReportPassesOnlyWhenEveryReportOfItPasses() {
+        // One fully qualified suite in two report directories, as when two test tasks each run part of one class by
+        // its tags: a passing report never hides a failing or skipped one, whichever producer is read first.
+        Fixture fixture = Fixture.copy(dir);
+        String suite = "io.github.stigjohnny.docs.check.BrainCheckTest";
+        Path passing = suiteReport(fixture, "passing", suite, 3, 0, 0, 0);
+        Path failing = suiteReport(fixture, "failing", suite, 2, 1, 0, 0);
+        Path skipped = suiteReport(fixture, "skipped", suite, 2, 0, 0, 1);
+        Path alsoPassing = suiteReport(fixture, "also-passing", suite, 4, 0, 0, 0);
+
+        for (List<Path> producers : List.of(List.of(passing, failing), List.of(failing, passing))) {
+            TestEvidence evidence = TestEvidence.read(fixture.root(), producers);
+            assertThat(evidence.passed("BrainCheckTest")).as("passing and failing, in either order").isFalse();
+            assertThat(evidence.ambiguous("BrainCheckTest")).isFalse();
+            assertThat(evidence.result("BrainCheckTest").map(TestEvidence.Result::failures)).contains(1);
+        }
+        for (List<Path> producers : List.of(List.of(passing, skipped), List.of(skipped, passing))) {
+            assertThat(TestEvidence.read(fixture.root(), producers).passed("BrainCheckTest"))
+                    .as("passing and skipped, in either order").isFalse();
+        }
+        // Every report of the suite passed, as when two producers split a class between them: it passes.
+        assertThat(TestEvidence.read(fixture.root(), List.of(passing, alsoPassing)).passed("BrainCheckTest")).isTrue();
+    }
+
+    /** A JUnit XML report of one suite in a report directory of its own beside the copy, as another producer writes. */
+    private static Path suiteReport(Fixture fixture, String producer, String suite, int tests, int failures, int errors,
+            int skipped) {
+        fixture.write("../" + producer + "/TEST-" + suite + ".xml", "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<testsuite name=\"" + suite + "\" tests=\"" + tests + "\" skipped=\"" + skipped + "\" failures=\""
+                + failures + "\" errors=\"" + errors + "\"/>\n");
+        return fixture.root().resolve("../" + producer);
+    }
 }

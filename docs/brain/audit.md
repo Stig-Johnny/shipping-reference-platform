@@ -2,7 +2,7 @@
 title: "Brain: audit"
 description: "Generated summary of module audit for agents: status, dependencies, HTTP operations, capabilities with their evidence, decisions, flows and gaps."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 > Generated—do not hand-edit. Sources: `architecture/workspace.dsl`, `docs/modules/audit.md`, `docs/capabilities/capabilities.yaml`, `contracts/shipping.openapi.yaml` and `docs/`.
@@ -26,7 +26,7 @@ Appends one tenant-scoped audit entry per shipment event, deduplicated by event 
   - quotes (PERMITTED): May record QuoteIssued events; no listener exists in v0.1, so the report shows no static evidence [Spring Modulith event listener]
 - **Used by:** none.
 - **Other relationships, not checked by the Java check:**
-  - to Database (not checked): Appends audit entries in schema audit [Spring Data JDBC]
+  - to Database (not checked): Appends audit entries in schema audit [Spring JDBC (JdbcClient)]
 
 ## HTTP operations
 

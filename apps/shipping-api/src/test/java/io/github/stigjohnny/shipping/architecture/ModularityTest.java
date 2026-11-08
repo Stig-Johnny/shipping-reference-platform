@@ -26,8 +26,10 @@ class ModularityTest {
         ApplicationModules modules = ApplicationModules.of(ShippingApplication.class);
 
         modules.verify();
-        assertThat(modules.stream().map(ModularityTest::name)).containsExactlyInAnyOrder("quotes", "tenants");
+        assertThat(modules.stream().map(ModularityTest::name)).containsExactlyInAnyOrder("quotes", "shipments",
+                "tenants");
         assertThat(dependencies(modules, "quotes")).containsExactly("tenants");
+        assertThat(dependencies(modules, "shipments")).containsExactly("quotes", "tenants");
         assertThat(dependencies(modules, "tenants")).isEmpty();
     }
 

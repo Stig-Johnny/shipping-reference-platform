@@ -22,8 +22,9 @@ job with no publication privilege.
 
 ## See it
 
-- [ADR 0005](../adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md): the test database is the first part
-  of the decision with checks of its own; the rest is still planned.
+- [ADR 0012](../adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md), which carries
+  forward ADR 0005's database design: the test database is the first part of it with checks of its own; the rest is
+  still planned.
 - [ADR 0007](../adr/0007-dependency-allowlist-and-pre-use-enforcement.md): its implementation status describes the
   image check and the engine's conditions.
 - [The known gaps](../gaps.md): what these checks cannot see, in sections 5 and 6.

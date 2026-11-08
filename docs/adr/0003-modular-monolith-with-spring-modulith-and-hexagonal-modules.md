@@ -1,7 +1,8 @@
 ---
 title: "ADR 0003: Modular monolith with Spring Modulith and hexagonal modules"
 description: "One deployable Spring Boot application; each business module is a top-level package with a public api package and hexagonal internals."
-status: accepted
+status: superseded
+supersededBy: "0012"
 updated: 2026-11-07
 date: 2026-11-06
 decision-makers: repository owner

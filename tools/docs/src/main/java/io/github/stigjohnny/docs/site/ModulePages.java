@@ -53,7 +53,7 @@ final class ModulePages {
                 List<Capability> capabilities = sources.capabilities().ofModule(WEB);
                 all.addAll(capabilities);
                 table.row("Web app", Html.escape("a container, not a checked module"), "",
-                        Html.escape("the API, through the generated client"), counts(capabilities),
+                        Html.escape("the API, through its hand-written typed HTTP adapter"), counts(capabilities),
                         SiteContext.link(INDEX, context.map().site(doc.path()).orElseThrow(), doc.title()));
             }
         }
@@ -65,7 +65,7 @@ final class ModulePages {
                 new StatusPanel(Statuses.design("accepted", "Each module's specification is accepted; the model "
                         + "lists its dependencies."), Statuses.implementation(all),
                         Statuses.evidence(all, sources.evidence())),
-                List.of(), body, context.mentioned("ADR 0002 ADR 0003", INDEX), Sources.WORKSPACE
+                List.of(), body, context.mentioned("ADR 0002 ADR 0012", INDEX), Sources.WORKSPACE
                         + " and docs/modules/", false);
     }
 

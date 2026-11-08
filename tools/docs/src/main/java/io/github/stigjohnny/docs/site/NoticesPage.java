@@ -55,15 +55,15 @@ final class NoticesPage {
     }
 
     /**
-     * How many pages draw a diagram, in words: every view's page, each flow with a dynamic view, and the start page,
-     * which draws the system context.
+     * How many pages draw a diagram, in words: every view's page, each flow with a dynamic view, the start page, which
+     * draws the system context, and the use case overview.
      */
     private static String diagramPages(Sources sources) {
         List<C4View> views = sources.workspace().model().views();
         long flows = sources.docsUnder("docs/flows/").stream().filter(flow -> views.stream().anyMatch(view ->
                 view.kind() == C4View.Kind.DYNAMIC && view.description().contains(flow.path()))).count();
         long start = views.stream().filter(view -> view.kind() == C4View.Kind.SYSTEM_CONTEXT).limit(1).count();
-        int count = views.size() + (int) flows + (int) start;
+        int count = views.size() + (int) flows + (int) start + (UseCasePage.draws(sources) ? 1 : 0);
         List<String> words = List.of("no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
                 "ten");
         return count < words.size() ? words.get(count) : Integer.toString(count);

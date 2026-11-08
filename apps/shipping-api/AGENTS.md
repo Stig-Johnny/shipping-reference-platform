@@ -1,6 +1,7 @@
 # AGENTS.md: apps/shipping-api (Gradle project `:apps:shipping-api`)
 
-Adds to the root `AGENTS.md`. Decisions: ADR 0003 (modules), 0004 (contract), 0005 (database), 0006 (events).
+Adds to the root `AGENTS.md`. Decisions: ADR 0012 (modules, contract and database; it supersedes ADRs 0003, 0004 and
+0005) and ADR 0006 (events).
 
 ## Structure
 
@@ -17,7 +18,9 @@ Adds to the root `AGENTS.md`. Decisions: ADR 0003 (modules), 0004 (contract), 00
 ## Java
 
 - Use `spring-boot-starter-webmvc` for HTTP; `spring-boot-starter-web` was rejected by dependency review.
-- Java 25 (`--release 25`), Spring Boot 4.1.2, Spring Modulith 2.1.2, Spring Data JDBC, Flyway 12.4.0.
+- Java 25 (`--release 25`), Spring Boot 4.1.2, Spring Modulith 2.1.2, Spring JDBC (`JdbcClient`, through
+  `spring-boot-starter-jdbc`), Flyway 12.4.0. Spring Data JDBC is not in the build and v0.1 does not use it (ADR 0012):
+  adapters write their SQL by hand, every value a bound parameter.
 - Records for values, commands, events and responses. Validate in canonical constructors.
 - Sealed interfaces for expected business outcomes (`QuoteResult`, `OfferLookup`, `BookingOutcome`,
   `CancellationOutcome`, `LabelOutcome`). Controllers switch over them exhaustively. Exceptions are for exceptional
@@ -104,8 +107,8 @@ Adds to the root `AGENTS.md`. Decisions: ADR 0003 (modules), 0004 (contract), 00
 
 ## Common tasks
 
-- **New endpoint:** contract, regenerate client, failing `*HttpContractTest`, controller, module document, flow if
-  affected.
+- **New endpoint:** contract, failing `*HttpContractTest`, controller, module document, flow if affected. The first
+  runnable slice generates no client (ADR 0012); the web app's hand-written types change with its own code.
 - **New dependency between modules:** model change (level 3) with the reason in the relationship description, then
   the code. Use `REQUIRED` when the collaboration is mandatory for correctness.
 - **New table:** migration with policy and grants, `RowLevelSecurityCatalogTest` passes, module document's data

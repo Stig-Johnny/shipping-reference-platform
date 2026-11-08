@@ -18,6 +18,8 @@ public record ModelElement(String id, String name, String type, String descripti
     public static final String PLANNED = "Planned";
     public static final String EXTERNAL = "External";
     public static final String SIMULATED = "Simulated";
+    /** The property in which Structurizr's DSL parser keeps the identifier that the model file gives an element. */
+    private static final String IDENTIFIER = "structurizr.dsl.identifier";
 
     public ModelElement {
         tags = List.copyOf(tags);
@@ -34,6 +36,16 @@ public record ModelElement(String id, String name, String type, String descripti
 
     public boolean simulated() {
         return tags.contains(SIMULATED);
+    }
+
+    /** The identifier the model file gives the element, such as {@code clerk}, when it gives one. */
+    public Optional<String> identifier() {
+        return Optional.ofNullable(properties.get(IDENTIFIER));
+    }
+
+    /** Whether the element can be an actor of a use case: a person, or a software system outside the platform. */
+    public boolean actor() {
+        return "Person".equals(type) || ("Software System".equals(type) && external());
     }
 
     /** The checked component's {@code contract.id}, when it has one. */
