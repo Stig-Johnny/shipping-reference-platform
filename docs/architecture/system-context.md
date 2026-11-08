@@ -2,7 +2,7 @@
 title: "C4 view: System context"
 description: "System context view of the Shipping reference platform. Who uses the platform and which systems it talks to."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 > Generated—do not hand-edit. Source: `architecture/workspace.dsl`, view `SystemContext`. Regenerate with
