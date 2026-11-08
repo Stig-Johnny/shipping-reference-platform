@@ -10,8 +10,9 @@ enforcedBy:
   - "java: HexagonalLayeringTest (ArchUnit)"
   - "java: ArchitectureConformanceTest (C4 edges)"
   - "java: compilation with Error Prone and NullAway"
+  - "java: QuotesHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest (HTTP contract, with test doubles for the database adapters)"
 plannedEnforcement:
-  - "java: QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest"
+  - "java: ShipmentsHttpContractTest"
   - "java: RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, CrossTenantAccessTest"
   - "java: MigrationsIntegrationTest, and TableOwnershipTest on the SQL of each module's adapters"
   - "java: WebArchitectureConformanceTest, the JDK import checker over apps/shipping-web/src: import boundaries, cycles, and a direct import for each REQUIRED relationship whose endpoints are built"
@@ -250,10 +251,11 @@ one.
   `package-info.java` annotated `@NullMarked` in every package; each rule also fails on a fixture that breaks it) and
   `ArchitectureConformanceTest` (ADR 0002). Compilation fails on Error Prone errors and NullAway findings;
   `@SuppressWarnings("NullAway")` is a level 3 behaviour signal in `policy/risk.json`.
-- Planned, `java`: `QuotesHttpContractTest`, `ShipmentsHttpContractTest` and `TenantsHttpContractTest` validate
-  responses against the contract; `ProblemDetailsHttpContractTest` covers an unknown path, a wrong method, a wrong
-  media type, malformed JSON, an unknown member and an unexpected exception: the correct type, no stack trace, a
-  correlation ID.
+- `java` runs `QuotesHttpContractTest` and `TenantsHttpContractTest`, which validate every response they exercise
+  against the contract, and `ProblemDetailsHttpContractTest`, which covers an unknown path, a wrong method, a wrong
+  media type, malformed JSON, an unknown member, a request refused before routing and an unexpected exception: the
+  correct type, no stack trace, a correlation ID. They start the application with test doubles for the adapters to
+  the database, so they prove the HTTP edge, not persistence. Planned, `java`: `ShipmentsHttpContractTest`.
 - Planned, `java`: `RowLevelSecurityCatalogTest` queries `pg_class`, `pg_policy` and `pg_roles`: every table with a
   `tenant_id` column has row-level security enabled and forced and at least one policy, except the four identity
   tables, on which `shipping_app` has no privileges; `shipping_app` is not superuser, lacks `BYPASSRLS` and owns

@@ -126,7 +126,8 @@ final class DecisionPages {
             "0002", "This verifies the generated view pages and the built modules' static dependencies against the "
                     + "model, not runtime behaviour.",
             "0011", "This verifies documentation tooling and publication controls, not shipping behaviour.",
-            "0012", "This verifies the structure of the built modules, not their behaviour.");
+            "0012", "This verifies the structure of the built modules and their exercised HTTP responses, "
+                    + "not persistence.");
 
     private static String scope(DocFile adr) {
         String file = adr.path().substring(adr.path().lastIndexOf('/') + 1);
@@ -154,12 +155,13 @@ final class DecisionPages {
         List<Capability> summarised = documented.stream()
                 .filter(c -> !c.enforcedSubset().isEmpty() || !c.plannedRemainder().isEmpty()).toList();
         if (!summarised.isEmpty()) {
-            // The control's own two sentences, linked to the details in the record's implementation status.
+            // Add the control's scope without losing the ADR's other evidence or planned enforcement.
             String anchor = MarkdownRenderer.headings(adr.body(), adr.path()).stream()
                     .filter(h -> h.text().startsWith("Implementation status")).map(Section::id).findFirst().orElse("");
-            implementation = Badge.PLANNED.html("Planned") + " " + linked(String.join(" ", summarised.stream()
+            implementation += " " + linked(String.join(" ", summarised.stream()
                     .map(Capability::plannedRemainder).filter(t -> !t.isEmpty()).toList()), anchor);
-            verified = Badge.PARTIAL.html("Partly enforced") + " " + linked(String.join(" ", summarised.stream()
+            verified = (passing.isEmpty() ? "" : verified + " ")
+                    + Badge.PARTIAL.html("Partly enforced") + " " + linked(String.join(" ", summarised.stream()
                     .map(Capability::enforcedSubset).filter(t -> !t.isEmpty()).toList()), anchor);
         }
         StringBuilder design = new StringBuilder(Statuses.design(adr.status(), "Decided " + adr.text("date")

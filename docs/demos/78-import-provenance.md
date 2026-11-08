@@ -21,7 +21,12 @@ The old `:example-app` name means the API only while the current acceptance is `
 `projectPathConfirmed` text remains in that record or `acceptance.previous`. History is read newest first in its
 stored order. Historical snapshots may omit `status`, as in PR #73's rollover; an explicit status must be
 `accepted`. A newer changed or negated confirmation, or non-accepted status, blocks older affirmation. Missing
-confirmation also fails. No security record or whitelist was widened.
+confirmation also fails. That provenance change did not widen a security record or whitelist.
+
+After integrating the HTTP edge from pull request #75, the isolated root classes and module web adapters have
+exact class grants for the APIs they use. Module HTTP tests have the classes they need too, and the shared
+`io.github.stigjohnny.shipping.http` test package has a separate exact-class whitelist. Every added entry has a
+reason and must be used by the compiled code; no package grant was added and security records are unchanged.
 
 ## Try it
 
@@ -71,7 +76,7 @@ suite. The rejected external-file fixture's report says:
 - `io.github.stigjohnny.shipping.architecture.fixtures.externalimports.namespace.quotes.internal.application.UsesHelper` uses `io.github.stigjohnny.shipping.quotes.api.UnreviewedHelper`, rule allowlist: unknown unreviewed.jar is neither a Maven artifact nor a project of this build: no review covers it
 ```
 
-The API's main-output report from that run says:
+The API's main-output report from that historical run, before the HTTP edge was integrated, says:
 
 ```text
 266 uses, 0 denied.

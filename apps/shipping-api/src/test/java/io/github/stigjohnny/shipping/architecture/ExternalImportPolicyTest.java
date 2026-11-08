@@ -73,7 +73,17 @@ class ExternalImportPolicyTest {
         ExternalImportReport.write(result, ExternalImportReport.DIRECTORY, inputs());
         assertThat(lines(result.denied())).isEmpty();
         assertThat(result.uses()).extracting(Use::area).contains("module tests", "architecture tests",
-                "architecture fixtures");
+                "architecture fixtures", "http tests");
+    }
+
+    @Test
+    void theHttpTestAreaCoversOnlyTheExactTestPackage() {
+        String http = ExternalImportPolicy.API + ".http";
+        assertThat(ExternalImportWhitelists.area(Scope.TEST, ExternalImportPolicy.API, http)
+                .map(ExternalImportWhitelists.Area::label)).contains("http tests");
+        assertThat(ExternalImportWhitelists.area(Scope.TEST, ExternalImportPolicy.API, http + ".extra")).isEmpty();
+        assertThat(ExternalImportWhitelists.area(Scope.MAIN, ExternalImportPolicy.API, http)
+                .map(ExternalImportWhitelists.Area::label)).contains("module root and api");
     }
 
     @Test

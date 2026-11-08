@@ -69,7 +69,8 @@ definitions, and a drawing must read the same wherever it is shown.
    record's number or a demonstration's pull request number, never from a page's position.
 2. **Status ledger.** One ruled list with three named rows: accepted design, planned implementation, verified
    evidence. Each row has a state in words and its scope. Passing evidence is a count and what it does not prove; the
-   test names are in a disclosure, never in the first line.
+   test names are in a disclosure, never in the first line. A decision's partial control summary supplements its
+   passing evidence and planned enforcement; it must not hide the decision's other checks (`SitePagesTest`).
 3. **Drawing register.** The navigation: each row is the sheet code in a fixed column, 56 px wide so that seven
    characters such as `X-GUIDE` fit, and the title beside it, with a state word where a sheet has one. The current
    row has a 3 px link-coloured rule and `aria-current`. The theme choice stays three native radio buttons in a

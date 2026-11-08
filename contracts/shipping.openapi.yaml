@@ -35,11 +35,11 @@ info:
     ## Errors (RFC 9457)
 
     Every error response is an `application/problem+json` document (schema `Problem`) with `type`, `title`,
-    `status`, `detail`, `instance` (the request path) and `correlationId`. `type` values are stable URIs under
-    `https://shipping-reference-platform.example/problems/`. The `.example` host is reserved (RFC 2606) and
-    does not resolve; this table and `docs/modules/*.md` are the documentation for each type. Responses never
-    contain stack traces, SQL, class names or data belonging to another tenant. A resource that exists in
-    another tenant is reported exactly like a resource that does not exist.
+    `status`, `detail`, `instance` (the request path, with the exceptions below) and `correlationId`. `type`
+    values are stable URIs under `https://shipping-reference-platform.example/problems/`. The `.example` host
+    is reserved (RFC 2606) and does not resolve; this table and `docs/modules/*.md` are the documentation for
+    each type. Responses never contain stack traces, SQL, class names or data belonging to another tenant. A
+    resource that exists in another tenant is reported exactly like a resource that does not exist.
 
     | type (suffix)                    | status | title                          | raised by                    |
     |----------------------------------|--------|--------------------------------|------------------------------|
@@ -64,7 +64,23 @@ info:
 
     "HTTP edge" means the isolated classes `CorrelationIdFilter` and `FallbackProblemHandler` in the root
     package `io.github.stigjohnny.shipping` (container property `contract.isolated` in the C4 model).
-    405 and the generic 404 can occur on any path and are not repeated under each operation.
+
+    These problems can occur on any path, also on one that is no operation, and are not repeated under each
+    operation. Before routing: `400 malformed-request` for a request that the server refuses outright, because
+    its path is longer than 2048 characters or is not a valid URI reference, or because Spring Security's
+    firewall rejects it (for example a path with `;` or an encoded `/`, or a method other than GET, HEAD, POST,
+    PUT, PATCH, DELETE and OPTIONS); then `401 unauthenticated` without a valid demo token and
+    `403 no-tenant-membership` for a user without a tenant. After routing: `404 not-found` for an unknown path
+    and `405 method-not-allowed` for a method the path does not support.
+
+    Problems repeat what a request says only within the bounds of the `Problem` schema:
+
+    - `instance` is the request path without its query string. A path that `instance` cannot hold, one longer
+      than 2048 characters or one that is not a valid URI reference, is refused before routing, and the
+      problem's `instance` is `about:blank`.
+    - An invalid member of a body is named in `errors` by its JSON Pointer. The 200-character limit of `name`
+      counts Unicode code points in the escaped pointer. An unknown member whose pointer exceeds that limit
+      cannot be named: such a body is `400 malformed-request`, without `errors`.
   contact:
     name: Repository owner (see .github/CODEOWNERS)
 servers:
@@ -657,7 +673,9 @@ components:
         const: Bearer realm="shipping-reference-platform"
   responses:
     BadRequest:
-      description: '`validation-failed` (with `errors`) or `malformed-request` (body is not parseable JSON).'
+      description: |
+        `validation-failed` (with `errors`) or `malformed-request` (the body is missing or is not parseable JSON,
+        or it has an unknown member too long to name).
       headers:
         Correlation-Id:
           $ref: '#/components/headers/CorrelationId'
@@ -1145,8 +1163,9 @@ components:
       additionalProperties: false
       description: |
         RFC 9457 problem details. `status` equals the HTTP status code. `title` is fixed per `type`. `detail` is
-        safe to show to the user. `instance` is the request path without query string. `errors` appears only
-        with `validation-failed`; `reason` appears only with `no-offer-available`.
+        safe to show to the user. `instance` is the request path without query string, or `about:blank` for a
+        request refused because of its path (the description's "Errors" says when). `errors` appears only with
+        `validation-failed`; `reason` appears only with `no-offer-available`.
       required: [type, title, status, detail, instance, correlationId]
       properties:
         type:
