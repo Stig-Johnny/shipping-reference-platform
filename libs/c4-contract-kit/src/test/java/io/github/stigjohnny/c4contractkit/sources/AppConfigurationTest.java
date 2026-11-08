@@ -11,12 +11,36 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The web app's configuration is read as data, and every setting that would make TypeScript, Node.js or the browser
  * resolve a specifier otherwise than the check does, or add an import that no source file shows, is refused.
  */
 class AppConfigurationTest {
+
+    @ParameterizedTest(name = "ambiguous attributes: {0}")
+    @ValueSource(strings = {
+        "<script src=\"&#x68;ttps://example.invalid/a.js\"></script>",
+        "<script src=\"&#104;ttps://example.invalid/a.js\"></script>",
+        "<script src=\"https&colon;//example.invalid/a.js\"></script>",
+        "<script src=\"https://example.invalid/a.js\" SRC=\"./app.js\"></script>",
+        "<link href=\"&#x68;ttps://example.invalid/a.css\" rel=stylesheet>",
+        "<link href=\"&#104;ttps://example.invalid/a.css\" rel=stylesheet>",
+        "<link href=\"https&colon;//example.invalid/a.css\" rel=stylesheet>",
+        "<link href=\"https://example.invalid/a.css\" HREF=\"./app.css\" rel=stylesheet>",
+        "<script type=\"import&#x6d;ap\"></script>",
+        "<script type=\"import&#109;ap\"></script>",
+        "<script type=importmap TYPE=module></script>",
+        "<link rel=stylesheet REL=preload href=./app.css>"})
+    void duplicateAttributesAndEncodedUrlsOrTypesAreRefused(String tag) throws IOException {
+        write("index.html", "<!doctype html>\n" + tag + "\n");
+
+        String element = tag.startsWith("<script") ? "script" : "link";
+        assertThat(read().refusals()).extracting(FileRefusal::file, FileRefusal::line, FileRefusal::reason)
+                .containsExactly(tuple("index.html", 2, "the attributes of a <" + element
+                        + "> element cannot be read with certainty"));
+    }
 
     /** The web app's own tsconfig.json and index.html, as written for the first runnable slice. */
     private static final String TSCONFIG = """

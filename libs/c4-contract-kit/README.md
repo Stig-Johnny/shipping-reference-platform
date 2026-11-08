@@ -13,6 +13,15 @@ Its package `sources` reads a web app's TypeScript sources, tests, style sheets 
 deliberately restricted grammar and the JDK alone, for a web import check that is not built yet
 ([`AGENTS.md`](AGENTS.md), "Web imports"). Where it cannot decide with certainty, it refuses the file.
 
+The reader also refuses a slash after `>`: a closing type argument can end a value, while a comparison operator
+starts an expression. Parenthesize the value before dividing; `=>` still starts an arrow-function expression.
+References to `Function`, `Worker`, `SharedWorker` and `importScripts` are refused even without a direct call,
+including aliases, indirect calls and literal computed properties. This conservative rule also refuses type uses
+of those names. In HTML, duplicate attribute names (case-insensitive) and any ampersand in `src`, `href` or `type`
+are refused before URL and import-map checks; the reader does not decode character references. TypeScript imports
+of `.css` package subpaths, scoped or unscoped and in any letter case, are unsupported in both browser code and
+tests, even if the package is approved. Style sheets must be linked from HTML.
+
 The library is built and tested, and the shipping API is its first user: `ArchitectureConformanceTest` in
 `:apps:shipping-api` checks the API's classes with it. `SelfConformanceTest` checks the
 library's own six packages against its self-model, [`architecture/self.dsl`](architecture/self.dsl), and the negative

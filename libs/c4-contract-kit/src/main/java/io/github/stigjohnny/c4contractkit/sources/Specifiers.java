@@ -172,6 +172,9 @@ final class Specifiers {
                 return new Resolution.Unsupported(SUBPATH);
             }
         }
+        if (parts.length > (scoped ? 2 : 1) && parts[parts.length - 1].toLowerCase(Locale.ROOT).endsWith(".css")) {
+            return new Resolution.Unsupported(STYLE_SHEET);
+        }
         return new Resolution.ToPackage(name);
     }
 }

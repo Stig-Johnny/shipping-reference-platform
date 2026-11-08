@@ -9,6 +9,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -19,6 +20,36 @@ import org.junit.jupiter.params.provider.ValueSource;
  * passes unseen.
  */
 class ImportScannerTest {
+
+    @ParameterizedTest(name = "generic assertion hiding {0}, JSX={1}")
+    @CsvSource({"import('undeclared'), false", "import(name), false",
+        "import('undeclared'), true", "import(name), true"})
+    void aSlashAfterAClosingTypeArgumentCannotHideAnImport(String expression, boolean jsx) {
+        String source = "type N<T> = number;\nasync function f(value: number) {\n"
+                + "  const n = value as N<number> / (await " + expression + ").n / 2;\n}\n";
+        assertThat(ImportScanner.scan(source, jsx).refusals()).extracting(Refusal::line, Refusal::reason)
+                .containsExactly(tuple(3, "a / after '>' is not supported: it could start a regular expression "
+                        + "or be an operator, and the reader does not guess; put the expression in parentheses"));
+    }
+
+    @ParameterizedTest(name = "loader reference: {0}")
+    @ValueSource(strings = {
+        "const F = Function; F(\"return import('unlisted')\")();",
+        "Function.call(null, \"return import('unlisted')\")();",
+        "Function.apply(null, [\"return import('unlisted')\"])();",
+        "const F = globalThis.Function.bind(null); F(\"return import('unlisted')\")();",
+        "const { Function: F } = globalThis; F(\"return import('unlisted')\")();",
+        "const F = globalThis['Function']; F(\"return import('unlisted')\")();",
+        "const W = Worker; new W('https://example.invalid/a.js');",
+        "const W = SharedWorker; new W('https://example.invalid/a.js');",
+        "const W = globalThis['Worker']; new W('https://example.invalid/a.js');",
+        "const load = importScripts; load('https://example.invalid/a.js');",
+        "importScripts.call(null, 'https://example.invalid/a.js');"})
+    void loaderReferencesAreRefusedBeforeTheyCanBeAliasedOrCalledIndirectly(String source) {
+        String reason = source.contains("Function") ? ImportScanner.FUNCTION : ImportScanner.WORKER;
+        assertThat(ts("// synthetic fixture\n" + source).refusals()).extracting(Refusal::line, Refusal::reason)
+                .containsExactly(tuple(2, reason));
+    }
 
     private static ImportScanner.Scan ts(String text) {
         return ImportScanner.scan(text, false);
@@ -225,7 +256,8 @@ class ImportScannerTest {
 
         assertThat(scan.imports()).isEmpty();
         assertThat(scan.refusals()).extracting(Refusal::line, Refusal::reason).containsExactly(
-                tuple(1, eval), tuple(2, function), tuple(3, function), tuple(4, eval));
+                tuple(1, eval), tuple(2, function), tuple(3, function), tuple(4, eval),
+                tuple(5, function), tuple(6, function));
     }
 
     @Test
