@@ -1,6 +1,6 @@
 ---
-title: "Hidden web loaders and wrong-project approvals now fail"
-description: "The model comparison rejects hidden loader keys and ambiguous URLs, and requires Node.js approval for the intended test job and project."
+title: "Partial web import check rejects the recorded refusals and wrong-project approvals"
+description: "Detected imports and reader refusals reach the model comparison; spread-syntax loaders remain a known bypass and authoritative controls are planned."
 status: accepted
 updated: 2026-11-08
 pr: 71
@@ -13,15 +13,17 @@ tests:
 
 ## What changed
 
-The web import gate compares source imports with the model without running the web app. Hidden imports, loader
-aliases, ambiguous page attributes and package stylesheet imports now fail that comparison using the reader fixes
-from pull request #70. The new conformance fixtures prove that the refusals reach the gate, including for computed
-imports and for approved stylesheet packages in browser sources and tests.
+The web import rules ship as a **labelled partial static check**, as accepted by the owner on 2026-11-08
+(ADR 0013). The library compares only the imports the partial reader detects with the model, without running the
+web app. The recorded hidden-import, loader-alias, ambiguous-page-attribute and package-stylesheet cases fail that
+comparison using the reader fixes from pull request #70. The conformance fixtures prove that those refusals reach
+the gate, including the tested computed imports and approved stylesheet packages in browser sources and tests.
+The known spread-syntax bypass remains open; a passing verdict does not establish a complete import graph.
 
 The corrected reader's quoted and escaped loader keys, computed keys and indirect timers are now checked through
 the public gate in `.ts` and `.tsx` browser sources, colocated tests and a separate test root. Script and stylesheet
-URLs containing control characters, backslashes or other ambiguous syntax must also fail. Each case requires
-`passed=false` and exact findings naming the file, line and reason, so a reader refusal cannot disappear during
+URLs in the fixtures containing control characters, backslashes or other ambiguous syntax must also fail. Each case
+requires `passed=false` and exact findings naming the file, line and reason, so a reader refusal cannot disappear during
 model comparison. An escaped identifier must not hide an earlier quoted loader key's finding.
 
 Numeric literals also leave constructor properties visible to the gate: `1..constructor.constructor(...)`,
@@ -155,8 +157,31 @@ pass in that build; the recorded output above is never rerun by the site builder
 
 ## Limits
 
-This is a library gate exercised on synthetic repositories. The repository's web-app integration remains planned;
-no real web imports are checked here. It does not execute TypeScript, simulate a browser, inspect installed packages
+This is a **partial static check**, not authoritative enforcement or a general fail-closed check. The model
+comparison can only judge imports and refusals the reader reports. A loader missed without a refusal supplies
+neither dependency evidence nor a violation, so a green result cannot prove the absence of undeclared imports,
+boundary breaks, cycles or hidden runtime loaders.
+
+The known spread-syntax bypass from the review of pull request #70 remains open:
+`const p = { ...import("unlisted") };`, `const p = { ...import(name) };`,
+`const p = { ...require("unlisted") };` and `const p = { ...import.meta.glob("./*.ts") };`
+produce `imports=[], refusals=[]`. The review reproduced object, array, call and nested-template spreads,
+including whitespace, comments and line breaks after `...`, in TS/TSX and source/test placements.
+Parenthesizing the operand restores detection in the reviewed control; it does not fix the bypass. These are
+review findings from a non-exhaustive probe set, not new fixtures or output rerun by this publishing build.
+
+Authoritative controls are planned: the reviewed TypeScript compiler's import graph for import dependencies and a
+strict Content-Security-Policy in the web app enforced by the browser for runtime loading and execution
+([ADR 0013](../adr/0013-partial-web-import-lint-and-authoritative-controls.md)). Neither is implemented by this
+library or proved by these fixtures. The graph does not prove general runtime behaviour, and CSP does not enforce
+module boundaries. See also [the known gaps](../gaps.md#6-tests-and-quality-gates).
+
+This library check is exercised on synthetic repositories. The repository's web-app integration was still planned
+in pull request #71; pull request #72 adds that gate and its `WebArchitectureConformanceTest` evidence. All six web
+parts remain planned and the source and test roots are empty, so no real web imports are checked yet. The library
+does not execute TypeScript, simulate a browser, inspect installed packages
 or prove runtime behaviour. Conservative reader refusals can reject harmless syntax, including type uses of loader
-names, array destructuring, computed indexing and literal ampersands in URL attributes. Approval expiry remains PolicyCheck's responsibility before the
-build. No capability is promoted by this recording.
+names, array destructuring, computed indexing and literal ampersands in URL attributes. Approval expiry remains
+PolicyCheck's responsibility before the build. No capability is promoted by this recording or the partial label;
+`control.web-import-boundaries` is now partial on the evidence of the repository gate and synthetic fixtures,
+with the reader misses and authoritative controls still outstanding.

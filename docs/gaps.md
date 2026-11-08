@@ -19,8 +19,9 @@ closes it.
   documentation site, which `.github/workflows/pages.yml` publishes from `main` after the publication scan. Its own
   controls, `control.brain-check` and `control.publication-scan`, are shipped with their tests as evidence. The
   library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. So does
-  its web import check, which holds `apps/shipping-web` to the web container of the model; every web part is
-  planned, so it evaluates no import of the web app yet. The first application code exists: the domain and
+  its partial web import check, which compares detected imports in `apps/shipping-web` with the web container of the
+  model; every web part is planned and the source and test roots are empty, so no real web imports are checked yet.
+  The first application code exists: the domain and
   application layers of the `quotes` module and of booking in the `shipments` module, and the tenant context of the
   `tenants` module, checked by `ArchitectureConformanceTest`, `ModularityTest` and `HexagonalLayeringTest`. Six
   capabilities have passing tests: two of the quotes module are shipped, and two of it and two of the shipments
@@ -89,26 +90,26 @@ closes it.
   pull request waiting for it, the library's slice 8, is planned.
 - **The web app's calls are outside the check.** The C4 relationships from the web app to the API are network calls.
   No static check sees them; the contract tests and Playwright tests do, for the operations they exercise.
-- **The web import check reads text, not types.** It holds the web app's imports to the model's web container with a
-  restricted import grammar, never with the TypeScript compiler, and fails closed: what it cannot read with certainty
-  fails the build with its file and line. These limits follow:
-  - It reads `package.json`, `tsconfig*.json` and the app's `*.html` pages as data and refuses every setting that
+- **The web import check reads text, not types.** It compares detected imports with the model's web container using a
+  restricted import grammar, never the TypeScript compiler. Reported refusals fail the build with their file and
+  line, but imports and unsupported constructs can pass unseen, including the known spread-syntax bypass in
+  section 6. This is partial lint, not a general fail-closed guarantee (ADR 0013). These limits follow:
+  - It reads `package.json`, `tsconfig*.json` and the app's `*.html` pages as data and refuses recognized settings that
     would make TypeScript, Node.js or the browser resolve a specifier otherwise (path aliases, `baseUrl`, `rootDirs`,
     an import map, and more). It reads no other configuration: a bundler or test-runner configuration that resolved
     modules differently would not be seen. ADR 0012 has no bundler; `vite.config.ts` and `vitest.config.ts` are risk
     level 2 in `policy/risk.json` (`web-build-configuration`), which does not require the owner's approval.
-  - Tests are read and held to their part's relationships and entries, and every package and built-in they name must
-    be declared and approved, but their imports are never evidence. What a test does at run time with a built-in it
-    may import (`node:fs` reads files) is not checked.
+  - Tests are read and their detected imports held to their part's relationships and entries; every package and
+    built-in a detected import names must be declared and approved, but test imports are never evidence. What a test
+    does at run time with a built-in it may import (`node:fs` reads files) is not checked.
   - A package or built-in is approved when an entry of `security/allowlist.json` matches its kind, coordinate, exact
     version, project and configuration with an approving verdict. The check leaves expiry to `PolicyCheck`, and an
     approved package's own dependencies to the allowlist and lock checks; it sees only the imports in the app's files.
     No part declares a package today.
   - `url()` in style sheets and assets that code names in strings at run time are not dependencies to it.
-  - It refuses valid TypeScript it does not cover, such as a slash it cannot classify as division or a regular
+  - It refuses recognized unsupported TypeScript forms, such as a slash it cannot classify as division or a regular
     expression, a generic arrow function starting with `<` in a `.tsx` file, `require`, `import.meta.glob` and
-    triple-slash directives. A refusal fails the build; it never passes unseen. A misreading the lexer does not know
-    about could still hide an import.
+    triple-slash directives. A reported refusal fails the build; an unrecognized construct can still hide an import.
   - Calls of globals, such as `fetch` outside `src/api`, are not imports; review enforces that rule
     (`apps/shipping-web/AGENTS.md`).
   - As in the class check, a REQUIRED web relationship proves an import, not that the imported code runs.
@@ -220,22 +221,27 @@ closes it.
 - axe-core finds a subset of accessibility problems; manual keyboard and screen reader checks are required and
   recorded by hand.
 - The web app's repository import gate is implemented: `WebArchitectureConformanceTest` holds `src`, the `e2e`
-  test root, `public` and app configuration to the model in every build. It covers import boundaries and cycles,
-  and requires a direct import for each REQUIRED relationship whose endpoints are built (ADR 0012; limits in
-  section 1). All six web parts remain planned, the source and test roots contain no real files, and every
-  relationship touches a planned part, so no real web imports are checked and no relationship is evaluated yet.
+  test root, `public` and app configuration to the model in every build using **partial static lint**. It compares
+  detected imports for boundaries and cycles, and requires a detected direct import for each REQUIRED relationship
+  whose endpoints are built (ADRs 0012 and 0013; limits in section 1). All six web parts remain planned, the source
+  and test roots contain no real files, and every relationship touches a planned part, so no real web imports are
+  checked and no relationship is evaluated yet.
   The control remains partial. A direct import proves a reference, not behaviour, and a part that no REQUIRED
   relationship reaches can be unused without a report. dependency-cruiser is deferred.
-- The reader and conformance library are implemented, and the import rules have synthetic fixture evidence.
+- **The web reader and conformance rules ship as a labelled partial static check, not authoritative enforcement.**
+  The owner accepted this scope for pull requests #70 and #71 on 2026-11-08 (ADR 0013). The reader and conformance
+  library are implemented, and the import rules have synthetic fixture evidence. The reader can miss imports and
+  unsupported constructs without a refusal.
   `WebArchitectureConformanceTest` proves that an unapproved import in the repository model's `e2e` root fails the
-  gate. `WebConformanceTest` proves that reader refusals fail the model comparison, and that Node.js built-ins in
-  tests need runtime approval for project `ci` in configuration `web`, at the version named by `engines.node`.
+  gate. `WebConformanceTest` proves that the tested reader refusals fail the model comparison, and that Node.js
+  built-ins in tests need runtime approval for project `ci` in configuration `web`, at the version named by `engines.node`.
   `WebReaderRefusalConformanceTest` checks the quoted/escaped loader keys, computed keys, indirect timers and ambiguous
   script/link URLs through the same public gate, asserting the failing verdict and exact findings in browser sources
   and both kinds of test root. It also checks all 66 numeric-boundary
   and regex-flag refusal fixtures independently in six TS/TSX source/test placements, asserting the failing verdict
   and exact file, line and reason, including multiple findings on one line and findings after continued strings.
-  This is fixture evidence, not a check of real web imports. The reader's grammar is deliberately restricted:
+  This is fixture evidence, not a check of real web imports. The reader's grammar is deliberately restricted;
+  the following are recognized forms covered by fixtures, not universal guarantees:
   ambiguous slashes after closing type arguments, loader references (including quoted keys, aliases and indirect
   calls), escaped property keys, non-literal computed access/binding keys (including templates and const-derived keys),
   duplicate HTML attributes, encoded URL/type attributes, and package CSS subpaths are refused.
@@ -249,6 +255,23 @@ closes it.
   Conservative refusals reject harmless names (including type names), literal ampersands, computed indexing,
   array destructuring, callback aliases and valid URLs outside that subset too. The reader does not execute a web app
   or inspect installed packages.
+- **Known open web-reader bypass: spread syntax.** The review of pull request #70 found that
+  `const p = { ...import("unlisted") };`, `const p = { ...import(name) };`,
+  `const p = { ...require("unlisted") };` and `const p = { ...import.meta.glob("./*.ts") };` produce
+  `imports=[], refusals=[]`. Object, array, call and nested-template spreads reproduce this, including whitespace,
+  comments and line breaks after `...`, in TS/TSX and source/test placements. The lexer splits `...` into dots and
+  the scanner treats the next keyword as a property name. Parenthesizing the operand restores detection in the
+  reviewed control; that does not close the bypass. The review reported the numeric-token defect fixed and no other
+  open bypass class in its probe set; that set was not exhaustive. A green lint result cannot prove the absence of
+  undeclared imports or hidden runtime loaders. The conformance rules only compare detected imports and propagate
+  reported refusals; they do not recover dependencies the reader misses. Their passing verdict cannot establish
+  complete boundary or cycle coverage. `control.web-import-boundaries` remains partial: the repository gate exists
+  and runs, but its passing verdict neither closes this bypass nor proves complete detection.
+- **Authoritative web controls are planned, not delivered by the reader.** The reviewed TypeScript compiler's
+  import graph is to supply import dependencies, and a strict Content-Security-Policy in the web app is to be
+  enforced by the browser for runtime loading and execution (ADR 0013). The compiler graph is not a proof of general
+  runtime behaviour, and CSP does not enforce module boundaries. Neither control is implemented in this slice;
+  reader fixtures are not evidence of either one.
 - The first runnable slice defers the generated client and the component tests (ADR 0012). So there is no
   generated-client drift guarantee: the web app's request and response types are written by hand in
   `apps/shipping-web/src/api` and can drift from `contracts/shipping.openapi.yaml` without failing a build. The

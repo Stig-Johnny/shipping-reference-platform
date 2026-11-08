@@ -1,6 +1,6 @@
 ---
 title: "The web app's imports are checked against the diagram in every build"
-description: "The model now holds the web app's six parts and the imports allowed between them, and every build checks apps/shipping-web against them, packages and Node.js built-ins included; until the parts are built, it shows that a file cannot slip in unseen."
+description: "The model now holds the web app's six parts and their allowed imports; every build runs partial import lint on apps/shipping-web, including package and Node.js built-in checks for detected imports, and rejects files in planned parts."
 status: accepted
 updated: 2026-11-08
 pr: 72
@@ -14,10 +14,11 @@ tests: [WebArchitectureConformanceTest, WebConformanceTest]
 Before, the diagram had no parts for the web app, and nothing compared its TypeScript with the model. Now the model
 names six parts of the web app (app, auth, api, quote-feature, shipment-feature and ui), all planned, and thirteen
 import relationships between them. Every build runs the web import check on `apps/shipping-web`: a file in a planned
-part fails it, and so does an import of a package or a Node.js built-in that the model does not list or the
+part fails it, and so does a detected import of a package or a Node.js built-in that the model does not list or the
 dependency allowlist does not approve. No part lists a package, and browser code may import no Node.js built-in. The gate reads the source root,
 `e2e` test root, public root and app configuration; adding, editing or removing an `e2e` file reruns it. ADR 0012
-lists this gate as implemented enforcement while the web control remains partial: no real web imports exist yet.
+lists this gate as implemented partial lint: no real web imports exist yet, and the reader can silently miss imports
+and unsupported constructs (ADR 0013).
 
 ## See it
 
@@ -77,5 +78,8 @@ tests are evidence from the publishing build only when they pass there. Reviewed
   import of the web app: the rules on imports between parts, cycles, REQUIRED relationships, packages and built-ins
   are shown on synthetic fixtures only (WebConformanceTest), not on the real workbench.
 - The parts become built, and their imports evaluated, in the pull request that adds the workbench's code.
-- A passing check shows imports, not behaviour, and the web app's calls to the API are network calls that it does
-  not see. Its other limits are in the known gaps, section 1.
+- The reader compares only detected imports. The known spread-syntax bypass can hide imports and loaders without
+  a refusal, so a passing gate does not establish complete boundary or cycle coverage. The authoritative compiler
+  import graph and browser-enforced web-app CSP remain planned (ADR 0013; known gaps, section 6).
+- A detected import shows a reference, not behaviour, and the web app's calls to the API are network calls that the
+  check does not see. Its other limits are in the known gaps, section 1.

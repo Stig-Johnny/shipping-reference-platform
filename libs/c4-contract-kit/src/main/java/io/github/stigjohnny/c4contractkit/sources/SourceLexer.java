@@ -16,8 +16,9 @@ import org.jspecify.annotations.Nullable;
  * template text, regular expressions and JSX text and attributes never yield identifiers, so a word inside them can
  * never be read as code; the expressions inside templates and JSX braces are code and are tokenized.
  *
- * <p>The lexer fails closed. Whatever it cannot read with certainty stops it with a {@link Stop}, so that a file is
- * refused rather than misread: an unterminated string, template, comment, regular expression or JSX element, a
+ * <p>The lexer supports partial lint, not a general fail-closed guarantee (ADR 0013). In particular, its spread
+ * tokens can cause the scanner to miss a following loader. Recognized ambiguities stop it with a {@link Stop}:
+ * an unterminated string, template, comment, regular expression or JSX element, a
  * backslash in code, a character that is neither ECMAScript white space, a line feed, an identifier nor a
  * punctuator, a carriage return that does not start a CRLF line end, U+2028 and U+2029, and JSX it does not cover.
  *

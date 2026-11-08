@@ -10,7 +10,7 @@ enforcedBy:
   - "java: HexagonalLayeringTest (ArchUnit)"
   - "java: ArchitectureConformanceTest (C4 edges)"
   - "java: compilation with Error Prone and NullAway"
-  - "java: WebArchitectureConformanceTest, the JDK import checker over apps/shipping-web: import boundaries, cycles, a direct import for each REQUIRED relationship whose endpoints are built, and every package and Node.js built-in whitelisted in the model and approved in security/allowlist.json. It runs in every build; with all six parts planned it evaluates no import yet (control.web-import-boundaries, partial)"
+  - "java: WebArchitectureConformanceTest, partial JDK lint over detected imports in apps/shipping-web: boundaries, cycles, a detected direct import for each REQUIRED relationship whose endpoints are built, and every detected package and Node.js built-in import whitelisted in the model and approved in security/allowlist.json (ADR 0013). It scans src, e2e, public and app configuration in every build; with all six parts planned and source and test roots empty, it evaluates no import yet (control.web-import-boundaries, partial)"
 plannedEnforcement:
   - "java: QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest"
   - "java: RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, CrossTenantAccessTest"
@@ -23,6 +23,13 @@ plannedEnforcement:
 
 Supersedes ADR 0003, ADR 0004, ADR 0005 and ADR 0009. What they decided carries forward here unchanged, except where
 this record says otherwise; their text stays as it was accepted.
+
+**Web import scope, 2026-11-08:** ADR 0013 records the owner's implementation decision for pull requests #70 and #71:
+the JDK reader and conformance rules ship as a labelled partial check with a known spread-syntax bypass. The
+repository gate now runs that partial check; the intended web import rules below are not a complete guarantee
+supplied by the reader. The reviewed TypeScript compiler's import graph and a strict Content-Security-Policy in
+the web app enforced by the browser are planned
+authoritative controls. This clarification leaves this record's application design and existing Java evidence intact.
 
 ## Context and Problem Statement
 
@@ -92,16 +99,17 @@ one.
   runs the end-to-end and accessibility specs in the `contract-e2e` CI job, against the API started with the `demo`
   profile on PostgreSQL. Their reviews approve them for that job only, so browser automation does not run on developer
   machines.
-- **Import rules.** The JDK import checker in `libs/c4-contract-kit` (issues #62 to #64) enforces them, not
-  `tools/web-imports/check-imports.mjs`, which is not built. The model declares the web app's six parts, `app`,
-  `auth`, `api`, `quote-feature`, `shipment-feature` and `ui`, and `WebArchitectureConformanceTest` checks
+- **Import rules.** The JDK import checker in `libs/c4-contract-kit` (issues #62 to #64) supplies partial lint over
+  detected imports (ADR 0013); `tools/web-imports/check-imports.mjs` is not built. The model declares the web app's
+  six parts, `app`, `auth`, `api`, `quote-feature`, `shipment-feature` and `ui`, and `WebArchitectureConformanceTest` checks
   `apps/shipping-web/src` against them in the `java` check. It also scans `apps/shipping-web/e2e` as a test root,
   the public root and app configuration. The rules are listed in `apps/shipping-web/AGENTS.md`.
-- **Scope of the import check.** The checker enforces import boundaries and cycles, and requires a direct import for
-  each REQUIRED relationship whose endpoints are built. Relationships touching planned parts are not evaluated. The
+- **Scope of the import check.** The checker compares detected imports for boundaries and cycles, and requires a
+  detected direct import for each REQUIRED relationship whose endpoints are built. Silent misses prevent complete
+  boundary or cycle coverage. Relationships touching planned parts are not evaluated. The
   HTTP relationship from the web app to the API stays outside the check; the end-to-end tests are its evidence, for
   the operations they run. This changes ADR 0009, which claimed import boundaries and cycles only and deferred
-  required frontend edges: the frontend gets both failure directions, as the backend has.
+  required frontend edges: the frontend gets both failure directions over the detected imports.
 
 ### Persistence through Spring JDBC
 
@@ -217,10 +225,10 @@ one.
 
 - Good, because the slice needs one new package review instead of about 150, and the database code none.
 - Good, because the app sends the browser only the project's own code.
-- Good, because the frontend gets both failure directions, as the backend has: an import the model does not allow
-  fails, and so does a REQUIRED relationship between built parts without a direct import. A direct import proves a
-  reference, not that the code behind it runs, and a part that no REQUIRED relationship reaches can be unused without
-  a report.
+- Good, because the frontend gets both failure directions over detected imports: a detected import the model does
+  not allow fails, and so does a REQUIRED relationship between built parts without a detected direct import. A direct
+  import proves a reference, not that the code behind it runs, and a part that no REQUIRED relationship reaches can
+  be unused without a report.
 - Good, because every statement is SQL that reviewers read, and the level 3 signal for changed SQL in
   `policy/risk.json` covers it.
 - Bad, because there is no generated-client drift guarantee. The hand-written types can drift from the contract, and
@@ -266,12 +274,12 @@ one.
   run DDL.
 - Planned, `java`: `TableOwnershipTest` asserts that every statement of each module's adapters touches only that
   module's schema, and fails on the fixture above.
-- `java`: `WebArchitectureConformanceTest` runs the JDK import checker over `apps/shipping-web/src`, the test root
-  `apps/shipping-web/e2e`, the public root and app configuration (issue #64). An import the model does not allow,
-  an import cycle, and a REQUIRED relationship between built parts without a direct import each fail it. A synthetic
-  fixture using the repository model proves that an unapproved import under `e2e` fails the gate. All six web parts
+- `java`: `WebArchitectureConformanceTest` runs the partial JDK import check over `apps/shipping-web/src`, the test root
+  `apps/shipping-web/e2e`, the public root and app configuration (issue #64). A detected import the model does not allow,
+  a cycle of detected imports, and a REQUIRED relationship between built parts without a detected direct import each
+  fail it. A synthetic fixture using the repository model proves that an unapproved import under `e2e` fails the gate. All six web parts
   are planned and the source and test roots contain no real files, so no real web imports are checked yet;
-  `control.web-import-boundaries` remains partial.
+  `control.web-import-boundaries` remains partial. The reader does not supply a complete graph (ADR 0013).
 - Planned, `web`: `npm ci --ignore-scripts` from the reviewed lockfile; `tsc` type-checks and emits; `node --test`
   runs the logic tests.
 - Planned, `contract-e2e`: `quote-book-label.spec.ts`, `expired-quote.spec.ts`, `tenant-denial.spec.ts` and

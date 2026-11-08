@@ -414,7 +414,7 @@ controls:
     negativeFixture: A response with an undocumented member fails validation.
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.web-import-boundaries
-    title: Web app import boundaries and cycles, and a direct import for each REQUIRED relationship whose endpoints are built; every package and Node.js built-in an import names is whitelisted in the model and approved in the allowlist.
+    title: Partial lint of detected web app imports for boundaries, cycles and a detected direct import for each REQUIRED relationship whose endpoints are built; every package and Node.js built-in a detected import names is whitelisted in the model and approved in the allowlist (ADR 0013).
     where: libs/c4-contract-kit, apps/shipping-web
     check: java
     status: partial
@@ -423,8 +423,8 @@ controls:
     acceptanceTests: [ImportScannerTest, SourceReaderTest, JsonTest, AppConfigurationTest, WebModelValidationTest, WebConformanceTest, WebReportDeterminismTest, WebArchitectureConformanceTest]
     negativeFixture: One synthetic web app per rule fails with exactly that violation (divergence, absence, a test that bridges parts, a production import of a test, unowned file, planned part with code, bypassed entry, undeclared or unapproved package, Node.js built-in in browser code, cycle, resolution override, unsupported syntax or file).
     evidenceLabel: the web import check's tests
-    enforcedSubset: Each rule fails its synthetic negative fixture, and WebArchitectureConformanceTest runs the check on apps/shipping-web in every build, where a file under src in no part or in a planned part fails it; e2e tests are scanned and need declared and approved imports.
-    plannedRemainder: All six web parts are planned, so no import of the web app is evaluated yet; the rules apply to its real imports once the parts are built.
+    enforcedSubset: Each rule fails its synthetic negative fixture, and WebArchitectureConformanceTest runs the check on apps/shipping-web in every build, where a file under src in no part or in a planned part fails it; e2e tests are scanned and need declared and approved imports. This is partial lint over detected imports and reported refusals only; silent misses prevent complete boundary or cycle coverage.
+    plannedRemainder: All six web parts are planned, so no import of the web app is evaluated yet; the rules apply to its real imports once the parts are built. The source and test roots are empty; future comparisons remain limited to detected imports. The known spread-syntax bypass remains open; the authoritative compiler import graph and browser-enforced web-app CSP are planned (ADR 0013).
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.dependency-allowlist
     title: No third-party component is downloaded or run on the sanctioned CI path unless reviewed and allowlisted.
