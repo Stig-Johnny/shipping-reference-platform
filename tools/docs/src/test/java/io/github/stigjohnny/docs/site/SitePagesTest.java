@@ -564,14 +564,18 @@ class SitePagesTest {
             assertThat(site.text("decisions/" + old + ".html")).as(old).contains("<span class=\"badge "
                     + "badge-neutral\">Superseded</span> Superseded by <a href=\"" + successor + "\">ADR 0012</a>.");
         }
-        // ADR 0012 carries forward ADR 0003's structure checks, so its evidence says what those checks verify.
-        assertThat(record).contains("<span class=\"badge badge-shipped\">Passing</span> 3 evidence test classes passed "
-                + "in the build that generated this site. This verifies the structure of the built modules, not their "
-                + "behaviour.").doesNotContain(Statuses.TOOLING);
+        // The implemented web gate joins the three structure checks, with its fixture-only scope explicit.
+        String panel = record.substring(record.indexOf("<section class=\"status-panel\""));
+        panel = panel.substring(0, panel.indexOf("</section>"));
+        assertThat(panel).contains("<span class=\"badge badge-shipped\">Passing</span> 4 evidence test classes passed "
+                + "in the build that generated this site. This verifies the structure of the built modules and the "
+                + "web import gate on synthetic fixtures, not runtime behaviour; no real web imports are checked yet.")
+                .doesNotContain(Statuses.TOOLING);
         // A partial control the record documents adds its two sentences; it never hides the record's passing tests.
-        assertThat(record).contains("<span class=\"badge badge-partial\">Partly enforced</span> Each rule fails its "
+        assertThat(panel).contains("<span class=\"badge badge-partial\">Partly enforced</span> Each rule fails its "
                 + "synthetic negative fixture, and WebArchitectureConformanceTest runs the check on apps/shipping-web in "
-                + "every build, where a file under src in no part or in a planned part fails it.", "All six web parts "
+                + "every build, where a file under src in no part or in a planned part fails it; e2e tests are scanned "
+                + "and need declared and approved imports.", "All six web parts "
                 + "are planned, so no import of the web app is evaluated yet; the rules apply to its real imports once "
                 + "the parts are built.");
         assertThat(site.text("api/index.html")).contains("The contract is the authority for the HTTP interface "
@@ -579,6 +583,22 @@ class SitePagesTest {
         assertThat(site.text("modules/index.html")).contains("<a href=\"../decisions/" + successor + "\">ADR 0012: "
                 + "First runnable slice with a plain TypeScript workbench and Spring JDBC</a>")
                 .doesNotContain("0003-modular");
+    }
+
+    @Test
+    void theWebGateIsImplementedEnforcementWhileTheWebCapabilityStaysPartial() {
+        var adr = sources.docsUnder("docs/adr/").stream().filter(doc -> doc.path().contains("/0012-"))
+                .findFirst().orElseThrow();
+
+        assertThat(adr.frontmatter().strings("enforcedBy")).anySatisfy(entry -> assertThat(entry)
+                .contains("WebArchitectureConformanceTest", "all six parts planned", "evaluates no import yet"));
+        assertThat(adr.frontmatter().strings("plannedEnforcement"))
+                .noneSatisfy(entry -> assertThat(entry).contains("WebArchitectureConformanceTest"));
+        assertThat(adr.body()).contains("- `java`: `WebArchitectureConformanceTest`")
+                .doesNotContain("Planned, `java`: `WebArchitectureConformanceTest`");
+        assertThat(sources.capabilities().documentedIn(adr.path()))
+                .filteredOn(capability -> capability.id().equals("control.web-import-boundaries"))
+                .extracting(Capability::status).containsExactly(Capability.Status.PARTIAL);
     }
 
     private static int count(String text, String part) {

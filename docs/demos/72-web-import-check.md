@@ -15,7 +15,9 @@ Before, the diagram had no parts for the web app, and nothing compared its TypeS
 names six parts of the web app (app, auth, api, quote-feature, shipment-feature and ui), all planned, and thirteen
 import relationships between them. Every build runs the web import check on `apps/shipping-web`: a file in a planned
 part fails it, and so does an import of a package or a Node.js built-in that the model does not list or the
-dependency allowlist does not approve. No part lists a package, and browser code may import no Node.js built-in.
+dependency allowlist does not approve. No part lists a package, and browser code may import no Node.js built-in. The gate reads the source root,
+`e2e` test root, public root and app configuration; adding, editing or removing an `e2e` file reruns it. ADR 0012
+lists this gate as implemented enforcement while the web control remains partial: no real web imports exist yet.
 
 ## See it
 
@@ -33,7 +35,9 @@ fails with two violations. Delete the file and its two new directories afterward
 ./gradlew :libs:c4-contract-kit:test --rerun --tests '*WebArchitectureConformanceTest'
 ```
 
-The report is `libs/c4-contract-kit/build/reports/c4-contract-web/report.md`.
+The report is `libs/c4-contract-kit/build/reports/c4-contract-web/report.md`. The test class also creates a
+synthetic repository using the real model, with an import of `node:fs` under `apps/shipping-web/e2e` and no Node.js
+runtime approval, and asserts that the gate rejects it. It reads that TypeScript as data; it runs no browser test.
 
 ## Evidence
 
@@ -62,12 +66,14 @@ report (blank lines and the edge and component tables are left out):
 None.
 ```
 
-WebArchitectureConformanceTest checks the repository in every build, and WebConformanceTest checks each rule of the
-web import check on synthetic web apps. Reviewed in pull request #72.
+The recordings above predate the addition of the `e2e` test root: their "Test roots: none" is historical output.
+WebArchitectureConformanceTest now checks the repository and its declared test root in every build, including the
+synthetic unapproved-import fixture above; WebConformanceTest checks each rule on synthetic web apps. These named
+tests are evidence from the publishing build only when they pass there. Reviewed in pull request #72.
 
 ## Limits
 
-- Every part is planned and `apps/shipping-web/src` holds no file on this revision, so the check has evaluated no
+- Every part is planned and the source and `e2e` test roots hold no real files, so the check has evaluated no
   import of the web app: the rules on imports between parts, cycles, REQUIRED relationships, packages and built-ins
   are shown on synthetic fixtures only (WebConformanceTest), not on the real workbench.
 - The parts become built, and their imports evaluated, in the pull request that adds the workbench's code.

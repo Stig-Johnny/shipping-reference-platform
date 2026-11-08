@@ -2,7 +2,7 @@
 title: "ADR 0012: First runnable slice with a plain TypeScript workbench and Spring JDBC"
 description: "Supersedes ADRs 0003, 0004, 0005 and 0009. Their modules, contract-first API and PostgreSQL design carry forward unchanged, except that adapters use Spring JDBC's JdbcClient; the workbench is plain TypeScript with a hand-written typed HTTP adapter, and React and the generated client are deferred."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 date: 2026-11-07
 decision-makers: repository owner
 enforcedBy:
@@ -10,11 +10,11 @@ enforcedBy:
   - "java: HexagonalLayeringTest (ArchUnit)"
   - "java: ArchitectureConformanceTest (C4 edges)"
   - "java: compilation with Error Prone and NullAway"
+  - "java: WebArchitectureConformanceTest, the JDK import checker over apps/shipping-web: import boundaries, cycles, a direct import for each REQUIRED relationship whose endpoints are built, and every package and Node.js built-in whitelisted in the model and approved in security/allowlist.json. It runs in every build; with all six parts planned it evaluates no import yet (control.web-import-boundaries, partial)"
 plannedEnforcement:
   - "java: QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest"
   - "java: RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, CrossTenantAccessTest"
   - "java: MigrationsIntegrationTest, and TableOwnershipTest on the SQL of each module's adapters"
-  - "java: WebArchitectureConformanceTest, the JDK import checker over apps/shipping-web: import boundaries, cycles, a direct import for each REQUIRED relationship whose endpoints are built, and every package and Node.js built-in whitelisted in the model and approved in security/allowlist.json. It runs in every build; with all six parts planned it evaluates no import yet (control.web-import-boundaries, partial)"
   - "web: type check and emit with TypeScript 5.9.3, and the logic tests under node --test"
   - "contract-e2e: Playwright and axe-core against the API started with the demo profile on PostgreSQL"
 ---
@@ -95,7 +95,8 @@ one.
 - **Import rules.** The JDK import checker in `libs/c4-contract-kit` (issues #62 to #64) enforces them, not
   `tools/web-imports/check-imports.mjs`, which is not built. The model declares the web app's six parts, `app`,
   `auth`, `api`, `quote-feature`, `shipment-feature` and `ui`, and `WebArchitectureConformanceTest` checks
-  `apps/shipping-web/src` against them in the `java` check. The rules are listed in `apps/shipping-web/AGENTS.md`.
+  `apps/shipping-web/src` against them in the `java` check. It also scans `apps/shipping-web/e2e` as a test root,
+  the public root and app configuration. The rules are listed in `apps/shipping-web/AGENTS.md`.
 - **Scope of the import check.** The checker enforces import boundaries and cycles, and requires a direct import for
   each REQUIRED relationship whose endpoints are built. Relationships touching planned parts are not evaluated. The
   HTTP relationship from the web app to the API stays outside the check; the end-to-end tests are its evidence, for
@@ -265,9 +266,12 @@ one.
   run DDL.
 - Planned, `java`: `TableOwnershipTest` asserts that every statement of each module's adapters touches only that
   module's schema, and fails on the fixture above.
-- Planned, `java`: `WebArchitectureConformanceTest` runs the JDK import checker over `apps/shipping-web/src`
-  (issue #64). An import the model does not allow, an import cycle, and a REQUIRED relationship between built parts
-  without a direct import each fail it.
+- `java`: `WebArchitectureConformanceTest` runs the JDK import checker over `apps/shipping-web/src`, the test root
+  `apps/shipping-web/e2e`, the public root and app configuration (issue #64). An import the model does not allow,
+  an import cycle, and a REQUIRED relationship between built parts without a direct import each fail it. A synthetic
+  fixture using the repository model proves that an unapproved import under `e2e` fails the gate. All six web parts
+  are planned and the source and test roots contain no real files, so no real web imports are checked yet;
+  `control.web-import-boundaries` remains partial.
 - Planned, `web`: `npm ci --ignore-scripts` from the reviewed lockfile; `tsc` type-checks and emits; `node --test`
   runs the logic tests.
 - Planned, `contract-e2e`: `quote-book-label.spec.ts`, `expired-quote.spec.ts`, `tenant-denial.spec.ts` and

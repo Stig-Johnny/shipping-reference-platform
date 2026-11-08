@@ -41,7 +41,7 @@ tasks.test {
     inputs.files(rootDir.resolve("architecture/workspace.dsl"), file("architecture/self.dsl"))
         .withPathSensitivity(PathSensitivity.RELATIVE).withPropertyName("models")
     inputs.files(fileTree(rootDir.resolve("apps/shipping-web")) {
-        include("src/**", "public/**", "package.json", "tsconfig*.json", "*.html")
+        include("src/**", "e2e/**", "public/**", "package.json", "tsconfig*.json", "*.html")
     }, rootDir.resolve("security/allowlist.json"))
         .withPathSensitivity(PathSensitivity.RELATIVE).withPropertyName("webInputs")
 }

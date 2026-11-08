@@ -423,7 +423,7 @@ controls:
     acceptanceTests: [ImportScannerTest, SourceReaderTest, JsonTest, AppConfigurationTest, WebModelValidationTest, WebConformanceTest, WebReportDeterminismTest, WebArchitectureConformanceTest]
     negativeFixture: One synthetic web app per rule fails with exactly that violation (divergence, absence, a test that bridges parts, a production import of a test, unowned file, planned part with code, bypassed entry, undeclared or unapproved package, Node.js built-in in browser code, cycle, resolution override, unsupported syntax or file).
     evidenceLabel: the web import check's tests
-    enforcedSubset: Each rule fails its synthetic negative fixture, and WebArchitectureConformanceTest runs the check on apps/shipping-web in every build, where a file under src in no part or in a planned part fails it.
+    enforcedSubset: Each rule fails its synthetic negative fixture, and WebArchitectureConformanceTest runs the check on apps/shipping-web in every build, where a file under src in no part or in a planned part fails it; e2e tests are scanned and need declared and approved imports.
     plannedRemainder: All six web parts are planned, so no import of the web app is evaluated yet; the rules apply to its real imports once the parts are built.
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.dependency-allowlist

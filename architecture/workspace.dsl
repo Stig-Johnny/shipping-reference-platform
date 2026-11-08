@@ -123,6 +123,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
             web = container "Web app" "Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer." "Plain TypeScript SPA (no framework), TypeScript 5.9.3" "WebApp,Planned" {
                 properties {
                     "web.root" "apps/shipping-web/src"
+                    "web.testRoots" "apps/shipping-web/e2e"
                     "web.publicRoots" "apps/shipping-web/public"
                     "web.testBuiltins" "node:assert/strict, node:test, node:fs"
                 }

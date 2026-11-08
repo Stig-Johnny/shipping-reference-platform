@@ -74,7 +74,9 @@ void theWebAppConformsToTheModel() {
 }
 ```
 
-`WebArchitectureConformanceTest` does this for the repository in every build.
+`WebArchitectureConformanceTest` does this for the repository in every build, including
+`apps/shipping-web/e2e` as a test root alongside the source and public roots and app configuration. These roots and
+configuration files are Gradle test inputs, so adding, editing or removing an end-to-end test reruns the gate.
 
 The model's web container names its source root with `web.root`, its test and public roots, and the Node.js built-ins
 and npm packages tests may import; each of its components names its directories (`web.paths`), status, optional entry
@@ -112,8 +114,10 @@ allowlist entry that approves it.
 
 `WebConformanceTest` checks synthetic repositories through the public API, including the reader's refusals of hidden
 imports, loader references, ambiguous HTML attributes and approved package CSS subpaths. Its wrong-project Node.js
-fixture checks both the failing verdict and the unapproved built-in import records. These library fixtures do not
-yet run the gate over the repository's web app; that integration remains planned.
+fixture checks both the failing verdict and the unapproved built-in import records. The repository gate is
+implemented by `WebArchitectureConformanceTest`, which also proves that an unapproved import in the repository
+model's end-to-end test root fails. All six web parts remain planned and the source and test roots are empty: the
+import rules have synthetic fixture evidence, with no real web imports checked yet, so the control remains partial.
 
 ## The model
 

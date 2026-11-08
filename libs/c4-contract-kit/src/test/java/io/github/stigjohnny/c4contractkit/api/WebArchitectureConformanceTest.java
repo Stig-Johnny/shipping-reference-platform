@@ -1,11 +1,15 @@
 package io.github.stigjohnny.c4contractkit.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 import io.github.stigjohnny.c4contractkit.testing.RepositoryFiles;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The repository's web app conforms to the web container of architecture/workspace.dsl: the web import check, run by
@@ -23,8 +27,27 @@ class WebArchitectureConformanceTest {
 
         WebConformance.assertConforms(report, RepositoryFiles.library().resolve("build/reports/c4-contract-web"));
         assertThat(report.sourceRoot()).isEqualTo("apps/shipping-web/src");
-        assertThat(report.testRoots()).isEmpty();
+        assertThat(report.testRoots()).containsExactly("apps/shipping-web/e2e");
         assertThat(report.publicRoots()).containsExactly("apps/shipping-web/public");
+    }
+
+    @Test
+    void anUnapprovedImportInTheRepositorysE2eRootFailsTheGate(@TempDir Path repository) throws IOException {
+        Path app = repository.resolve("apps/shipping-web");
+        Files.createDirectories(app.resolve("e2e"));
+        Files.writeString(app.resolve("package.json"), "{\"engines\":{\"node\":\"26.13.0\"}}\n");
+        Files.writeString(app.resolve("e2e/unapproved.spec.ts"), "import 'node:fs';\n");
+        // Use the repository's unchanged model, with no runtime approval in the synthetic repository.
+        WebReport report = WebConformance.check(REPOSITORY.resolve("architecture/workspace.dsl"), repository);
+
+        assertThat(report.violations()).extracting(WebViolation::type)
+                .containsExactly(WebViolationType.UNAPPROVED_IMPORT);
+        assertThat(report.externalImports()).containsExactly(new WebExternalImport(
+                "apps/shipping-web/e2e/unapproved.spec.ts", 1, "node:fs", "node:fs", "26.13.0",
+                "web.testBuiltins", "", ExternalImportStatus.UNAPPROVED));
+        assertThatThrownBy(() -> WebConformance.assertConforms(report, repository.resolve("reports")))
+                .isInstanceOf(AssertionError.class).hasMessageContaining("UNAPPROVED_IMPORT")
+                .hasMessageContaining("apps/shipping-web/e2e/unapproved.spec.ts");
     }
 
     @Test

@@ -219,23 +219,22 @@ closes it.
   that condition was checked; the exposure was one listening socket per run, for the length of the run.
 - axe-core finds a subset of accessibility problems; manual keyboard and screen reader checks are required and
   recorded by hand.
-- The web app's static import check covers import boundaries and cycles, and a direct import for each REQUIRED
-  relationship whose endpoints are built (ADR 0012; its limits are in section 1). Relationships touching planned parts
-  are not evaluated, a direct import proves a reference and not behaviour, and a part that no REQUIRED relationship
-  reaches can be unused without a report. dependency-cruiser is deferred.
-- The web app's static checks are to cover import boundaries and cycles, and a direct import for each REQUIRED
-  relationship whose endpoints are built (ADR 0012). Relationships touching planned parts are not evaluated, a direct
-  import proves a reference and not behaviour, and a part that no REQUIRED relationship reaches can be unused without
-  a report. dependency-cruiser is deferred.
-- The web source reader and conformance library are implemented and tested on synthetic fixtures; the repository's
-  web conformance gate is still planned. `WebConformanceTest` proves that reader refusals fail the model comparison,
-  and that Node.js built-ins in tests need runtime approval for project `ci` in configuration `web`, at the version
-  named by `engines.node`. This is fixture evidence, not a check of real web imports. The grammar is deliberately
-  restricted: ambiguous slashes after closing type arguments,
-  loader references (including aliases and indirect calls), duplicate HTML attributes, encoded URL/type attributes,
-  and package CSS subpaths are refused. This is no full TypeScript or browser parser and no proof about arbitrary
-  computed property access or runtime behaviour. Conservative refusals can reject harmless type names and literal
-  ampersands too. The reader does not execute a web app or inspect installed packages.
+- The web app's repository import gate is implemented: `WebArchitectureConformanceTest` holds `src`, the `e2e`
+  test root, `public` and app configuration to the model in every build. It covers import boundaries and cycles,
+  and requires a direct import for each REQUIRED relationship whose endpoints are built (ADR 0012; limits in
+  section 1). All six web parts remain planned, the source and test roots contain no real files, and every
+  relationship touches a planned part, so no real web imports are checked and no relationship is evaluated yet.
+  The control remains partial. A direct import proves a reference, not behaviour, and a part that no REQUIRED
+  relationship reaches can be unused without a report. dependency-cruiser is deferred.
+- The reader and import rules have synthetic fixture evidence. `WebArchitectureConformanceTest` proves that an
+  unapproved import in the repository model's `e2e` root fails the gate. `WebConformanceTest` proves that reader
+  refusals fail the model comparison, and that Node.js built-ins in tests need runtime approval for project `ci`
+  in configuration `web`, at the version named by `engines.node`. The grammar is deliberately restricted:
+  ambiguous slashes after closing type arguments, loader references (including aliases and indirect calls),
+  duplicate HTML attributes, encoded URL/type attributes, and package CSS subpaths are refused. This is no full
+  TypeScript or browser parser and no proof about arbitrary computed property access or runtime behaviour.
+  Conservative refusals can reject harmless type names and literal ampersands too. The reader does not execute a
+  web app or inspect installed packages.
 - The first runnable slice defers the generated client and the component tests (ADR 0012). So there is no
   generated-client drift guarantee: the web app's request and response types are written by hand in
   `apps/shipping-web/src/api` and can drift from `contracts/shipping.openapi.yaml` without failing a build. The
