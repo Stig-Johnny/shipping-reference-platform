@@ -1,6 +1,6 @@
 # AGENTS.md: apps/shipping-web (npm workspace `@shipping-reference-platform/web`)
 
-Adds to the root `AGENTS.md`. Decisions: ADR 0012 supersedes ADR 0009; ADR 0014 labels the current web reader as
+Adds to the root `AGENTS.md`. Decisions: ADR 0012 supersedes ADR 0009; ADR 0015 labels the current web reader as
 partial lint and records the authoritative controls that follow. Screen specification:
 `docs/ui/workbench.md` (binding for visual design, behaviour, states and accessibility; changes require an explicit
 design decision recorded there; its amendment of 2026-11-07 sets the scope of the first runnable slice).
@@ -10,8 +10,10 @@ design decision recorded there; its amendment of 2026-11-07 sets the scope of th
 A plain TypeScript single-page app with no UI framework (ADR 0012).
 
 - TypeScript 5.9.3 (`tsc`) type-checks the sources and emits browser ES modules; there is no bundler. Its review is
-  pending (issue #59): do not install it before its allowlist entry is approved. Node 26.13.0, npm 11.20.0.
-- The Java application serves the emitted assets on loopback (`127.0.0.1`).
+  approved with the reviewed lock (issues #59 and #80). Install only with `npm ci --ignore-scripts`.
+  Node 26.13.0, bundled npm 11.20.0.
+- Serving the emitted assets from the Java application on loopback (`127.0.0.1`) is planned; the API currently
+  serves no static files. Do not claim an integrated browser flow.
 - Tests: `node --test`, Node's built-in runner, for logic; Playwright 1.65.0 with axe-core 4.14.0 for end-to-end and
   accessibility tests, in the `contract-e2e` CI job only. Their reviews approve no local or headed browser use: do not
   run them on a developer machine.
@@ -39,9 +41,9 @@ src/
 e2e/                   Playwright specs                                                  (risk level 2)
 ```
 
-The model declares the six parts (issue #64), all planned. `WebArchitectureConformanceTest` uses the JDK reader
+The model declares six built parts, with production import evidence for all ten REQUIRED relationships. `WebArchitectureConformanceTest` uses the JDK reader
 of `libs/c4-contract-kit` as partial static lint over `src/`, the `e2e/` test root, the public root and app
-configuration in the `java` check. The gate runs in every build; the source and test roots contain no real files yet.
+configuration in the `java` check. The gate runs on the real source tree in every build; Playwright tests remain absent.
 `tools/web-imports/check-imports.mjs` is not built. The intended rules:
 
 - `src/ui/` imports nothing from `app`, `auth`, `api` or `features`.
@@ -66,10 +68,12 @@ whitespace, comments and line breaks after `...`, across TS/TSX and source/test 
 section 6, for the reviewed examples. Relationships touching planned parts are not evaluated. The HTTP calls to the
 API stay outside the check; the end-to-end tests are their evidence for the operations they exercise.
 
-Per the owner's decision of 2026-11-08 (ADR 0014), this reader ships as a labelled partial lint. Authoritative
-controls follow: the reviewed TypeScript compiler's import graph for import dependencies, and a strict
-Content-Security-Policy in the web app enforced by the browser for runtime loading and execution. Neither control is
-implemented by the reader; passing lint is not proof of runtime safety.
+Per the owner's decision of 2026-11-08 (ADR 0015), this reader ships as a labelled partial lint. Authoritative
+compiler-graph boundary enforcement remains planned. The reviewed compiler now type-checks and emits browser modules.
+The entry page declares ADR 0017's strict same-origin CSP, tested as text by `src/app/csp.test.ts`; browser enforcement
+is not yet exercised. Keep the policy before all resource elements, without unsafe-inline, unsafe-eval or external
+origins. Any future repository-owned asset server must also send it as a response header. Passing partial lint or
+this text test is not proof of runtime safety.
 
 ## Rules
 
@@ -94,6 +98,13 @@ implemented by the reader; passing lint is not proof of runtime safety.
 - Accessibility is part of done: keyboard operation, visible focus, labelled errors, AA contrast, reduced motion.
   Query elements in tests by role and accessible name.
 - Synthetic data only, also in tests and screenshots.
+
+## Commands
+
+From the repository root: `npm ci --ignore-scripts`, then `tsc -p apps/shipping-web` with the reviewed Node runtime
+and the installed compiler on PATH. In `apps/shipping-web`: exactly `node --test`. The only optional manifest
+wrappers are root `build:web` = `tsc -p apps/shipping-web` and workspace `test:unit` = `node --test` (ADR 0007).
+No extra options, test paths, loaders or build/copy shell chains in package scripts.
 
 ## Tests
 

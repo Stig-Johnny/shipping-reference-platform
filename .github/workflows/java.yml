@@ -24,6 +24,80 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  web:
+    name: web
+    needs: java
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Stop the container engine and prove it is unreachable
+        id: engine_off
+        run: |
+          # engine-guard: begin
+          set -euo pipefail
+          sudo systemctl stop docker.service docker.socket
+          sudo systemctl mask --runtime docker.service docker.socket
+          sudo rm -f /var/run/docker.sock
+          command -v nc >/dev/null
+          command -v timeout >/dev/null
+          if timeout 5 docker info >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          if nc -z -U -w 2 /var/run/docker.sock >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          # engine-guard: end
+
+      # java checks this candidate with the base branch's policy tool before this job can start.
+      - name: Check out the checked candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
+        with:
+          persist-credentials: false
+
+      - name: Stage the reviewed Node.js archive and verify it before use
+        # The first-use signature evidence is in security/verifications/2026-11-07-frontend-toolchain.md.
+        # No setup-node Action, alternate source, lifecycle script or browser download is used.
+        run: |
+          set -euo pipefail
+          node_stage="$RUNNER_TEMP/reviewed-node"
+          mkdir "$node_stage"
+          curl --disable --fail --silent --show-error --proto '=https' --proto-redir '=https' \
+            --connect-timeout 10 --max-time 90 --retry 2 --retry-delay 2 --max-filesize 100000000 \
+            --output "$node_stage/node.tar.xz" \
+            https://nodejs.org/dist/v26.13.0/node-v26.13.0-linux-x64.tar.xz
+          echo "d28a96af6c38596f6d9d97c0ee531c13d238d757742387d1928de822d959e997  $node_stage/node.tar.xz" | sha256sum --check --strict
+          tar -xJf "$node_stage/node.tar.xz" -C "$node_stage"
+          echo "$node_stage/node-v26.13.0-linux-x64/bin" >> "$GITHUB_PATH"
+
+      - name: Assert the reviewed runtime versions
+        working-directory: .
+        run: |
+          test "$(node --version)" = v26.13.0
+          test "$(npm --version)" = 11.20.0
+
+      - name: Install the reviewed lock without lifecycle scripts
+        working-directory: .
+        run: |
+          npm ci --ignore-scripts
+          git diff --exit-code -- package-lock.json
+          echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
+
+      - name: Type check and emit browser modules
+        working-directory: .
+        run: tsc -p apps/shipping-web
+
+      - name: Run the workspace logic tests
+        working-directory: apps/shipping-web
+        run: node --test
+
   java:
     name: java
     runs-on: ubuntu-24.04

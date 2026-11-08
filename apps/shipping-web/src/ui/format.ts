@@ -113,9 +113,9 @@ export function formatPlace(place: { readonly countryCode: string; readonly post
 }
 
 export function formatServiceLevel(level: string): string {
-  return SERVICE_LEVEL_LABELS[level] ?? level;
+  return new Map(Object.entries(SERVICE_LEVEL_LABELS)).get(level) ?? level;
 }
 
 export function formatStatus(status: string): string {
-  return STATUS_LABELS[status] ?? status;
+  return new Map(Object.entries(STATUS_LABELS)).get(status) ?? status;
 }

@@ -148,7 +148,9 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     if (options.token !== undefined) {
       headers.set('Authorization', `Bearer ${options.token}`);
     }
-    for (const [name, value] of Object.entries(call.headers ?? {})) {
+    for (const entry of Object.entries(call.headers ?? {})) {
+      const name = entry[0];
+      const value = entry[1];
       headers.set(name, value);
     }
     const linked = linkSignals([options.signal, callSignal]);

@@ -8,7 +8,7 @@ import { el, replace } from '../../ui/dom.ts';
 import { readOnlyField, textField } from '../../ui/fields.ts';
 import type { Field } from '../../ui/fields.ts';
 import type { BookingMemory } from './booking-memory.ts';
-import { RECIPIENT_FIELD_ORDER, isFrozen, orderedRecipientErrors, outcomeView } from './BookingFormModel.ts';
+import { isFrozen, orderedRecipientErrors, outcomeView } from './BookingFormModel.ts';
 import type { BookingRecord, OutcomeAction, RecipientField, RecipientFields } from './BookingFormModel.ts';
 
 export interface BookingPaths {
@@ -87,7 +87,7 @@ export function mountBookingForm(container: HTMLElement, options: BookingFormOpt
 
   const showSummary = (record: BookingRecord, focus: boolean): void => {
     const items: SummaryItem[] = [
-      ...orderedRecipientErrors(record.errors).map((error) => ({ text: error.message, targetId: IDS[error.field] })),
+      ...orderedRecipientErrors(record.errors).map((error) => ({ text: error.message, targetId: new Map(Object.entries(IDS)).get(error.field) })),
       ...record.unplaced.map((text) => ({ text })),
     ];
     if (focus) {
@@ -118,9 +118,10 @@ export function mountBookingForm(container: HTMLElement, options: BookingFormOpt
   const render = (record: BookingRecord): void => {
     const frozen = isFrozen(record.phase);
     section.hidden = expired && !frozen;
-    for (const field of RECIPIENT_FIELD_ORDER) {
-      fields[field].control.readOnly = frozen;
-      fields[field].setError(record.errors[field]);
+    const errors = new Map(Object.entries(record.errors));
+    for (const entry of Object.entries(fields)) {
+      entry[1].control.readOnly = frozen;
+      entry[1].setError(errors.get(entry[0]));
     }
     postcode.control.value = record.target.destination.postcode;
     country.control.value = record.target.destination.countryCode;

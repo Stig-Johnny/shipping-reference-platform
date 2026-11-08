@@ -123,7 +123,7 @@ The commands that exist today. The others arrive with their code; until then, sa
 | All Java checks (the reviewed JDK alone) | `./gradlew check` |
 | Database tests (mandatory in Java CI and Pages testing; they fail without the reviewed container engine, never skip) | `./gradlew :apps:shipping-api:databaseTest` |
 | Web import check (the JDK alone, part of `./gradlew check`) | `./gradlew :libs:c4-contract-kit:test --tests '*WebArchitectureConformanceTest'` |
-| Web type check and tests | not built yet |
+| Web type check and tests (reviewed Node; install at root with `npm ci --ignore-scripts`) | `tsc -p apps/shipping-web` at root; `node --test` in `apps/shipping-web` |
 | Contract and end-to-end tests | not built yet |
 | Mutation tests (CI only: the `mutation` job; never run `pitest` on a machine whose firewall lets inbound connections reach `java`) | `./gradlew :libs:c4-contract-kit:pitest` |
 | Brain and docs check; regenerate them | `./gradlew :tools:docs:check`; `./gradlew :tools:docs:generate` |

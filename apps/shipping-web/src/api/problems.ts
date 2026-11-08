@@ -1,3 +1,5 @@
+type ArrayValue<T> = T extends ReadonlyArray<infer Value> ? Value : never;
+
 // RFC 9457 problems as the contract defines them, and the other ways a call can fail. Every failure the screens see
 // is one of the four kinds of ApiFailure; a problem carries the type suffix, never the full URI.
 
@@ -15,7 +17,7 @@ export const PROBLEM_TYPES = [
   'idempotency-key-reused', 'no-offer-available', 'internal-error',
 ] as const;
 
-export type ProblemType = (typeof PROBLEM_TYPES)[number];
+export type ProblemType = ArrayValue<typeof PROBLEM_TYPES>;
 
 export interface Problem {
   readonly type: ProblemType;

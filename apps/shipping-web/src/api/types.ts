@@ -1,3 +1,5 @@
+type ArrayValue<T> = T extends ReadonlyArray<infer Value> ? Value : never;
+
 // Hand-written types for exactly the schemas of contracts/shipping.openapi.yaml that the web app uses. The contract
 // is the authority: problems.test.ts and validation.test.ts compare the enums, patterns and bounds here with it.
 // Absent values are omitted, never null or undefined, as the contract's conventions say.
@@ -11,12 +13,12 @@ export const UNAVAILABLE_REASONS = [
 ] as const;
 export const FLAG_KEYS = ['label-preview'] as const;
 
-export type ServiceLevel = (typeof SERVICE_LEVELS)[number];
-export type Zone = (typeof ZONES)[number];
-export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
-export type ShipmentStatus = (typeof SHIPMENT_STATUSES)[number];
-export type UnavailableReason = (typeof UNAVAILABLE_REASONS)[number];
-export type FlagKey = (typeof FLAG_KEYS)[number];
+export type ServiceLevel = ArrayValue<typeof SERVICE_LEVELS>;
+export type Zone = ArrayValue<typeof ZONES>;
+export type QuoteStatus = ArrayValue<typeof QUOTE_STATUSES>;
+export type ShipmentStatus = ArrayValue<typeof SHIPMENT_STATUSES>;
+export type UnavailableReason = ArrayValue<typeof UNAVAILABLE_REASONS>;
+export type FlagKey = ArrayValue<typeof FLAG_KEYS>;
 
 /** A decimal string with exactly two fraction digits, shown as received: the web app never computes a price. */
 export interface Money {

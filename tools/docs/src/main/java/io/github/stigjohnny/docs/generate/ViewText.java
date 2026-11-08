@@ -145,8 +145,8 @@ public final class ViewText {
                     + "behaviour. The API adapter's calls to the API are "
                     + "network calls, which no static check sees.");
             limits.add("This is labelled partial lint over detected imports; spread-syntax bypasses remain open. "
-                    + "The authoritative tsc import graph and browser-enforced strict Content-Security-Policy "
-                    + "are planned in the web app pull request (ADR 0015).");
+                    + "Compiler-graph boundary enforcement and browser verification of the strict CSP "
+                    + "remain planned; the web job compiles and checks policy text (ADRs 0015 and 0017).");
             return List.copyOf(limits);
         }
         switch (view.kind()) {

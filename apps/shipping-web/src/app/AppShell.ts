@@ -50,7 +50,10 @@ export function renderShell(root: HTMLElement, paths: ShellPaths, onSwitchUser: 
       replace(switchArea, user === undefined ? null : switchButton);
     },
     setSection(section) {
-      for (const [link, name] of [[newQuote, 'new-quote'], [shipments, 'shipments']] as const) {
+      const navigation = [[newQuote, 'new-quote'], [shipments, 'shipments']] as const;
+      for (const entry of navigation) {
+        const link = entry[0];
+        const name = entry[1];
         if (section === name) {
           link.setAttribute('aria-current', 'page');
         } else {

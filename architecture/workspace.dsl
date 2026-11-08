@@ -132,53 +132,53 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
                     "web.testBuiltins" "node:assert/strict, node:test, node:fs"
                 }
 
-                webShell = component "App shell" "Left navigation, the router on the History API, the theme and the route outlet; mounts the app." "TypeScript" "Planned" {
+                webShell = component "App shell" "Left navigation, the router on the History API, the theme and the route outlet; mounts the app." "TypeScript" {
                     properties {
                         "web.id" "app"
                         "web.paths" "app"
-                        "web.status" "planned"
+                        "web.status" "built"
                     }
                 }
 
-                webAuth = component "Auth" "Synthetic user picker and sign-in; holds the demo token and the membership in memory only." "TypeScript" "Planned" {
+                webAuth = component "Auth" "Synthetic user picker and sign-in; holds the demo token and the membership in memory only." "TypeScript" {
                     properties {
                         "web.id" "auth"
                         "web.paths" "auth"
-                        "web.status" "planned"
+                        "web.status" "built"
                     }
                 }
 
-                webApi = component "API adapter" "The typed HTTP adapter, the only caller of fetch: hand-written request and response types, the bearer token and Correlation-Id on every call." "TypeScript" "Planned" {
+                webApi = component "API adapter" "The typed HTTP adapter, the only caller of fetch: hand-written request and response types, the bearer token and Correlation-Id on every call." "TypeScript" {
                     properties {
                         "web.id" "api"
                         "web.paths" "api"
-                        "web.status" "planned"
+                        "web.status" "built"
                     }
                 }
 
-                webQuoteFeature = component "Quote feature" "ParcelForm, QuoteCardList and QuoteCard: price a parcel and compare its offers." "TypeScript" "Planned" {
+                webQuoteFeature = component "Quote feature" "ParcelForm, QuoteCardList and QuoteCard: price a parcel and compare its offers." "TypeScript" {
                     properties {
                         "web.id" "quote-feature"
                         "web.paths" "features/quotes"
-                        "web.status" "planned"
+                        "web.status" "built"
                         "web.entry" "features/quotes/index.ts"
                     }
                 }
 
-                webShipmentFeature = component "Shipment feature" "BookingForm, ShipmentTable and ShipmentDrawer: book, list and open shipments and download their labels (LabelPreview is deferred)." "TypeScript" "Planned" {
+                webShipmentFeature = component "Shipment feature" "BookingForm, ShipmentTable and ShipmentDrawer: book, list and open shipments and download their labels (LabelPreview is deferred)." "TypeScript" {
                     properties {
                         "web.id" "shipment-feature"
                         "web.paths" "features/shipments"
-                        "web.status" "planned"
+                        "web.status" "built"
                         "web.entry" "features/shipments/index.ts"
                     }
                 }
 
-                webUi = component "UI" "Presentational components: Button, ProblemAlert, EmptyState, StatusBadge, Skeleton and ThemeToggle." "TypeScript, CSS" "Planned" {
+                webUi = component "UI" "Presentational components: Button, ProblemAlert, EmptyState, StatusBadge, Skeleton and ThemeToggle." "TypeScript, CSS" {
                     properties {
                         "web.id" "ui"
                         "web.paths" "ui"
-                        "web.status" "planned"
+                        "web.status" "built"
                     }
                 }
             }

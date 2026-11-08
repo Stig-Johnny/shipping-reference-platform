@@ -59,8 +59,8 @@ for workflow in "$here"/../../.github/workflows/*.yml; do
     done
   done
 done
-if [[ "$guards" != 8 ]]; then
-  echo "FAIL expected 8 engine guards, found $guards"
+if [[ "$guards" != 9 ]]; then
+  echo "FAIL expected 9 engine guards, found $guards"
   exit 1
 fi
-echo "$passed passed: 8 workflow guards reject reachable CLI/socket, failed stop/mask/unlink and probe errors/timeouts; shutdown precedes probes; stopped passes"
+echo "$passed passed: 9 workflow guards reject reachable CLI/socket, failed stop/mask/unlink and probe errors/timeouts; shutdown precedes probes; stopped passes"

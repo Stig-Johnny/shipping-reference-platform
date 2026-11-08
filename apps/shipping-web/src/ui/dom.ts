@@ -8,7 +8,9 @@ export type Attributes = Readonly<Record<string, string | number | boolean | nul
 const REFUSED_ATTRIBUTE = /^(on|style$|srcdoc$)/i;
 
 export function setAttributes(element: Element, attributes: Attributes): void {
-  for (const [name, value] of Object.entries(attributes)) {
+  for (const entry of Object.entries(attributes)) {
+    const name = entry[0];
+    const value = entry[1];
     if (REFUSED_ATTRIBUTE.test(name)) {
       throw new Error(`The attribute ${name} is not allowed: use addEventListener and CSS classes.`);
     }
@@ -36,7 +38,7 @@ export function replace(parent: Element, ...children: Child[]): void {
 
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K, attributes: Attributes = {}, ...children: Child[]
-): HTMLElementTagNameMap[K] {
+) {
   const element = document.createElement(tag);
   setAttributes(element, attributes);
   append(element, ...children);

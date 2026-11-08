@@ -123,7 +123,9 @@ describe('every request', () => {
     const api = createApiClient({ fetch, token: 'demo-clerk-alpha' });
     await api.getCurrentMembership();
     await api.getCurrentMembership();
-    const [first, second] = calls.map((call) => call.headers.get('Correlation-Id') ?? '');
+    const correlations = calls.map((call) => call.headers.get('Correlation-Id') ?? '');
+    const first = correlations[0];
+    const second = correlations[1];
     assert.match(first ?? '', CORRELATION_ID);
     assert.match(second ?? '', CORRELATION_ID);
     assert.notEqual(first, second);

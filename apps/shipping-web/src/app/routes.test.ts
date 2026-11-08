@@ -21,13 +21,15 @@ describe('parseRoute', () => {
   });
 
   test('IDs must be lower-case UUIDs, as in the contract; anything else is not found', () => {
-    for (const path of [`/quotes/${QUOTE.toUpperCase()}`, '/quotes/123', '/shipments/x', `/quotes/${QUOTE}/extra`, '/quote', '/elsewhere', '//shipments']) {
+    const pathValues1 = [`/quotes/${QUOTE.toUpperCase()}`, '/quotes/123', '/shipments/x', `/quotes/${QUOTE}/extra`, '/quote', '/elsewhere', '//shipments'];
+    for (const path of pathValues1) {
       assert.deepEqual(parseRoute(path), { name: 'not-found' }, path);
     }
   });
 
   test('pathOf is the inverse for every route', () => {
-    for (const path of ['/sign-in', '/quotes/new', `/quotes/${QUOTE}`, '/shipments', `/shipments/${SHIPMENT}`]) {
+    const pathValues2 = ['/sign-in', '/quotes/new', `/quotes/${QUOTE}`, '/shipments', `/shipments/${SHIPMENT}`];
+    for (const path of pathValues2) {
       assert.equal(pathOf(parseRoute(path)), path);
     }
     assert.equal(PATHS.quote(QUOTE), `/quotes/${QUOTE}`);
@@ -39,7 +41,8 @@ describe('what a route needs and shows', () => {
   test('everything but sign-in and unknown pages needs a membership', () => {
     assert.equal(isProtected({ name: 'sign-in' }), false);
     assert.equal(isProtected({ name: 'not-found' }), false);
-    for (const path of ['/', '/quotes/new', `/quotes/${QUOTE}`, '/shipments', `/shipments/${SHIPMENT}`]) {
+    const pathValues3 = ['/', '/quotes/new', `/quotes/${QUOTE}`, '/shipments', `/shipments/${SHIPMENT}`];
+    for (const path of pathValues3) {
       assert.equal(isProtected(parseRoute(path)), true, path);
     }
   });
@@ -69,7 +72,8 @@ describe('returnPath', () => {
   });
 
   test('sends everything else to New quote: sign-in itself, unknown and foreign paths', () => {
-    for (const candidate of [undefined, '/', '/sign-in', '/nope', '//evil.example/x', 'https://evil.example/', 'javascript:alert(1)']) {
+    const candidateValues4 = [undefined, '/', '/sign-in', '/nope', '//evil.example/x', 'https://evil.example/', 'javascript:alert(1)'];
+    for (const candidate of candidateValues4) {
       assert.equal(returnPath(candidate), '/quotes/new', String(candidate));
     }
   });

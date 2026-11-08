@@ -63,7 +63,8 @@ describe('the request', () => {
   test('two requests are the same intent exactly when every field the server fingerprints is equal', () => {
     const base = buildRequest(target, fields);
     assert.equal(samePayload(base, buildRequest(target, { ...fields })), true);
-    for (const changed of [{ ...fields, name: 'Synthetic Recipient 2' }, { ...fields, addressLine2: 'Floor 2' }, { ...fields, reference: '' }]) {
+    const changedValues1 = [{ ...fields, name: 'Synthetic Recipient 2' }, { ...fields, addressLine2: 'Floor 2' }, { ...fields, reference: '' }];
+    for (const changed of changedValues1) {
       assert.equal(samePayload(base, buildRequest(target, changed)), false);
     }
     assert.equal(samePayload(base, buildRequest({ ...target, offerId: '0e5b8a3c-7f0d-4b8e-8f3a-6c2d1e0f9a03' }, fields)), false);
@@ -132,7 +133,8 @@ describe('one Idempotency-Key per booking intent', () => {
 
   test('while a booking is pending, unknown or booked, the submitted payload is frozen', () => {
     const first = sent();
-    for (const record of [first.record, settle(first.record, first.intent, network), settle(first.record, first.intent, created)]) {
+    const recordValues2 = [first.record, settle(first.record, first.intent, network), settle(first.record, first.intent, created)];
+    for (const record of recordValues2) {
       assert.equal(isFrozen(record.phase), true);
       assert.deepEqual(withFields(record, { ...fields, name: 'Changed' }).fields, fields);
       assert.equal(withTarget(record, { ...target, offerId: '0e5b8a3c-7f0d-4b8e-8f3a-6c2d1e0f9a03' }).target.offerId, target.offerId);

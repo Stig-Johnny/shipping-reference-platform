@@ -130,17 +130,17 @@ export interface MappedErrors {
 }
 
 export function mapServerErrors(fields: ParcelFields, invalid: readonly InvalidParam[]): MappedErrors {
-  const errors: ParcelErrors = {};
+  const errors = new Map<ParcelField, string>();
   const unplaced: string[] = [];
   for (const item of invalid) {
     const field = item.in === 'body' ? fieldFor(item.name, fields) : undefined;
     if (field === undefined) {
       unplaced.push(`${item.name}: ${item.detail}`);
-    } else if (errors[field] === undefined) {
-      errors[field] = item.detail;
+    } else if (!errors.has(field)) {
+      errors.set(field, item.detail);
     }
   }
-  return { errors, unplaced };
+  return { errors: Object.fromEntries(errors), unplaced };
 }
 
 /** The contract checks before sending; an unchosen country asks for a choice rather than a code. */
@@ -163,7 +163,7 @@ export function checkParcelFields(fields: ParcelFields): CheckedParcel {
 
 export function orderedErrors(errors: ParcelErrors): Array<{ readonly field: ParcelField; readonly message: string }> {
   return PARCEL_FIELD_ORDER.flatMap((field) => {
-    const message = errors[field];
+    const message = new Map(Object.entries(errors)).get(field);
     return message === undefined ? [] : [{ field, message }];
   });
 }

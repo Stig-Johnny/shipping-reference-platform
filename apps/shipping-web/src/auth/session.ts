@@ -68,7 +68,8 @@ export function createAuth(options: AuthOptions = {}): Auth {
   const listeners = new Set<(session: Session | undefined, change: SessionChange) => void>();
 
   const notify = (change: SessionChange): void => {
-    for (const listener of [...listeners]) {
+    const listenerValues1 = [...listeners];
+    for (const listener of listenerValues1) {
       listener(session, change);
     }
   };

@@ -126,13 +126,13 @@ class BrainGeneratorTest {
                 + "are built, the partial web import check in libs/c4-contract-kit fails without a detected direct "
                 + "import from one to the other.\n", "- A dotted line labelled PERMITTED is an import between parts of the web app "
                 + "that the sources may have; the check requires none for it and reports one without a detected import as \"no "
-                + "static evidence\".\n", "- The check does not evaluate a line that touches a planned part until both "
-                + "parts are built; a file in a planned part fails it.\n", "- Arrows between the web app's parts are "
+                + "static evidence\".\n", "- Arrows between the web app's parts are "
                 + "static imports of TypeScript files, read from apps/shipping-web/src with a restricted import "
                 + "grammar, not runtime calls.\n", "This is labelled partial lint over detected imports; spread-syntax "
-                + "bypasses remain open. The authoritative tsc import graph and browser-enforced strict "
-                + "Content-Security-Policy are planned in the web app pull request (ADR 0015).")
-                .doesNotContain("compiled classes have no static reference");
+                + "bypasses remain open. Compiler-graph boundary enforcement and browser verification of the strict CSP "
+                + "remain planned; the web job compiles and checks policy text (ADRs 0015 and 0017).")
+                .doesNotContain("compiled classes have no static reference",
+                        "The check does not evaluate a line that touches a planned part");
         assertThat(file(files, "BRAIN.md")).contains("the partial web import check compares only detected TypeScript "
                 + "imports with them (ADR 0015).");
         assertThat(file(files, "docs/architecture/api-components.md"))

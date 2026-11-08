@@ -44,11 +44,11 @@ function server(options: { hold?: string[]; offline?: boolean; expired?: boolean
       if (token === 'demo-no-tenant-user') {
         return Promise.resolve(problemResponse(403, 'no-tenant-membership'));
       }
-      const membership = memberships[token];
+      const membership = new Map(Object.entries(memberships)).get(token);
       return Promise.resolve(membership === undefined ? problemResponse(401, 'unauthenticated')
         : new Response(JSON.stringify(membership), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     }
-    return Promise.resolve(options.expired === true || memberships[token] === undefined ? problemResponse(401, 'unauthenticated')
+    return Promise.resolve(options.expired === true || new Map(Object.entries(memberships)).get(token) === undefined ? problemResponse(401, 'unauthenticated')
       : new Response(JSON.stringify({ items: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
   };
   return { fetch: fetchStub as typeof fetch, seen };

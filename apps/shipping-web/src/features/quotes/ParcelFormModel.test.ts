@@ -40,7 +40,8 @@ describe('the fields', () => {
   test('only digits make a whole number; everything else is left for validation to reject', () => {
     assert.equal(parseWholeNumber('1200'), 1200);
     assert.equal(parseWholeNumber(' 1200 '), 1200);
-    for (const raw of ['', '1,200', '12.5', '1e3', '-5', '0x10', 'twelve']) {
+    const rawValues1 = ['', '1,200', '12.5', '1e3', '-5', '0x10', 'twelve'];
+    for (const raw of rawValues1) {
       assert.ok(Number.isNaN(parseWholeNumber(raw)), raw);
     }
   });

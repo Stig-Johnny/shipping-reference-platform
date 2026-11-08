@@ -54,7 +54,8 @@ describe('the checks mirror the contract', () => {
   test('bounds and lengths are the contract\'s', () => {
     assert.equal(LIMITS.weightGrams.min, Number(value('Parcel', 'minimum', 'weightGrams')));
     assert.equal(LIMITS.weightGrams.max, Number(value('Parcel', 'maximum', 'weightGrams')));
-    for (const side of ['lengthMm', 'widthMm', 'heightMm']) {
+    const sideValues1 = ['lengthMm', 'widthMm', 'heightMm'];
+    for (const side of sideValues1) {
       assert.equal(LIMITS.sideMm.min, Number(value('Parcel', 'minimum', side)));
       assert.equal(LIMITS.sideMm.max, Number(value('Parcel', 'maximum', side)));
     }
@@ -73,10 +74,12 @@ describe('validateQuoteRequest', () => {
   });
 
   test('weight is a whole number of grams from 1 to 30000', () => {
-    for (const weightGrams of [1, 30000]) {
+    const weightGramsValues2 = [1, 30000];
+    for (const weightGrams of weightGramsValues2) {
       assert.deepEqual(validateQuoteRequest({ ...valid, parcel: { ...valid.parcel, weightGrams } }), []);
     }
-    for (const weightGrams of [0, 30001, 12.5, Number.NaN, -1]) {
+    const weightGramsValues3 = [0, 30001, 12.5, Number.NaN, -1];
+    for (const weightGrams of weightGramsValues3) {
       const errors = validateQuoteRequest({ ...valid, parcel: { ...valid.parcel, weightGrams } });
       assert.deepEqual(errors, [{ in: 'body', name: '/parcel/weightGrams', detail: 'Enter a whole number of grams from 1 to 30000.' }], String(weightGrams));
     }
@@ -90,17 +93,20 @@ describe('validateQuoteRequest', () => {
 
   test('country codes are two capital letters; any well-formed code passes, the server decides what is served', () => {
     assert.deepEqual(validateQuoteRequest({ ...valid, destination: { countryCode: 'US', postcode: '10001' } }), []);
-    for (const countryCode of ['se', 'S', 'SWE', '']) {
+    const countryCodeValues4 = ['se', 'S', 'SWE', ''];
+    for (const countryCode of countryCodeValues4) {
       const errors = validateQuoteRequest({ ...valid, origin: { countryCode, postcode: '0150' } });
       assert.deepEqual(pointers(errors), ['/origin/countryCode'], countryCode);
     }
   });
 
   test('postcodes are 2 to 10 capitals, digits, spaces or hyphens, with a letter or digit at each end', () => {
-    for (const postcode of ['01', '0150', 'AB1 2CD', '12-345', '1234567890']) {
+    const postcodeValues5 = ['01', '0150', 'AB1 2CD', '12-345', '1234567890'];
+    for (const postcode of postcodeValues5) {
       assert.deepEqual(validateQuoteRequest({ ...valid, destination: { countryCode: 'SE', postcode } }), [], postcode);
     }
-    for (const postcode of ['1', '-123', '123-', 'ab12', '12345678901', '']) {
+    const postcodeValues6 = ['1', '-123', '123-', 'ab12', '12345678901', ''];
+    for (const postcode of postcodeValues6) {
       assert.deepEqual(pointers(validateQuoteRequest({ ...valid, destination: { countryCode: 'SE', postcode } })), ['/destination/postcode'], postcode);
     }
   });
@@ -122,7 +128,8 @@ describe('validateBookingRequest', () => {
   });
 
   test('text fields must be well-formed Unicode: a lone surrogate is rejected, as the contract says', () => {
-    for (const lone of ['\uD800', 'Exampleby \uDFFF', '\uDC00\uD800']) {
+    const loneValues7 = ['\uD800', 'Exampleby \uDFFF', '\uDC00\uD800'];
+    for (const lone of loneValues7) {
       const recipient = { ...booking.recipient, name: lone, addressLine1: lone, addressLine2: lone, city: lone };
       assert.deepEqual(pointers(validateBookingRequest({ ...booking, recipient })),
         ['/recipient/name', '/recipient/addressLine1', '/recipient/addressLine2', '/recipient/city'], JSON.stringify(lone));

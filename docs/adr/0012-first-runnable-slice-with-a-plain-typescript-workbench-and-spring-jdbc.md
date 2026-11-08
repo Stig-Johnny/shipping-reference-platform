@@ -11,14 +11,14 @@ enforcedBy:
   - "java: ArchitectureConformanceTest (C4 edges)"
   - "java: compilation with Error Prone and NullAway"
   - "java: QuotesHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest (HTTP contract, with test doubles for the database adapters)"
-  - "java: WebArchitectureConformanceTest, partial JDK lint over detected imports in apps/shipping-web: boundaries, cycles, a detected direct import for each REQUIRED relationship whose endpoints are built, and every detected package and Node.js built-in import whitelisted in the model and approved in security/allowlist.json (ADR 0015). It scans src, e2e, public and app configuration in every build; with all six parts planned and source and test roots empty, it evaluates no import yet (control.web-import-boundaries, partial)"
+  - "java: WebArchitectureConformanceTest, partial JDK lint over detected imports in apps/shipping-web: boundaries, cycles, a detected direct import for each REQUIRED relationship whose endpoints are built, and every detected package and Node.js built-in import whitelisted in the model and approved in security/allowlist.json (ADR 0015). It scans src, e2e, public and app configuration in every build; with all six parts built, it checks real production imports for all ten REQUIRED relationships (control.web-import-boundaries, partial)"
+  - "web: type check and emit with TypeScript 5.9.3, and the logic tests under node --test; strict CSP text in csp.test.ts (ADR 0017), no browser evidence"
 plannedEnforcement:
   - "java: ShipmentsHttpContractTest"
   - "java: RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, CrossTenantAccessTest"
   - "java: MigrationsIntegrationTest, and TableOwnershipTest on the SQL of each module's adapters"
-  - "web: type check and emit with TypeScript 5.9.3, and the logic tests under node --test"
   - "web app pull request: authoritative import dependencies from the reviewed TypeScript compiler's tsc import graph"
-  - "web app pull request: strict Content-Security-Policy for runtime loading and execution, enforced by the browser"
+  - "web app pull request: browser verification of strict Content-Security-Policy for runtime loading and execution, enforced by the browser (policy text implemented, ADR 0017)"
   - "contract-e2e: Playwright and axe-core against the API started with the demo profile on PostgreSQL"
 ---
 
@@ -40,9 +40,9 @@ TS/TSX and source/test placements: the reader returns no imports or refusals, an
 Parenthesizing the operand restores detection in the reviewed control but does not close the bypass. The
 numeric-token defect was fixed; the review's probe set was not exhaustive (details in `docs/gaps.md`, section 6).
 
-The planned web app pull request will add the authoritative controls: the reviewed TypeScript compiler's
-`tsc` import graph for import dependencies, and a strict Content-Security-Policy enforced by the browser for
-runtime loading and execution. Neither is implemented in this gate. The compiler graph does not prove general
+The reviewed TypeScript compiler now checks and emits the workbench, and its entry page carries a strict CSP
+(ADR 0017). Compiler-graph boundary enforcement and browser verification of the policy remain planned.
+Neither is implemented in this gate. The compiler graph does not prove general
 runtime behaviour, and CSP does not enforce module boundaries. This clarification leaves this record's
 application design and existing Java evidence intact.
 
@@ -309,9 +309,9 @@ one.
   `apps/shipping-web/e2e`, the public root and app configuration (issue #64). A detected import the model does not allow,
   a cycle of detected imports, and a REQUIRED relationship between built parts without a detected direct import each
   fail it. A synthetic fixture using the repository model proves that an unapproved import under `e2e` fails the gate. All six web parts
-  are planned and the source and test roots contain no real files, so no real web imports are checked yet;
+  are built and all ten REQUIRED relationships have production import evidence;
   `control.web-import-boundaries` remains partial. The reader does not supply a complete graph (ADR 0015).
-- Planned, `web`: `npm ci --ignore-scripts` from the reviewed lockfile; `tsc` type-checks and emits; `node --test`
+- `web`: `npm ci --ignore-scripts` from the reviewed lockfile; `tsc` type-checks and emits; `node --test`
   runs the logic tests.
 - Planned, `contract-e2e`: `quote-book-label.spec.ts`, `expired-quote.spec.ts`, `tenant-denial.spec.ts` and
   `accessibility.spec.ts` (axe-core on every screen and state) against the API started with the `demo` profile on

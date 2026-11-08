@@ -15,6 +15,10 @@ expiry logic have passing Java tests. Signing in and creating and reading a quot
 started by the tests with test doubles for the token lookup and the quote store; so storage is tested in memory, and so
 are booking and its replay. The tenants and quotes schemas now have paired up and down migrations (ADR 0016),
 but their CI database evidence is pending. Application persistence and the rest of the flow remain planned.
+The web sources now implement the in-scope screens and have passing logic tests for parcel validation, quote expiry,
+booking key reuse and recovery, shipment pagination and label state. These run without a DOM or live HTTP server:
+the `*.test.tsx` component tests and Playwright specs in the table remain planned. API asset serving is also pending.
+No integrated browser-to-database quote/book/label result is claimed.
 Parts of the flow are also executable scenarios, checked against what the code does when they run
 ([Executable scenarios](#executable-scenarios)).
 

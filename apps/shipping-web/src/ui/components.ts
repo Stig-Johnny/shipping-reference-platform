@@ -122,7 +122,7 @@ export interface Announcer {
 /** The page's one role="status" region. */
 export function createAnnouncer(): Announcer {
   const element = el('div', { class: 'visually-hidden', role: 'status' });
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timer: number | undefined;
   return {
     element,
     announce(message: string): void {

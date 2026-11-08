@@ -125,17 +125,19 @@ const FIELD_POINTERS: Readonly<Record<string, RecipientField>> = {
 };
 
 function mapErrors(invalid: readonly InvalidParam[]): { errors: RecipientErrors; unplaced: string[] } {
-  const errors: RecipientErrors = {};
+  const errors = new Map<RecipientField, string>();
   const unplaced: string[] = [];
   for (const item of invalid) {
-    const field = item.in === 'body' ? FIELD_POINTERS[item.name] : undefined;
+    const field = item.in === 'body' ? new Map(Object.entries(FIELD_POINTERS)).get(item.name) : undefined;
     if (field === undefined) {
       unplaced.push(`${item.name}: ${item.detail}`);
     } else {
-      errors[field] ??= item.detail;
+      if (!errors.has(field)) {
+        errors.set(field, item.detail);
+      }
     }
   }
-  return { errors, unplaced };
+  return { errors: Object.fromEntries(errors), unplaced };
 }
 
 export interface Submission {
@@ -254,7 +256,7 @@ export interface RecipientError {
 
 export function orderedRecipientErrors(errors: RecipientErrors): RecipientError[] {
   return RECIPIENT_FIELD_ORDER.flatMap((field) => {
-    const message = errors[field];
+    const message = new Map(Object.entries(errors)).get(field);
     return message === undefined ? [] : [{ field, message }];
   });
 }

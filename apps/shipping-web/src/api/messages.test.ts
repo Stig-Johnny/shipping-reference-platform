@@ -36,7 +36,9 @@ describe('the user\'s message for each failure', () => {
       [problem('not-found'), 'Something went wrong on our side. Try again.'],
       [problem('internal-error'), 'Something went wrong on our side. Try again.'],
     ];
-    for (const [failure, message] of cases) {
+    for (const entry of cases) {
+      const failure = entry[0];
+      const message = entry[1];
       assert.equal(failureMessage(failure), message, JSON.stringify(failure));
     }
   });

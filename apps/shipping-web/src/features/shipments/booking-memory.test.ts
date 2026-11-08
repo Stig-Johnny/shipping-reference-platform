@@ -25,7 +25,7 @@ const shipment: Shipment = {
 
 const created: ApiResult<Shipment> = { ok: true, value: shipment, status: 201, replayed: false };
 const network: ApiResult<Shipment> = { ok: false, failure: { kind: 'network' } };
-const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+const flush = () => new Promise((resolve) => setTimeout(() => resolve(undefined), 0));
 
 describe('the booking memory of a session', () => {
   test('keeps a booking running across route changes and reports unresolved outcomes', async () => {

@@ -81,8 +81,9 @@ export function validateQuoteRequest(request: QuoteRequest): InvalidParam[] {
   if (!wholeNumberWithin(parcel.weightGrams, LIMITS.weightGrams)) {
     errors.push(invalid('/parcel/weightGrams', MESSAGES.weight));
   }
-  for (const side of ['lengthMm', 'widthMm', 'heightMm'] as const) {
-    if (!wholeNumberWithin(parcel[side], LIMITS.sideMm)) {
+  const sideValues1 = ['lengthMm', 'widthMm', 'heightMm'] as const;
+  for (const side of sideValues1) {
+    if (!wholeNumberWithin(new Map(Object.entries(parcel)).get(side), LIMITS.sideMm)) {
       errors.push(invalid(`/parcel/${side}`, MESSAGES.side));
     }
   }

@@ -32,7 +32,8 @@ export function createBookingMemory(
 
   const store = (record: BookingRecord): void => {
     records.set(record.target.quoteId, record);
-    for (const listener of [...(listeners.get(record.target.quoteId) ?? [])]) {
+    const listenerValues1 = [...(listeners.get(record.target.quoteId) ?? [])];
+    for (const listener of listenerValues1) {
       listener(record);
     }
   };

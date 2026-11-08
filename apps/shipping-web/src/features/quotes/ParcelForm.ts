@@ -41,22 +41,23 @@ const DESTINATION: PlaceKeys = {
 function countryOptions(): Array<{ value: string; label: string }> {
   return [
     { value: '', label: 'Choose a country' },
-    ...SERVED_COUNTRIES.map((code) => ({ value: code, label: `${code} ${COUNTRY_NAMES[code] ?? ''}`.trim() })),
+    ...SERVED_COUNTRIES.map((code) => ({ value: code, label: `${code} ${new Map(Object.entries(COUNTRY_NAMES)).get(code) ?? ''}`.trim() })),
     { value: OTHER_COUNTRY, label: 'Other' },
   ];
 }
 
 export function parcelForm(initial: ParcelFields, onSubmit: (fields: ParcelFields) => void): ParcelFormView {
+  const initialValues = new Map(Object.entries(initial));
   const fields = new Map<ParcelField, Field<HTMLInputElement | HTMLSelectElement>>();
   const text = (field: ParcelField, label: string, hint: string, options: TextOptions = {}): HTMLElement => {
-    const created = textField({ id: id(field), label, hint, required: true, value: initial[field], ...options });
+    const created = textField({ id: id(field), label, hint, required: true, value: initialValues.get(field) ?? '', ...options });
     fields.set(field, created);
     return created.root;
   };
   const place = (keys: PlaceKeys, legend: string, example: string): HTMLFieldSetElement => {
     const country = selectField({
       id: id(keys.country), label: 'Country', hint: 'Served: DE, DK, FI, NL, NO, SE.', required: true,
-      value: initial[keys.country], options: countryOptions(),
+      value: initialValues.get(keys.country) ?? '', options: countryOptions(),
     });
     fields.set(keys.country, country);
     const other = text(keys.other, 'Country code', 'Two capital letters, for example US.', { upperCase: true });
@@ -125,9 +126,8 @@ export function parcelForm(initial: ParcelFields, onSubmit: (fields: ParcelField
     clearErrors,
     showErrors(errors, unplaced) {
       clearErrors();
-      for (const [field, control] of fields) {
-        control.setError(errors[field]);
-      }
+      const messages = new Map(Object.entries(errors));
+      fields.forEach((control, field) => control.setError(messages.get(field)));
       showErrorSummary(summary, [
         ...orderedErrors(errors).map((error) => ({ text: error.message, targetId: id(error.field) })),
         ...unplaced.map((message) => ({ text: message })),

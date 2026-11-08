@@ -19,10 +19,10 @@ Built and running:
   Its web source reader, conformance rules and repository gate ship as a **labelled partial static check** with
   known spread-syntax bypasses: only detected imports are compared with the model. The reader and web conformance
   library are implemented and tested on synthetic fixtures; `WebArchitectureConformanceTest` runs the repository's web-app gate in every
-  build over `src`, `e2e`, `public` and app configuration. All six web parts remain planned and the source and test
-  roots contain no real files, so no real web imports are checked yet.
-  The web app pull request is to add the authoritative controls: the reviewed TypeScript compiler's `tsc` import
-  graph and a strict Content-Security-Policy enforced by the browser (ADRs 0012 and 0015). See
+  build over `src`, `e2e`, `public` and app configuration. All six web parts are built; the real tree has detected
+  production imports for all ten REQUIRED relationships. The web job runs the reviewed compiler and logic tests.
+  The entry document carries a strict same-origin CSP (ADR 0017). Compiler-graph boundary enforcement and browser
+  verification remain planned; compilation alone does not close the partial reader's misses (ADR 0015). See
   [the web-reader limits](docs/gaps.md#6-tests-and-quality-gates).
 - **The dependency allowlist check**, `tools/policy/PolicyCheck.java`. It needs only the JDK. It fails when a locked
   dependency, the Gradle wrapper or an Action has no approved, unexpired review in `security/allowlist.json`, or when
@@ -77,9 +77,14 @@ Built and running:
 The specification is in place too: the model, the API contract, the decisions, the module specifications, the risk
 policy and the agent rules, with the reviewed toolchain.
 
+The **web workbench sources** are built: synthetic sign-in, parcel and quote views, booking recovery, shipments,
+label download and theme selection, using plain TypeScript without runtime packages. Its 125 Node logic tests
+include the strict CSP text assertion; `tsc` emits browser modules. The API does not yet serve the app, and browser
+and end-to-end acceptance tests are absent. This is source and logic-test evidence, not a running integrated flow.
+See `apps/shipping-web/README.md` and [screen specification](docs/ui/workbench.md).
+
 Planned, with no code yet: the API's other four modules, everything of quotes, shipments and tenants that needs the
-application database adapters, the shipments operations over HTTP, the workbench, a plain TypeScript app (ADR 0012), and the checks that
-need them; the generated API client is deferred. In
+application database adapters, the shipments operations over HTTP, serving the workbench from the API, and browser acceptance checks; the generated API client is deferred. In
 [docs/capabilities/capabilities.yaml](docs/capabilities/capabilities.yaml), the source of truth for status and
 evidence, the quotes module's tariff and quote expiry are shipped; quote creation, quote reading, the offer lookup,
 demo authentication and the current membership are partial, because their database tests are planned, and so are the
@@ -247,7 +252,7 @@ it runs) and which part is **planned**.
 | Dependency allowlist and CI engine availability | A locked dependency, the Gradle wrapper or an Action has no approved, unexpired review; a checksum differs; the reviewed set changed after acceptance; the checked tree holds a symbolic link; engine shutdown or denial probes fail outside the reviewed harness window. | Check 8 is a PARTIAL static lint with known bypasses (ADR 0007); privileged code can undo the runtime guard. Build code downloading executables, compromised artifacts, runner compromise, local-agent bypass and review-scope misuse remain gaps. | `preflight` from the base branch; `java` before Gradle; engine guards in every CI job | **partial** in `capabilities.yaml`, with `ContainerEngineWorkflowTest` evidence and executable shell fixtures. The allowlist gate and runtime guard run today; schema validation, the remaining named acceptance tests and approval bound to the current head are planned. |
 | Risk-levelled approval | A level 3 change lacks the owner's approval of its current head. | A sensitive change that matches no rule; a single approver is not two-person review. | `risk-approval` | planned |
 | AI review record | No AI review with findings and dispositions is recorded for the final commit. | AI reviewers being wrong. | `ai-review` | planned |
-| Web import conformance | A detected import crosses parts without a relationship in the model, or a `REQUIRED` relationship between built parts has no detected direct import; a detected import bypasses a feature's `index.ts`, forms a cycle or imports a test from production code; a file is in no part or in a planned one; a detected import names a package or Node.js built-in that the model does not list or `security/allowlist.json` does not approve (no part lists a package; tests may import `node:assert/strict`, `node:test` and `node:fs`); a recognized setting of `package.json`, `tsconfig*.json` or `index.html` would resolve a specifier otherwise; the restricted import grammar reports a refused construct or file. | Imports and loaders hidden after spread syntax and other silent reader misses (see `docs/gaps.md`, section 6); a bundler or test-runner configuration that resolves modules (none is used); `url()` in style sheets; what a test does with a built-in at run time; the web app's network calls; an unused part that no `REQUIRED` relationship reaches. | `java`: `WebArchitectureConformanceTest` runs the partial web import lint on `apps/shipping-web` (ADR 0015) | **partial**: each rule fails its negative fixture, and the repository gate scans `src`, `e2e`, `public` and app configuration in every build; a file in a planned part or a detected unapproved test import fails it. Every part is still planned and the source and test roots are empty, so no real web imports have been checked. The authoritative tsc import graph and browser-enforced strict CSP remain planned in the web app pull request |
+| Web import conformance | A detected import crosses parts without a relationship in the model, or a `REQUIRED` relationship between built parts has no detected direct import; a detected import bypasses a feature's `index.ts`, forms a cycle or imports a test from production code; a file is in no part or in a planned one; a detected import names a package or Node.js built-in that the model does not list or `security/allowlist.json` does not approve (no part lists a package; tests may import `node:assert/strict`, `node:test` and `node:fs`); a recognized setting of `package.json`, `tsconfig*.json` or `index.html` would resolve a specifier otherwise; the restricted import grammar reports a refused construct or file. | Imports and loaders hidden after spread syntax and other silent reader misses (see `docs/gaps.md`, section 6); a bundler or test-runner configuration that resolves modules (none is used); `url()` in style sheets; what a test does with a built-in at run time; the web app's network calls; an unused part that no `REQUIRED` relationship reaches. | `java`: `WebArchitectureConformanceTest` runs the partial web import lint on `apps/shipping-web` (ADR 0015) | **partial**: each rule fails its negative fixture, and the repository gate scans `src`, `e2e`, `public` and app configuration in every build; a file in a planned part or a detected unapproved test import fails it. Six source parts are built and all ten REQUIRED relationships have production import evidence. Compiler-graph boundary enforcement and browser verification remain planned; the web job compiles and tests strict CSP text |
 | Web behaviour and accessibility | Quote, book and label fail in a real browser against the real API; axe-core finds violations. | Accessibility problems that automated tools miss. | `web`, `contract-e2e` | planned |
 | Documentation and brain | Generated docs or `BRAIN.md` drift; budgets exceeded; a capability claims `shipped` without passing evidence; a link, anchor or ADR reference is broken; the site's Mermaid bundle differs from its review; code changed without its module document. | Whether the prose is right. | `java`: `:tools:docs:check` (`BrainGeneratorTest`, `BrainCheckTest`, `SiteBuilderTest`) | **enforced** in the required `java` check, except the module-document check, which is planned |
 | Publication scan of the public site | The built site holds a secret's shape, a link to this repository on GitHub, a local path, a private address or host name, an HTML comment or a term of the confidential dictionary; the dictionary is missing; the Mermaid bundle differs from its review; the site directory holds a link or a hidden file. | A paraphrase, a confidential term that is not in the dictionary, what a sentence means. | `pages`, build job: `:tools:docs:scanSite` before the upload (`PublicationScannerTest`, `PagesWorkflowTest`) | **enforced** on every deployment from `main`; the dictionary is a secret of the `github-pages` environment, and without it the scan fails closed |
@@ -268,7 +273,7 @@ libs/c4-contract-kit/            Gradle project :libs:c4-contract-kit, the model
                                  classes and web imports), with its self-model architecture/self.dsl
 apps/shipping-api/               Gradle project :apps:shipping-api: the quotes, shipments and tenants modules and
                                  the HTTP edge, with their tests, the HTTP contract tests and the architecture tests
-apps/shipping-web/               the workbench's agent rules (AGENTS.md); the workbench itself is planned
+apps/shipping-web/               plain TypeScript workbench sources and logic tests; serving and browser proof pending
 docs/                            Markdown with frontmatter: adr/, modules/, flows/, capabilities/, ui/, demos/ (one
                                  demonstration per pull request, how to write one, and the milestone deck), gaps.md,
                                  risk-levels.md; architecture/ and brain/ are generated by tools/docs
@@ -305,6 +310,9 @@ off.
 | Run all Java checks (compile with Error Prone and NullAway, tests), the web import check included | `./gradlew check` |
 | Run the database tests (CI only: they need the reviewed container engine, which the `java` job prepares) | `./gradlew :apps:shipping-api:databaseTest` |
 | Test the CI scripts (bash and GNU tar, as on the runner; no container engine) | `bash tools/ci/engine-guard-test.sh`; `bash tools/ci/container-engine-test.sh`; `bash tools/ci/site-handover-test.sh` |
+| Install the reviewed npm lock (reviewed Node 26.13.0 and bundled npm 11.20.0 only) | `npm ci --ignore-scripts` from the repository root |
+| Type check and emit browser modules (TypeScript 5.9.3 on PATH from `node_modules/.bin`) | `tsc -p apps/shipping-web` from the repository root |
+| Run web logic tests with Node type stripping, without a DOM | `node --test` with working directory `apps/shipping-web` |
 | Run the web import check alone (the JDK alone; reports in `libs/c4-contract-kit/build/reports/c4-contract-web/`) | `./gradlew :libs:c4-contract-kit:test --tests '*WebArchitectureConformanceTest'` |
 | Run mutation tests (CI only, the `mutation` job: PIT's control socket accepts unauthenticated connections) | `./gradlew :libs:c4-contract-kit:pitest` |
 | Check docs and the brain; regenerate them | `./gradlew :tools:docs:check`; `./gradlew :tools:docs:generate` |
@@ -332,7 +340,9 @@ home. A staged Gradle launcher and repeated offline signature verification belon
 existing first-use signature record in `security/verifications/2026-11-06-toolchain.md` remains applicable.
 
 Not built yet; their commands arrive with their code: a developer toolchain bootstrap script, PostgreSQL 18.6 with
-the two roles, the API with the `demo` profile, the workbench with its type check and tests, and end-to-end tests.
+the two roles, the API with the `demo` profile, serving the workbench, and end-to-end tests.
+The `web` job runs after `java` has checked the candidate, with the first-step engine guard, a checksum-verified
+Node archive, lock-only installation, the reviewed compiler command and workspace logic tests. No browser runs.
 The API's HTTP contract tests run in `./gradlew check`.
 
 ## Honest limits

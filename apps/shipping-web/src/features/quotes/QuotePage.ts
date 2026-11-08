@@ -120,8 +120,8 @@ export function mountQuotePage(container: HTMLElement, quoteId: string, context:
     ensureBookingForm();
     refresh();
 
-    const interval = setInterval(refresh, 15_000);
-    const timeout = setTimeout(refresh, Math.min(msUntilExpiry(quote, Date.now()) + 10, LONGEST_TIMEOUT));
+    const interval = setInterval(() => refresh(), 15_000);
+    const timeout = setTimeout(() => refresh(), Math.min(msUntilExpiry(quote, Date.now()) + 10, LONGEST_TIMEOUT));
     cleanups.push(
       () => clearInterval(interval),
       () => clearTimeout(timeout),

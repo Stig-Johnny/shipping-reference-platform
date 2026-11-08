@@ -28,46 +28,47 @@ only. The page needs no inline script or style, so it runs under `Content-Securi
 
 ## Commands
 
-Node 26.13.0 runs the tests directly, with its built-in type stripping; nothing needs installing:
+Use only reviewed Node 26.13.0 and its bundled npm 11.20.0. From the repository root, install the unchanged
+reviewed lock and compile with TypeScript 5.9.3 from `node_modules/.bin` on PATH:
 
-```bash
-node --test apps/shipping-web/src
-```
-
-Compiling needs TypeScript 5.9.3 from the reviewed lock (`devDependencies` in `package.json`). Once the lock exists,
-from the repository root:
-
-```bash
+```sh
 npm ci --ignore-scripts
-npm run typecheck --workspace @shipping-reference-platform/web
-npm run test --workspace @shipping-reference-platform/web
-npm run build --workspace @shipping-reference-platform/web
+tsc -p apps/shipping-web
 ```
 
-`build` writes `apps/shipping-web/dist/`: the compiled modules in the layout of `src/` (for example
-`dist/app/main.js`), `index.html` and `workbench.css`. Test files are not compiled: `node --test` runs them, and they
-are not type-checked, because the Node.js type declarations are not a reviewed dependency.
+With working directory `apps/shipping-web`, run exactly:
 
-## Serving `dist/` from the Java application
+```sh
+node --test
+```
 
-The API pull request does the wiring; the shape is:
+The only manifest scripts are root `build:web` = `tsc -p apps/shipping-web` and workspace `test:unit` =
+`node --test`, matching the reviewed forms. No bundler, test loader or runtime dependency is used.
+`tsc` emits modules under `dist/`, without copying `index.html` or `public/workbench.css`. It does not compile
+or type-check logic tests: Node runs their erasable TypeScript directly, and Node type declarations are not reviewed.
+The 125 logic tests run without a DOM. No Playwright e2e, axe or manual accessibility evidence exists yet.
 
-- **Location.** The `demo` profile serves the built directory from the file system, so that `./gradlew check` stays
-  JDK-only and never depends on a web build: `spring.web.resources.static-locations=file:apps/shipping-web/dist/`
-  in `application-demo.properties`. Alternatively the API's Gradle build copies a CI-built `dist/` into `static/`:
+## Content security and serving
 
-  ```kotlin
-  tasks.processResources {
-      from(rootProject.layout.projectDirectory.dir("apps/shipping-web/dist")) { into("static") }
-  }
-  ```
+The entry document declares this meta policy before its stylesheet and module script:
 
-- **History API routes.** `GET /`, `/sign-in`, `/quotes/new`, `/quotes/{quoteId}`, `/shipments` and
-  `/shipments/{shipmentId}` with `Accept: text/html` return `index.html`; everything under `/api/` stays the API.
-- **Security.** The static files and those routes need no token; Spring Security permits them, and only `/api/**`
-  requires the demo bearer token.
-- **Headers on the HTML document.** `Content-Security-Policy: default-src 'self'; base-uri 'none'; form-action 'none';
-  frame-ancestors 'none'; object-src 'none'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` and
-  `Cache-Control: no-store`. The page repeats the CSP in a meta element, except `frame-ancestors`, which only a
-  header can set.
-- **Same origin.** The app calls `/api/v1` on its own origin; loopback only for the demo.
+```text
+default-src 'self'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'
+```
+
+`src/app/csp.test.ts` asserts its exact text and placement. The app uses same-origin `/api/v1`, external module files
+and an external stylesheet; no external origin, inline script/style or evaluated string is allowed. ADR 0017 records
+the owner's decision. The test proves the declaration, not browser enforcement or general runtime safety.
+
+The API currently disables static-resource serving. Wiring the emitted modules, `index.html`, the stylesheet and
+History API route fallbacks into the same-origin Java application remains pending. There is no app server in this
+slice and no live end-to-end flow. A future repository-owned server must repeat the policy as a response header,
+add `frame-ancestors 'none'` in that header, serve only on loopback for the demo, and test the delivered response.
+Do not make API paths fall back to HTML.
+
+## Evidence limits
+
+All six parts are built and the partial JDK import gate observes production imports for all ten REQUIRED
+relationships. Known reader misses remain; `tsc` type-checking does not compare its graph with the C4 model.
+The four `web.*` capabilities remain planned because the named component/e2e acceptance tests are absent and the
+documentation build cannot consume Node reports. Cancellation and the label preview remain deferred.
