@@ -8,11 +8,6 @@
   "engines": {
     "node": "26.13.0"
   },
-  "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "rm -rf dist && tsc -p tsconfig.json && cp index.html dist/index.html && cp -R public/. dist/",
-    "test": "node --test src"
-  },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
     "@playwright/test": "1.65.0",
