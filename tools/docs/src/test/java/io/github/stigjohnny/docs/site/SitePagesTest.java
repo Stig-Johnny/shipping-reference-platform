@@ -156,7 +156,9 @@ class SitePagesTest {
         assertThat(web).contains("<td>planned; checked by the web import check</td>",
                 "A thick line is a REQUIRED import between parts of the web app.",
                 "A REQUIRED arrow specifies an obligation; where both parts are built, a passing web import check "
-                        + "establishes an import, not runtime behaviour.",
+                        + "establishes a detected direct import, not complete boundary or cycle coverage or runtime "
+                        + "behaviour.",
+                "This is labelled partial lint over detected imports; spread-syntax bypasses remain open.",
                 "The API adapter&#39;s calls to the API are network calls, which no static check sees.")
                 .doesNotContain("compiled classes have no static reference");
     }
@@ -542,8 +544,8 @@ class SitePagesTest {
     @Test
     void theModulesIndexSaysTheWebAppCallsTheApiThroughItsHandWrittenAdapter() {
         // ADR 0012: the first runnable slice generates no client.
-        String row = "<tr><th scope=\"row\">Web app</th><td>a container, not an API module; the web import check "
-                + "holds its parts to the model</td><td></td>"
+        String row = "<tr><th scope=\"row\">Web app</th><td>a container, not an API module; partial web import lint "
+                + "compares detected imports with the model</td><td></td>"
                 + "<td>the API, through its hand-written typed HTTP adapter</td>";
 
         assertThat(site.text("modules/index.html")).contains(row).doesNotContain("generated client");
@@ -586,16 +588,24 @@ class SitePagesTest {
     }
 
     @Test
-    void theWebGateIsImplementedEnforcementWhileTheWebCapabilityStaysPartial() {
+    void theWebGateIsImplementedPartialLintWhileAuthoritativeControlsStayPlanned() {
         var adr = sources.docsUnder("docs/adr/").stream().filter(doc -> doc.path().contains("/0012-"))
                 .findFirst().orElseThrow();
 
         assertThat(adr.frontmatter().strings("enforcedBy")).anySatisfy(entry -> assertThat(entry)
-                .contains("WebArchitectureConformanceTest", "all six parts planned", "evaluates no import yet"));
+                .contains("WebArchitectureConformanceTest", "partial JDK lint", "all six parts planned",
+                        "evaluates no import yet"));
         assertThat(adr.frontmatter().strings("plannedEnforcement"))
                 .noneSatisfy(entry -> assertThat(entry).contains("WebArchitectureConformanceTest"));
+        assertThat(adr.frontmatter().strings("plannedEnforcement"))
+                .anySatisfy(entry -> assertThat(entry).contains("tsc import graph", "web app pull request"))
+                .anySatisfy(entry -> assertThat(entry).contains("strict Content-Security-Policy",
+                        "enforced by the browser", "web app pull request"));
         assertThat(adr.body()).contains("- `java`: `WebArchitectureConformanceTest`")
                 .doesNotContain("Planned, `java`: `WebArchitectureConformanceTest`");
+        assertThat(adr.body()).contains("pull request #72", "labelled partial", "`import(\"unlisted\")`",
+                "`import(name)`", "`require(\"unlisted\")`", "`import.meta.glob(\"./*.ts\")`",
+                "object, array, call and nested-template spreads");
         assertThat(sources.capabilities().documentedIn(adr.path()))
                 .filteredOn(capability -> capability.id().equals("control.web-import-boundaries"))
                 .extracting(Capability::status).containsExactly(Capability.Status.PARTIAL);

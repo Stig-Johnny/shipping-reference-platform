@@ -83,5 +83,5 @@ The same definition is in [containers.mmd](containers.mmd).
 
 ## What this view cannot show
 
-- A diagram shows the model, not the code. The API's modules are checked against its compiled classes and the web app's parts against its TypeScript imports (docs/gaps.md, section 1).
+- A diagram shows the model, not the code. The API's modules are checked against its compiled classes and the web app's parts against detected TypeScript imports using partial lint (docs/gaps.md, section 1).
 - Relationships of people, software systems and containers are documentation: they carry no contract mode, and module conformance does not cover them. The planned contract and end-to-end tests are to cover the web app's calls.

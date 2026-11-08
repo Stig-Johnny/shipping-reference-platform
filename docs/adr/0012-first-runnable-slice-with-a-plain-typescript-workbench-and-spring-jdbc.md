@@ -16,6 +16,8 @@ plannedEnforcement:
   - "java: RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, CrossTenantAccessTest"
   - "java: MigrationsIntegrationTest, and TableOwnershipTest on the SQL of each module's adapters"
   - "web: type check and emit with TypeScript 5.9.3, and the logic tests under node --test"
+  - "web app pull request: authoritative import dependencies from the reviewed TypeScript compiler's tsc import graph"
+  - "web app pull request: strict Content-Security-Policy for runtime loading and execution, enforced by the browser"
   - "contract-e2e: Playwright and axe-core against the API started with the demo profile on PostgreSQL"
 ---
 
@@ -24,12 +26,23 @@ plannedEnforcement:
 Supersedes ADR 0003, ADR 0004, ADR 0005 and ADR 0009. What they decided carries forward here unchanged, except where
 this record says otherwise; their text stays as it was accepted.
 
-**Web import scope, 2026-11-08:** ADR 0013 records the owner's implementation decision for pull requests #70 and #71:
-the JDK reader and conformance rules ship as a labelled partial check with a known spread-syntax bypass. The
-repository gate now runs that partial check; the intended web import rules below are not a complete guarantee
-supplied by the reader. The reviewed TypeScript compiler's import graph and a strict Content-Security-Policy in
-the web app enforced by the browser are planned
-authoritative controls. This clarification leaves this record's application design and existing Java evidence intact.
+**Web import scope, 2026-11-08:** the owner's decision extends ADR 0013's labelled partial check to the repository
+gate in pull request #72, alongside the reader in #70 and conformance rules in #71.
+`control.web-import-boundaries` stays partial. The gate compares only detected imports and reported refusals;
+its passing verdict cannot establish complete boundary or cycle coverage or runtime safety.
+
+Known open bypass forms are literal `import("unlisted")`, computed `import(name)`, `require("unlisted")` and
+unsupported `import.meta.glob("./*.ts")` immediately after `...`. The review reproduced them in
+object, array, call and nested-template spreads, with whitespace, comments and line breaks after `...`, across
+TS/TSX and source/test placements: the reader returns no imports or refusals, and the conformance gate can pass.
+Parenthesizing the operand restores detection in the reviewed control but does not close the bypass. The
+numeric-token defect was fixed; the review's probe set was not exhaustive (details in `docs/gaps.md`, section 6).
+
+The planned web app pull request will add the authoritative controls: the reviewed TypeScript compiler's
+`tsc` import graph for import dependencies, and a strict Content-Security-Policy enforced by the browser for
+runtime loading and execution. Neither is implemented in this gate. The compiler graph does not prove general
+runtime behaviour, and CSP does not enforce module boundaries. This clarification leaves this record's
+application design and existing Java evidence intact.
 
 ## Context and Problem Statement
 

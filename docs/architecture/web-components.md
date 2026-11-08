@@ -61,8 +61,8 @@ The same definition is in [web-components.mmd](web-components.mmd).
 - Each box is an element of the model: its name, its C4 type in brackets and, in parentheses, its implementation status.
 - "(planned)" marks an element that has no code yet.
 - Each line is labelled with its number in the view's relationships table and, where it has one, its mode.
-- A thick line is a REQUIRED import between parts of the web app. Where both parts are built, the web import check in libs/c4-contract-kit fails when no file of the one imports a file of the other.
-- A dotted line labelled PERMITTED is an import between parts of the web app that the sources may have; the check requires none for it and reports one without any as "no static evidence".
+- A thick line is a REQUIRED import between parts of the web app. Where both parts are built, the partial web import check in libs/c4-contract-kit fails without a detected direct import from one to the other.
+- A dotted line labelled PERMITTED is an import between parts of the web app that the sources may have; the check requires none for it and reports one without a detected import as "no static evidence".
 - The check does not evaluate a line that touches a planned part until both parts are built; a file in a planned part fails it.
 - A solid thin line is a relationship of people, systems or containers, which module conformance does not cover.
 - Arrows point from the element that depends on the other.
@@ -100,6 +100,7 @@ The same definition is in [web-components.mmd](web-components.mmd).
 
 ## What this view cannot show
 
-- A diagram shows the model, not the code. The API's modules are checked against its compiled classes and the web app's parts against its TypeScript imports (docs/gaps.md, section 1).
+- A diagram shows the model, not the code. The API's modules are checked against its compiled classes and the web app's parts against detected TypeScript imports using partial lint (docs/gaps.md, section 1).
 - Arrows between the web app's parts are static imports of TypeScript files, read from apps/shipping-web/src with a restricted import grammar, not runtime calls.
-- A REQUIRED arrow specifies an obligation; where both parts are built, a passing web import check establishes an import, not runtime behaviour. The API adapter's calls to the API are network calls, which no static check sees.
+- A REQUIRED arrow specifies an obligation; where both parts are built, a passing web import check establishes a detected direct import, not complete boundary or cycle coverage or runtime behaviour. The API adapter's calls to the API are network calls, which no static check sees.
+- This is labelled partial lint over detected imports; spread-syntax bypasses remain open. The authoritative tsc import graph and browser-enforced strict Content-Security-Policy are planned in the web app pull request (ADR 0013).

@@ -127,6 +127,6 @@ The same definition is in [api-components.mmd](api-components.mmd).
 
 ## What this view cannot show
 
-- A diagram shows the model, not the code. The API's modules are checked against its compiled classes and the web app's parts against its TypeScript imports (docs/gaps.md, section 1).
+- A diagram shows the model, not the code. The API's modules are checked against its compiled classes and the web app's parts against detected TypeScript imports using partial lint (docs/gaps.md, section 1).
 - Arrows between modules are static code dependencies, not runtime data flow: an event listener's arrow points to the module whose event type it uses.
 - A REQUIRED arrow specifies an obligation; where both modules are built, a passing conformance check establishes a static reference, not runtime behaviour.

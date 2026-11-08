@@ -17,8 +17,8 @@ line and specifier evidence: the web import check, below ([`AGENTS.md`](AGENTS.m
 conformance library are tested on synthetic fixtures; `WebArchitectureConformanceTest` runs the repository's web-app
 gate in every build, with all six parts planned and no real source or test files yet. The reader
 refuses some recognized unsupported or ambiguous forms; it does not guarantee that every import is found or every
-unsupported construct is refused. The owner accepted this scope for the reader and conformance rules on
-2026-11-08 (ADR 0013).
+unsupported construct is refused. The owner accepted this scope for the reader, conformance rules and repository gate
+in pull requests #70, #71 and #72 on 2026-11-08 (ADR 0013); the capability remains partial.
 
 Known open bypass: directly after spread syntax, `import("unlisted")`, `import(name)`, `require("unlisted")` and
 `import.meta.glob("./*.ts")` can produce no imports and no refusals. The review found this in object, array, call
@@ -27,9 +27,10 @@ placements. Parenthesizing the operand restores detection in the reviewed contro
 The review reported no other open bypass class in its probe set, which was not exhaustive. The restrictions below
 describe recognized forms and tested cases, not complete enforcement.
 
-Authoritative controls are planned: the reviewed TypeScript compiler's import graph for import dependencies, and a
-strict Content-Security-Policy in the web app, enforced by the browser, for runtime loading and execution. Neither
-is implemented by this library. Passing this check does not prove a complete import graph or runtime safety; see
+Authoritative controls are planned in the web app pull request: the reviewed TypeScript compiler's `tsc` import
+graph for import dependencies, and a strict Content-Security-Policy enforced by the browser for runtime loading
+and execution. Neither is implemented by this library. Passing this check does not prove a complete import graph
+or runtime safety; see
 [`docs/gaps.md`](../../docs/gaps.md#6-tests-and-quality-gates) and
 [ADR 0013](../../docs/adr/0013-partial-web-import-lint-and-authoritative-controls.md).
 

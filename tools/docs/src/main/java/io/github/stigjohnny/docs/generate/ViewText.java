@@ -97,8 +97,8 @@ public final class ViewText {
                 + "mode.");
         if (arrows.contains(Arrow.REQUIRED) && web) {
             legend.add("A thick line is a REQUIRED import between parts of the web app. Where both parts are built, "
-                    + "the web import check in libs/c4-contract-kit fails when no file of the one imports a file of "
-                    + "the other.");
+                    + "the partial web import check in libs/c4-contract-kit fails without a detected direct import "
+                    + "from one to the other.");
         } else if (arrows.contains(Arrow.REQUIRED)) {
             legend.add("A thick line is a REQUIRED dependency between modules. Where both modules are built, the "
                     + "checker in libs/c4-contract-kit fails when the compiled classes have no static reference for "
@@ -106,7 +106,7 @@ public final class ViewText {
         }
         if (permitted && web) {
             legend.add("A dotted line labelled PERMITTED is an import between parts of the web app that the sources "
-                    + "may have; the check requires none for it and reports one without any as \"no static "
+                    + "may have; the check requires none for it and reports one without a detected import as \"no static "
                     + "evidence\".");
         } else if (permitted) {
             legend.add("A dotted line labelled PERMITTED is a dependency between modules that the code may have; the "
@@ -134,14 +134,19 @@ public final class ViewText {
     public static List<String> limits(C4View view, C4Model model) {
         List<String> limits = new ArrayList<>();
         limits.add("A diagram shows the model, not the code. The API's modules are checked against its compiled "
-                + "classes and the web app's parts against its TypeScript imports (docs/gaps.md, section 1).");
+                + "classes and the web app's parts against detected TypeScript imports using partial lint "
+                + "(docs/gaps.md, section 1).");
         boolean web = view.elementIds().stream().anyMatch(id -> model.element(id).webId().isPresent());
         if (view.kind() == C4View.Kind.COMPONENT && web) {
             limits.add("Arrows between the web app's parts are static imports of TypeScript files, read from "
                     + "apps/shipping-web/src with a restricted import grammar, not runtime calls.");
             limits.add("A REQUIRED arrow specifies an obligation; where both parts are built, a passing web import "
-                    + "check establishes an import, not runtime behaviour. The API adapter's calls to the API are "
+                    + "check establishes a detected direct import, not complete boundary or cycle coverage or runtime "
+                    + "behaviour. The API adapter's calls to the API are "
                     + "network calls, which no static check sees.");
+            limits.add("This is labelled partial lint over detected imports; spread-syntax bypasses remain open. "
+                    + "The authoritative tsc import graph and browser-enforced strict Content-Security-Policy "
+                    + "are planned in the web app pull request (ADR 0013).");
             return List.copyOf(limits);
         }
         switch (view.kind()) {

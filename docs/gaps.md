@@ -228,8 +228,9 @@ closes it.
   checked and no relationship is evaluated yet.
   The control remains partial. A direct import proves a reference, not behaviour, and a part that no REQUIRED
   relationship reaches can be unused without a report. dependency-cruiser is deferred.
-- **The web reader and conformance rules ship as a labelled partial static check, not authoritative enforcement.**
-  The owner accepted this scope for pull requests #70 and #71 on 2026-11-08 (ADR 0013). The reader and conformance
+- **The web reader, conformance rules and repository gate ship as a labelled partial static check.**
+  The owner accepted this scope for pull requests #70, #71 and #72 on 2026-11-08 (ADRs 0012 and 0013).
+  `control.web-import-boundaries` stays partial; authoritative enforcement remains planned. The reader and conformance
   library are implemented, and the import rules have synthetic fixture evidence. The reader can miss imports and
   unsupported constructs without a refusal.
   `WebArchitectureConformanceTest` proves that an unapproved import in the repository model's `e2e` root fails the
@@ -255,10 +256,12 @@ closes it.
   Conservative refusals reject harmless names (including type names), literal ampersands, computed indexing,
   array destructuring, callback aliases and valid URLs outside that subset too. The reader does not execute a web app
   or inspect installed packages.
-- **Known open web-reader bypass: spread syntax.** The review of pull request #70 found that
-  `const p = { ...import("unlisted") };`, `const p = { ...import(name) };`,
-  `const p = { ...require("unlisted") };` and `const p = { ...import.meta.glob("./*.ts") };` produce
-  `imports=[], refusals=[]`. Object, array, call and nested-template spreads reproduce this, including whitespace,
+- **Known open bypass forms after spread syntax.** The review found literal dynamic imports
+  (`const p = { ...import("unlisted") };`), computed dynamic imports (`const p = { ...import(name) };`),
+  `require` loaders (`const p = { ...require("unlisted") };`) and unsupported `import.meta` loaders
+  (`const p = { ...import.meta.glob("./*.ts") };`) producing `imports=[], refusals=[]`.
+  The conformance gate in pull requests #71 and #72 can return `passed=true, findings=[]` for these forms.
+  Object, array, call and nested-template spreads reproduce this, including whitespace,
   comments and line breaks after `...`, in TS/TSX and source/test placements. The lexer splits `...` into dots and
   the scanner treats the next keyword as a property name. Parenthesizing the operand restores detection in the
   reviewed control; that does not close the bypass. The review reported the numeric-token defect fixed and no other
@@ -267,11 +270,11 @@ closes it.
   reported refusals; they do not recover dependencies the reader misses. Their passing verdict cannot establish
   complete boundary or cycle coverage. `control.web-import-boundaries` remains partial: the repository gate exists
   and runs, but its passing verdict neither closes this bypass nor proves complete detection.
-- **Authoritative web controls are planned, not delivered by the reader.** The reviewed TypeScript compiler's
-  import graph is to supply import dependencies, and a strict Content-Security-Policy in the web app is to be
-  enforced by the browser for runtime loading and execution (ADR 0013). The compiler graph is not a proof of general
-  runtime behaviour, and CSP does not enforce module boundaries. Neither control is implemented in this slice;
-  reader fixtures are not evidence of either one.
+- **Authoritative web controls are planned in the web app pull request.** The reviewed TypeScript compiler's
+  `tsc` import graph is to supply import dependencies, and a strict Content-Security-Policy in the web app is to be
+  enforced by the browser for runtime loading and execution (ADRs 0012 and 0013). The compiler graph is not a proof
+  of general runtime behaviour, and CSP does not enforce module boundaries. Neither control is implemented by the
+  reader, conformance rules or repository gate in this slice; their fixtures are not evidence of either one.
 - The first runnable slice defers the generated client and the component tests (ADR 0012). So there is no
   generated-client drift guarantee: the web app's request and response types are written by hand in
   `apps/shipping-web/src/api` and can drift from `contracts/shipping.openapi.yaml` without failing a build. The
