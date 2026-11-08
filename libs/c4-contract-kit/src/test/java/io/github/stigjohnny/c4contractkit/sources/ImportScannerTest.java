@@ -14,10 +14,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * The restricted import grammar (libs/c4-contract-kit/AGENTS.md, "Web imports"): every form that makes a module
- * depend on another is either read, with its line and specifier, or refused. Nothing that looks like code inside a
- * string, comment, template, regular expression or JSX text counts, and nothing that resolves modules at run time
- * passes unseen.
+ * Synthetic cases for the partial import grammar (libs/c4-contract-kit/AGENTS.md, "Web imports"): tested forms are
+ * read with their line and specifier or refused, and tested non-code text does not count as code. These assertions
+ * do not establish complete detection; the known spread-syntax misses remain open (ADR 0013).
  */
 class ImportScannerTest {
 

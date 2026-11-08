@@ -412,7 +412,7 @@ controls:
     negativeFixture: A response with an undocumented member fails validation.
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.web-import-boundaries
-    title: Web app import boundaries and cycles, and a direct import for each REQUIRED relationship whose endpoints are built.
+    title: Partial lint of detected web app imports for boundaries, cycles and a direct import for each REQUIRED relationship whose endpoints are built (ADR 0013).
     where: libs/c4-contract-kit, apps/shipping-web
     check: java
     status: planned

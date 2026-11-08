@@ -11,12 +11,12 @@ import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The restricted import grammar: reads every way a TypeScript or TSX file can name another module, and refuses every
- * way to load a module that is only known at run time.
+ * Partial static lint over a restricted TypeScript/TSX import grammar. The forms below describe recognized syntax,
+ * not complete coverage: loaders after spread syntax can yield neither imports nor refusals (ADR 0013).
  *
  * <p>Read, each with the line of its specifier: import declarations ({@code import a from 'x'}, {@code import { a }
  * from 'x'}, {@code import * as a from 'x'}, {@code import 'x'}), type-only imports, re-exports ({@code export * from},
- * {@code export { a } from}, their type-only forms) and {@code import('x')} with one plain string literal, anywhere,
+ * {@code export { a } from}, their type-only forms) and {@code import('x')} with one plain string literal,
  * types included. Refused: {@code import()} with anything else, {@code require}, {@code import.meta} other than
  * {@code import.meta.env}, import-equals declarations, import attributes, a module declaration with a module name
  * ({@code module 'x'}, with or without {@code declare}), references to {@code eval}, {@code Function} and a
@@ -214,7 +214,7 @@ final class ImportScanner {
         }
     }
 
-    /** Unknown computed access/binding keys fail closed, including const aliases and template literals. */
+    /** Refuses recognized non-literal computed access/binding keys, including const aliases and template literals. */
     private void computedProperty(int open) {
         int close = closing(open, "[", "]");
         boolean binding = punctuator(close + 1, ":") || punctuator(close + 1, "(");

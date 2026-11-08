@@ -23,12 +23,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Checks the TypeScript sources of a web app against the web container of a C4 model written in Structurizr DSL, in
- * both directions: an import between two components that the model does not declare fails, and so does a REQUIRED
- * relationship without any import. Every package and Node.js built-in an import names must be declared in the model
- * and approved in the dependency allowlist. The sources, tests, public files and configuration are read as data with a
- * restricted grammar; nothing in them is executed, compiled or installed, and whatever the grammar does not cover fails
- * the check instead of being skipped.
+ * Partial static check of detected TypeScript imports against the web container of a C4 model written in Structurizr
+ * DSL, in both directions: a detected import without a declared component relationship fails, as does a REQUIRED
+ * relationship without a detected import. Every detected package and Node.js built-in import must be declared in the model and
+ * approved in the dependency allowlist. Sources, tests, public files and configuration are read as data; nothing is
+ * executed, compiled or installed. Reported reader refusals fail the check, but imports and unsupported constructs
+ * can be missed silently, including loaders after spread syntax. A passing report is not a complete import graph
+ * or proof of runtime safety (ADR 0013); application integration and authoritative controls remain planned.
  */
 public final class WebConformance {
 

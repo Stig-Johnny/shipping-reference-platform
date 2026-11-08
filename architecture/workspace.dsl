@@ -1,8 +1,8 @@
 // shipping-reference-platform: C4 model in Structurizr DSL (parsed with com.structurizr:structurizr-dsl 6.2.4).
 //
 // This file is the structural authority for the shipping product (ADR 0002). People read the rendered views;
-// c4-contract-kit reads this same file and compares it with the API's compiled classes, and with the web app's
-// TypeScript imports, in both directions.
+// c4-contract-kit reads this same file and compares it with the API's compiled classes. Its partial web check
+// compares detected TypeScript imports in both directions; integration with the repository's web app is planned.
 // Changing this file is a risk level 3 change and needs the owner's approval (policy/risk.json, .github/CODEOWNERS).
 //
 // Restrictions, enforced by c4-contract-kit's restricted parser: no !include, !script, !plugin, !docs, !adrs or
@@ -53,9 +53,11 @@
 //
 // WEB PROPERTIES
 //
-// The web app is checked against this model too, by the web import check of c4-contract-kit (WebConformance), with a
-// vocabulary of its own: the contract properties above belong to the API alone, and the web container, its
-// components and their relationships must not carry them.
+// WebConformance implements a labelled partial static check, tested on synthetic repositories (ADR 0013).
+// It compares only detected imports and propagates reported refusals; spread-syntax loaders can pass unseen.
+// The repository's web-app gate, compiler import graph and browser-enforced web-app CSP remain planned.
+// The web vocabulary is separate: the contract properties above belong to the API alone, and the web container,
+// its components and their relationships must not carry them. The import rules below apply to detected imports.
 //
 // On the one container whose TypeScript sources are checked (exactly one container may carry web.root):
 //   web.root      Directory of the container's source files, relative to the repository root. Every file under it
@@ -92,16 +94,17 @@
 //                 relationship. The tag "Required import" must be present exactly when the mode is REQUIRED. At most
 //                 one relationship per ordered pair of components; the graph must be acyclic.
 //
-// An import from one web component to another without a relationship fails the check (a divergence), and so does a
-// REQUIRED relationship between built components without any import (an absence). Type-only imports, re-exports and
+// A detected import from one web component to another without a relationship fails the check (a divergence), as does
+// a REQUIRED relationship between built components without any detected import (an absence). Type-only imports, re-exports and
 // import() of a string literal count; imports inside one component do not, but no files may import each other in a
 // cycle. Test files (*.test.ts, *.test.tsx) are held to the relationships and entries of their component, and the files
 // of a test root, which belong to no component, may import only files of that root; but tests are never evidence: a
 // test never satisfies a REQUIRED relationship, and no production file may import a test. The sources are read as data
-// with a deliberately restricted import grammar, never executed: whatever it does not cover (require, import() of
+// with a deliberately restricted import grammar, never executed: recognized unsupported forms (require, import() of
 // anything but a string literal, import.meta other than import.meta.env, absolute, aliased or URL specifiers, .js and
 // .json files, CSS @import, and settings such as tsconfig paths, baseUrl or an import map that would resolve a
-// specifier otherwise) fails the check. The rules are in libs/c4-contract-kit/AGENTS.md ("Web imports").
+// specifier otherwise) fail the check. This is not a general fail-closed guarantee: silent misses can hide imports
+// and unsupported constructs. The rules are in libs/c4-contract-kit/AGENTS.md ("Web imports").
 //
 // What this model cannot prove is listed in docs/gaps.md. In short: a REQUIRED edge proves that a static reference
 // or import exists, not that the behaviour behind it runs.

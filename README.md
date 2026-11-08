@@ -15,8 +15,9 @@ Built and running:
 
 - **The checker**, `libs/c4-contract-kit`, described in [the next section](#the-checker). Its tests, and a check of
   the library against its own model, run in `java`, a check that a pull request must pass before it can merge.
-  Its web source reader is a **partial static lint** with a known spread-syntax bypass. The reader and web conformance
-  library are implemented and tested on synthetic fixtures; the repository's web-app gate is still planned.
+  Its web source reader and conformance rules ship as a **labelled partial static check** with a known spread-syntax
+  bypass: only detected imports are compared with the model. The reader and web conformance library are implemented
+  and tested on synthetic fixtures; the repository's web-app gate is still planned.
   Authoritative controls follow: the reviewed TypeScript compiler's import graph and a strict
   Content-Security-Policy in the web app enforced by the browser (ADR 0013). See
   [the web-reader limits](docs/gaps.md#6-tests-and-quality-gates).
@@ -247,8 +248,8 @@ BRAIN.md                         generated agent entry point
 ```
 
 Planned and not in the tree yet: `policy/rulesets.json` (the branch ruleset). Deferred: `packages/shipping-client/`
-(the client generated from the contract, ADR 0012). The web import check is to be part of `libs/c4-contract-kit`, not
-a `tools/web-imports/` script (ADR 0012).
+(the client generated from the contract, ADR 0012). The partial web import check is implemented in
+`libs/c4-contract-kit`; its application integration remains planned (ADRs 0012 and 0013).
 
 ## Running it
 

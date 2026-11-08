@@ -198,8 +198,9 @@ closes it.
   detected import for each REQUIRED relationship whose endpoints are built (ADRs 0012 and 0013). Relationships
   touching planned parts are not evaluated, a direct import proves a reference and not behaviour, and a part that no
   REQUIRED relationship reaches can be unused without a report. dependency-cruiser is deferred.
-- **The web source reader is a partial static lint, not authoritative enforcement.** The owner accepted this scope
-  on 2026-11-08 (ADR 0013). The reader and conformance library are implemented and tested on synthetic fixtures;
+- **The web reader and conformance rules ship as a labelled partial static check, not authoritative enforcement.**
+  The owner accepted this scope for pull requests #70 and #71 on 2026-11-08 (ADR 0013). The reader and conformance
+  library are implemented and tested on synthetic fixtures;
   the repository's web conformance gate is still planned. The reader can miss imports and unsupported constructs
   without a refusal. `WebConformanceTest` proves that the tested reader refusals fail the model comparison,
   and that Node.js built-ins in tests need runtime approval for project `ci` in configuration `web`, at the version
@@ -229,7 +230,10 @@ closes it.
   the scanner treats the next keyword as a property name. Parenthesizing the operand restores detection in the
   reviewed control; that does not close the bypass. The review reported the numeric-token defect fixed and no other
   open bypass class in its probe set; that set was not exhaustive. A green lint result cannot prove the absence of
-  undeclared imports or hidden runtime loaders.
+  undeclared imports or hidden runtime loaders. The conformance rules only compare detected imports and propagate
+  reported refusals; they do not recover dependencies the reader misses. Their passing verdict cannot establish
+  complete boundary or cycle coverage. The partial label does not promote `control.web-import-boundaries`, which
+  remains planned until `WebArchitectureConformanceTest` exists and passes against the repository's web app.
 - **Authoritative web controls are planned, not delivered by the reader.** The reviewed TypeScript compiler's
   import graph is to supply import dependencies, and a strict Content-Security-Policy in the web app is to be
   enforced by the browser for runtime loading and execution (ADR 0013). The compiler graph is not a proof of general

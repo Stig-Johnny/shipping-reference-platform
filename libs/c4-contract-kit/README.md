@@ -9,13 +9,15 @@ as evidence: class, member, kind, and the source file and line when the class fi
 components, planned components with code and unmapped classes have no reference to show; they name the components
 and classes concerned.
 
-Its package `sources` is a **partial static lint**. It reads a web app's TypeScript sources, tests, style sheets and
-configuration as data, with a deliberately restricted grammar and the JDK alone. The implemented web conformance
+Its web reader and conformance rules ship as a **labelled partial static check**. Package `sources` reads a web app's
+TypeScript sources, tests, style sheets and configuration as data, with a deliberately restricted grammar and the
+JDK alone. The implemented web conformance
 library compares the imports it detects with the web container of the same model in both directions, with file,
 line and specifier evidence: the web import check, below ([`AGENTS.md`](AGENTS.md), "Web imports"). The reader and
 conformance library are tested on synthetic fixtures; the repository's web-app gate is still planned. The reader
 refuses some recognized unsupported or ambiguous forms; it does not guarantee that every import is found or every
-unsupported construct is refused. The owner accepted shipping this limited reader on 2026-11-08 (ADR 0013).
+unsupported construct is refused. The owner accepted this scope for the reader and conformance rules on
+2026-11-08 (ADR 0013).
 
 Known open bypass: directly after spread syntax, `import("unlisted")`, `import(name)`, `require("unlisted")` and
 `import.meta.glob("./*.ts")` can produce no imports and no refusals. The review found this in object, array, call
@@ -26,7 +28,7 @@ describe recognized forms and tested cases, not complete enforcement.
 
 Authoritative controls are planned: the reviewed TypeScript compiler's import graph for import dependencies, and a
 strict Content-Security-Policy in the web app, enforced by the browser, for runtime loading and execution. Neither
-is implemented by this reader. Passing this lint does not prove runtime safety; see
+is implemented by this library. Passing this check does not prove a complete import graph or runtime safety; see
 [`docs/gaps.md`](../../docs/gaps.md#6-tests-and-quality-gates) and
 [ADR 0013](../../docs/adr/0013-partial-web-import-lint-and-authoritative-controls.md).
 
@@ -99,6 +101,10 @@ void theCodeConformsToTheModel() {
 
 ## The web import check
 
+This API compares detected imports and propagates reader refusals. Its `PASSED` verdict means no violations were
+reported for those inputs; silent reader misses can still hide undeclared imports, boundary breaks and cycles.
+The following is an integration example; the repository's web-app gate remains planned.
+
 ```java
 @Test
 void theWebAppConformsToTheModel() {
@@ -138,8 +144,8 @@ The comparison uses only detected imports. It fails on an import between two com
 REQUIRED relationship between built components without a detected import, on a file in no component or in a planned
 one, on a built component without code, on an import of a component other than through its `web.entry`, on an import
 of a test, on an unresolved import, on a package
-or built-in that is not declared or not approved, on an import cycle, on unsupported syntax or files, and on a refused
-setting of the app's configuration. Its reports, `report.json`
+or built-in that is not declared or not approved, on a detected import cycle, on recognized unsupported syntax or
+files, and on a refused setting of the app's configuration. Its reports, `report.json`
 (`"schema": "c4-contract-kit/web-report/v1"`) and `report.md`, are deterministic like the class check's, and list
 every detected import of a package or a Node.js built-in with the file and line that make it, the rule that decided it
 and the allowlist entry that approves it.
