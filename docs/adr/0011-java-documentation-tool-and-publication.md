@@ -88,10 +88,13 @@ SnakeYAML Engine 3.2.
 - `./gradlew :tools:docs:generate` rewrites the generated files. Both tasks run after the tests of every project with
   test sources and read all their reports; the tool's own are the evidence of its control, `control.brain-check`.
   The shipping API's database tests run in a task of their own, `:apps:shipping-api:databaseTest`, which `check` does
-  not run, so that `check` needs only the reviewed JDK. With `-PdatabaseEvidence=true`, as CI's `java` check and the
-  Pages test job build, the docs tasks also run it, read its reports and fail unless they show at least one test run
-  and none failed, errored or skipped (`--required-results`); without it they never read those reports, so a database
-  report left over from an earlier run cannot count as evidence.
+  not run, so that `check` needs only the reviewed JDK. Full-evidence mode, `-PdatabaseEvidence=true`, adds a
+  dependency from the docs tasks to `databaseTest` and requires its reports to show at least one test run and none
+  failed, errored or skipped (`--required-results`). CI's `java` check and the Pages test job run `databaseTest`
+  earlier, inside the reviewed engine window, then shut the engine down and prove CLI/socket denial. Their later
+  docs tasks use `-x databaseTest -PdatabaseEvidence=true` to prevent another database run after shutdown while
+  still requiring the reports produced in that job. Without full-evidence mode the docs tasks never read database
+  reports, so a report left over from an earlier run cannot count as evidence.
 - `:tools:docs:site`, also part of `check`, builds the documentation site into `tools/docs/build/site/` from the
   same sources, after the same checks. It is static HTML with one stylesheet and one script of the tool's own, and
   relative links, so it works under any base path. Its sections are Start, Demos, Model, Modules, Decisions, API,
