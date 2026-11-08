@@ -430,7 +430,8 @@ public final class PolicyCheck {
      *
      * What it reads: every file under a project's src/ directory, whatever its extension (sources, resources, scripts);
      * every Java, Kotlin and Groovy file (the Gradle build scripts included); gradle.properties; the workflows and every
-     * action file; every shell script, by its .sh extension or its #! line. In the whole tree it also looks for
+     * action file; every shell script, by its .sh extension or its #! line; root and declared workspace package.json
+     * scripts and repository .npmrc files. In the whole tree it also looks for
      * executables and archives (ELF, Mach-O, PE, Java class, ZIP or JAR, gzip, WebAssembly), which it cannot read.
      * Documents outside src/, the review records and this checker with its tests are not read: naming an image there
      * uses nothing. The Gradle wrapper script is not read either, as long as it is byte for byte the one Gradle generates
@@ -458,7 +459,7 @@ public final class PolicyCheck {
      *   - in shell text: a command that is an expansion (a variable, a substitution, ${...}) or holds a glob, brace
      *     expansion anywhere, a shell that reads its commands from its input (a pipe, a redirection, a process
      *     substitution), an awk program that runs commands or comes from a file, an interpreter or build tool whose
-     *     programs it does not read (INTERPRETERS: Python, Node.js and npm, make and others), --unix-socket, and a file of
+     *     programs it does not read (INTERPRETERS, except reviewedCommand's complete web forms), --unix-socket, and a file of
      *     this tree run as a script that it does not read as one; in a file, a #! line that names anything but bash or sh.
      *     An executable file without a #! line is read as a script, since sh runs it when its name is run;
      *   - anywhere it reads: a variable that makes bash, the loader or a runtime run code it does not read
@@ -468,6 +469,8 @@ public final class PolicyCheck {
      *     reaches the engine without naming a runtime;
      *   - in Kotlin: a backquoted identifier. Groovy sources and build scripts altogether, whose slashy and dollar-slashy
      *     strings and GString templates it does not decode;
+     *   - at recognized Java/Kotlin process-launch APIs: unresolved executable/argument vectors or working directories;
+     *     only complete literal vectors can earn the same reviewedCommand exception as a workflow or shell script;
      *   - in string literals: a container runtime's name in a literal with shell metacharacters, once its quotes,
      *     escapes and expansions are removed, and one split across consecutive literals, whatever joins them (+, a call,
      *     a template); a Kotlin or Groovy template that holds a string literal;
@@ -495,7 +498,8 @@ public final class PolicyCheck {
      *     pull of anything but one image by digest, docker's global options, docker in a word it cannot read as a
      *     command (a value, an expansion), other container runtimes, a runtime's name around an expansion, and job or
      *     service containers as plain, quoted, flow, escaped or explicit YAML keys.
-     * What stays outside it: what is decided at run time (a command or a name assembled from variables, from a file's
+     * What stays outside it: repository code run by the reviewed node --test command (matching is not isolation), and
+     * what is decided at run time outside recognized launch APIs (a command or a name assembled from variables, from a file's
      * contents or by a program's output, a string built by a method call such as format), reflection, the programs that
      * a command it allows runs in turn (sed, git's configuration, find -exec), and a library that starts a container
      * of its own. For those the static check is no guarantee: the runner's checks of the engine's images and
@@ -583,7 +587,8 @@ public final class PolicyCheck {
     static final Pattern AWK_COMMAND = Pattern.compile("\\bsystem\\s*\\(|\\||\\bgetline\\b");
     /** The variables that make bash, the dynamic loader or a runtime load or run code this check does not read. */
     static final Pattern STARTUP_VARIABLE = Pattern.compile("(BASH_ENV|ENV|PROMPT_COMMAND|PS4|SHELLOPTS|BASHOPTS|"
-            + "BASH_FUNC_[^=\\s]*|LD_PRELOAD|LD_AUDIT|JAVA_TOOL_OPTIONS|JDK_JAVA_OPTIONS|_JAVA_OPTIONS|NODE_OPTIONS)");
+            + "BASH_FUNC_[^=\\s]*|LD_PRELOAD|LD_AUDIT|JAVA_TOOL_OPTIONS|JDK_JAVA_OPTIONS|_JAVA_OPTIONS|NODE_OPTIONS|NODE_PATH|"
+            + "(?i:npm_config_[A-Za-z_]+))");
     /** A JVM option that runs a command when the JVM fails. */
     static final Pattern JVM_COMMAND = Pattern.compile("-XX:\\+?On(?:OutOfMemory)?Error\\b");
     /** The JDK's way to reach a Unix socket, such as the engine's, from code. */
@@ -617,7 +622,254 @@ public final class PolicyCheck {
             "image ls", "image inspect", "container ls", "container inspect", "container rm", "network ls",
             "network inspect", "network rm", "volume ls", "volume inspect", "volume rm", "manifest inspect");
 
+    /** Complete, literal command forms only. A null directory means unresolved, never the repository root. */
+    record Command(List<String> argv, String directory, boolean ci) {
+        Command(List<String> argv, String directory) { this(argv, directory, false); }
+    }
+    record NpmScript(String directory, String name, String body, List<String> invocation) {}
+    static final String WEB = "apps/shipping-web";
+    static final List<NpmScript> WEB_SCRIPTS = List.of(
+            new NpmScript(".", "build:web", "tsc -p apps/shipping-web",
+                    List.of("npm", "run", "build:web", "--ignore-scripts")),
+            new NpmScript(WEB, "test:unit", "node --test",
+                    List.of("npm", "run", "test:unit", "--ignore-scripts")));
+    private final Map<String, Json.JObject> manifests = new HashMap<>();
+    private boolean reviewedNode;
+    private boolean reviewedLinuxNode;
+    private boolean reviewedTypescript;
+
+    /** Acceptance, expiry and the review file all matter; a maintenance-only runtime cannot authorize CI installs. */
+    boolean effectiveWebEntry(Json.JObject raw, String kind, String coordinate, String version, String artifact,
+                              String project, String condition) {
+        Entry e = toEntry(raw);
+        try {
+            return e.kind().equals(kind) && e.coordinate().equals(coordinate) && e.version().equals(version)
+                    && e.artifact().equals(artifact) && raw.text("project").equals(project) && e.approved()
+                    && !LocalDate.parse(e.expiresAt()).isBefore(today) && !e.reviewRecord().isBlank()
+                    && Files.isRegularFile(reviews.get(e.reviewRecord()), LinkOption.NOFOLLOW_LINKS)
+                    && raw.has("conditions") && raw.get("conditions").asArray().items().stream()
+                    .anyMatch(c -> c instanceof Json.JString s && s.value().contains(condition));
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
+    }
+
+    void prepareWebCommands() throws IOException {
+        for (Path config : files(p -> p.getFileName().toString().equals(".npmrc"))) {
+            add("images", relative(config) + ": npm configuration is not registered; it can change the script shell or lifecycle policy");
+        }
+        Json.JObject accepted = allowlist.get("acceptance").asObject();
+        boolean effective = accepted.text("status").equals("accepted")
+                && accepted.text("reviewedSetSha256").equals(entriesDigest());
+        boolean linux = rawEntries.stream().anyMatch(e -> effectiveWebEntry(e, "runtime", "nodejs.org/dist node",
+                "26.13.0", "https://nodejs.org/dist/v26.13.0/node-v26.13.0-linux-x64.tar.xz", "ci",
+                "The job asserts node --version is v26.13.0 and npm --version is 11.20.0"))
+                && rawEntries.stream().anyMatch(e -> effectiveWebEntry(e, "bundled", "npm", "11.20.0",
+                "bundled in node-v26.13.0-linux-x64 (lib/node_modules/npm)", "ci",
+                "Used as npm ci --ignore-scripts; npm --version is 11.20.0"));
+        boolean local = rawEntries.stream().anyMatch(e -> effectiveWebEntry(e, "runtime", "Node.js", "26.13.0",
+                "node-v26.13.0-darwin-arm64.tar.xz", "local build hosts (macOS arm64, >= 13.5)",
+                "npm runs with --ignore-scripts, as the blueprint mandates for CI"))
+                && rawEntries.stream().anyMatch(e -> effectiveWebEntry(e, "bundled", "npm", "11.20.0",
+                "bundled in node-v26.13.0-darwin-arm64 (lib/node_modules/npm)",
+                "controlled maintenance environment and local build hosts (macOS arm64)",
+                "npm --version is 11.20.0; local build hosts run only npm ci --ignore-scripts"));
+        reviewedNode = effective && (linux || local);
+        reviewedLinuxNode = effective && linux;
+        reviewedTypescript = reviewedNode && rawEntries.stream().anyMatch(e -> effectiveWebEntry(e, "npm", "typescript",
+                "5.9.3", "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz", WEB,
+                "Only the tsc CLI, as tsc -p apps/shipping-web (or a package script that runs exactly that)"));
+        Path root = repo.resolve("package.json");
+        if (!Files.isRegularFile(root, LinkOption.NOFOLLOW_LINKS)) return;
+        Json.JObject manifest = jsonObject(root);
+        manifests.put(".", manifest);
+        if (manifest.has("workspaces")) {
+            Json workspaces = manifest.get("workspaces");
+            if (!(workspaces instanceof Json.JArray list)) {
+                add("images", "package.json: workspaces must be an explicit array of repository directories");
+            } else for (Json item : list.items()) {
+                if (!(item instanceof Json.JString path) || !literalDirectory(path.value()) || path.value().equals(".")) {
+                    add("images", "package.json: an unresolved workspace directory (patterns and external paths are refused)");
+                    continue;
+                }
+                Path file = repo.resolve(path.value()).resolve("package.json");
+                if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+                    add("images", safe(path.value()) + "/package.json: declared workspace manifest is missing");
+                } else manifests.put(path.value(), jsonObject(file));
+            }
+        }
+        for (var entry : manifests.entrySet()) {
+            Json.JObject m = entry.getValue();
+            if (!m.has("scripts")) continue;
+            if (!(m.get("scripts") instanceof Json.JObject scripts)) {
+                add("images", manifestPath(entry.getKey()) + ": scripts must be an object of registered script bodies");
+                continue;
+            }
+            for (var script : scripts.members().entrySet()) {
+                boolean registered = WEB_SCRIPTS.stream().anyMatch(s -> s.directory().equals(entry.getKey())
+                        && s.name().equals(script.getKey()) && script.getValue() instanceof Json.JString body
+                        && s.body().equals(body.value()) && reviewedCommand(new Command(List.of(s.body().split(" ")),
+                        s.directory()), false));
+                if (!registered) add("images", manifestPath(entry.getKey()) + ": unregistered npm script body or lifecycle hook");
+            }
+        }
+    }
+
+    static String manifestPath(String directory) {
+        return directory.equals(".") ? "package.json" : safe(directory) + "/package.json";
+    }
+
+    static boolean literalDirectory(String directory) {
+        return directory.equals(".") || directory.matches("[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*");
+    }
+
+    boolean reviewedCommand(Command command, boolean scripts) {
+        List<String> a = command.argv();
+        String cwd = command.directory();
+        if (!reviewedNode || command.ci() && !reviewedLinuxNode || cwd == null) return false;
+        if ((cwd.equals(".") || cwd.equals(WEB))
+                && (a.equals(List.of("node", "--version")) || a.equals(List.of("npm", "--version")))) return true;
+        if (cwd.equals(".") && a.equals(List.of("npm", "ci", "--ignore-scripts"))) return true;
+        if (reviewedTypescript && cwd.equals(".") && a.equals(List.of("tsc", "-p", WEB))) return true;
+        // Node's default test discovery is rooted ONLY at the declared web workspace, without loaders or extra paths.
+        if (cwd.equals(WEB) && manifests.containsKey(WEB) && a.equals(List.of("node", "--test"))) return true;
+        if (scripts) for (NpmScript s : WEB_SCRIPTS) {
+            Json.JObject manifest = manifests.get(cwd);
+            if (s.directory().equals(cwd) && a.equals(s.invocation()) && manifest != null && manifest.has("scripts")
+                    && manifest.get("scripts") instanceof Json.JObject bodies && bodies.has(s.name())
+                    && bodies.get(s.name()) instanceof Json.JString body
+                    && body.value().equals(s.body())
+                    && reviewedCommand(new Command(List.of(s.body().split(" ")), cwd, command.ci()), false)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** No partial vector can earn an interpreter exception. Other recognized commands retain their existing rules. */
+    void commandForm(String where, Command command) {
+        if (command.argv().isEmpty()) {
+            add("images", where + ": unresolved process command vector; write the complete literal executable and arguments");
+            return;
+        }
+        String executable = command.argv().getFirst();
+        if (!executable.matches("[A-Za-z0-9_./-]+")) {
+            add("images", where + ": unresolved process executable");
+            return;
+        }
+        String name = executable.substring(executable.lastIndexOf('/') + 1);
+        if (INTERPRETERS.contains(name) && !reviewedCommand(command, true)) {
+            add("images", where + ": runs " + safe(name) + ", an interpreter whose programs this check does not read; "
+                    + "no effective review for this complete command form and working directory");
+        }
+    }
+
+    static final Pattern PROCESS_CALL = Pattern.compile("\\bProcessBuilder\\s*\\(|\\b(?:commandLine|setCommandLine)\\s*\\(|"
+            + "\\.\\s*command\\s*\\(|\\b(?:Runtime\\s*\\.\\s*)?getRuntime\\s*\\(\\s*\\)\\s*\\.\\s*exec\\s*\\(");
+
+    /** Literal varargs (or Runtime's literal String array). Lists, interpolation, concatenation and setters fail closed. */
+    List<String> literalArguments(String expression, Language language) {
+        String value = expression.strip();
+        if (value.startsWith("new String[]") && value.endsWith("}")) {
+            value = value.substring("new String[]".length()).strip();
+            if (!value.startsWith("{")) return List.of();
+            value = value.substring(1, value.length() - 1);
+        }
+        List<String> result = new ArrayList<>();
+        Matcher m = Pattern.compile("\\s*\"((?:[^\"\\\\\\r\\n]|\\\\.)*)\"\\s*(,|$)").matcher(value);
+        int end = 0;
+        while (m.find() && m.start() == end) {
+            if (language == Language.KOTLIN && m.group(1).contains("$")) return List.of();
+            result.add(SourceViews.decoded(m.group(1), language));
+            end = m.end();
+            if (m.group(2).equals(",") && end == value.length()) return List.of();
+        }
+        return end == value.length() ? result : List.of();
+    }
+
+    Set<Integer> checkProcessCommands(Path file, String text, SourceViews views, Language language) {
+        Set<Integer> approvedLiterals = new TreeSet<>();
+        Set<Integer> resolvedDirectories = new TreeSet<>();
+        String bare = views.bare();
+        StringBuilder calls = new StringBuilder(PROCESS_CALL.pattern());
+        Matcher alias = Pattern.compile("\\bRuntime\\s+([A-Za-z_$][\\w$]*)|\\b(?:var|val)\\s+([A-Za-z_$][\\w$]*)"
+                + "(?:\\s*:\\s*Runtime)?\\s*=\\s*Runtime\\s*\\.\\s*getRuntime").matcher(bare);
+        while (alias.find()) {
+            String name = alias.group(1) == null ? alias.group(2) : alias.group(1);
+            calls.append("|\\b").append(Pattern.quote(name)).append("\\s*\\.\\s*exec\\s*\\(");
+        }
+        for (Matcher call = Pattern.compile(calls.toString()).matcher(bare); call.find(); ) {
+            if (call.group().stripLeading().startsWith(".") && !Pattern.compile("\\bProcessBuilder\\b").matcher(bare).find()) {
+                continue; // an unrelated domain method named command(), not a process-launch API
+            }
+            int open = call.end() - 1;
+            int end = closing(bare, open);
+            String expression = end < 0 ? "" : views.code().substring(open + 1, end);
+            List<String> argv = literalArguments(expression, language);
+            if (call.group().matches("(?s).*\\bexec\\s*\\(") && expression.stripLeading().startsWith("\"")) {
+                argv = argv.size() == 1 ? List.of(argv.getFirst().strip().split("\\s+")) : List.of();
+            }
+            String directory = ".";
+            if (call.group().startsWith("commandLine") || call.group().startsWith("setCommandLine")) {
+                directory = repo.relativize(file.getParent()).toString();
+                if (directory.isEmpty()) directory = ".";
+                // The literal workingDir belongs to this Exec block. Other setters or assignments are unresolved.
+                ArrayDeque<Integer> blocks = new ArrayDeque<>();
+                for (int i = 0; i < call.start(); i++) {
+                    if (bare.charAt(i) == '{') blocks.push(i);
+                    else if (bare.charAt(i) == '}' && !blocks.isEmpty()) blocks.pop();
+                }
+                int block = blocks.isEmpty() ? -1 : blocks.peek();
+                int close = block < 0 ? -1 : closing(bare, block, '{', '}');
+                String scope = views.code().substring(Math.max(0, block), close < 0 ? text.length() : close);
+                String scopeBare = bare.substring(Math.max(0, block), close < 0 ? text.length() : close);
+                Pattern directorySetter = Pattern.compile("\\b(?:workingDir|setWorkingDir)\\b");
+                if (count(directorySetter, bare) != 0 && (count(directorySetter, bare) != 1
+                        || count(directorySetter, scopeBare) != 1 || block < 0
+                        || scopeBare.substring(1).contains("{")
+                        || Pattern.compile("\\b(?:if|else|when|for|while|try|fun)\\b").matcher(scopeBare).find())) {
+                    directory = null;
+                } else if (directorySetter.matcher(scopeBare).find()) {
+                    Matcher dir = Pattern.compile("\\bworkingDir\\s*\\(\\s*\"([^\"$\\\\]*)\"\\s*\\)").matcher(scope);
+                    directory = dir.find() && literalDirectory(dir.group(1))
+                            ? (directory.equals(".") ? dir.group(1)
+                            : dir.group(1).equals(".") ? directory : directory + "/" + dir.group(1)) : null;
+                    if (dir.find()) directory = null;
+                }
+            } else if (Pattern.compile("\\.\\s*directory\\s*\\(").matcher(bare).find()) {
+                String tail = end < 0 ? "" : views.code().substring(end + 1);
+                Matcher dir = Pattern.compile("^\\s*\\.\\s*directory\\s*\\(\\s*new\\s+(?:java\\.io\\.)?File\\s*"
+                        + "\\(\\s*\"([^\"$\\\\]*)\"\\s*\\)\\s*\\)").matcher(tail);
+                if (dir.find() && literalDirectory(dir.group(1))) {
+                    directory = dir.group(1);
+                    resolvedDirectories.add(end + 1 + tail.indexOf('.'));
+                } else directory = null;
+            }
+            Command command = new Command(argv, directory);
+            commandForm(at(file, text, call.start()), command);
+            if (!argv.isEmpty() && SHELLS.contains(argv.getFirst().substring(argv.getFirst().lastIndexOf('/') + 1))) {
+                if (argv.size() == 3 && argv.get(1).equals("-c")) {
+                    checkScript(file, argv.get(2), lineOf(text, call.start()), directory);
+                } else add("images", at(file, text, call.start()) + ": unresolved shell process command vector");
+            }
+            if (reviewedCommand(command, true)) for (Literal literal : views.literals()) {
+                if (literal.offset() > open && literal.offset() < end) approvedLiterals.add(literal.offset());
+            }
+        }
+        if (Pattern.compile("\\bProcessBuilder\\b").matcher(bare).find()) {
+            for (Matcher dir = Pattern.compile("\\.\\s*directory\\s*\\(").matcher(bare); dir.find(); ) {
+                if (!resolvedDirectories.contains(dir.start())) add("images", at(file, text, dir.start())
+                        + ": unresolved process working directory; use the literal constructor chain");
+            }
+        }
+        find(file, text, bare, Pattern.compile("\\b(?:executable\\s*(?:=|\\()|commandLine\\s*=|ProcessBuilder\\s*::\\s*new"
+                        + "|ProcessBuilder\\s*\\.\\s*startPipeline)|::\\s*(?:ProcessBuilder|commandLine|exec)\\b"),
+                "an unresolved process command vector; use a complete literal commandLine or ProcessBuilder call");
+        return approvedLiterals;
+    }
+
     void checkContainerImages() throws IOException {
+        prepareWebCommands();
         for (Path file : files(p -> !repo.relativize(p).toString().startsWith(CHECKER_DIRECTORY)
                 && !repo.relativize(p).toString().equals(WRAPPER_JAR))) {
             executableFormat(file).ifPresent(format -> add("images", ("%s: an executable or an archive (%s): this check "
@@ -824,6 +1076,7 @@ public final class PolicyCheck {
      * container it makes. Its string literals, decoded, are read as shell text, alone and with their neighbours.
      */
     void checkImageCode(Path file, String text, SourceViews views, Language language, boolean harness) {
+        Set<Integer> processLiterals = checkProcessCommands(file, text, views, language);
         for (String view : List.of(text, views.code())) {
             codeRules(file, text, view, harness);
         }
@@ -870,7 +1123,7 @@ public final class PolicyCheck {
             if (startup.lookingAt() && (startup.end() == stripped.length() || stripped.charAt(startup.end()) == '=')) {
                 startupVariable(file, line, startup.group(1));
             }
-            if (LITERAL_INTERPRETERS.contains(interpreter)) {
+            if (LITERAL_INTERPRETERS.contains(interpreter) && !processLiterals.contains(literal.offset())) {
                 add("images", "%s:%d: runs %s, an interpreter whose programs this check does not read"
                         .formatted(relative(file), line, interpreter));
             }
@@ -1114,7 +1367,7 @@ public final class PolicyCheck {
                     j--;
                 }
                 rest.append(run ? line.substring(0, line.length() - value.length()) : line).append('\n');
-                if (run && literal) runStep(file, String.join("\n", content), n + 2);
+                if (run && literal) runStep(file, String.join("\n", content), n + 2, workflowDirectory(lines, n));
                 for (String c : content) rest.append(run ? "" : c).append('\n');
                 n = j;
                 continue;
@@ -1165,7 +1418,7 @@ public final class PolicyCheck {
             if (!value.isEmpty()) scalarColumn = key == null ? indent : keyColumn;
             if (run && !value.isEmpty()) {
                 if (decoded == null) add("images", where + ": a run step whose script this check cannot decode");
-                else runStep(file, decoded, n + 1);
+                else runStep(file, decoded, n + 1, workflowDirectory(lines, n));
                 rest.append(line, 0, line.length() - value.length()).append('\n');
             } else {
                 if ("shell".equals(key) && (decoded == null || !YAML_SHELLS.contains(decoded.strip()))) {
@@ -1186,13 +1439,40 @@ public final class PolicyCheck {
     }
 
     /** A run step's script: no GitHub expression in it, then read as a script. */
-    void runStep(Path file, String script, int line) {
+    void runStep(Path file, String script, int line, String directory) {
         int expression = script.indexOf("${{");
         if (expression >= 0) {
             add("images", "%s:%d: a GitHub expression in a run step; GitHub writes its value into the script before bash "
                     .formatted(relative(file), line + lineOf(script, expression) - 1) + "reads it, so pass it in env:");
         }
-        checkScript(file, script, line);
+        checkScript(file, script, line, directory);
+    }
+
+    /** Step-local literal cwd, before or after run. Defaults/expressions we cannot resolve earn no exception. */
+    static String workflowDirectory(String[] lines, int run) {
+        int start = run;
+        while (start >= 0 && !lines[start].stripLeading().startsWith("- ")) start--;
+        if (start < 0) return null;
+        int indent = lines[start].length() - lines[start].stripLeading().length();
+        String directory = null;
+        int count = 0;
+        for (int i = start; i < lines.length; i++) {
+            String body = withoutComment(lines[i]).stripTrailing();
+            int column = body.length() - body.stripLeading().length();
+            if (i > start && !body.isBlank() && column <= indent) break;
+            if (i == start) body = body.stripLeading().substring(2);
+            else if (column == indent + 2) body = body.stripLeading();
+            else continue;
+            Matcher dir = Pattern.compile("(?:['\"]working-directory['\"]|working-directory):\\s*['\"]?([A-Za-z0-9_./-]+)['\"]?").matcher(body);
+            if (body.contains("working-directory")) {
+                count++;
+                directory = dir.matches() && literalDirectory(dir.group(1)) ? dir.group(1) : null;
+            }
+        }
+        if (count == 1) return directory;
+        if (count > 1) return null;
+        // Conservatively refuse inherited defaults rather than apply a directory from another job or step.
+        return Stream.of(lines).anyMatch(l -> l.contains("working-directory")) ? null : ".";
     }
 
     /** Whether a flow collection's brackets close on its own line, outside its quotes. */
@@ -1220,8 +1500,20 @@ public final class PolicyCheck {
      * command, is refused; and so is every form this check cannot decode.
      */
     void checkScript(Path file, String text, int line) {
+        checkScript(file, text, line, ".");
+    }
+
+    void checkScript(Path file, String text, int line, String directory) {
+        // A single leading, guarded cd is resolvable. Conditional or subsequent directory changes are not.
+        Matcher cd = Pattern.compile("^\\s*cd (apps/shipping-web|\\.) &&[ \\t]*").matcher(text);
+        if (cd.find()) {
+            directory = ".".equals(directory) ? cd.group(1) : null;
+            text = " ".repeat(cd.end()) + text.substring(cd.end());
+            if (Shell.read(text.stripTrailing(), line).stream().anyMatch(Shell.Word::operator)) directory = null;
+        }
         List<Shell.Word> words = Shell.flatten(Shell.read(text, line), 0, true);
-        new CommandWalk(file).walk(words);
+        if (words.stream().anyMatch(w -> Set.of("cd", "pushd", "popd").contains(w.text()))) directory = null;
+        new CommandWalk(file, directory).walk(words);
         for (int k = 0; k < words.size(); k++) {
             Shell.Word word = words.get(k);
             String where = "%s:%d".formatted(relative(file), word.line());
@@ -1300,6 +1592,8 @@ public final class PolicyCheck {
             boolean optionValue;
             boolean strictNext;
             int line;
+            List<String> argv = new ArrayList<>();
+            boolean complete = true;
 
             State copy() {
                 State s = new State();
@@ -1315,18 +1609,22 @@ public final class PolicyCheck {
                 s.optionValue = optionValue;
                 s.strictNext = strictNext;
                 s.line = line;
+                s.argv = new ArrayList<>(argv);
+                s.complete = complete;
                 return s;
             }
         }
 
         private final Path file;
+        private final String directory;
         private final ArrayDeque<State> stack = new ArrayDeque<>();
         private State s = new State();
         private String lastOperator = "";
         private boolean lastWasOperator;
 
-        CommandWalk(Path file) {
+        CommandWalk(Path file, String directory) {
             this.file = file;
+            this.directory = directory;
         }
 
         void walk(List<Shell.Word> words) {
@@ -1346,6 +1644,11 @@ public final class PolicyCheck {
 
         /** The end of a command: a shell given no script and no -c string reads its commands from its input. */
         private void endCommand() {
+            if (s.command != null && INTERPRETERS.contains(s.command.substring(s.command.lastIndexOf('/') + 1))) {
+                commandForm("%s:%d".formatted(relative(file), s.line),
+                    new Command(s.argv, s.complete ? directory : null,
+                            workflowFile(repo.relativize(file).toString(), file.getFileName().toString())));
+            }
             if (s.command == null || s.scriptRead || s.commandString) return;
             String name = s.command.substring(s.command.lastIndexOf('/') + 1);
             if (SHELLS.contains(name) && !name.equals("source") && !name.equals(".")) {
@@ -1384,6 +1687,8 @@ public final class PolicyCheck {
             s.scriptRead = false;
             s.optionValue = false;
             s.strictNext = false;
+            s.argv.clear();
+            s.complete = true;
         }
 
         private void operator(Shell.Word w) {
@@ -1479,6 +1784,8 @@ public final class PolicyCheck {
                 return;
             }
             if (!s.commandNext) {
+                s.argv.add(t);
+                if (mask.indexOf('$') >= 0 || GLOB.matcher(mask).find()) s.complete = false;
                 argument(w, where);
                 s.previous = t;
                 return;
@@ -1494,6 +1801,9 @@ public final class PolicyCheck {
                 return;
             }
             if (s.wrapped && t.startsWith("-") && !quoted) {
+                if (t.startsWith("-S") || t.startsWith("--split-string")) {
+                    add("images", where + ": an unresolved env split-string command vector");
+                }
                 s.previous = t;
                 return;
             }
@@ -1515,6 +1825,8 @@ public final class PolicyCheck {
                 return;
             }
             s.command = t;
+            s.argv.add(t);
+            s.complete = s.complete && !s.wrapped && mask.indexOf('$') < 0 && !GLOB.matcher(mask).find();
             s.line = w.line();
             s.commandNext = false;
             s.wrapped = false;
@@ -1532,9 +1844,8 @@ public final class PolicyCheck {
                 add("images", where + ": a glob in the place of a command; this check cannot read what it runs");
             } else {
                 String name = t.substring(t.lastIndexOf('/') + 1);
-                if (INTERPRETERS.contains(name)) {
-                    add("images", "%s: runs %s, an interpreter whose programs this check does not read"
-                            .formatted(where, safe(name)));
+                if (!s.commandNext && INTERPRETERS.contains(name)) {
+                    commandForm(where, new Command(List.of(t), null));
                 }
                 if (t.contains("/")) runsFile(where, t);
             }
@@ -2166,6 +2477,10 @@ public final class PolicyCheck {
 
     /** The index of the parenthesis that closes the one at open, skipping string and character literals; -1 if none. */
     static int closing(String text, int open) {
+        return closing(text, open, '(', ')');
+    }
+
+    static int closing(String text, int open, char left, char right) {
         int depth = 0;
         for (int i = open; i < text.length(); i++) {
             char c = text.charAt(i);
@@ -2173,9 +2488,9 @@ public final class PolicyCheck {
                 for (i++; i < text.length() && text.charAt(i) != c; i++) {
                     if (text.charAt(i) == '\\') i++;
                 }
-            } else if (c == '(') {
+            } else if (c == left) {
                 depth++;
-            } else if (c == ')' && --depth == 0) {
+            } else if (c == right && --depth == 0) {
                 return i;
             }
         }

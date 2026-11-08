@@ -88,7 +88,10 @@ one.
 - **API calls.** One hand-written, typed HTTP adapter in `apps/shipping-web/src/api` is the only code that calls
   `fetch`. It adds the bearer token and `Correlation-Id` and returns typed results and problems. Its types are written
   by hand from `contracts/shipping.openapi.yaml`; `packages/shipping-client` is not created.
-- **Tests.** `node --test`, Node's built-in test runner, runs the logic tests. Playwright 1.65.0 with axe-core 4.14.0
+- **Tests.** Exactly `node --test`, with working directory `apps/shipping-web`, runs repository-owned logic tests
+  using Node's default discovery rooted in that workspace. No extra paths, options or loaders are registered.
+  ADR 0007 specifies the matching toolchain reviews and exact optional npm script wrappers; command matching is not
+  runtime isolation of the tests or their imports. Playwright 1.65.0 with axe-core 4.14.0
   runs the end-to-end and accessibility specs in the `contract-e2e` CI job, against the API started with the `demo`
   profile on PostgreSQL. Their reviews approve them for that job only, so browser automation does not run on developer
   machines.
@@ -170,6 +173,12 @@ one.
   to start on any mismatch; a test gets the JDBC URL, the user and the password, never the container.
   `PostgresHarnessIntegrationTest` starts it in CI, in the `databaseTest` task, and queries it; `ReviewedPostgresTest`
   shows that each of its conditions refuses on its own. These controls do not isolate arbitrary build code (ADR 0007).
+- The earlier planned local `compose.yaml` route is withdrawn. Check 8 continues to refuse every Compose file.
+  The attended-demo reviews instead require `ReviewedPostgres` to own the database, with a reviewed launcher and
+  wrapper, on the owner's selected host and after its required rehearsal. The demo engine case, launcher and wrapper
+  remain planned; this pull request does not make them available or authorize a local engine. There are no bind
+  mounts or initialization files copied into the container; initialization uses the database connection. This
+  reconciles the carried-forward database design with the reviewed harness route without widening check 8.
 - One schema per built module, named after the module (`quotes`, `shipments`, `tenants`, `audit`). A module reads and
   writes only its own schema.
 - Every tenant-owned table has `tenant_id uuid not null`, a primary key that starts with `tenant_id`, and foreign keys
@@ -180,8 +189,8 @@ one.
   and an insert fails.
 - Roles: `shipping_owner` owns the schemas, tables and functions and is used only by Flyway. `shipping_app` is the
   runtime role: not an owner, `NOSUPERUSER`, `NOBYPASSRLS`, and only the grants each table needs (audit entries:
-  `INSERT, SELECT` only). `apps/shipping-api/postgres/init-roles.sql` creates them outside Flyway, for Testcontainers
-  and the local `compose.yaml` alike.
+  `INSERT, SELECT` only). The planned `apps/shipping-api/postgres/init-roles.sql` creates them outside Flyway through
+  the harness-provided database connection, for tests and the reviewed attended-demo route.
 - Tenant binding: the tenants module's transaction manager runs `select set_config('app.tenant_id', ?, true)` at the
   start of every transaction with the bound tenant, or with `''` when none is bound. The setting is transaction-local,
   so a pooled connection never carries a tenant into the next transaction. Inside a transaction, `JdbcClient` runs its

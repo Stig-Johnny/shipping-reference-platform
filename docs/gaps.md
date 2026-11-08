@@ -177,17 +177,22 @@ closes it.
   with their string literals decoded, alone and joined) and refuses the rest: heredocs, `$'\x..'`, YAML scalars over
   lines, folded blocks, anchors, tags and expressions in run steps, a command that is an expansion or a glob, brace
   expansion, a shell that reads its input, awk programs that run commands, interpreters and build tools it does not
-  read (Python, Node.js and npm, make), backquoted Kotlin names, Groovy, binaries under `src/`, executables, container
+  read (apart from ADR 0007's exact reviewed web commands), backquoted Kotlin names, Groovy, binaries under `src/`, executables, container
   files, the variables that make a shell or the JVM run other code, and Unix sockets opened from code outside the
-  harness. Text assembled at run time is outside it: a command or a name built from variables, a file's contents,
+  harness. Recognized process-launch APIs refuse unresolved command vectors. Elsewhere, text assembled at run time is
+  outside it: a command or a name built from variables, a file's contents,
   `printf` output, a method call or another program (sed, git's configuration, `find -exec`), a call through
   reflection or a method handle, a library that starts a container of its own, and a file it does not read (documents
   outside `src/`, review records, and its own directory, `tools/policy/`, whose tests hold every refused spelling as
   data; a change there is reviewed as the checker). At run time CI sees which images appeared and which images
   containers were made from, and whether anything was copied into one; it does not see how another container was
-  configured, its privileges, mounts or networks. Only the harness's own container is checked for those. The web
-  check that ADR 0012 plans runs Node.js and npm, which the checker refuses until it decodes JavaScript and TypeScript
-  or a review allows them.
+  configured, its privileges, mounts or networks. Only the harness's own container is checked for those. The exact
+  `node --test` exception runs repository-owned logic tests with discovery rooted in `apps/shipping-web`. It does not
+  analyze their JavaScript/TypeScript or prevent their imports from reaching other code or engine sockets/endpoints.
+  Exact command matching supplies no runtime isolation; an absolute engine-access restriction would need enforced
+  isolation. Verified tool installation, review conditions and subsequent engine auditing remain necessary. Check 8
+  inspects root and declared workspace scripts and refuses unregistered bodies, lifecycle hooks and unresolved forms;
+  it does not model every program an otherwise permitted command can invoke.
 - **The platform image is inferred, not read back.** The runner's engine keeps an image's index digest, not the
   digest of the platform manifest it pulled. That the tests ran the linux/amd64 image `sha256:e923a22a…` follows
   from the pinned index, whose platforms the review lists, and from the image's reported platform; nothing compares

@@ -159,7 +159,7 @@ What is built, and where it differs from the decision above. The decision stands
   escape in a double-quoted scalar, anchors, aliases, tags, merge keys and explicit keys, a GitHub expression in a run
   step, a shell other than bash or sh, and an action that is not composite; a command that is an expansion or a glob,
   brace expansion, a shell that reads its commands from its input, an awk program that runs commands, an interpreter
-  or build tool whose programs it does not read (Python, Node.js and npm, make and others) and a file of the tree run
+  or build tool whose programs it does not read (subject to the exact web command forms below) and a file of the tree run
   as a script that it does not read as one; a backquoted Kotlin name, and every Groovy file; a runtime's name split
   across string literals; the variables that make bash, the loader or a runtime run other code (`BASH_ENV`,
   `LD_PRELOAD`, `JAVA_TOOL_OPTIONS` and others) and JVM options that run a command; a Unix socket
@@ -174,8 +174,8 @@ What is built, and where it differs from the decision above. The decision stands
   YAML keys. What it cannot see stays outside it: text assembled at run time (from variables, a file's contents, a
   program's output or a method call such as `format`), reflection, the programs that a command it allows runs in turn
   (sed, git's configuration, `find -exec`), and a library that starts a container of its own; for those, the engine
-  checks after the tests are what find a container. The web check that ADR 0012 plans runs Node.js and npm, which
-  check 8 refuses until it decodes JavaScript and TypeScript or a review allows them. The `java` job runs the candidate's copy of the checker as well, after the base branch's and before any other
+  checks after the tests are what find a container. Matching a Node command does not inspect or isolate the repository
+  code its test runner executes. The `java` job runs the candidate's copy of the checker as well, after the base branch's and before any other
   code of the candidate, so that a rule a pull request adds applies to that pull request. At run time,
   `tools/ci/container-engine.sh` checks the runner, the engine and runc versions against the runner review, makes the
   daemon publish on 127.0.0.1 only, stages the image by digest, and afterwards checks that no other image appeared,
@@ -193,7 +193,37 @@ What is built, and where it differs from the decision above. The decision stands
   for them, so their pull requests have the same author as the owner's.
 - **Repository settings.** The Actions setting is applied: selected actions only, SHA pinning required, six allowed
   patterns and no GitHub-owned or verified wildcard. `preflight` and `java` are required status checks on `main`.
-- **npm.** No `package.json`, `package-lock.json` or `web` job exists yet, so the npm rules have nothing to apply to.
+- **Reviewed web command forms (check 8).** Interpreter refusal remains the default. One predicate checks the literal
+  executable, every argument, the working directory and the effective reviewed entries. It requires the accepted
+  reviewed-set digest, approved and unexpired entries with existing review files, Node 26.13.0 and its bundled npm
+  11.20.0 for the same platform, and the command conditions. Workflows require the Linux CI pair; scripts and source
+  launches can also use the local macOS pair under its review conditions. TypeScript needs its separate 5.9.3 review
+  for `apps/shipping-web`. This does not attest which executable is installed: archive verification, version assertions
+  and the other toolchain conditions still apply before use.
+
+  | Exact command | Working directory |
+  |---|---|
+  | `node --version`, `npm --version` | Repository root or `apps/shipping-web` |
+  | `npm ci --ignore-scripts` | Repository root |
+  | `tsc -p apps/shipping-web` | Repository root |
+  | `node --test` | Declared workspace `apps/shipping-web`; Node's default discovery rooted there, for repository-owned logic tests |
+  | `npm run build:web --ignore-scripts` | Repository root; root script `build:web` must be exactly `tsc -p apps/shipping-web` |
+  | `npm run test:unit --ignore-scripts` | `apps/shipping-web`; workspace script `test:unit` must be exactly `node --test` |
+
+  The same predicate applies to workflow run steps, shell scripts, Java/Kotlin `ProcessBuilder`, `Runtime.exec`
+  (including declared Runtime aliases) and Gradle `commandLine`/`setCommandLine`. Complete literal vectors are read;
+  computed vectors, unsupported setters and constructor references fail closed. Root execution is the repository
+  script/JVM convention; Gradle's default is its project directory. A workflow can state its directory on the step,
+  a shell can start with a single literal `cd apps/shipping-web &&` followed by one command, a process builder can
+  chain a literal `directory(new File(...))`, and an Exec block can state a literal `workingDir`. Inherited workflow
+  defaults and unresolved directory changes earn no exception.
+
+  Root and explicitly declared workspace manifests are inspected even without a script invocation. Every script
+  must have its exact name, body and invocation in the checker's registry above; lifecycle hooks are refused.
+  Repository npm configuration files and npm configuration environment overrides are refused. Arbitrary `npm run`,
+  `exec`, `npx`, inline Node programs, loaders and additional options remain refused. `--ignore-scripts` stays on both
+  installation and registered script invocations. The separate maintenance approval authorizes no `npm install` in CI.
+  There are still no npm manifests, lockfile or web job in this tree; these rules are exercised by inert fixtures.
 
 ## More Information
 

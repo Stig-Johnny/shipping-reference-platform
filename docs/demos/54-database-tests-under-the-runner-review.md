@@ -20,6 +20,11 @@ database tests run in their own task, `:apps:shipping-api:databaseTest`, which C
 publishing workflow run; `./gradlew check` needs only the reviewed JDK. The publishing workflow runs the tests in a
 job with no publication privilege.
 
+Check 8 also distinguishes the reviewed web commands from arbitrary interpreter execution. It applies the same
+complete-command and working-directory decision to workflows, scripts and recognized Java/Kotlin process launches,
+and checks root and declared workspace npm scripts. A process invoking an npm script whose body starts another
+container is refused. Compose remains refused; ADR 0012 now specifies the planned harness-based demo route.
+
 ## See it
 
 - [ADR 0012](../adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md), which carries
@@ -81,13 +86,38 @@ preparation (run 42410083958) and passing with it (run 42410533646), whose job s
 20261101.360.1 on Ubuntu 24.04.5, Docker Engine 28.0.4, containerd v2.4.2 and runc 1.5.2, and one container, made
 from the reviewed image. The test classes named above check the harness and the publishing workflow in every build.
 
+Supplement recorded 2026-11-08 with Temurin 25.0.5+8 on macOS, after the web-toolchain merge. The JDK-only
+`PolicyCheckTest` fixtures read commands as data; they never execute Node, npm or the container payload. Before the
+correction, its run exited 1 and included:
+
+```text
+FAIL web forms: accepts shell node --version
+FAIL web forms: ProcessBuilder npm run plus manifest docker is refused at both sites
+```
+
+After the correction, the same cases included:
+
+```text
+ok   web forms: accepts shell node --version
+ok   web forms: ProcessBuilder npm run plus manifest docker is refused at both sites
+```
+
+These are excerpts, not the complete suite result: 611 in-process cases passed, but the run still exited 1 because
+13 child-process cases could not complete the sandbox's process inspection (`Operation not permitted (sysctl failed)`).
+They were not skipped or changed. The real-tree checker reported only the pending renewed acceptance of the merged
+reviewed set; the documentation build also refused that stale acceptance. These fixture results do not establish
+web execution, database evidence or a successful publishing build. The JDK-only fixtures produce no JUnit evidence
+for the page's current-build test ledger.
+
 ## Limits
 
 - The checker rejects recognized container declarations in the shell, Java, Kotlin and YAML forms it decodes, and
   refuses every form it cannot decode: heredocs, YAML scalars over lines, Groovy, backquoted Kotlin names, a command
-  it cannot read, interpreters it does not read (Node.js among them, which ADR 0012's planned web check needs). An
-  image that a library names itself, a call made through reflection or a command assembled at run time from
-  variables or other programs is outside it. These controls do not isolate arbitrary build code.
+  it cannot read, and interpreters except ADR 0007's exact reviewed web forms. Recognized process-launch APIs fail
+  closed on unresolved vectors. An image that a library names itself, a call made through reflection or a command
+  assembled outside recognized execution sites is outside it. The permitted Node tests discover logic tests in the
+  web workspace and execute repository code; matching their command does not isolate them from engine endpoints.
+  These controls do not isolate arbitrary build code.
 - At run time CI sees which images appeared, which images containers were made from and whether anything was copied
   into one. It does not see how another container was configured; only the harness's own container is checked for
   privileges, mounts, networks and published ports.

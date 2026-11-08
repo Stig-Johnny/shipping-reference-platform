@@ -86,6 +86,7 @@ public final class PolicyCheckTest {
             imageFailClosed();
             imageFailClosedForms();
             imageOwnEvasionsRound3();
+            reviewedWebCommands();
             tree();
             commandLine();
         } finally {
@@ -1493,6 +1494,200 @@ public final class PolicyCheckTest {
     // ---- fixtures ----
 
     /** A repository in a temporary directory: security/allowlist.json, its review records and the files a case adds. */
+    /** Round 4: the same complete command must receive the same decision at every execution boundary. */
+    static void reviewedWebCommands() {
+        for (String command : List.of("node --version", "npm --version", "npm ci --ignore-scripts",
+                "tsc -p apps/shipping-web", "node --test", "npm run build:web --ignore-scripts",
+                "npm run test:unit --ignore-scripts")) {
+            for (String site : List.of("shell", "workflow", "java", "kotlin")) {
+                test("web forms: accepts " + site + " " + command, () ->
+                        expectClean(webCommand(webRepo(), site, command, webCwd(command)).findings()));
+            }
+        }
+        for (String command : List.of("node --test --watch", "node --test ../outside.test.ts", "node -e code",
+                "node --import startup.mjs --test", "npm ci", "npm ci --ignore-scripts --foreground-scripts",
+                "npm run launch", "npm run build:web", "npm run build:web --ignore-scripts -- --watch",
+                "npm exec tsc", "npx tsc", "npm install --package-lock-only --ignore-scripts --no-audit --no-fund",
+                "tsc -p apps/shipping-web --watch", "tsc -p packages/shipping-client")) {
+            for (String site : List.of("shell", "workflow", "java", "kotlin")) {
+                test("web forms: refuses " + site + " " + command, () -> expectFinding(
+                        webCommand(webRepo(), site, command, webCwd(command)).findings(), "images"));
+            }
+        }
+        for (String site : List.of("shell", "workflow", "java", "kotlin")) {
+            test("web forms: refuses wrong cwd in " + site, () -> expectFinding(
+                    webCommand(webRepo(), site, "node --test", ".").findings(), "images"));
+            for (String field : List.of("missing node", "missing npm", "expired", "rejected", "missing review",
+                    "wrong node", "wrong npm", "wrong typescript", "wrong scope", "missing conditions", "pending", "stale")) {
+                test("web forms: refuses " + field + " in " + site, () -> {
+                    Repo r = webRepo();
+                    Map<String, Object> node = r.entries.stream().filter(e -> e.get("kind").equals("runtime")).findFirst().orElseThrow();
+                    Map<String, Object> npm = r.entries.stream().filter(e -> e.get("kind").equals("bundled")).findFirst().orElseThrow();
+                    Map<String, Object> ts = r.entries.stream().filter(e -> e.get("coordinate").equals("typescript")).findFirst().orElseThrow();
+                    switch (field) {
+                        case "missing node" -> r.entries.remove(node);
+                        case "missing npm" -> r.entries.remove(npm);
+                        case "expired" -> node.put("expiresAt", "2026-11-06");
+                        case "rejected" -> node.put("verdict", "REJECT");
+                        case "missing review" -> Files.delete(r.root.resolve((String) node.get("reviewRecord")));
+                        case "wrong node" -> node.put("version", "26.12.0");
+                        case "wrong npm" -> npm.put("version", "12.2.1");
+                        case "wrong typescript" -> ts.put("version", "7.0.2");
+                        case "wrong scope" -> ts.put("project", "packages/shipping-client");
+                        case "missing conditions" -> npm.put("conditions", List.of());
+                        case "pending" -> r.acceptance.put("status", "pending");
+                        case "stale" -> r.acceptance.put("reviewedSetSha256", SHA_B);
+                        default -> throw new AssertionError(field);
+                    }
+                    if (!field.equals("stale")) r.accept();
+                    String cmd = field.equals("wrong typescript") || field.equals("wrong scope")
+                            ? "tsc -p apps/shipping-web" : "npm ci --ignore-scripts";
+                    expectFinding(webCommand(r, site, cmd, ".").findings(), "images");
+                });
+            }
+        }
+        test("web forms: ProcessBuilder npm run plus manifest docker is refused at both sites", () -> {
+            Repo r = webCommand(webRepo(), "java", "npm run launch", ".")
+                    .write("package.json", "{\"scripts\":{\"launch\":\"docker run alpine:3.17\"}}");
+            expectFinding(r.findings(), "images", "Probe.java");
+            expectFinding(r.findings(), "images", "package.json");
+        });
+        for (String manifest : List.of("package.json", "apps/shipping-web/package.json")) {
+            for (String body : List.of("docker run alpine:3.17", "node -e code", "tsc -p apps/shipping-web --watch")) {
+                test("web forms: unregistered body in " + manifest + " " + body, () -> expectFinding(webRepo()
+                        .write(manifest, json(map("scripts", map("launch", body)), false)).findings(), "images", manifest));
+            }
+            for (String hook : List.of("preinstall", "install", "postinstall", "prepare", "prebuild:web", "posttest:unit")) {
+                test("web forms: refuses lifecycle " + manifest + " " + hook, () -> expectFinding(webRepo()
+                        .write(manifest, json(map("scripts", map(hook, "node --version")), false)).findings(), "images", manifest));
+            }
+        }
+        for (String source : List.of("new ProcessBuilder(command)", "new ProcessBuilder(\"node\", flags)",
+                "new ProcessBuilder(\"node\", \"--\" + \"version\")", "new ProcessBuilder(List.of(\"node\", \"--version\"))",
+                "new ProcessBuilder().command(command)", "Runtime.getRuntime().exec(command)",
+                "Runtime.getRuntime().exec(\"node -e code\")", "new ProcessBuilder(\"npm\", \"run\", \"launch\")")) {
+            test("web forms: unresolved or unreviewed process " + source, () -> expectFinding(webRepo()
+                    .write("tools/run/Probe.java", "class Probe { Object p = " + source + "; }").findings(), "images"));
+        }
+        for (String source : List.of("commandLine(command)", "commandLine(\"node\", flags)",
+                "commandLine(listOf(\"node\", \"--version\"))", "executable = \"node\"; args(\"--version\")")) {
+            test("web forms: unresolved Kotlin process " + source, () -> expectFinding(webRepo()
+                    .write("build.gradle.kts", "tasks.register<Exec>(\"probe\") { " + source + " }").findings(), "images"));
+        }
+        for (String script : List.of("node --version $EXTRA", "node --version \"$EXTRA\"", "node --version *.ts",
+                "cd apps/shipping-web; node --test", "cd \"$TARGET\" && node --test", "NODE_OPTIONS=--import=x node --version",
+                "npm_config_ignore_scripts=false npm ci --ignore-scripts", "env -S 'node --version -e code'")) {
+            test("web forms: unresolved shell context " + script, () -> expectFinding(webRepo()
+                    .write("tools/web.sh", script + "\n").findings(), "images"));
+        }
+        test("web forms: ordinary node metadata is not an execution", () -> expectClean(webRepo()
+                .write("tools/run/Probe.java", "class Probe { String node = \"node\"; String npm = \"npm\"; }").findings()));
+        reviewedWebAdversarial();
+    }
+
+    static void reviewedWebAdversarial() {
+        for (String source : List.of(
+                "Runtime runtime = Runtime.getRuntime(); Object p = runtime.exec(new String[] {\"npm\", \"run\", \"launch\"});",
+                "Object p = new ProcessBuilder(\"sh\", \"-c\", \"node -e code\");",
+                "Object p = new ProcessBuilder(\"node\", \"--test\").directory(new java.io.File(\"apps/shipping-web\")); "
+                        + "void change() { p.directory(other); }")) {
+            test("web adversarial: source " + source, () -> expectFinding(webRepo()
+                    .write("tools/run/Probe.java", "class Probe { " + source + " }").findings(), "images", "Probe.java"));
+        }
+        test("web adversarial: Gradle workingDir is relative to the project", () -> expectFinding(webRepo()
+                .write("apps/demo/build.gradle.kts", "tasks.register<Exec>(\"probe\") { workingDir(\"apps/shipping-web\"); "
+                        + "commandLine(\"node\", \"--test\") }").findings(), "images", "build.gradle.kts"));
+        for (String script : List.of("cd apps/shipping-web && true\nnode --test", "env -Snode -e code",
+                "trap node EXIT", "bash -c 'node -e code'")) {
+            test("web adversarial: shell " + show(script), () -> expectFinding(webRepo()
+                    .write("tools/web.sh", script).findings(), "images", "tools/web.sh"));
+        }
+        for (String config : List.of("script-shell=./launch.sh", "ignore-scripts=false")) {
+            test("web adversarial: npm configuration " + config, () -> expectFinding(webRepo()
+                    .write(".npmrc", config).findings(), "images", ".npmrc"));
+        }
+        for (String workflow : List.of(
+                "jobs:\n  web:\n    defaults:\n      run:\n        working-directory: apps/shipping-web\n"
+                        + "    steps:\n      - run: node --test\n",
+                "jobs:\n  web:\n    steps:\n      - run: node --test\n        working-directory: ${{ matrix.path }}\n")) {
+            test("web adversarial: unresolved workflow cwd " + show(workflow), () -> expectFinding(webRepo()
+                    .write(".github/workflows/web.yml", workflow).findings(), "images", "web.yml"));
+        }
+        for (String body : List.of("tsc -p apps/shipping-web && node -e code", "tsc -p apps/shipping-web ")) {
+            test("web adversarial: registered name with different body " + body, () -> expectFinding(webRepo()
+                    .edit("package.json", "tsc -p apps/shipping-web", body).findings(), "images", "package.json"));
+        }
+        test("web adversarial: Runtime literal argv gets the same positive decision", () -> expectClean(webRepo()
+                .write("tools/run/Probe.java", "class Probe { Object p = Runtime.getRuntime().exec(new String[] "
+                        + "{\"npm\", \"ci\", \"--ignore-scripts\"}); }").findings()));
+        for (String source : List.of("new ProcessBuilder(\"/bin/bash\", \"-c\", \"node -e code\")",
+                "getRuntime().exec(\"npm run launch\")")) {
+            test("web adversarial: alternate API spelling " + source, () -> expectFinding(webRepo()
+                    .write("tools/run/Probe.java", "import static java.lang.Runtime.getRuntime; class Probe { Object p = "
+                            + source + "; }").findings(), "images", "Probe.java"));
+        }
+        for (String source : List.of("commandLine = listOf(\"npm\", \"run\", \"launch\")",
+                "setCommandLine(\"npm\", \"run\", \"launch\")", "val start = ::ProcessBuilder")) {
+            test("web adversarial: alternate Kotlin API " + source, () -> expectFinding(webRepo()
+                    .write("build.gradle.kts", "tasks.register<Exec>(\"probe\") { " + source + " }").findings(), "images"));
+        }
+        test("web adversarial: local review permits local script", () -> expectClean(
+                webCommand(webRepo("local"), "shell", "npm ci --ignore-scripts", ".").findings()));
+        test("web adversarial: local review cannot authorize a workflow", () -> expectFinding(
+                webCommand(webRepo("local"), "workflow", "npm ci --ignore-scripts", ".").findings(), "images", "web.yml"));
+        for (String body : List.of(
+                "if (enabled) { workingDir(\"apps/shipping-web\") }; commandLine(\"node\", \"--test\")",
+                "if (enabled) workingDir(\"apps/shipping-web\"); commandLine(\"node\", \"--test\")",
+                "workingDir(\"apps/shipping-web\"); workingDir = file(other); commandLine(\"node\", \"--test\")",
+                "setWorkingDir(other); commandLine(\"npm\", \"ci\", \"--ignore-scripts\")")) {
+            test("web adversarial: conditional or overridden cwd " + body, () -> expectFinding(webRepo()
+                    .write("build.gradle.kts", "tasks.register<Exec>(\"probe\") { " + body + " }").findings(), "images", "build.gradle.kts"));
+        }
+    }
+
+    static String webCwd(String command) {
+        return command.startsWith("node --test") || command.startsWith("npm run test:unit") ? "apps/shipping-web" : ".";
+    }
+
+    static Repo webCommand(Repo r, String site, String command, String cwd) throws IOException {
+        String vector = Stream.of(command.split(" ")).map(s -> "\"" + s + "\"").collect(Collectors.joining(", "));
+        return switch (site) {
+            case "shell" -> r.write("tools/web.sh", (cwd.equals(".") ? "" : "cd " + cwd + " && ") + command + "\n");
+            case "workflow" -> r.write(".github/workflows/web.yml", "jobs:\n  web:\n    steps:\n      - run: "
+                    + command + "\n        working-directory: " + cwd + "\n");
+            case "java" -> r.write("tools/run/Probe.java", "class Probe { Object p = new ProcessBuilder(" + vector
+                    + ").directory(new java.io.File(\"" + cwd + "\")); }");
+            case "kotlin" -> r.write("build.gradle.kts", "tasks.register<Exec>(\"probe\") { workingDir(\"" + cwd
+                    + "\"); commandLine(" + vector + ") }\n");
+            default -> throw new AssertionError(site);
+        };
+    }
+
+    static Repo webRepo() throws Exception {
+        return webRepo("ci");
+    }
+
+    static Repo webRepo(String platform) throws Exception {
+        Repo r = Repo.clean();
+        // Real entry identities and conditions; synthetic reviews/acceptance, never real tools or payloads executed.
+        PolicyCheck.Json.JObject real = parse(Files.readString(checker().getParent().getParent().getParent()
+                .resolve("security/allowlist.json"))).asObject();
+        for (PolicyCheck.Json value : real.get("entries").asArray().items()) {
+            PolicyCheck.Json.JObject e = value.asObject();
+            if (!(e.text("coordinate").equals(platform.equals("ci") ? "nodejs.org/dist node" : "Node.js")
+                    && !e.text("project").contains("maintenance")
+                    || e.text("coordinate").equals("npm") && e.text("kind").equals("bundled")
+                    && (platform.equals("ci") ? e.text("project").equals("ci") : e.text("project").contains("local build hosts"))
+                    || e.text("coordinate").equals("typescript") && e.text("version").equals("5.9.3"))) continue;
+            Map<String, Object> entry = r.entry(e.text("kind"), e.text("coordinate"), e.text("version"), e.text("artifact"), SHA_A);
+            entry.put("project", e.text("project"));
+            entry.put("conditions", e.get("conditions").asArray().stream().map(v -> ((PolicyCheck.Json.JString) v).value()).toList());
+        }
+        r.write("package.json", "{\"workspaces\":[\"apps/shipping-web\"],\"scripts\":{\"build:web\":\"tsc -p apps/shipping-web\"}}");
+        r.write("apps/shipping-web/package.json", "{\"scripts\":{\"test:unit\":\"node --test\"}}");
+        return r;
+    }
+
     static final class Repo {
         final Path root;
         final List<Map<String, Object>> entries = new ArrayList<>();

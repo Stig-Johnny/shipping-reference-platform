@@ -102,7 +102,8 @@ val checkGenerated = tasks.register<JavaExec>("checkGenerated") {
 val siteDirectory: String = layout.buildDirectory.dir("site").get().asFile.absolutePath
 val sourceRevision: Provider<String> = providers.environmentVariable("GITHUB_SHA").orElse(
     providers.exec {
-        commandLine("git", "-C", repositoryRoot, "rev-parse", "HEAD")
+        // This project's directory is inside the same worktree; no computed command argument is needed.
+        commandLine("git", "rev-parse", "HEAD")
         isIgnoreExitValue = true
     }.standardOutput.asText.map { it.trim() },
 )
