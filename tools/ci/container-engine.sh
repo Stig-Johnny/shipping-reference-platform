@@ -244,6 +244,8 @@ verify() {
 }
 
 case "${1:-}" in
-  prepare | stage | verify) "$1" ;;
+  prepare) prepare ;;
+  stage) stage ;;
+  verify) verify ;;
   *) echo "usage: container-engine.sh prepare|stage|verify" >&2; exit 2 ;;
 esac

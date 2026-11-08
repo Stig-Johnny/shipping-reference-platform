@@ -98,6 +98,8 @@ compare() {
 }
 
 case "${1:-}" in
-  send | receive | compare) "$1" ;;
+  send) send ;;
+  receive) receive ;;
+  compare) compare ;;
   *) echo "usage: site-handover.sh send|receive|compare" >&2; exit 2 ;;
 esac

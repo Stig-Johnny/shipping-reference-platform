@@ -26,12 +26,18 @@ checkout() {
   echo 'body {}' > "$dir/tools/docs/build/site/assets/site.css"
 }
 
-# Runs the script in a checkout, with the given environment; the output goes to $work/output.
+# Runs the script's command $2 in the checkout $work/$1, with the settings that follow (NAME=value) in its environment;
+# the output goes to $work/output.
 handover() {
-  local dir="$work/$1"
-  shift
+  local dir="$work/$1" command="$2" setting
+  shift 2
   mkdir -p "$work/runner"
-  (cd "$dir" && env RUNNER_TEMP="$work/runner" GITHUB_OUTPUT="$work/outputs" "$@") > "$work/output" 2>&1
+  (
+    cd "$dir" || exit 1
+    export RUNNER_TEMP="$work/runner" GITHUB_OUTPUT="$work/outputs"
+    for setting in "$@"; do export "$setting"; done
+    bash "$script" "$command"
+  ) > "$work/output" 2>&1
 }
 
 check() {
@@ -72,33 +78,33 @@ digest() {
 # The whole handover: send in the test job's checkout, receive and compare in a fresh one.
 checkout sender
 rm -f "$work/outputs"
-handover sender bash "$script" send
+handover sender send
 check "the test job sends its reports and the site's digest" pass $?
 reports="$(output reports)"
 reports_sha256="$(output reports-sha256)"
 site_sha256="$(output site-sha256)"
 checkout receiver
 rm -f "$work/receiver/$report" "$work/receiver/$database"
-handover receiver REPORTS="$reports" REPORTS_SHA256="$reports_sha256" bash "$script" receive
+handover receiver receive REPORTS="$reports" REPORTS_SHA256="$reports_sha256"
 check "the build job takes over the reports" pass $?
-handover receiver test -f "$report" -a -f "$database"
+test -f "$work/receiver/$report" -a -f "$work/receiver/$database"
 check "the test report and the database report are unpacked" pass $?
-handover receiver SITE_SHA256="$site_sha256" bash "$script" compare
+handover receiver compare SITE_SHA256="$site_sha256"
 check "the same site passes the comparison" pass $?
 echo '<html>changed</html>' > "$work/receiver/tools/docs/build/site/index.html"
-handover receiver SITE_SHA256="$site_sha256" bash "$script" compare
+handover receiver compare SITE_SHA256="$site_sha256"
 check "a site that differs fails the comparison" fail $? "the site differs from the one the test job built"
 
 # The archive is the one sent, or nothing is unpacked.
 checkout receiver
 rm -f "$work/receiver/$report" "$work/receiver/$database"
-handover receiver REPORTS="$reports" REPORTS_SHA256="$(printf '0%.0s' {1..64})" bash "$script" receive
+handover receiver receive REPORTS="$reports" REPORTS_SHA256="$(printf '%064d' 0)"
 check "a wrong digest is refused" fail $? "the reports changed in transit"
-handover receiver test ! -e "$report"
+test ! -e "$work/receiver/$report"
 check "and nothing of it is unpacked" pass $?
-handover receiver REPORTS="" REPORTS_SHA256="$reports_sha256" bash "$script" receive
+handover receiver receive REPORTS="" REPORTS_SHA256="$reports_sha256"
 check "an empty handover is refused" fail $? "handed over no reports"
-handover receiver REPORTS="not base64!" REPORTS_SHA256="$reports_sha256" bash "$script" receive
+handover receiver receive REPORTS="not base64!" REPORTS_SHA256="$reports_sha256"
 check "a handover that is not base64 is refused" fail $? "handed over no reports"
 
 # Only report files, at their paths, and nothing else.
@@ -107,19 +113,19 @@ mkdir -p "$work/source/$(dirname "$report")"
 echo '<testsuite/>' > "$work/source/$report"
 archive --absolute-names --transform 's,^,../,' -- "$report"
 checkout receiver
-handover receiver REPORTS="$(encoded)" REPORTS_SHA256="$(digest)" bash "$script" receive
+handover receiver receive REPORTS="$(encoded)" REPORTS_SHA256="$(digest)"
 check "a path that leaves the checkout is refused" fail $? "an unexpected path: ../apps"
-handover receiver test ! -e "$work/apps"
+test ! -e "$work/apps"
 check "and nothing is written outside it" pass $?
 archive --absolute-names --transform "s,^,$work/escaped/," -- "$report"
-handover receiver REPORTS="$(encoded)" REPORTS_SHA256="$(digest)" bash "$script" receive
+handover receiver receive REPORTS="$(encoded)" REPORTS_SHA256="$(digest)"
 check "an absolute path is refused" fail $? "an unexpected path: $work/escaped"
 mkdir -p "$work/source/apps/other/build/test-results/databaseTest" "$work/source/apps/shipping-api/build/reports"
 echo '<testsuite/>' > "$work/source/apps/other/build/test-results/databaseTest/TEST-x.xml"
 echo 'not a report' > "$work/source/apps/shipping-api/build/reports/index.html"
 for path in apps/other/build/test-results/databaseTest/TEST-x.xml apps/shipping-api/build/reports/index.html; do
   archive -- "$path"
-  handover receiver REPORTS="$(encoded)" REPORTS_SHA256="$(digest)" bash "$script" receive
+  handover receiver receive REPORTS="$(encoded)" REPORTS_SHA256="$(digest)"
   check "a file outside the report directories is refused: $path" fail $? "an unexpected path: $path"
 done
 
@@ -129,15 +135,15 @@ ln -s /etc/hostname "$work/source/$report"
 archive -- "$report"
 checkout receiver
 rm -f "$work/receiver/$report"
-handover receiver REPORTS="$(encoded)" REPORTS_SHA256="$(digest)" bash "$script" receive
+handover receiver receive REPORTS="$(encoded)" REPORTS_SHA256="$(digest)"
 check "a symbolic link is refused" fail $? "something other than regular files"
-handover receiver test ! -L "$report"
+test ! -L "$work/receiver/$report"
 check "and it is not unpacked" pass $?
 rm -f "$work/source/$report"
 echo '<testsuite/>' > "$work/source/$report"
 ln "$work/source/$report" "$work/source/$(dirname "$report")/TEST-io.example.SecondTest.xml"
 archive -- "$report" "$(dirname "$report")/TEST-io.example.SecondTest.xml"
-handover receiver REPORTS="$(encoded)" REPORTS_SHA256="$(digest)" bash "$script" receive
+handover receiver receive REPORTS="$(encoded)" REPORTS_SHA256="$(digest)"
 check "a hard link is refused" fail $? "something other than regular files"
 
 # A report in the checkout is never overwritten.
@@ -146,9 +152,9 @@ mkdir -p "$work/source/$(dirname "$report")"
 echo '<testsuite name="io.example.ParcelTest" tests="9"/>' > "$work/source/$report"
 archive -- "$report"
 checkout receiver
-handover receiver REPORTS="$(encoded)" REPORTS_SHA256="$(digest)" bash "$script" receive
+handover receiver receive REPORTS="$(encoded)" REPORTS_SHA256="$(digest)"
 check "a report that exists in the checkout is not overwritten" fail $? "a report already exists in the checkout"
-handover receiver grep -q 'tests="1"' "$report"
+grep -q 'tests="1"' "$work/receiver/$report"
 check "and keeps its content" pass $?
 
 # The sender sends report files only.
@@ -156,7 +162,7 @@ checkout sender
 mkdir -p "$work/sender/apps/shipping-api/build/test-results/test"
 ln -s /etc/hostname "$work/sender/apps/shipping-api/build/test-results/test/TEST-io.example.LinkTest.xml"
 rm -f "$work/outputs"
-handover sender bash "$script" send
+handover sender send
 check "a symbolic link among the reports is not sent" fail $? "contains a symbolic link"
 
 echo
