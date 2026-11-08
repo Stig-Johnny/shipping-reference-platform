@@ -155,14 +155,14 @@ What is built, and where it differs from the decision above. The decision stands
   without comments, with every string literal decoded, alone and joined with its neighbours; YAML scalars on one line
   and literal blocks, their indentation removed as YAML removes it; and shell text as bash splits it into words, with
   the place of every command known. It refuses what it cannot decode: any heredoc in a script, a workflow or a
-  resource, and one with a body in a string literal; `$'...'` quoting; a YAML scalar over lines, a folded block, an
+  resource, and one with a body in a string literal; `$'...'` quoting with an escape; a YAML scalar over lines, a folded block, an
   escape in a double-quoted scalar, anchors, aliases, tags, merge keys and explicit keys, a GitHub expression in a run
   step, a shell other than bash or sh, and an action that is not composite; a command that is an expansion or a glob,
   brace expansion, a shell that reads its commands from its input, an awk program that runs commands, an interpreter
   or build tool whose programs it does not read (Python, Node.js and npm, make and others) and a file of the tree run
   as a script that it does not read as one; a backquoted Kotlin name, and every Groovy file; a runtime's name split
   across string literals; the variables that make bash, the loader or a runtime run other code (`BASH_ENV`,
-  `LD_PRELOAD`, `JAVA_TOOL_OPTIONS` and others) and JVM options that run a command or load an agent; a Unix socket
+  `LD_PRELOAD`, `JAVA_TOOL_OPTIONS` and others) and JVM options that run a command; a Unix socket
   opened from code outside the harness; and a file under `src/` that is not UTF-8 text. Within what it decodes it
   rejects a digest that no approved `container-image` entry has, a tag in place of or next to a digest, an image name
   built in code, any reference to Testcontainers or docker-java outside the harness `ReviewedPostgres`, any container

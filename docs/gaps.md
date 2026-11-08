@@ -174,7 +174,7 @@ closes it.
   recognized container declarations. The harness validates its PostgreSQL instance, and CI checks subsequent engine
   activity. These controls do not isolate arbitrary build code. Check 8 matches only in the forms it decodes (shell
   words with each command in its place; YAML scalars on one line and literal blocks; Java and Kotlin without comments,
-  with their string literals decoded, alone and joined) and refuses the rest: heredocs, `$'...'`, YAML scalars over
+  with their string literals decoded, alone and joined) and refuses the rest: heredocs, `$'\x..'`, YAML scalars over
   lines, folded blocks, anchors, tags and expressions in run steps, a command that is an expansion or a glob, brace
   expansion, a shell that reads its input, awk programs that run commands, interpreters and build tools it does not
   read (Python, Node.js and npm, make), backquoted Kotlin names, Groovy, binaries under `src/`, executables, container

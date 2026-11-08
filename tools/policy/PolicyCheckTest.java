@@ -1102,6 +1102,9 @@ public final class PolicyCheckTest {
         test("forms: $'...' quoting in a string literal is refused", () -> expectFinding(withImages().write(OTHER_TEST,
                 "class OtherTest {\n    ProcessBuilder p = new ProcessBuilder(\"bash\", \"-c\", \"$'\\\\x64ocker' run "
                         + "alpine\");\n}\n").findings(), "images", OTHER_TEST + ":2: $'...' quoting"));
+        test("forms: $'...' without an escape is plain quoting, as in a SQL pattern in a resource", () -> expectClean(
+                withImages().write("apps/demo/src/main/resources/db/V1__x.sql", "select 1 where 'a' ~ '^a$';\n")
+                        .write(STAGING, staging("echo $'plain'")).findings()));
         test("forms: functions, arrays, traps, loops, process substitution and case in a substitution are read", () ->
                 expectClean(withImages().write(STAGING, staging("f() { local -a names=(\"$1\" \"$2\"); printf '%s\\n' "
                         + "\"${names[@]}\"; }\ntrap 'rm -f \"$tmp\"' EXIT\nwhile read -r x; do echo \"$x\"; done < <(printf "

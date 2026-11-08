@@ -75,7 +75,8 @@ against its own first normalising version (run 42421241319), and the engine scri
 grep read as 0 events (run 42421521416); run 42421869779 passed all of them. After the third review, which found
 heredocs, multi-line YAML scalars, a Kotlin escaped name, a constant concatenation and resources that got through,
 the check was made to refuse every form it cannot decode: its tests failed on those 12 examples (run 42428264126),
-then on 7 of 10 evasions that this pull request tried against the fail-closed version (run 42428525277). The runs before the rework show the harness failing closed without the engine's
+then on 7 of 10 evasions that this pull request tried against the fail-closed version (run 42428525277); run
+42429066480 passed all of them. The runs before the rework show the harness failing closed without the engine's
 preparation (run 42410083958) and passing with it (run 42410533646), whose job summary records the runner image
 20261101.360.1 on Ubuntu 24.04.5, Docker Engine 28.0.4, containerd v2.4.2 and runc 1.5.2, and one container, made
 from the reviewed image. The test classes named above check the harness and the publishing workflow in every build.

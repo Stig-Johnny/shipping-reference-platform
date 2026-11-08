@@ -449,7 +449,7 @@ public final class PolicyCheck {
      *   - any heredoc (<< and <<-, its delimiter quoted or not) in a script, a workflow or a resource, and one with a
      *     body in a string literal: whether bash expands a heredoc's body depends on its delimiter, and # is no comment
      *     there. A here-string (<<<) is read. A shift (<<) in shell arithmetic is refused with them;
-     *   - $'...' quoting, anywhere it reads shell text;
+     *   - $'...' quoting with an escape in it, anywhere it reads shell text (without one it is plain quoting);
      *   - in workflows and action files: a scalar continued over lines (plain or quoted), a folded block (>) and a block
      *     with an indentation indicator, a double-quoted scalar with an escape, an anchor, an alias, a tag, a merge key,
      *     an explicit key, a tab in the indentation, a line that is no key and no sequence entry, a flow collection over
@@ -463,7 +463,7 @@ public final class PolicyCheck {
      *     An executable file without a #! line is read as a script, since sh runs it when its name is run;
      *   - anywhere it reads: a variable that makes bash, the loader or a runtime run code it does not read
      *     (STARTUP_VARIABLE: BASH_ENV, LD_PRELOAD, JAVA_TOOL_OPTIONS and others), as a YAML key, a shell word or a string
-     *     literal, and a JVM option that runs a command or loads an agent (JVM_COMMAND);
+     *     literal, and a JVM option that runs a command (JVM_COMMAND);
      *   - in Java and Kotlin outside the harness and its test: opening a Unix socket (ENGINE_SOCKET), which is how code
      *     reaches the engine without naming a runtime;
      *   - in Kotlin: a backquoted identifier. Groovy sources and build scripts altogether, whose slashy and dollar-slashy
@@ -584,9 +584,8 @@ public final class PolicyCheck {
     /** The variables that make bash, the dynamic loader or a runtime load or run code this check does not read. */
     static final Pattern STARTUP_VARIABLE = Pattern.compile("(BASH_ENV|ENV|PROMPT_COMMAND|PS4|SHELLOPTS|BASHOPTS|"
             + "BASH_FUNC_[^=\\s]*|LD_PRELOAD|LD_AUDIT|JAVA_TOOL_OPTIONS|JDK_JAVA_OPTIONS|_JAVA_OPTIONS|NODE_OPTIONS)");
-    /** A JVM option that runs a command or loads an agent. */
-    static final Pattern JVM_COMMAND = Pattern.compile("-XX:\\+?On(?:OutOfMemory)?Error\\b|-javaagent\\b|-agentpath\\b"
-            + "|-agentlib\\b");
+    /** A JVM option that runs a command when the JVM fails. */
+    static final Pattern JVM_COMMAND = Pattern.compile("-XX:\\+?On(?:OutOfMemory)?Error\\b");
     /** The JDK's way to reach a Unix socket, such as the engine's, from code. */
     static final Pattern ENGINE_SOCKET = Pattern.compile(
             "\\bUnixDomainSocketAddress\\b|\\bStandardProtocolFamily\\s*\\.\\s*UNIX\\b");
@@ -692,8 +691,8 @@ public final class PolicyCheck {
                     + ": a Testcontainers JDBC URL (jdbc:tc:) names an image by tag");
         }
         for (Matcher m = JVM_COMMAND.matcher(view); m.find(); ) {
-            add("images", "%s: a JVM option that runs a command or loads an agent (%s); this check cannot read what it "
-                    .formatted(place(file, text, view, start, literal, m.start()), m.group()) + "runs");
+            add("images", "%s: a JVM option that runs a command (%s); this check cannot read what it runs"
+                    .formatted(place(file, text, view, start, literal, m.start()), m.group()));
         }
         for (Matcher m = IMAGE_SETTING.matcher(view); m.find(); ) {
             add("images", "%s: %s configures an image for Testcontainers".formatted(
@@ -1685,7 +1684,8 @@ public final class PolicyCheck {
      * Command substitutions ($(...), backquotes), also inside double quotes, give their words between the operators $(
      * and ), and $() in the word; arithmetic ($((...)) and ((...))) its words between $(( or (( and )); a ${...} gives
      * the value it may expand to (what follows its name and operator) as a VALUE, and ${} in the word. $'...' gives the
-     * operator ANSI; << the operator HEREDOC, or EMPTY_HEREDOC when no line follows it; <<< the operator HERESTRING.
+     * operator ANSI when it holds an escape; << the operator HEREDOC, or EMPTY_HEREDOC when no line follows it; <<< the
+     * operator HERESTRING.
      * Other operators (; & | ( ) < > and line ends) are words of their own, so that a command ends at one. Each word
      * has a mask: its characters as written unquoted, q where they were quoted, $ where they are an expansion.
      */
@@ -1791,10 +1791,11 @@ public final class PolicyCheck {
                     appendQuoted(s.substring(i + 1, end));
                     i = end + 1;
                 } else if (c == '$' && next('\'')) {
-                    operator(ANSI);
                     int end = i + 2;
                     while (end < s.length() && s.charAt(end) != '\'') end += s.charAt(end) == '\\' ? 2 : 1;
-                    appendQuoted(s.substring(i + 2, Math.min(end, s.length())));
+                    String quoted = s.substring(i + 2, Math.min(end, s.length()));
+                    if (quoted.indexOf('\\') >= 0) operator(ANSI); // without an escape, $'...' is '...'
+                    appendQuoted(quoted);
                     i = end + 1;
                 } else if (c == '$' && next('"')) {
                     i++; // $"..." is "..." translated, and there is no message catalog
