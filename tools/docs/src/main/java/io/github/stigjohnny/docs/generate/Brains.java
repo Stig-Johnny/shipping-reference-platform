@@ -7,6 +7,7 @@ import static io.github.stigjohnny.docs.generate.MarkdownText.yaml;
 import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.markdown.MarkdownRenderer;
 import io.github.stigjohnny.docs.markdown.Section;
+import io.github.stigjohnny.docs.model.ModelElement;
 import io.github.stigjohnny.docs.repo.Acceptance;
 import io.github.stigjohnny.docs.repo.Allowlist;
 import io.github.stigjohnny.docs.repo.ApiContract;
@@ -94,8 +95,13 @@ public final class Brains {
                     .append(module.spec().path()).append("](").append(module.spec().path()).append(") |\n");
         }
         List<Capability> web = sources.capabilities().ofModule("web");
-        out.append("\nThe web app is a container, not a checked module: ").append(web.size())
-                .append(" capabilities, specified in [docs/ui/workbench.md](docs/ui/workbench.md).\n\n");
+        List<ModelElement> parts = sources.workspace().model().webParts();
+        long plannedParts = parts.stream().filter(ModelElement::planned).count();
+        out.append("\nThe web app is a container, not an API module: ").append(web.size())
+                .append(" capabilities, specified in [docs/ui/workbench.md](docs/ui/workbench.md). Its ")
+                .append(parts.size()).append(" parts are in the model (").append(plannedParts)
+                .append(" planned), and the partial web import check compares only detected TypeScript imports with ")
+                .append("them (ADR 0015).\n\n");
         out.append("## Controls\n\nFrom ").append(code("docs/capabilities/capabilities.yaml"))
                 .append(". Evidence is a test that exists and passed in this build.\n\n")
                 .append("| Control | Status | Check | Evidence |\n").append("|---|---|---|---|\n");

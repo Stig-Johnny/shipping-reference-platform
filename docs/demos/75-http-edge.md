@@ -2,7 +2,7 @@
 title: "The shipping API answers over HTTP: a demo user gets a quote, a request without a token is refused"
 description: "The API's first endpoints run in its tests and answer as the contract says: who the caller is, quotes with their offers, and an RFC 9457 problem for every refusal."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 pr: 75
 kind: feature
 recorded: 2026-11-07
@@ -20,8 +20,9 @@ response that the tests exercise is checked against the contract.
 
 Unknown members are named through 200 Unicode code points in their escaped JSON Pointer; longer pointers produce
 `malformed-request`. The build-output scan refuses missing or unreadable output as well as a generated password.
-ADR 0012's status panel retains the structure evidence beside the partial HTTP evidence, and keeps the database
-and web checks listed as planned.
+ADR 0012's status panel retains the structure evidence beside the partial HTTP evidence. Pull request #72 adds
+the repository's partial web import gate to that panel, with synthetic-fixture evidence and no real web imports
+checked yet. The database, web compiler and logic tests, and end-to-end checks remain planned.
 
 ## Try it
 

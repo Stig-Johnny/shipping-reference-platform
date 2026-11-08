@@ -24,37 +24,37 @@ flowchart LR
     style 4 fill:#64748b,stroke:#475569,color:#ffffff
     subgraph 5 ["Shipping reference platform"]
         style 5 fill:#ffffff,stroke:#475569,color:#475569
-        subgraph 7 ["API"]
-            style 7 fill:#ffffff,stroke:#475569,color:#475569
-            10["Tenants [Component] (built)"]
-            style 10 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
-            11["Audit [Component] (planned)"]
-            style 11 fill:#f1f5f9,stroke:#64748b,color:#334155
-            8["Quotes [Component] (built)"]
-            style 8 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
-            9["Shipments [Component] (built)"]
-            style 9 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+        subgraph 13 ["API"]
+            style 13 fill:#ffffff,stroke:#475569,color:#475569
+            14["Quotes [Component] (built)"]
+            style 14 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            15["Shipments [Component] (built)"]
+            style 15 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            16["Tenants [Component] (built)"]
+            style 16 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            17["Audit [Component] (planned)"]
+            style 17 fill:#f1f5f9,stroke:#64748b,color:#334155
         end
-        15[("Database [Container] (planned)")]
-        style 15 fill:#f1f5f9,stroke:#64748b,color:#334155
+        21[("Database [Container] (planned)")]
+        style 21 fill:#f1f5f9,stroke:#64748b,color:#334155
         6["Web app [Container] (planned)"]
         style 6 fill:#f1f5f9,stroke:#64748b,color:#334155
     end
     1 -->|"1"| 6
-    6 -->|"2"| 10
-    6 -->|"3"| 8
-    8 ==>|"4 REQUIRED"| 10
-    8 -->|"5"| 4
-    8 -->|"6"| 15
-    6 -->|"7"| 9
-    9 ==>|"8 REQUIRED"| 10
-    9 ==>|"9 REQUIRED"| 8
-    9 -->|"10"| 15
-    11 ==>|"11 REQUIRED"| 9
-    11 ==>|"12 REQUIRED"| 10
-    11 -->|"13"| 15
-    6 -->|"14"| 9
-    9 -->|"15"| 4
+    6 -->|"2"| 16
+    6 -->|"3"| 14
+    14 ==>|"4 REQUIRED"| 16
+    14 -->|"5"| 4
+    14 -->|"6"| 21
+    6 -->|"7"| 15
+    15 ==>|"8 REQUIRED"| 16
+    15 ==>|"9 REQUIRED"| 14
+    15 -->|"10"| 21
+    17 ==>|"11 REQUIRED"| 15
+    17 ==>|"12 REQUIRED"| 16
+    17 -->|"13"| 21
+    6 -->|"14"| 15
+    15 -->|"15"| 4
 ```
 
 The same definition is in [quote-book-label.mmd](quote-book-label.mmd).
@@ -76,11 +76,11 @@ The same definition is in [quote-book-label.mmd](quote-book-label.mmd).
 | 1 | Shipping clerk | Person |  | Role; implementation status not applicable | Works for a webshop. Prices parcels, books shipments and downloads labels. |
 | 4 | Carrier (simulated) | Software System |  | external, simulated | A fictional parcel carrier. v0.1 simulates its tariff, tracking numbers and labels inside the API; no network calls. |
 | 6 | Web app | Container | Plain TypeScript SPA (no framework), TypeScript 5.9.3 | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
-| 8 | Quotes | Component | Spring Modulith module | built | Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes. |
-| 9 | Shipments | Component | Spring Modulith module | built | Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled. |
-| 10 | Tenants | Component | Spring Modulith module | built | Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags. |
-| 11 | Audit | Component | Spring Modulith module | planned | Appends one tenant-scoped audit entry per shipment event, deduplicated by event ID; replayed from the publication registry after failures. |
-| 15 | Database | Container | PostgreSQL 18.6 | Planned; not covered by module conformance | One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data. |
+| 14 | Quotes | Component | Spring Modulith module | built | Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes. |
+| 15 | Shipments | Component | Spring Modulith module | built | Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled. |
+| 16 | Tenants | Component | Spring Modulith module | built | Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags. |
+| 17 | Audit | Component | Spring Modulith module | planned | Appends one tenant-scoped audit entry per shipment event, deduplicated by event ID; replayed from the publication registry after failures. |
+| 21 | Database | Container | PostgreSQL 18.6 | Planned; not covered by module conformance | One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data. |
 
 ## Relationships
 
@@ -104,5 +104,5 @@ The same definition is in [quote-book-label.mmd](quote-book-label.mmd).
 
 ## What this view cannot show
 
-- A diagram shows the model, not the code. Only the API's modules are checked against the code (docs/gaps.md, section 1).
+- A diagram shows the model, not the code. The API's modules are checked against its compiled classes and the web app's parts against detected TypeScript imports using partial lint (docs/gaps.md, section 1).
 - Each numbered step is a relationship of the model, in the order of the flow. Where a listener handles another module's event, its arrow shows the code dependency, not the direction in which the event travels; the authored sequence diagrams under docs/flows/ describe runtime delivery.

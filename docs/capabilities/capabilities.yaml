@@ -34,7 +34,10 @@
 # same commit; `:tools:docs:checkGenerated` rejects a shipped or partial status whose evidence does not exist or did
 # not pass, and never shows a planned capability as available because its package exists. The docs tool's own
 # controls are shipped, and so are the controls of libs/c4-contract-kit, divergence and absence included now that
-# ArchitectureConformanceTest checks :apps:shipping-api, and the two module checks of the API. The API's scenario checks
+# ArchitectureConformanceTest checks :apps:shipping-api, and the two module checks of the API. The web import check is
+# partial: each of its rules fails its negative fixture, and WebArchitectureConformanceTest runs it on
+# apps/shipping-web in every build, but every web part is still planned, so it has checked no import of the web app
+# yet. The API's scenario checks
 # are partial: their in-process scenarios and negative fixtures pass, while the first booking, replay and label
 # scenarios and the observation of HTTP and SQL are planned. Of the product, the
 # synthetic tariff and quote expiry are shipped. Creating and reading a quote, the offer lookup, demo authentication
@@ -444,14 +447,17 @@ controls:
     plannedRemainder: The shipments operations (ShipmentsHttpContractTest) and the same responses from the PostgreSQL-backed application remain.
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.web-import-boundaries
-    title: Partial lint of detected web app imports for boundaries, cycles and a direct import for each REQUIRED relationship whose endpoints are built (ADR 0015).
+    title: Partial lint of detected web app imports for boundaries, cycles and a detected direct import for each REQUIRED relationship whose endpoints are built; every package and Node.js built-in a detected import names is whitelisted in the model and approved in the allowlist (ADR 0015).
     where: libs/c4-contract-kit, apps/shipping-web
     check: java
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
-    acceptanceTests: [WebArchitectureConformanceTest]
-    negativeFixture: Fixture files with a cycle, a cross-feature internal import, and a REQUIRED relationship between built parts without an import.
+    evidence: [ImportScannerTest, SourceReaderTest, JsonTest, AppConfigurationTest, WebModelValidationTest, WebConformanceTest, WebReportDeterminismTest, WebArchitectureConformanceTest]
+    acceptanceTests: [ImportScannerTest, SourceReaderTest, JsonTest, AppConfigurationTest, WebModelValidationTest, WebConformanceTest, WebReportDeterminismTest, WebArchitectureConformanceTest]
+    negativeFixture: One synthetic web app per rule fails with exactly that violation (divergence, absence, a test that bridges parts, a production import of a test, unowned file, planned part with code, bypassed entry, undeclared or unapproved package, Node.js built-in in browser code, cycle, resolution override, unsupported syntax or file).
+    evidenceLabel: the web import check's tests
+    enforcedSubset: Each rule fails its synthetic negative fixture, and WebArchitectureConformanceTest runs the check on apps/shipping-web in every build, where a file under src in no part or in a planned part fails it; e2e tests are scanned and need declared and approved imports. This is partial lint over detected imports and reported refusals only; silent misses prevent complete boundary or cycle coverage.
+    plannedRemainder: All six web parts are planned, so no import of the web app is evaluated yet; the rules apply to its real imports once the parts are built. The source and test roots are empty; future comparisons remain limited to detected imports. Known spread-syntax bypasses remain open for literal and computed imports, require and unsupported import.meta. The authoritative tsc import graph and browser-enforced strict Content-Security-Policy are planned in the web app pull request (ADRs 0012 and 0015).
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.dependency-allowlist
     title: No third-party component is downloaded or run on the sanctioned CI path unless reviewed and allowlisted.

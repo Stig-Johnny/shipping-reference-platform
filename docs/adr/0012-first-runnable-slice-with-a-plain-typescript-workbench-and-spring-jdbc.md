@@ -11,12 +11,14 @@ enforcedBy:
   - "java: ArchitectureConformanceTest (C4 edges)"
   - "java: compilation with Error Prone and NullAway"
   - "java: QuotesHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest (HTTP contract, with test doubles for the database adapters)"
+  - "java: WebArchitectureConformanceTest, partial JDK lint over detected imports in apps/shipping-web: boundaries, cycles, a detected direct import for each REQUIRED relationship whose endpoints are built, and every detected package and Node.js built-in import whitelisted in the model and approved in security/allowlist.json (ADR 0015). It scans src, e2e, public and app configuration in every build; with all six parts planned and source and test roots empty, it evaluates no import yet (control.web-import-boundaries, partial)"
 plannedEnforcement:
   - "java: ShipmentsHttpContractTest"
   - "java: RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, CrossTenantAccessTest"
   - "java: MigrationsIntegrationTest, and TableOwnershipTest on the SQL of each module's adapters"
-  - "java: WebArchitectureConformanceTest, partial lint over detected imports in apps/shipping-web/src: boundaries, cycles, and a direct import for each REQUIRED relationship whose endpoints are built (ADR 0015)"
   - "web: type check and emit with TypeScript 5.9.3, and the logic tests under node --test"
+  - "web app pull request: authoritative import dependencies from the reviewed TypeScript compiler's tsc import graph"
+  - "web app pull request: strict Content-Security-Policy for runtime loading and execution, enforced by the browser"
   - "contract-e2e: Playwright and axe-core against the API started with the demo profile on PostgreSQL"
 ---
 
@@ -26,11 +28,23 @@ Supersedes ADR 0003, ADR 0004, ADR 0005 and ADR 0009. What they decided carries 
 this record says otherwise; their text stays as it was accepted.
 
 **Web import scope, 2026-11-08:** ADR 0014 records the owner's reader decision for pull request #70; ADR 0015
-extends it to the conformance rules in pull request #71:
-the JDK reader and conformance rules ship as a labelled partial check with a known spread-syntax bypass. The web
-import enforcement described below is intended design, not a complete guarantee supplied by that reader. The reviewed TypeScript
-compiler's import graph and a strict Content-Security-Policy in the web app enforced by the browser are planned
-authoritative controls. This clarification leaves this record's application design and existing Java evidence intact.
+extends it to the conformance rules in pull request #71. This record extends that labelled partial check to the
+repository gate in pull request #72.
+`control.web-import-boundaries` stays partial. The gate compares only detected imports and reported refusals;
+its passing verdict cannot establish complete boundary or cycle coverage or runtime safety.
+
+Known open bypass forms are literal `import("unlisted")`, computed `import(name)`, `require("unlisted")` and
+unsupported `import.meta.glob("./*.ts")` immediately after `...`. The review reproduced them in
+object, array, call and nested-template spreads, with whitespace, comments and line breaks after `...`, across
+TS/TSX and source/test placements: the reader returns no imports or refusals, and the conformance gate can pass.
+Parenthesizing the operand restores detection in the reviewed control but does not close the bypass. The
+numeric-token defect was fixed; the review's probe set was not exhaustive (details in `docs/gaps.md`, section 6).
+
+The planned web app pull request will add the authoritative controls: the reviewed TypeScript compiler's
+`tsc` import graph for import dependencies, and a strict Content-Security-Policy enforced by the browser for
+runtime loading and execution. Neither is implemented in this gate. The compiler graph does not prove general
+runtime behaviour, and CSP does not enforce module boundaries. This clarification leaves this record's
+application design and existing Java evidence intact.
 
 ## Context and Problem Statement
 
@@ -101,10 +115,10 @@ one.
   profile on PostgreSQL. Their reviews approve them for that job only, so browser automation does not run on developer
   machines.
 - **Import rules.** The JDK import checker in `libs/c4-contract-kit` (issues #62 to #64) supplies partial lint over
-  detected imports (ADR 0015); `tools/web-imports/check-imports.mjs` is not built. The model is to declare the web
-  app's six parts, `app`, `auth`, `api`, `quote-feature`, `shipment-feature` and `ui`, and the planned
-  `WebArchitectureConformanceTest` is to check `apps/shipping-web/src` against them in the `java` check. The rules
-  are listed in `apps/shipping-web/AGENTS.md`.
+  detected imports (ADR 0015); `tools/web-imports/check-imports.mjs` is not built. The model declares the web app's
+  six parts, `app`, `auth`, `api`, `quote-feature`, `shipment-feature` and `ui`, and `WebArchitectureConformanceTest` checks
+  `apps/shipping-web/src` against them in the `java` check. It also scans `apps/shipping-web/e2e` as a test root,
+  the public root and app configuration. The rules are listed in `apps/shipping-web/AGENTS.md`.
 - **Scope of the import check.** The checker compares detected imports for boundaries and cycles, and requires a
   detected direct import for each REQUIRED relationship whose endpoints are built. Silent misses prevent complete
   boundary or cycle coverage. Relationships touching planned parts are not evaluated. The
@@ -226,10 +240,10 @@ one.
 
 - Good, because the slice needs one new package review instead of about 150, and the database code none.
 - Good, because the app sends the browser only the project's own code.
-- Good, because the frontend gets both failure directions, as the backend has: an import the model does not allow
-  fails, and so does a REQUIRED relationship between built parts without a direct import. A direct import proves a
-  reference, not that the code behind it runs, and a part that no REQUIRED relationship reaches can be unused without
-  a report.
+- Good, because the frontend gets both failure directions over detected imports: a detected import the model does
+  not allow fails, and so does a REQUIRED relationship between built parts without a detected direct import. A direct
+  import proves a reference, not that the code behind it runs, and a part that no REQUIRED relationship reaches can
+  be unused without a report.
 - Good, because every statement is SQL that reviewers read, and the level 3 signal for changed SQL in
   `policy/risk.json` covers it.
 - Bad, because there is no generated-client drift guarantee. The hand-written types can drift from the contract, and
@@ -276,9 +290,12 @@ one.
   run DDL.
 - Planned, `java`: `TableOwnershipTest` asserts that every statement of each module's adapters touches only that
   module's schema, and fails on the fixture above.
-- Planned, `java`: `WebArchitectureConformanceTest` runs the partial JDK import check over `apps/shipping-web/src`
-  (issue #64). A detected import the model does not allow, a cycle of detected imports, and a REQUIRED relationship
-  between built parts without a detected direct import each fail it. This is not a complete graph (ADR 0015).
+- `java`: `WebArchitectureConformanceTest` runs the partial JDK import check over `apps/shipping-web/src`, the test root
+  `apps/shipping-web/e2e`, the public root and app configuration (issue #64). A detected import the model does not allow,
+  a cycle of detected imports, and a REQUIRED relationship between built parts without a detected direct import each
+  fail it. A synthetic fixture using the repository model proves that an unapproved import under `e2e` fails the gate. All six web parts
+  are planned and the source and test roots contain no real files, so no real web imports are checked yet;
+  `control.web-import-boundaries` remains partial. The reader does not supply a complete graph (ADR 0015).
 - Planned, `web`: `npm ci --ignore-scripts` from the reviewed lockfile; `tsc` type-checks and emits; `node --test`
   runs the logic tests.
 - Planned, `contract-e2e`: `quote-book-label.spec.ts`, `expired-quote.spec.ts`, `tenant-denial.spec.ts` and

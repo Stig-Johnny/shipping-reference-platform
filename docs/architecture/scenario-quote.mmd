@@ -8,21 +8,21 @@ flowchart LR
     style 4 fill:#64748b,stroke:#475569,color:#ffffff
     subgraph 5 ["Shipping reference platform"]
         style 5 fill:#ffffff,stroke:#475569,color:#475569
-        subgraph 7 ["API"]
-            style 7 fill:#ffffff,stroke:#475569,color:#475569
-            10["Tenants [Component] (built)"]
-            style 10 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
-            8["Quotes [Component] (built)"]
-            style 8 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+        subgraph 13 ["API"]
+            style 13 fill:#ffffff,stroke:#475569,color:#475569
+            14["Quotes [Component] (built)"]
+            style 14 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            16["Tenants [Component] (built)"]
+            style 16 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
         end
-        15[("Database [Container] (planned)")]
-        style 15 fill:#f1f5f9,stroke:#64748b,color:#334155
+        21[("Database [Container] (planned)")]
+        style 21 fill:#f1f5f9,stroke:#64748b,color:#334155
         6["Web app [Container] (planned)"]
         style 6 fill:#f1f5f9,stroke:#64748b,color:#334155
     end
     1 -->|"1"| 6
-    6 -->|"2"| 8
-    8 ==>|"3 REQUIRED"| 10
-    8 -->|"4"| 4
-    8 -->|"5"| 15
-    8 -->|"6"| 15
+    6 -->|"2"| 14
+    14 ==>|"3 REQUIRED"| 16
+    14 -->|"4"| 4
+    14 -->|"5"| 21
+    14 -->|"6"| 21

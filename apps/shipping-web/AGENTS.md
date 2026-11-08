@@ -39,16 +39,27 @@ src/
 e2e/                   Playwright specs                                                  (risk level 2)
 ```
 
-The model is to declare the six parts (issue #64). The planned `WebArchitectureConformanceTest` uses the JDK reader
-of `libs/c4-contract-kit` as partial static lint over `src/` in the `java` check; the reader exists, but that gate is
-not built in this slice. `tools/web-imports/check-imports.mjs` is not built. The intended rules:
+The model declares the six parts (issue #64), all planned. `WebArchitectureConformanceTest` uses the JDK reader
+of `libs/c4-contract-kit` as partial static lint over `src/`, the `e2e/` test root, the public root and app
+configuration in the `java` check. The gate runs in every build; the source and test roots contain no real files yet.
+`tools/web-imports/check-imports.mjs` is not built. The intended rules:
 
 - `src/ui/` imports nothing from `app`, `auth`, `api` or `features`.
 - A feature imports another feature only through that feature's `index.ts`.
 - `src/auth/` imports nothing from `features`.
 - No import cycles.
+- No package: no part's `web.packages` lists one. A bare specifier fails unless its part lists the package,
+  `package.json` pins it in `dependencies`, and `security/allowlist.json` approves that version for
+  `apps/shipping-web` in `dependencies`; a review for `devDependencies` does not cover code that runs in the browser.
+- No built-in module of Node.js in browser code, in any form. A test may import `node:assert/strict`, `node:test`
+  and `node:fs` (the model's `web.testBuiltins`), written with `node:`, under the review of the Node.js that
+  `engines.node` names.
+- Tests are held to the rules of their part, but never count as an import a REQUIRED relationship needs, and no
+  production file imports a test.
+- No URL, `data:` or computed import; no CSS `@import` (link each style sheet from `index.html`) and no style sheet
+  imported from TypeScript; no path alias, `baseUrl` or import map.
 
-The planned gate compares detected imports for boundaries, cycles and a direct import for each REQUIRED relationship
+The gate compares detected imports for boundaries, cycles and a detected direct import for each REQUIRED relationship
 whose endpoints are built. It cannot guarantee complete detection: imports, `require` and unsupported `import.meta`
 immediately after spread syntax can pass unseen in object, array, call and nested-template expressions, including
 whitespace, comments and line breaks after `...`, across TS/TSX and source/test placements. See `docs/gaps.md`,

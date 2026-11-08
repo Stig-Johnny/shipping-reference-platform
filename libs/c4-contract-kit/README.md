@@ -14,10 +14,11 @@ TypeScript sources, tests, style sheets and configuration as data, with a delibe
 JDK alone. The implemented web conformance
 library compares the imports it detects with the web container of the same model in both directions, with file,
 line and specifier evidence: the web import check, below ([`AGENTS.md`](AGENTS.md), "Web imports"). The reader and
-conformance library are tested on synthetic fixtures; the repository's web-app gate is still planned. The reader
+conformance library are tested on synthetic fixtures; `WebArchitectureConformanceTest` runs the repository's web-app
+gate in every build, with all six parts planned and no real source or test files yet. The reader
 refuses some recognized unsupported or ambiguous forms; it does not guarantee that every import is found or every
-unsupported construct is refused. The owner accepted this scope for the reader and conformance rules on
-2026-11-08 (ADR 0015).
+unsupported construct is refused. The owner accepted this scope for the reader, conformance rules and repository gate
+in pull requests #70, #71 and #72 on 2026-11-08 (ADR 0015); the capability remains partial.
 
 Known open bypass: directly after spread syntax, `import("unlisted")`, `import(name)`, `require("unlisted")` and
 `import.meta.glob("./*.ts")` can produce no imports and no refusals. The review found this in object, array, call
@@ -26,9 +27,10 @@ placements. Parenthesizing the operand restores detection in the reviewed contro
 The review reported no other open bypass class in its probe set, which was not exhaustive. The restrictions below
 describe recognized forms and tested cases, not complete enforcement.
 
-Authoritative controls are planned: the reviewed TypeScript compiler's import graph for import dependencies, and a
-strict Content-Security-Policy in the web app, enforced by the browser, for runtime loading and execution. Neither
-is implemented by this library. Passing this check does not prove a complete import graph or runtime safety; see
+Authoritative controls are planned in the web app pull request: the reviewed TypeScript compiler's `tsc` import
+graph for import dependencies, and a strict Content-Security-Policy enforced by the browser for runtime loading
+and execution. Neither is implemented by this library. Passing this check does not prove a complete import graph
+or runtime safety; see
 [`docs/gaps.md`](../../docs/gaps.md#6-tests-and-quality-gates) and
 [ADR 0015](../../docs/adr/0015-partial-web-import-lint-and-authoritative-controls.md).
 
@@ -103,7 +105,7 @@ void theCodeConformsToTheModel() {
 
 This API compares detected imports and propagates reader refusals. Its `PASSED` verdict means no violations were
 reported for those inputs; silent reader misses can still hide undeclared imports, boundary breaks and cycles.
-The following is an integration example; the repository's web-app gate remains planned.
+The following shows how the repository's web-app gate calls this API.
 
 ```java
 @Test
@@ -113,6 +115,10 @@ void theWebAppConformsToTheModel() {
     WebConformance.assertConforms(report, Path.of("build/reports/c4-contract-web"));
 }
 ```
+
+`WebArchitectureConformanceTest` does this for the repository in every build, including
+`apps/shipping-web/e2e` as a test root alongside the source and public roots and app configuration. These roots and
+configuration files are Gradle test inputs, so adding, editing or removing an end-to-end test reruns the gate.
 
 The model's web container names its source root with `web.root`, its test and public roots, and the Node.js built-ins
 and npm packages tests may import; each of its components names its directories (`web.paths`), status, optional entry
@@ -161,8 +167,12 @@ continuations and unsupported regex flags must fail the public gate, including i
 after continued strings; same-line findings and shifted line numbers are preserved.
 Every case requires `passed=false` and the exact findings with file, line and reason; escaped identifiers must not
 hide an earlier quoted-key finding. The synthetic shop uses literal `[0]` access instead of array destructuring to
-stay within the restricted grammar. These library fixtures do not yet run the gate over the repository's web app;
-that integration remains planned.
+stay within the restricted grammar.
+
+The repository gate is implemented by `WebArchitectureConformanceTest`, which also proves that an unapproved import
+in the repository model's end-to-end test root fails. All six web parts remain planned and the source and test roots
+are empty: the import rules have synthetic fixture evidence, with no real web imports checked yet, so the control
+remains partial.
 
 ## The model
 

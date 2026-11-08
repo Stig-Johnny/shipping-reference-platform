@@ -80,7 +80,7 @@ public final class ArchitecturePages {
                     .append(cell(row.technology())).append(" | ").append(cell(row.line())).append(" |\n");
         }
         out.append("\n## What this view cannot show\n\n");
-        for (String limit : ViewText.limits(view)) {
+        for (String limit : ViewText.limits(view, model)) {
             out.append("- ").append(limit).append('\n');
         }
         return out.toString();

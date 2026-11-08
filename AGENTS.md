@@ -121,7 +121,8 @@ The commands that exist today. The others arrive with their code; until then, sa
 | Dependency allowlist (the JDK alone) | `java tools/policy/PolicyCheck.java .` |
 | CI JDK download fixtures (no network) | `bash tools/ci/stage-temurin-test.sh` |
 | All Java checks | `./gradlew check` |
-| Web checks | not built yet |
+| Web import check (the JDK alone, part of `./gradlew check`) | `./gradlew :libs:c4-contract-kit:test --tests '*WebArchitectureConformanceTest'` |
+| Web type check and tests | not built yet |
 | Contract and end-to-end tests | not built yet |
 | Mutation tests (CI only: the `mutation` job; never run `pitest` on a machine whose firewall lets inbound connections reach `java`) | `./gradlew :libs:c4-contract-kit:pitest` |
 | Brain and docs check; regenerate them | `./gradlew :tools:docs:check`; `./gradlew :tools:docs:generate` |

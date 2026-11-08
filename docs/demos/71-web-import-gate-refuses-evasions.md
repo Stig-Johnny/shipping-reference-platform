@@ -176,9 +176,12 @@ strict Content-Security-Policy in the web app enforced by the browser for runtim
 library or proved by these fixtures. The graph does not prove general runtime behaviour, and CSP does not enforce
 module boundaries. See also [the known gaps](../gaps.md#6-tests-and-quality-gates).
 
-This library check is exercised on synthetic repositories. The repository's web-app integration remains planned;
-no real web imports are checked here. It does not execute TypeScript, simulate a browser, inspect installed packages
+This library check is exercised on synthetic repositories. The repository's web-app integration was still planned
+in pull request #71; pull request #72 adds that gate and its `WebArchitectureConformanceTest` evidence. All six web
+parts remain planned and the source and test roots are empty, so no real web imports are checked yet. The library
+does not execute TypeScript, simulate a browser, inspect installed packages
 or prove runtime behaviour. Conservative reader refusals can reject harmless syntax, including type uses of loader
 names, array destructuring, computed indexing and literal ampersands in URL attributes. Approval expiry remains
 PolicyCheck's responsibility before the build. No capability is promoted by this recording or the partial label;
-`control.web-import-boundaries` remains planned until its application acceptance test exists and passes.
+`control.web-import-boundaries` is now partial on the evidence of the repository gate and synthetic fixtures,
+with the reader misses and authoritative controls still outstanding.

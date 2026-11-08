@@ -13,9 +13,17 @@ public record ModelRelationship(String id, String sourceId, String destinationId
         properties = Map.copyOf(properties);
     }
 
-    /** {@code REQUIRED} or {@code PERMITTED} on a checked component-to-component relationship. */
+    /**
+     * {@code REQUIRED} or {@code PERMITTED} on a checked component-to-component relationship: {@code contract.mode}
+     * between the API's modules, {@code web.mode} between the web app's parts.
+     */
     public Optional<String> mode() {
-        return Optional.ofNullable(properties.get("contract.mode"));
+        return Optional.ofNullable(properties.get("contract.mode")).or(() -> webMode());
+    }
+
+    /** {@code web.mode}: the relationship is between two parts of the web app, checked against its imports. */
+    public Optional<String> webMode() {
+        return Optional.ofNullable(properties.get("web.mode"));
     }
 
     public boolean planned() {

@@ -22,26 +22,26 @@ flowchart LR
     style 1 fill:#0f766e,stroke:#475569,color:#ffffff
     subgraph 5 ["Shipping reference platform"]
         style 5 fill:#ffffff,stroke:#475569,color:#475569
-        subgraph 7 ["API"]
-            style 7 fill:#ffffff,stroke:#475569,color:#475569
-            10["Tenants [Component] (built)"]
-            style 10 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
-            8["Quotes [Component] (built)"]
-            style 8 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
-            9["Shipments [Component] (built)"]
-            style 9 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+        subgraph 13 ["API"]
+            style 13 fill:#ffffff,stroke:#475569,color:#475569
+            14["Quotes [Component] (built)"]
+            style 14 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            15["Shipments [Component] (built)"]
+            style 15 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            16["Tenants [Component] (built)"]
+            style 16 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
         end
-        15[("Database [Container] (planned)")]
-        style 15 fill:#f1f5f9,stroke:#64748b,color:#334155
+        21[("Database [Container] (planned)")]
+        style 21 fill:#f1f5f9,stroke:#64748b,color:#334155
         6["Web app [Container] (planned)"]
         style 6 fill:#f1f5f9,stroke:#64748b,color:#334155
     end
     1 -->|"1"| 6
-    6 -->|"2"| 9
-    9 ==>|"3 REQUIRED"| 10
-    9 -->|"4"| 15
-    9 ==>|"5 REQUIRED"| 8
-    8 -->|"6"| 15
+    6 -->|"2"| 15
+    15 ==>|"3 REQUIRED"| 16
+    15 -->|"4"| 21
+    15 ==>|"5 REQUIRED"| 14
+    14 -->|"6"| 21
 ```
 
 The same definition is in [scenario-tenant-denial.mmd](scenario-tenant-denial.mmd).
@@ -61,10 +61,10 @@ The same definition is in [scenario-tenant-denial.mmd](scenario-tenant-denial.mm
 |---|---|---|---|---|---|
 | 1 | Shipping clerk | Person |  | Role; implementation status not applicable | Works for a webshop. Prices parcels, books shipments and downloads labels. |
 | 6 | Web app | Container | Plain TypeScript SPA (no framework), TypeScript 5.9.3 | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
-| 8 | Quotes | Component | Spring Modulith module | built | Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes. |
-| 9 | Shipments | Component | Spring Modulith module | built | Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled. |
-| 10 | Tenants | Component | Spring Modulith module | built | Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags. |
-| 15 | Database | Container | PostgreSQL 18.6 | Planned; not covered by module conformance | One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data. |
+| 14 | Quotes | Component | Spring Modulith module | built | Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes. |
+| 15 | Shipments | Component | Spring Modulith module | built | Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled. |
+| 16 | Tenants | Component | Spring Modulith module | built | Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags. |
+| 21 | Database | Container | PostgreSQL 18.6 | Planned; not covered by module conformance | One schema per v0.1 module (quotes, shipments, tenants, audit) plus the event publication registry. Forced row-level security on tenant data. |
 
 ## Relationships
 
@@ -79,5 +79,5 @@ The same definition is in [scenario-tenant-denial.mmd](scenario-tenant-denial.mm
 
 ## What this view cannot show
 
-- A diagram shows the model, not the code. Only the API's modules are checked against the code (docs/gaps.md, section 1).
+- A diagram shows the model, not the code. The API's modules are checked against its compiled classes and the web app's parts against detected TypeScript imports using partial lint (docs/gaps.md, section 1).
 - Each numbered step is a relationship of the model, in the order of the flow. Where a listener handles another module's event, its arrow shows the code dependency, not the direction in which the event travels; the authored sequence diagrams under docs/flows/ describe runtime delivery.

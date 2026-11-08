@@ -14,8 +14,9 @@ Its package `sources` is a partial static lint: it reads a web app's TypeScript 
 import grammar, and resolves the imports it detects to a file or a package (section "Web imports"). It can miss
 imports and unsupported constructs. The web conformance library compares those detected imports with the web
 container of the same model in both directions and reports file, line and specifier evidence. The reader and
-conformance library are implemented and tested on synthetic fixtures; the repository's web-app gate is still
-planned, as are the authoritative controls in ADR 0015.
+conformance library are implemented and tested on synthetic fixtures; `WebArchitectureConformanceTest` runs the
+repository's web-app gate in every build. All six web parts are planned and the source and test roots are empty,
+so no real web imports are checked yet. The authoritative controls in ADR 0015 remain planned.
 
 ## Boundaries
 
@@ -82,6 +83,9 @@ public record WebExternalImport(String file, int line, String specifier, String 
                                 String allowlistEntry, ExternalImportStatus status) {}
 public enum ExternalImportStatus { APPROVED, UNDECLARED, UNPINNED, UNAPPROVED, REFUSED }
 ```
+
+`WebArchitectureConformanceTest`, a test of this library, runs it on the repository's `apps/shipping-web/src` in every
+build and writes its reports to `libs/c4-contract-kit/build/reports/c4-contract-web/`.
 
 ## Model rules (the header of `architecture/workspace.dsl` states them for model authors)
 
