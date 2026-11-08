@@ -46,7 +46,8 @@ final class SourceLexer {
      * One token.
      *
      * @param text an identifier's name, a punctuator, or a string's content between the quotes as written
-     * @param special a string with a backslash escape, or a template with a substitution
+     * @param special a string with a backslash escape, a template with a substitution, or an opening bracket
+     *     that may continue a value (computed access rather than an array expression)
      */
     record Token(TokenType type, String text, int line, boolean special) {
     }
@@ -607,7 +608,9 @@ final class SourceLexer {
     }
 
     private void punctuator(int length) {
-        add(TokenType.PUNCTUATOR, text.substring(position, position + length), line, false);
+        String value = text.substring(position, position + length);
+        boolean access = value.equals("[") && (next != Next.EXPRESSION || isMemberAccess(last));
+        add(TokenType.PUNCTUATOR, value, line, access);
         position += length;
     }
 

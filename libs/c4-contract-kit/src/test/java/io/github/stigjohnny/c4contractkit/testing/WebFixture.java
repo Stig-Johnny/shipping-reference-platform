@@ -160,7 +160,7 @@ public final class WebFixture {
                 import { loadCart } from '../../api/cart';
 
                 export function CartPage() {
-                    const [lines] = useState(loadCart());
+                    const lines = useState(loadCart())[0];
                     return <section><p>Don't leave: {lines.length} items.</p><Button>Check out</Button></section>;
                 }
                 """);

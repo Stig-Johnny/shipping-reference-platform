@@ -14,12 +14,21 @@ line and specifier evidence: the web import check, below.
 
 The reader also refuses a slash after `>`: a closing type argument can end a value, while a comparison operator
 starts an expression. Parenthesize the value before dividing; `=>` still starts an arrow-function expression.
-References to `Function`, `Worker`, `SharedWorker` and `importScripts` are refused even without a direct call,
-including aliases, indirect calls and literal computed properties. This conservative rule also refuses type uses
-of those names. In HTML, duplicate attribute names (case-insensitive) and any ampersand in `src`, `href` or `type`
-are refused before URL and import-map checks; the reader does not decode character references. TypeScript imports
-of `.css` package subpaths, scoped or unscoped and in any letter case, are unsupported in both browser code and
-tests, even if the package is approved. Style sheets must be linked from HTML.
+Loader capabilities (`Function`, `eval`, workers, service workers and code-loading constructors) are refused as
+identifiers, quoted destructuring keys and literal bracket keys, before aliasing or indirect calls. Escaped keys are
+refused without decoding; escaped identifiers already stop the lexer. Computed access and binding keys must be one
+plain string or number literal: templates, concatenations, parenthesized expressions and const-derived keys are
+refused, rather than evaluated. Timer references must be direct calls with a visible function literal; aliases and
+unproven arguments are refused. These conservative rules also reject harmless names and computed indexing.
+
+In HTML, duplicate attribute names (case-insensitive) and any ampersand in `src`, `href` or `type` are refused.
+Every `src` and `href` on a scanned element is validated before origin classification: ASCII controls (including
+TAB/LF/CR), spaces, backslashes, non-ASCII characters and malformed percent escapes are refused. The accepted URL
+syntax is a conservative subset: relative references and HTTP(S)/network references with plain DNS authorities.
+Other schemes, credentials, encoded hosts, IP literals, numeric-ending hosts and invalid ports are refused without
+approximating WHATWG parsing. Every accepted absolute/network reference is then refused as another origin. Local
+paths, queries and fragments within the subset still pass. TypeScript imports of `.css` package subpaths, scoped or
+unscoped and in any letter case, remain unsupported in browser code and tests. Style sheets must be linked from HTML.
 
 The library is built and tested, and the shipping API is its first user: `ArchitectureConformanceTest` in
 `:apps:shipping-api` checks the API's classes with it. `SelfConformanceTest` checks the
@@ -114,10 +123,17 @@ allowlist entry that approves it.
 
 `WebConformanceTest` checks synthetic repositories through the public API, including the reader's refusals of hidden
 imports, loader references, ambiguous HTML attributes and approved package CSS subpaths. Its wrong-project Node.js
-fixture checks both the failing verdict and the unapproved built-in import records. The repository gate is
-implemented by `WebArchitectureConformanceTest`, which also proves that an unapproved import in the repository
-model's end-to-end test root fails. All six web parts remain planned and the source and test roots are empty: the
-import rules have synthetic fixture evidence, with no real web imports checked yet, so the control remains partial.
+fixture checks both the failing verdict and the unapproved built-in import records. `WebReaderRefusalConformanceTest`
+also checks quoted and escaped loader keys, computed keys and indirect timers in `.ts` and `.tsx` browser sources,
+colocated tests and a separate test root, plus ambiguous script and link URLs (including controls and backslashes).
+Every case requires `passed=false` and the exact findings with file, line and reason; escaped identifiers must not
+hide an earlier quoted-key finding. The synthetic shop uses literal `[0]` access instead of array destructuring to
+stay within the restricted grammar.
+
+The repository gate is implemented by `WebArchitectureConformanceTest`, which also proves that an unapproved import
+in the repository model's end-to-end test root fails. All six web parts remain planned and the source and test roots
+are empty: the import rules have synthetic fixture evidence, with no real web imports checked yet, so the control
+remains partial.
 
 ## The model
 

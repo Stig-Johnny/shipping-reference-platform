@@ -226,15 +226,22 @@ closes it.
   relationship touches a planned part, so no real web imports are checked and no relationship is evaluated yet.
   The control remains partial. A direct import proves a reference, not behaviour, and a part that no REQUIRED
   relationship reaches can be unused without a report. dependency-cruiser is deferred.
-- The reader and import rules have synthetic fixture evidence. `WebArchitectureConformanceTest` proves that an
-  unapproved import in the repository model's `e2e` root fails the gate. `WebConformanceTest` proves that reader
-  refusals fail the model comparison, and that Node.js built-ins in tests need runtime approval for project `ci`
-  in configuration `web`, at the version named by `engines.node`. The grammar is deliberately restricted:
-  ambiguous slashes after closing type arguments, loader references (including aliases and indirect calls),
-  duplicate HTML attributes, encoded URL/type attributes, and package CSS subpaths are refused. This is no full
-  TypeScript or browser parser and no proof about arbitrary computed property access or runtime behaviour.
-  Conservative refusals can reject harmless type names and literal ampersands too. The reader does not execute a
-  web app or inspect installed packages.
+- The reader and conformance library are implemented, and the import rules have synthetic fixture evidence.
+  `WebArchitectureConformanceTest` proves that an unapproved import in the repository model's `e2e` root fails the
+  gate. `WebConformanceTest` proves that reader refusals fail the model comparison, and that Node.js built-ins in
+  tests need runtime approval for project `ci` in configuration `web`, at the version named by `engines.node`.
+  `WebReaderRefusalConformanceTest` checks the quoted/escaped loader keys, computed keys, indirect timers and ambiguous
+  script/link URLs through the same public gate, asserting the failing verdict and exact findings in browser sources
+  and both kinds of test root. This is fixture evidence, not a check of real web imports. The reader's grammar is
+  deliberately restricted: ambiguous slashes after closing type arguments, loader references (including quoted keys,
+  aliases and indirect calls), escaped property keys, non-literal computed access/binding keys (including templates and
+  const-derived keys), duplicate HTML attributes, encoded URL/type attributes, and package CSS subpaths are refused.
+  Timers require a direct call with a visible function literal. Every scanned URL attribute is validated before origin
+  classification against a conservative ASCII subset: controls, spaces, backslashes, malformed escapes and uncertain
+  schemes/authorities are refused. This is no full TypeScript, browser or WHATWG URL parser and no proof about
+  reflective calls or general runtime behaviour. Conservative refusals reject harmless names (including type names),
+  literal ampersands, computed indexing, array destructuring, callback aliases and valid URLs outside that subset too.
+  The reader does not execute a web app or inspect installed packages.
 - The first runnable slice defers the generated client and the component tests (ADR 0012). So there is no
   generated-client drift guarantee: the web app's request and response types are written by hand in
   `apps/shipping-web/src/api` and can drift from `contracts/shipping.openapi.yaml` without failing a build. The
