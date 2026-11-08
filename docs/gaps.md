@@ -219,24 +219,32 @@ closes it.
   counts each one with its reason. Outcomes, such as the tenant denial's rejection and absence of stored data, are
   test assertions, not verified steps.
   - **Refused, not passed** (each is a coverage gap or a refused sidecar): an `AFTER_COMMIT` step that would be
-    evaluated, since no run observes commits; an interaction on a thread other than the stimulus's, a thread that
-    outlives the run, and an interaction after the recording ends, since asynchronous work is not followed; a sidecar
-    that repeats one signature with a varying cardinality; a receiver the walk cannot prove to be a proxy; reflection,
+    evaluated, since no run observes commits; task-capable APIs found by the census (thread creation/builders,
+    executors, futures, timers and explicit parallel dispatch), since tasks are not tracked to completion; a recorded
+    interaction on a thread other than the stimulus's, a new non-system platform thread present at the final snapshot,
+    and a late interaction observed by close; a sidecar that repeats one signature with a varying cardinality; a raw
+    receiver found by the walk; reflection,
     method handles and Spring lookups from module code; an `api` method that takes or returns anything but values; a
-    listener method; a module object registered as a ready singleton; an object graph beyond 200,000 objects; a model
+    listener method; a module object registered as a ready singleton; a walk beyond 200,000 object/owning-module pairs; a model
     line where a comment opens or closes beside other text.
-  - **Still unsound, without a gap:** the walk proves receivers only through what is reachable from module beans and
+  - **Still unsound, without a gap:** the walk checks receivers only through what is reachable from module beans and
     from static fields before and after the run, so a reference obtained and dropped during the run is seen only
-    through the census of the code that used it; the census reads the module classes the walk reaches, so a class of
-    the same module that is created and dropped within the run is not read; references that the test passes into a
-    stimulus are not walked; calls are told apart by interface and method name, not by overload; the caller is the
+    through the census of the code that used it. The census reads all main module classes and the dependency closure
+    of reached test module classes, not arbitrary external helpers or test code outside that closure. References
+    that the test passes into a stimulus are not walked; async dispatch hidden in unexamined code can escape the
+    dispatch checks. The thread snapshot excludes virtual threads and does not track tasks on pre-existing executors;
+    close checks late calls only once, so work released later cannot change a completed verdict. The virtual-thread
+    and pre-existing-executor fixtures are refused by their examined dispatch sites before close, not by those
+    snapshots. Calls are told apart by interface and method name, not by overload; the caller is the
     first application frame on the stack, mapped by `contract.packages`; whether a type holds values only is judged
     from its declared field types.
   - **The model reader** is a restricted text reader, since Structurizr's review covers only the kit's and the docs
     tool's parsers. It refuses what it does not read exactly; `ScenarioModelTest` compares its reading of the
-    repository's dynamic views, and of the refused and accepted forms in its fixtures, with Structurizr's, not of every
-    possible DSL text.
-  - A report's revision is the checked-out commit; uncommitted changes show only in its digests.
+    repository's dynamic views with Structurizr's generated pages. Accepted/refused syntax fixtures use a fabricated
+    kit report and assert against `ScenarioModel` alone; they have no independent Structurizr oracle. This is not
+    equivalence for every possible DSL text.
+  - A report's revision is the checked-out commit. Its digests cover the model, sidecar and main classes, not test
+    support or wiring; uncommitted changes to the latter are not identified by report provenance.
 
 ## 7. Documentation
 

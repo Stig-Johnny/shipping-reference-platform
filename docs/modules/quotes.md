@@ -2,7 +2,7 @@
 title: "Module: quotes"
 description: "Prices parcels with the synthetic tariff and issues tenant-scoped quotes whose offers expire after 30 minutes."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 module: quotes
 moduleStatus: built
 riskLevel: 3
@@ -24,6 +24,12 @@ planned.
 Planned: `GetQuote`, both adapters, the migration and the demo fixture, and the wiring into a running application.
 Until then no class of the module is a Spring bean: `CreateQuote`'s `@Transactional` has no effect yet, and nothing
 yet shows that `QuoteIssued` is published inside the quote's transaction.
+
+Scenario tests wire these classes in a test context. `CoverageBypassTest` keeps three quote outcome assertions for
+each altered quote implementation, including value behaviour and work held on virtual threads or pre-existing
+executor workers until after close. The latter fixtures are refused by their dispatch sites in the census.
+`ReachabilityTest` checks shared raw tenant references and containers in both owning-module traversal orders.
+These are bounded coverage checks, not proof of every receiver or task lifetime; see [known gaps](../gaps.md#6-tests-and-quality-gates).
 
 ## Responsibilities
 

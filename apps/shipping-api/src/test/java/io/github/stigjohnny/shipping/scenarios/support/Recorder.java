@@ -24,8 +24,8 @@ import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.util.ClassUtils;
 
 /**
- * Records every interaction that crosses a module boundary while a scenario runs, independently of what the scenario
- * expects; the comparison comes afterwards and reads only this record.
+ * Records calls through the installed API proxies and publications through the wrapped context multicaster,
+ * independently of what the scenario expects; the comparison comes afterwards and reads only this record.
  *
  * <p>Two observers record. Every bean that implements an interface of a module's {@code api} package is replaced, as
  * it is created, by a JDK proxy (Spring's {@link ProxyFactory}) around the real implementation, which records each
@@ -180,7 +180,10 @@ public final class Recorder {
         return List.copyOf(late);
     }
 
-    /** Threads that started during the run, ran no stimulus and are still alive; JDK system threads aside. */
+    /**
+     * New live platform threads outside stimuli, excluding the system group. This snapshot omits virtual threads
+     * and tasks on existing workers; refusal of examined async dispatch sites belongs to Coverage's census.
+     */
     List<String> threadsLeftRunning() {
         ThreadGroup system = systemGroup();
         return Thread.getAllStackTraces().keySet().stream()

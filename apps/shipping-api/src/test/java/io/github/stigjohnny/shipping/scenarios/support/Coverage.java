@@ -27,8 +27,8 @@ import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.util.ReflectionUtils;
 
 /**
- * Makes the recorder's coverage verifiable within a bounded contract, so that what the recorder cannot see is a
- * finding and never silence. The contract, checked before the run and again after it:
+ * Detects coverage gaps in a bounded census and object walk before and after the run. This is not a universal
+ * receiver or task-lifetime proof; the unexamined cases are listed in docs/gaps.md. The checks:
  *
  * <ul>
  *   <li>Every singleton that implements an {@code api} interface is wrapped by the call observer, and no module
@@ -38,7 +38,7 @@ import org.springframework.util.ReflectionUtils;
  *   <li>The census reads every class of a module that the run reaches, from the main classes and from the test
  *       classes (altered implementations, stores, fixtures); a class it cannot find on disk is a gap. In those
  *       classes, every use of another module is a call of an {@code api} interface method whose parameters and
- *       result are values only, which the proxies intercept and whose receiver the walk proves to be a proxy, or a
+ *       result are values only (the walk separately checks reachable receivers), or a
  *       value use: a constructor, a record accessor, {@code equals}, {@code hashCode}, {@code toString} or an enum's
  *       built-in method on a type that holds values only. Anything else is a gap, and so are a method other than a
  *       constructor that takes another module's {@code api} service as a parameter, and any use of reflection,
@@ -90,6 +90,13 @@ public final class Coverage {
     private static final Set<String> VALUE_METHODS = Set.of("equals", "hashCode", "toString");
     private static final Set<String> ENUM_METHODS = Set.of("values", "valueOf", "name", "ordinal", "compareTo",
             "getDeclaringClass", "describeConstable");
+    /** These Thread operations cannot start or enqueue work; all other uses of Thread and its builders fail closed. */
+    private static final Set<String> THREAD_INSPECTION = Set.of("currentThread", "interrupt", "interrupted",
+            "isInterrupted", "isVirtual", "threadId", "getName", "getState", "isAlive", "join", "sleep", "yield",
+            "onSpinWait");
+    /** Synchronization primitives used by the fixtures; other concurrent APIs are outside this synchronous slice. */
+    private static final Set<String> SYNCHRONOUS_CONCURRENT = Set.of("java.util.concurrent.CountDownLatch",
+            "java.util.concurrent.TimeUnit");
 
     private static JavaClasses main;
     private static JavaClasses test;
@@ -151,7 +158,8 @@ public final class Coverage {
         List<String> threads = recorder.threadsLeftRunning();
         threads.forEach(t -> gaps.add("thread '" + t + "' started during the run and is still running: work it does "
                 + "after the recording ends would not be seen"));
-        checks.add(new Check("No thread that the run started outlives it", threads.isEmpty(),
+        checks.add(new Check("No new non-system platform thread outside the stimuli remains at this snapshot",
+                threads.isEmpty(),
                 threads.isEmpty() ? "none" : String.join(", ", threads)));
         return before.with(checks, gaps);
     }
@@ -195,8 +203,8 @@ public final class Coverage {
         Reachability.Result walk = new Reachability(model, recorder, context).walk(moduleBeans, statics);
         gaps.addAll(loading);
         gaps.addAll(walk.gaps());
-        checks.add(new Check("Everything reachable from the module beans and from static fields, " + when + ", is a "
-                + "value, an object of its own module, an observer's proxy or the application context",
+        checks.add(new Check("The bounded receiver walk " + when + " found no bypass, unreadable object or "
+                + "traversal-limit gap",
                 walk.gaps().isEmpty() && loading.isEmpty(), moduleBeans.size() + " module beans, "
                         + statics.size() + " classes' static fields"));
     }
@@ -281,11 +289,12 @@ public final class Coverage {
         unwrappable.forEach(s -> gaps.add("call site " + s.location() + " uses " + s.target()
                 + ", which no proxy can intercept"));
         long intercepted = sites.stream().filter(s -> s.category() == Category.INTERCEPTED).count();
-        checks.add(new Check("The census reads every class of a module that the run uses", found,
+        checks.add(new Check("The census reads all main module classes and reached test module classes with their "
+                + "module dependencies", found,
                 scope.size() + " classes: " + mainClasses.stream().filter(c -> model.moduleOf(c.getName())
                         .isPresent()).count() + " main, the rest from the test classes"));
-        checks.add(new Check("Every cross-module use calls an api interface method on values only, or uses a value, "
-                + "and nothing reaches behind a proxy", unwrappable.isEmpty() && gaps.size() == before,
+        checks.add(new Check("The examined call sites use supported cross-module signatures and have no forbidden "
+                + "access or unsupported async dispatch", unwrappable.isEmpty() && gaps.size() == before,
                 "call sites: " + sites.size() + "; api interface calls: " + intercepted + "; value uses: "
                         + (sites.size() - intercepted - unwrappable.size()) + "; not interceptable: "
                         + unwrappable.size()));
@@ -302,10 +311,41 @@ public final class Coverage {
     }
 
     private static void forbidden(String owner, String member, JavaCodeUnit origin, int line, List<String> gaps) {
+        if (unsupportedDispatch(owner, member)) {
+            gaps.add("call site " + origin.getFullName() + " (line " + line + ") uses " + owner + "#" + member
+                    + ": asynchronous dispatch is unsupported; task completion cannot be proven by this recorder");
+        }
         if (FORBIDDEN.stream().anyMatch(owner::startsWith) && !PUBLISH.equals(owner + "#" + member)) {
             gaps.add("call site " + origin.getFullName() + " (line " + line + ") uses " + owner + ", which could reach "
                     + "an implementation behind its proxy");
         }
+    }
+
+    /** Refuse task-capable API families even when the task happens to complete before the recording ends. */
+    private static boolean unsupportedDispatch(String owner, String member) {
+        Optional<Class<?>> type = load(owner);
+        if (type.filter(Thread.class::isAssignableFrom).isPresent()) {
+            return !THREAD_INSPECTION.contains(member);
+        }
+        if (owner.startsWith("java.lang.Thread$Builder")
+                || type.filter(t -> java.util.concurrent.Executor.class.isAssignableFrom(t)
+                        || java.util.concurrent.ThreadFactory.class.isAssignableFrom(t)
+                        || java.util.concurrent.Future.class.isAssignableFrom(t)
+                        || java.util.concurrent.CompletionStage.class.isAssignableFrom(t)
+                        || java.util.Timer.class.isAssignableFrom(t)
+                        || java.util.TimerTask.class.isAssignableFrom(t)).isPresent()) {
+            return true;
+        }
+        if (owner.startsWith("java.util.concurrent.") && !SYNCHRONOUS_CONCURRENT.contains(owner)
+                && !owner.startsWith("java.util.concurrent.atomic.")
+                && !owner.startsWith("java.util.concurrent.locks.")) {
+            return true;
+        }
+        return (member.equals("parallel") || member.equals("parallelStream"))
+                || owner.equals("java.util.stream.StreamSupport")
+                || (owner.equals("java.util.Arrays") && member.startsWith("parallel"))
+                || owner.startsWith("java.nio.channels.Asynchronous")
+                || (owner.startsWith("java.net.http.") && member.equals("sendAsync"));
     }
 
     private static Optional<CallSite> site(ScenarioModel model, ValueTypes values, String from,

@@ -22,6 +22,11 @@ import io.github.stigjohnny.shipping.tenants.internal.application.ThreadTenantCo
 import java.time.Clock;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
@@ -41,6 +46,56 @@ class CoverageBypassTest {
 
     private static final String TENANTS_IMPLEMENTATION =
             "io.github.stigjohnny.shipping.tenants.internal.application.ThreadTenantContext";
+
+    @Test
+    void virtualWorkReleasedAfterCloseIsAlreadyRefused(TestInfo test) throws InterruptedException {
+        Thread.ofVirtual().start(() -> { }).join(); // Initialize the scheduler before the recorder snapshots threads.
+        assertDeferredDispatchRefused(test, Virtual.class, true, "java.lang.Thread#ofVirtual");
+    }
+
+    @Test
+    void preExistingExecutorWorkReleasedAfterCloseIsAlreadyRefused(TestInfo test) throws InterruptedException {
+        CountDownLatch warm = new CountDownLatch(1);
+        ForkJoinPool.commonPool().execute(warm::countDown);
+        assertThat(warm.await(10, TimeUnit.SECONDS)).isTrue();
+        assertDeferredDispatchRefused(test, ExistingExecutor.class, false, "java.util.concurrent.ForkJoinPool#execute");
+    }
+
+    private static void assertDeferredDispatchRefused(TestInfo test, Class<?> configuration, boolean virtual,
+            String dispatch) throws InterruptedException {
+        Set<Long> existingThreads = Thread.getAllStackTraces().keySet().stream().map(Thread::threadId)
+                .collect(Collectors.toSet());
+        ScenarioRun run = ScenarioRun.fixture("ScenarioQuote", virtual ? "bypass-virtual" : "bypass-existing-executor",
+                test, Observers.inProcess(), InProcessModules.Core.class, configuration,
+                InProcessModules.InMemoryStore.class);
+        ScenarioAlterations.DeferredTenantQuote quote = (ScenarioAlterations.DeferredTenantQuote)
+                run.bean(CreateQuote.class);
+        try {
+            ThreadTenantContext tenants = run.implementation(CurrentTenant.class, ThreadTenantContext.class);
+            QuoteResult result = run.stimulus("alpha", "Tenant Alpha's clerk asks for a quote", () ->
+                    tenants.callAs(ALPHA, () -> quote.handle(EXAMPLE)));
+            QuoteOutcomes.issuedFor(run, "Tenant Alpha's quote", result, ALPHA, BETA);
+            assertThat(quote.awaitStarted()).isTrue();
+            assertThat(quote.virtual()).isEqualTo(virtual);
+            if (!virtual) {
+                assertThat(existingThreads).as("the executor worker predates recording").contains(quote.worker());
+            }
+            ScenarioRun.Result finished = run.finish();
+            run.close(); // No late interaction exists yet: refusal must not depend on close's one-time snapshot.
+
+            assertThat(quote.completed()).isFalse();
+            assertThat(finished.outcomes()).hasSize(3);
+            assertThat(finished.outcomesHeld()).isTrue();
+            assertThat(finished.failing()).anySatisfy(finding -> {
+                assertThat(finding.type()).isEqualTo(FindingType.COVERAGE_GAP);
+                assertThat(finding.message()).contains(dispatch, "asynchronous dispatch is unsupported");
+            });
+            assertThat(finished.verdict()).isEqualTo("DOES_NOT_CONFORM");
+        } finally {
+            run.close();
+            assertThat(quote.releaseAndAwait()).as("the fixture releases and finishes its task after close").isTrue();
+        }
+    }
 
     @Test
     void aSupplierThatCapturedTheImplementationBeforeItsProxyIsAGap(TestInfo test) {
@@ -148,11 +203,14 @@ class CoverageBypassTest {
                 InProcessModules.InMemoryStore.class)) {
             ThreadTenantContext tenants = run.implementation(CurrentTenant.class, ThreadTenantContext.class);
             CreateQuote createQuote = run.bean(CreateQuote.class);
-            run.stimulus("alpha", "Tenant Alpha's clerk asks for a quote", () -> tenants.callAs(ALPHA,
+            QuoteResult result = run.stimulus("alpha", "Tenant Alpha's clerk asks for a quote", () -> tenants.callAs(ALPHA,
                     () -> createQuote.handle(EXAMPLE)));
+            QuoteOutcomes.issuedFor(run, "Tenant Alpha's quote", result, ALPHA, BETA);
 
             ScenarioRun.Result finished = run.finish();
 
+            assertThat(finished.outcomes()).hasSize(3);
+            assertThat(finished.outcomesHeld()).isTrue();
             assertThat(finished.verdict()).isEqualTo("DOES_NOT_CONFORM");
             assertThat(finished.failing()).singleElement().satisfies(finding -> {
                 assertThat(finding.type()).isEqualTo(FindingType.COVERAGE_GAP);
@@ -285,6 +343,26 @@ class CoverageBypassTest {
         CreateQuote createQuote(Clock clock, IdGenerator ids, CurrentTenant currentTenant,
                 ApplicationEventPublisher events, QuoteStore store) {
             return new ScenarioAlterations.LateTenantQuote(clock, ids, currentTenant, events, store);
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class Virtual {
+
+        @Bean
+        CreateQuote createQuote(Clock clock, IdGenerator ids, CurrentTenant currentTenant,
+                ApplicationEventPublisher events, QuoteStore store) {
+            return new ScenarioAlterations.VirtualTenantQuote(clock, ids, currentTenant, events, store);
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class ExistingExecutor {
+
+        @Bean
+        CreateQuote createQuote(Clock clock, IdGenerator ids, CurrentTenant currentTenant,
+                ApplicationEventPublisher events, QuoteStore store) {
+            return new ScenarioAlterations.ExecutorTenantQuote(clock, ids, currentTenant, events, store);
         }
     }
 

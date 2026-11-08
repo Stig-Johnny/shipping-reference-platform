@@ -31,8 +31,9 @@ Built and running:
   and `HexagonalLayeringTest` the layering rules, and each of the three also fails on fixtures that break it.
 - **The scenario checks** (`control.scenario-conformance`, partial): two scenario views run in process on the built
   modules. Of their twelve declared steps, four are verified against what the code did (three module API calls and one
-  event publication); the rest are counted as not evaluated, and what the recorder cannot see is refused as a coverage
-  gap. The tenant-denial test separately asserts the outcome, a rejection as for an unknown
+  event publication); the rest are counted as not evaluated. Detected coverage gaps fail the run; receiver coverage
+  and task completion are not universally proven (the unexamined cases are in [known gaps](docs/gaps.md#6-tests-and-quality-gates)).
+  The tenant-denial test separately asserts the outcome, a rejection as for an unknown
   quote with nothing stored for the other tenant; that assertion is not a verified step
   ([Executable scenarios](docs/flows/quote-book-label.md#executable-scenarios)).
 - **The documentation tool**, `tools/docs`, with its tests. It generates the C4 view pages, `BRAIN.md` and a static

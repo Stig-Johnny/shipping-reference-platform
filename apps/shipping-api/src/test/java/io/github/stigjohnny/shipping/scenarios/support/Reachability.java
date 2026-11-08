@@ -23,8 +23,8 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationEventPublisher;
 
 /**
- * Walks everything a run's module code can reach, to prove that every reference into another module goes through an
- * observer. From each module bean, and from each static field of the classes the census reads, it follows fields,
+ * Checks the references reachable at the two run boundaries; this is not a proof of every runtime receiver.
+ * From each module bean, and from each static field of the classes the census reads, it follows fields,
  * the arguments a lambda captured, the components of records, and the elements of JDK collections, maps, optionals and
  * arrays. It is a coverage gap when the walk reaches an object of another module that is no observer's proxy and is not
  * a value, an event publisher other than the application context, an application class that belongs to no module (its
@@ -33,7 +33,7 @@ import org.springframework.context.ApplicationEventPublisher;
  */
 final class Reachability {
 
-    /** The walk stops, with a gap, when it has seen this many objects. */
+    /** The walk stops, with a gap, when it has seen this many object/owning-module pairs. */
     private static final int LIMIT = 200_000;
     private static final Set<Class<?>> OPAQUE_SAFE = Set.of(AtomicLong.class, AtomicInteger.class, AtomicBoolean.class,
             CountDownLatch.class);
@@ -51,7 +51,8 @@ final class Reachability {
     private final Recorder recorder;
     private final ApplicationContext context;
     private final ValueTypes values = new ValueTypes();
-    private final IdentityHashMap<Object, Boolean> seen = new IdentityHashMap<>();
+    private final IdentityHashMap<Object, Set<String>> seen = new IdentityHashMap<>();
+    private int visits;
     private final Set<String> gaps = new TreeSet<>();
     private final Set<String> moduleClasses = new TreeSet<>();
 
@@ -96,13 +97,20 @@ final class Reachability {
     }
 
     private void visit(Object value, String path, String owner) {
-        if (value == null || seen.put(value, Boolean.TRUE) != null) {
+        if (value == null) {
             return;
         }
-        if (seen.size() > LIMIT) {
-            gaps.add("the walk stopped after " + LIMIT + " objects, so what lies beyond them is not checked");
+        Set<String> owners = seen.get(value);
+        if (owners != null && owners.contains(owner)) {
             return;
         }
+        if (visits >= LIMIT) {
+            gaps.add("the walk stopped after " + LIMIT + " object/owning-module pairs, so what lies beyond them is "
+                    + "not checked");
+            return;
+        }
+        seen.computeIfAbsent(value, ignored -> new TreeSet<>()).add(owner);
+        visits++;
         Class<?> type = value.getClass();
         if (recorder.observes(value) || context.equals(value) || values.valueOnly(type)
                 || OPAQUE_SAFE.contains(type)) {

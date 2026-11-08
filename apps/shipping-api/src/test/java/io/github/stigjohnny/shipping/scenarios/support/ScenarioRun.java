@@ -233,9 +233,9 @@ public final class ScenarioRun implements AutoCloseable {
     }
 
     /**
-     * Closes the context. An interaction after the recording ended, other than the outcome assertions' own, is
-     * asynchronous work the comparison could not see: the reports are written again with it as a coverage gap, and
-     * closing fails.
+     * Closes the context and takes one snapshot of observed late interactions. Such an interaction rewrites the
+     * report with a coverage gap and fails closing. This cannot detect work released after close; the census refuses
+     * examined async dispatch sites independently of this diagnostic snapshot.
      */
     @Override
     public void close() {
@@ -248,8 +248,8 @@ public final class ScenarioRun implements AutoCloseable {
         if (!late.isEmpty() && result != null) {
             List<String> gaps = late.stream().map(l -> "after the recording ended, " + l + " ran: asynchronous work "
                     + "is not observed, so this run's comparison is incomplete").toList();
-            result = report(finalCoverage.with(List.of(new Coverage.Check("No interaction happens after the "
-                    + "recording ends", false, late.size() + " late")), gaps));
+            result = report(finalCoverage.with(List.of(new Coverage.Check("No late interaction was observed by "
+                    + "the close-time snapshot", false, late.size() + " late")), gaps));
             throw new AssertionError("Scenario " + sidecar.view() + ": " + late.size() + " interactions happened "
                     + "after the recording ended (report: " + result.markdown() + "):\n  " + String.join("\n  ", late));
         }

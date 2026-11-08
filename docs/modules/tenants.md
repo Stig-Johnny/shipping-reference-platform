@@ -2,7 +2,7 @@
 title: "Module: tenants"
 description: "Demo authentication for synthetic users, tenant derivation from membership, tenant binding for row-level security, and tenant-scoped prototype flags."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 module: tenants
 moduleStatus: built
 riskLevel: 3
@@ -20,6 +20,11 @@ Built: `TenantId`, `CurrentTenant` and `MissingTenantContextException` in `tenan
 binding ends when the work returns or throws and the previous one applies again, and independently started threads do
 not inherit the binding (`ThreadTenantContextTest`); child tasks forked through `StructuredTaskScope` can inherit it.
 The quotes module takes its tenant from `CurrentTenant`.
+
+In the scenario coverage fixtures, `ReachabilityTest` shares one raw `ThreadTenantContext` between tenant-owned and
+quote-owned roots, directly and through shared containers, and requires a bypass gap in both traversal orders.
+Visits track object identity and owning module. This checks boundary snapshots, not every runtime reference
+([known gaps](../gaps.md#6-tests-and-quality-gates)).
 
 Planned: everything else on this page, demo authentication, the HTTP filter that binds the tenant, `TenantScope`,
 `UserId`, the transaction manager that sets `app.tenant_id`, prototype flags, `GET /api/v1/me` and the schema. Every

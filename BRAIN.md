@@ -51,7 +51,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | `control.deterministic-reports` | shipped | `java` | ReportDeterminismTest, ConformanceAssertionsTest, SelfConformanceTest |
 | `control.modulith-verification` | shipped | `java` | ModularityTest |
 | `control.hexagonal-layering` | shipped | `java` | HexagonalLayeringTest |
-| `control.scenario-conformance` | partial | `java` | QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest |
+| `control.scenario-conformance` | partial | `java` | QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, ReachabilityTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest |
 | `control.table-ownership` | planned | `java` | none yet |
 | `control.migrations` | planned | `java` | none yet |
 | `control.http-contract` | planned | `java` | none yet |

@@ -19,6 +19,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
@@ -35,6 +36,94 @@ import org.springframework.context.ApplicationEventPublisher;
 public final class ScenarioAlterations {
 
     private ScenarioAlterations() {
+    }
+
+    /** A quotes-owned root that shares its receiver or container with a tenant-owned root. */
+    public record SharedReference(Object held) {
+    }
+
+    /** Work deliberately held until after finish and close; no thread or executor is retained in the object graph. */
+    public abstract static class DeferredTenantQuote extends CreateQuote {
+
+        private final CurrentTenant tenant;
+        private final CountDownLatch started = new CountDownLatch(1);
+        private final CountDownLatch release = new CountDownLatch(1);
+        private final CountDownLatch completed = new CountDownLatch(1);
+        private volatile boolean virtual;
+        private volatile long worker;
+
+        protected DeferredTenantQuote(Clock clock, IdGenerator ids, CurrentTenant currentTenant,
+                ApplicationEventPublisher events, QuoteStore store) {
+            super(clock, ids, currentTenant, events, store);
+            this.tenant = currentTenant;
+        }
+
+        protected final void lookUpLater() {
+            virtual = Thread.currentThread().isVirtual();
+            worker = Thread.currentThread().threadId();
+            started.countDown();
+            try {
+                release.await();
+                tenant.require();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (RuntimeException e) {
+                // No tenant is bound on this worker; reaching the observer is the fixture's purpose.
+            } finally {
+                completed.countDown();
+            }
+        }
+
+        public boolean awaitStarted() throws InterruptedException {
+            return started.await(10, TimeUnit.SECONDS);
+        }
+
+        public boolean virtual() {
+            return virtual;
+        }
+
+        public long worker() {
+            return worker;
+        }
+
+        public boolean completed() {
+            return completed.getCount() == 0;
+        }
+
+        public boolean releaseAndAwait() throws InterruptedException {
+            release.countDown();
+            return completed.await(10, TimeUnit.SECONDS);
+        }
+    }
+
+    /** A virtual task whose scheduler is warmed before recording begins. */
+    public static final class VirtualTenantQuote extends DeferredTenantQuote {
+
+        public VirtualTenantQuote(Clock clock, IdGenerator ids, CurrentTenant currentTenant,
+                ApplicationEventPublisher events, QuoteStore store) {
+            super(clock, ids, currentTenant, events, store);
+        }
+
+        @Override
+        public QuoteResult handle(QuoteRequest request) {
+            Thread.ofVirtual().start(this::lookUpLater);
+            return super.handle(request);
+        }
+    }
+
+    /** Dispatch to a pool initialized before recording; the task is released only after the run closes. */
+    public static final class ExecutorTenantQuote extends DeferredTenantQuote {
+
+        public ExecutorTenantQuote(Clock clock, IdGenerator ids, CurrentTenant currentTenant,
+                ApplicationEventPublisher events, QuoteStore store) {
+            super(clock, ids, currentTenant, events, store);
+        }
+
+        @Override
+        public QuoteResult handle(QuoteRequest request) {
+            ForkJoinPool.commonPool().execute(this::lookUpLater);
+            return super.handle(request);
+        }
     }
 
     /**

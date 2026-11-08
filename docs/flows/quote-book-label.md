@@ -128,38 +128,46 @@ report says that no declared step was verified. A run with a finding says that i
 outcomes (Beta's booking is rejected as for an unknown quote, nothing is stored for Beta, Alpha's offer stays
 bookable) are assertions of the test, apart from the step verdict.
 
-The coverage contract fails closed: where the recorder could miss an interaction, the run is a COVERAGE_GAP, not a
-pass.
+Detected coverage gaps fail the run as COVERAGE_GAP. The checks below do not prove every runtime receiver or task
+lifetime; the unexamined cases in [known gaps](../gaps.md#6-tests-and-quality-gates) can still escape detection.
 
-- **Receivers.** A call counts as intercepted only where its receiver is proven to be an observer's proxy. Before and
-  after the run, a walk follows everything reachable from the module beans and from the static fields of the classes
-  in the run, captured lambda arguments, records, collections and nested references included. Another module's
+- **Receivers.** The census classifies interface signatures as interceptable; a separate bounded walk checks the
+  objects reachable before and after the run from module beans and census static fields, including captured lambda
+  arguments, records, collections and nested references. Visits track object identity and owning module, including
+  shared containers; visiting a receiver through its own module does not exempt it through another. Another module's
   object that no proxy wraps, an event publisher other than the context, an application class outside every module,
   or a library object the walk cannot look into is a gap. A module object registered as a ready singleton, which no
   post-processor sees, is a gap, and circular references are off, so no bean can see another's raw instance.
-- **Call sites.** The main and test classes of the run are read. A cross-module use that is not an `api` interface
+- **Call sites.** All main module classes, reached test module classes and their module dependency closure are read.
+  A cross-module use that is not an `api` interface
   call with value-only parameters and results, reflection, method handles, Spring lookups from module code, a method
   other than a constructor that takes another module's service as a parameter, and a listener method while listener
   executions are not observed are gaps. Values are exempt only through constructors, accessors and
   built-ins of value-only types: records, enums and sealed types of values, JDK value classes and JDK containers of
   them.
-- **Time.** An interaction on a thread other than the stimulus's, a thread the run started that outlives it, and an
-  interaction after the recording has ended are gaps; the last fails the test when the run closes, after its report has
-  been rewritten.
+- **Time.** The census refuses task-capable APIs in its examined code: thread creation/builders, executors, futures,
+  timers and explicit parallel dispatch, with a narrow set of synchronous thread/concurrency operations allowed.
+  It does not try to prove those tasks finish. The virtual-thread and pre-existing-pool fixtures are refused even
+  when their work is released only after close. A recorded interaction on another thread, a new non-system platform
+  thread still present at the final snapshot, or a late interaction seen by close is also a gap. These snapshots do
+  not enumerate virtual tasks, track tasks on existing workers, or detect interactions occurring after close.
 - **Phases and repeats.** No run observes commits yet, so a step declared `AFTER_COMMIT` that would be evaluated is
   refused as a gap. A sidecar that repeats one signature with a varying cardinality is refused, since an interaction
   could belong to more than one step; repeats need exact cardinalities.
 
-The model's views are read by a restricted text reader that refuses every comment form Structurizr could read
-differently; `ScenarioModelTest` compares its reading of every dynamic view with Structurizr's, as the docs tool
-renders it into the view pages.
+The model's views are read by a restricted text reader that rejects unsupported syntax, including the tested comment
+forms. `ScenarioModelTest` compares the repository's dynamic views with Structurizr's generated view pages. Its
+accepted/refused syntax fixtures assert against the restricted reader alone, using a fabricated kit report.
 
 The negative fixtures run altered code. `ScenarioFixturesTest`: a removed call that keeps the outcome, an added call
 along a permitted relationship, two swapped interactions, a disabled call observer, a disabled publication observer
 and an `AFTER_COMMIT` publication that runs before any commit each fail for their reason, and two runs interleaved on
 two threads pass. `CoverageBypassTest`: a captured `Supplier`, a nested reference, a static field, a singleton
 registered as an object, a lookup after the recording ends, a test-only implementation and a value type with behaviour
-each reach another module unobserved, keep the outcome, and fail with a coverage gap. `SidecarValidationTest` refuses
+each reach another module unobserved, keep three asserted outcomes, and fail with a coverage gap. Two more fixtures
+hold virtual-thread and pre-existing-executor work until after close; both keep three outcomes and fail on dispatch.
+`ReachabilityTest` checks a shared raw receiver and shared containers in both module traversal orders, including a
+container cycle. `SidecarValidationTest` refuses
 the repeated-signature case A (0..*), B (1), C (1..*).
 
 Each run writes `apps/shipping-api/build/reports/scenarios/<key in kebab case>.json` and `.md`, negative fixtures under
