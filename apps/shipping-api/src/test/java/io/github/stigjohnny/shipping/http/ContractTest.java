@@ -41,6 +41,26 @@ class ContractTest {
     private final Contract contract = Contract.contract();
 
     @Test
+    void rawSvgUsesTheStringSchemaAndStillRejectsOversizedBodiesAndInvalidHeaders() throws Exception {
+        String path = "/api/v1/shipments/9d1c2b3a-4e5f-4a6b-8c7d-0e1f2a3b4c5d/label";
+        MockHttpServletResponse label = label("<svg/>");
+        contract.assertExercised("GET", path, label);
+        assertThatThrownBy(() -> contract.assertExercised("GET", path, label("x".repeat(65537))))
+                .isInstanceOf(AssertionError.class).hasMessageContaining("65536");
+        label.setHeader("Content-Security-Policy", "default-src *");
+        assertThatThrownBy(() -> contract.assertExercised("GET", path, label))
+                .isInstanceOf(AssertionError.class).hasMessageContaining("Content-Security-Policy");
+    }
+
+    private static MockHttpServletResponse label(String body) throws Exception {
+        MockHttpServletResponse label = response(200, MediaType.parseMediaType("image/svg+xml"), body);
+        label.setHeader("Content-Disposition", "attachment; filename=\"label-SIM0000000001.svg\"");
+        label.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+        label.setHeader("X-Content-Type-Options", "nosniff");
+        return label;
+    }
+
+    @Test
     void conformingResponsesPass() throws Exception {
         contract.assertConforms("get", "/me", response(200, MediaType.APPLICATION_JSON, MEMBERSHIP), "/api/v1/me");
         contract.assertConforms("get", "/quotes/{quoteId}", response(200, MediaType.APPLICATION_JSON, QUOTE),

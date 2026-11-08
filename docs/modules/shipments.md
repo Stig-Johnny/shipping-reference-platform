@@ -15,28 +15,27 @@ bookings and personal data (recipient names and addresses, synthetic only).
 
 ## Implementation state
 
-Built: booking. The public API's `ShipmentId` and `ShipmentBooked`; in the domain, `Shipment` with `book`, the values
-`Recipient`, `ShipmentReference`, `TrackingNumber`, `IdempotencyKey` and `RequestFingerprint`, and `BookingCommand`,
-`BookingOutcome` and `BookingRejection`; in the application, `BookShipment` with the booking rules below, in their
-order, and its two ports, `ShipmentStore` (insert, find by key, find by quote) and `TrackingNumbers`. Their tests book
-against real quotes of the quotes module through `QuoteOffers`, with stores in memory, a fixed clock and deterministic
-IDs. `shipments.book-from-offer` and `shipments.idempotent-booking` are partial, since `ShipmentsHttpContractTest` and
-`BookingIdempotencyIntegrationTest` are planned; the other four capabilities are planned. `ShipmentTest` covers what
-booking produces, not cancellation.
+Built: booking, listing, reading and simulated labels over HTTP. `ShipmentsController` maps the existing
+`BookShipment` outcomes; `ShipmentsConfiguration` wires `GetShipment`, `ListShipments` and `RenderLabel` through application ports.
+`ShipmentsHttpContractTest` starts the application with in-memory quote and shipment stores, deterministic IDs and
+tracking numbers, and a fixed clock. Every exercised response is checked against the unchanged OpenAPI contract,
+including raw SVG. It proves sequential replay after expiry, all booking rejections, tenant isolation for detail and
+labels, newest-first keyset pages including tied timestamps, tenant/filter-bound cursors and input validation.
+`SvgLabelRendererTest` checks exact golden bytes, escaping, the allowed XML vocabulary and the decorative bars.
 
-Until cancellation exists, `ShipmentStatus` has `BOOKED` only, and `Shipment` has no `cancelledAt`, no `version` and
-no `cancel`: the domain model below names them, and they arrive with their first use.
+The four built shipment capabilities remain partial: persistence, transactional publication, concurrent booking and
+cancellation are unproven. `ShipmentTest` covers booking only. `ShipmentStatus` still has `BOOKED` only; the HTTP
+`CANCELLED` list filter is accepted and returns no matches until cancellation exists. There is no cancellation route,
+no cancelled state to replay and no `409 shipment-cancelled` label outcome yet.
 
-Planned: `ShipmentCancelled` and cancellation, `GetShipment`, `ListShipments`, `RenderLabel` with `SvgLabelRenderer`,
-the store's other operations, both adapters, the migration, and the wiring into a running application. Until then no
-class of the module is a Spring bean: `BookShipment`'s `@Transactional` has no effect yet, nothing yet shows that
-`ShipmentBooked` is published inside the booking's transaction, and requests with the same key are not serialized.
-The advisory lock, the recheck under it and the handling of unique-key failures (the concurrency paragraph under
-Booking rules) belong to the planned JDBC adapter, and so does the tracking number sequence; the tests count in memory.
+Planned: `ShipmentCancelled`, cancellation, the JDBC adapters and migration, and a running application outside tests.
+The HTTP configuration now creates Spring beans, but without a transaction manager `@Transactional` has no effect.
+Nothing yet proves that `ShipmentBooked` commits with its shipment, or that concurrent requests with one key serialize.
+The advisory lock, recheck, unique-key failure resolution and tracking sequence belong to the planned JDBC adapter.
 
 `TenantDenialScenarioTest` separately asserts Beta's booking rejection, no stored shipment for Beta, and Alpha's
-still-bookable offer. Two declared API calls are evaluated, but the full-main census retains 77 known coverage gaps
-from the HTTP edge and quotes factories. Its verdict is `COVERAGE_INCOMPLETE`; exact ledger matching is build
+still-bookable offer. Two declared API calls are evaluated, but the full-main census retains 106 known coverage gaps
+from the HTTP edge and quotes/shipments factories. Its verdict is `COVERAGE_INCOMPLETE`; exact ledger matching is build
 acceptance with known debt, not proof of conformance. Closing the classified gaps is phase 3 / option 2 (ADR 0013).
 
 ## Responsibilities
@@ -160,7 +159,8 @@ identical input.
   (`YYYY-MM-DD`, UTC).
 - Bars: for each of the ten digits `d` of the tracking number, left to right, one black `rect` of width `(d + 1) x 4`
   units and height 160 at `y = 1100`, starting at `x = 80`, with 8 units between bars. Not a barcode symbology.
-- All text is XML-escaped (`&`, `<`, `>`, `"`, `'`).
+- All text is XML-escaped (`&`, `<`, `>`, `"`, `'`). U+FFFE and U+FFFF are valid booking input but forbidden
+  in XML 1.0; the label displays `[U+FFFE]` and `[U+FFFF]` for them, without changing stored data or schema bounds.
 - HTTP headers: `Content-Type: image/svg+xml`, `Content-Disposition: attachment; filename="label-<tracking>.svg"`,
   `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`, `Cache-Control: no-store`.
 
@@ -188,18 +188,20 @@ identical input.
   unchanged. Publish ShipmentCancelled only for the committed transition. ShipmentEventsIntegrationTest verifies
   concurrent cancellations return the same cancelled shipment and create one cancellation publication.
 - `GetShipment.handle(ShipmentId) -> Optional<Shipment>`.
-- `ListShipments.handle(ShipmentQuery) -> ShipmentSlice`; keyset pagination on `(booked_at desc, shipment_id desc)`;
+- `ListShipments.handle(ShipmentQuery) -> ListingOutcome` (`Listed(ShipmentSlice)` or `InvalidCursor`); keyset pagination on `(booked_at desc, shipment_id desc)`;
   the cursor is base64url (no padding) of `tenantId|bookedAt|shipmentId|statusFilter`; a cursor whose tenant or
-  filter differs from the request is rejected.
-- `RenderLabel.handle(ShipmentId) -> LabelOutcome` (`Rendered(String svg, TrackingNumber)`, `ShipmentCancelled`,
-  `NotFound`).
-- Ports: `ShipmentStore` (insert, update with version check, find by ID, find by key, find by quote, page),
+  filter differs from the request is rejected. Canonical base64url, UUIDs and millisecond instants are required; the
+  encoded cursor stays within the existing 200-character schema bound. The store reads `limit + 1` rows to decide
+  whether a continuation exists, and the last page omits the cursor. UUID order is unsigned/lexical, as in PostgreSQL.
+- `RenderLabel.handle(ShipmentId) -> LabelOutcome` (`Rendered(String svg, TrackingNumber)`, `NotFound`).
+  The `ShipmentCancelled` outcome is planned with cancellation.
+- Ports: `ShipmentStore` (insert, find by ID, find by key, find by quote, page; update with version check is planned),
   `TrackingNumbers` (`TrackingNumber next()`).
 - Injected: `Clock`, `IdGenerator`, `CurrentTenant`, `QuoteOffers`, `ApplicationEventPublisher`, the ports.
 
 ## Adapters
 
-- `internal.adapter.in.web`: `ShipmentsController` (all five operations), request and response records, mapping of
+- `internal.adapter.in.web`: `ShipmentsController` (book, list, read and label; cancellation planned), request and response records, mapping of
   outcomes to problems. Recipient data is never logged; request logging excludes bodies.
 - `internal.adapter.out.jdbc`: `JdbcShipmentStore` (Spring JDBC's `JdbcClient`, ADR 0012; optimistic locking by a
   check of the `version` column in each update), `JdbcTrackingNumbers` (sequence).
@@ -233,13 +235,13 @@ columns `not null`.
 | S2 | Booking checks run in the documented order and map to the documented rejections. | `BookShipmentTest` |
 | S3 | An offer is bookable only while `now < expiresAt`. | `BookShipmentTest`, `QuoteExpiryTest` |
 | S4 | The recipient's country and postcode equal the quote's destination. | `BookShipmentTest` |
-| S5 | Same tenant, key and body give the same shipment (`201` then `200`); a different body gives `422`; concurrent duplicates create one row. | `BookingIdempotencyIntegrationTest` |
-| S6 | One shipment per quote; a second key for the same quote gives `409`. | `BookingIdempotencyIntegrationTest` |
+| S5 | Same tenant, key and body give the same shipment (`201` then `200`); a different body gives `422`; concurrent duplicates create one row. | `ShipmentsHttpContractTest` (sequential HTTP), `BookingIdempotencyIntegrationTest` (planned concurrency) |
+| S6 | One shipment per quote; a second key for the same quote gives `409`. | `ShipmentsHttpContractTest` (sequential HTTP), `BookingIdempotencyIntegrationTest` (planned concurrency) |
 | S7 | The fingerprint changes when any field changes and distinguishes absent from present optional fields. | `RequestFingerprintTest` |
 | S8 | `ShipmentBooked` and `ShipmentCancelled` are published once on commit and never on rollback. | `ShipmentEventsIntegrationTest` |
 | S9 | Labels are byte-identical for the same shipment, escape all text, contain only allowed elements and attributes, carry the simulation banner; a cancelled shipment has no label. | `SvgLabelRendererTest`, `ShipmentsHttpContractTest` |
-| S10 | Listing is newest first, paginates without gaps or repeats, honours the status filter and rejects foreign cursors. | `ShipmentListingIntegrationTest` |
-| S11 | Shipments of another tenant are never visible or changeable. | `CrossTenantAccessTest`, `RowLevelSecurityIntegrationTest` |
+| S10 | Listing is newest first, paginates without gaps or repeats, honours the status filter and rejects foreign cursors. | `ShipmentsHttpContractTest` (in memory), `ShipmentListingIntegrationTest` (planned database) |
+| S11 | Shipments of another tenant are never visible or changeable. | `ShipmentsHttpContractTest` (detail/label, in memory); `CrossTenantAccessTest`, `RowLevelSecurityIntegrationTest` (planned shipment database proof) |
 | S12 | HTTP responses match the contract. | `ShipmentsHttpContractTest` |
 | S13 | Recipient values are validated per the contract. | `RecipientTest` |
 

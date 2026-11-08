@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="150mm" viewBox="0 0 1000 1500" role="img" aria-label="Simulated shipping label SIM0123456789">
+<title>Simulated shipping label SIM0123456789</title>
+<text x="80" y="70" font-family="sans-serif" font-size="24" fill="black">SIMULATED LABEL - NOT VALID FOR CARRIAGE</text>
+<text x="80" y="140" font-family="sans-serif" font-size="24" fill="black">STANDARD</text>
+<text x="80" y="240" font-family="sans-serif" font-size="24" fill="black">FROM NO 0150</text>
+<text x="80" y="340" font-family="sans-serif" font-size="24" fill="black">TO</text>
+<text x="80" y="410" font-family="sans-serif" font-size="24" fill="black">Synthetic Recipient 1</text>
+<text x="80" y="480" font-family="sans-serif" font-size="24" fill="black">1 Example Street</text>
+<text x="80" y="620" font-family="sans-serif" font-size="24" fill="black">11122 Exampleby</text>
+<text x="80" y="690" font-family="sans-serif" font-size="24" fill="black">SE</text>
+<text x="80" y="990" font-family="sans-serif" font-size="24" fill="black">SIM0123456789</text>
+<rect x="80" y="1100" width="4" height="160" fill="black"/>
+<rect x="92" y="1100" width="8" height="160" fill="black"/>
+<rect x="108" y="1100" width="12" height="160" fill="black"/>
+<rect x="128" y="1100" width="16" height="160" fill="black"/>
+<rect x="152" y="1100" width="20" height="160" fill="black"/>
+<rect x="180" y="1100" width="24" height="160" fill="black"/>
+<rect x="212" y="1100" width="28" height="160" fill="black"/>
+<rect x="248" y="1100" width="32" height="160" fill="black"/>
+<rect x="288" y="1100" width="36" height="160" fill="black"/>
+<rect x="332" y="1100" width="40" height="160" fill="black"/>
+<text x="80" y="1350" font-family="sans-serif" font-size="24" fill="black">REF ORDER-1001</text>
+<text x="80" y="1430" font-family="sans-serif" font-size="24" fill="black">BOOKED 2026-11-10</text>
+</svg>

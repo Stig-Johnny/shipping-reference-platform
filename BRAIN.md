@@ -10,9 +10,9 @@ updated: 2026-11-08
 
 # Brain: shipping-reference-platform
 
-A reference monorepo that shows how a Java and TypeScript product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. The application's first code exists: the API's pricing and quotes and its demo authentication, served over HTTP in tests, and booking in its shipments module, without HTTP yet. The tenants and quotes schemas have paired migrations; application persistence and most of the application are still planned. The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions, a labelled partial check of detected TypeScript imports in the web app, a dependency allowlist check and a documentation tool.
+A reference monorepo that shows how a Java and TypeScript product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. The application's first code exists: the API's pricing and quotes and its demo authentication, served over HTTP in tests, and booking, listing, reading and simulated labels in its shipments module over HTTP. The tenants and quotes schemas have paired migrations; application persistence and most of the application are still planned. The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions, a labelled partial check of detected TypeScript imports in the web app, a dependency allowlist check and a documentation tool.
 
-**State at this commit.** 27 capabilities: 2 shipped, 7 partial, 18 planned; 19 controls: 10 shipped, 6 partial, 3 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
+**State at this commit.** 27 capabilities: 2 shipped, 9 partial, 16 planned; 19 controls: 10 shipped, 6 partial, 3 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
 
 ## Read first
 
@@ -55,7 +55,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | `control.external-imports` | partial | `java` | ExternalImportPolicyTest |
 | `control.table-ownership` | planned | `java` | none yet |
 | `control.migrations` | partial | `java` | MigrationFilesTest |
-| `control.http-contract` | partial | `java` | QuotesHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest |
+| `control.http-contract` | partial | `java` | QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest |
 | `control.web-import-boundaries` | partial | `java` | ImportScannerTest, SourceReaderTest, JsonTest, AppConfigurationTest, WebModelValidationTest, WebConformanceTest, WebReportDeterminismTest, WebArchitectureConformanceTest |
 | `control.dependency-allowlist` | partial | `java` | ContainerEngineWorkflowTest |
 | `control.risk-classification` | planned | `risk-approval` | none yet |

@@ -108,7 +108,7 @@ capabilities:
     title: Book one shipment per quote from an unexpired offer whose destination matches the recipient.
     status: partial
     target: v0.1
-    evidence: [BookShipmentTest, RecipientTest]
+    evidence: [BookShipmentTest, RecipientTest, ShipmentsHttpContractTest]
     acceptanceTests: [BookShipmentTest, RecipientTest, ShipmentsHttpContractTest]
     docs: docs/modules/shipments.md
     actors: [clerk]
@@ -117,8 +117,8 @@ capabilities:
     title: The same tenant, Idempotency-Key and body return the same shipment; a reused key with another body is refused.
     status: partial
     target: v0.1
-    evidence: [RequestFingerprintTest]
-    acceptanceTests: [BookingIdempotencyIntegrationTest, RequestFingerprintTest]
+    evidence: [RequestFingerprintTest, BookShipmentTest, ShipmentsHttpContractTest]
+    acceptanceTests: [BookingIdempotencyIntegrationTest, RequestFingerprintTest, BookShipmentTest, ShipmentsHttpContractTest]
     docs: docs/modules/shipments.md
     actors: [clerk]
   - id: shipments.cancel-shipment
@@ -133,18 +133,18 @@ capabilities:
   - id: shipments.list-and-read
     module: shipments
     title: List the tenant's shipments newest first with cursor pagination and a status filter; read one shipment.
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [ShipmentsHttpContractTest]
     acceptanceTests: [ShipmentListingIntegrationTest, ShipmentsHttpContractTest]
     docs: docs/modules/shipments.md
     actors: [clerk]
   - id: shipments.simulated-label
     module: shipments
     title: Download a deterministic, clearly marked simulated SVG label for a booked shipment.
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [SvgLabelRendererTest, ShipmentsHttpContractTest]
     acceptanceTests: [SvgLabelRendererTest, ShipmentsHttpContractTest]
     docs: docs/modules/shipments.md
     actors: [clerk, carrier]
@@ -403,8 +403,8 @@ controls:
     evidence: [QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, ReachabilityTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest, CoverageLedgerTest]
     acceptanceTests: [QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, ReachabilityTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest, CoverageLedgerTest, FirstBookingScenarioTest, BookingReplayScenarioTest, LabelScenarioTest]
     negativeFixture: CoverageLedgerTest rejects new Spring accesses, removed ledger entries, changed descriptors, disappeared gaps and duplicates; CoverageBypassTest rejects an additional Spring access with an already ledgered owner/member. Altered implementations in ScenarioFixturesTest, a removed call that keeps the outcome (missing step), an added call along a permitted relationship (unexpected interaction), two swapped interactions (order violation), a disabled call observer and a disabled publication observer (coverage gaps), an AFTER_COMMIT publication that runs before any commit (coverage gap), and two interleaved runs that must pass; nine implementations in CoverageBypassTest (coverage gaps), including virtual-thread and pre-existing-executor work released after close; shared receivers and containers in both module traversal orders in ReachabilityTest; a repeated signature with a varying cardinality in SidecarValidationTest (refused).
-    enforcedSubset: In process on the built modules, four declared steps of the quote and tenant-denial scenarios are verified against recorded interactions (three module API calls and one event publication); the other eight steps are counted as not evaluated. Reports say COVERAGE_INCOMPLETE with 77 known gaps (75 Spring accesses and two factory parameters), retained as refusals; an exact classified ledger tagged phase 3 / option 2 rejects new, changed, duplicate and disappeared findings, while all other bounded refusals remain build blockers; unexamined code, transient receivers, driver-supplied references and work after close remain limits (docs/gaps.md section 6). The tenant-denial outcome (rejected as an unknown quote, nothing stored for the other tenant) is asserted by the test apart from step verification.
-    plannedRemainder: Phase 3 / option 2 closes the 77 known gaps through production factory witnesses and concrete Spring receiver/callback coverage; the first booking, booking replay and label scenarios, HTTP exchanges, database steps observed through JDBC, listener executions, and commits observed so that AFTER_COMMIT steps are evaluated instead of refused.
+    enforcedSubset: In process on the built modules, four declared steps of the quote and tenant-denial scenarios are verified against recorded interactions (three module API calls and one event publication); the other eight steps are counted as not evaluated. Reports say COVERAGE_INCOMPLETE with 106 known gaps (100 Spring accesses and six factory parameters), retained as refusals; an exact classified ledger tagged phase 3 / option 2 rejects new, changed, duplicate and disappeared findings, while all other bounded refusals remain build blockers; unexamined code, transient receivers, driver-supplied references and work after close remain limits (docs/gaps.md section 6). The tenant-denial outcome (rejected as an unknown quote, nothing stored for the other tenant) is asserted by the test apart from step verification.
+    plannedRemainder: Phase 3 / option 2 closes the 106 known gaps through production factory witnesses and concrete Spring receiver/callback coverage; the first booking, booking replay and label scenarios, HTTP exchanges, database steps observed through JDBC, listener executions, and commits observed so that AFTER_COMMIT steps are evaluated instead of refused.
     docs: docs/adr/0013-scenario-views-are-checked-against-recorded-interactions.md
   - id: control.external-imports
     title: External dependencies reported by ArchUnit 1.5.1 from API main or test outputs have an approved provider or a verified repository-owned project provider, and are on the caller's layer whitelist.
@@ -446,11 +446,11 @@ controls:
     check: java
     status: partial
     target: v0.1
-    evidence: [QuotesHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest]
+    evidence: [QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest]
     acceptanceTests: [QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest]
     negativeFixture: A response with an undocumented member, an impossible date-time, an invalid header or a problem title that is not its type's, and a status that the operation does not document and no path may give, fails validation (ContractTest).
-    enforcedSubset: Every response that the HTTP tests exercise, of GET /api/v1/me, both quote operations and the problems that any path can give, is validated against the contract in java, on the application with test doubles for its database adapters.
-    plannedRemainder: The shipments operations (ShipmentsHttpContractTest) and the same responses from the PostgreSQL-backed application remain.
+    enforcedSubset: Every response that the HTTP tests exercise, of GET /api/v1/me, both quote operations, shipment booking/list/detail/label and the problems that any path can give, is validated against the contract in java, on the application with test doubles for its database adapters.
+    plannedRemainder: Shipment cancellation, cancelled-state replay/label denial and the same responses from the PostgreSQL-backed application remain.
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.web-import-boundaries
     title: Partial lint of detected web app imports for boundaries, cycles and a detected direct import for each REQUIRED relationship whose endpoints are built; every package and Node.js built-in a detected import names is whitelisted in the model and approved in the allowlist (ADR 0015).

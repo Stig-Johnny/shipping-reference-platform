@@ -13,7 +13,7 @@ document adds order, alternatives and failures, and names the acceptance tests f
 test becomes evidence only once it exists, passes and asserts the step; each row says what it must assert. Rating and
 expiry logic have passing Java tests. Signing in and creating and reading a quote pass over HTTP, in the application
 started by the tests with test doubles for the token lookup and the quote store; so storage is tested in memory, and so
-are booking and its replay. The tenants and quotes schemas now have paired up and down migrations (ADR 0016),
+are booking, replay, shipment listing/reading and SVG labels over HTTP. The tenants and quotes schemas now have paired up and down migrations (ADR 0016),
 but their CI database evidence is pending. Application persistence and the rest of the flow remain planned.
 Parts of the flow are also executable scenarios, checked against what the code does when they run
 ([Executable scenarios](#executable-scenarios)).
@@ -82,10 +82,10 @@ sequenceDiagram
 | 8 to 9: store and publish | Only offered quotes are stored, under the caller's tenant; `QuoteIssued` is published once. | Passing, in memory: `CreateQuoteTest`. Planned: `QuotesModuleIntegrationTest` |
 | 10: quote response | `201` with `Location`, offers in level order and `expiresAt = issuedAt + 30 min`, conforming to the contract. | Passing, with the store in memory: `QuotesHttpContractTest`. Planned: `QuoteCardList.test.tsx` |
 | 11 to 14: book | Checks run in the documented order; the offer must be unexpired and the recipient must match the destination. | Passing, in memory: `BookShipmentTest` (the order of the checks and their rejections, the expiry through `QuoteOffers`, the recipient's country and postcode), `RecipientTest`; quotes' side: `QuoteExpiryTest`, `QuoteOffersServiceTest`. Planned: `BookingForm.test.tsx` |
-| 15 to 17: store, publish, respond | Shipment, key and `ShipmentBooked` publication commit together; `201` conforms to the contract. | Passing, in memory: `BookShipmentTest` (the shipment is stored with its key and fingerprint, and `ShipmentBooked` is published once, not for a replay or a rejection). Planned: `ShipmentEventsIntegrationTest` (in one transaction), `ShipmentsHttpContractTest` |
-| 18 to 21: retry with the same key | Same key and body return the same shipment with `200`; concurrent duplicates create one row; a different body gives `422 idempotency-key-reused`. | Passing, in memory: `RequestFingerprintTest`, `BookShipmentTest` (the same key and body replay the shipment; another body is refused). Planned: `BookingIdempotencyIntegrationTest` (the `200`, the `422` and concurrent duplicates) |
+| 15 to 17: store, publish, respond | Shipment, key and `ShipmentBooked` publication commit together; `201` conforms to the contract. | Passing, in memory: `BookShipmentTest` (the shipment is stored with its key and fingerprint, and `ShipmentBooked` is published once, not for a replay or a rejection). `ShipmentsHttpContractTest` passes the `201` response. Planned: `ShipmentEventsIntegrationTest` (in one transaction) |
+| 18 to 21: retry with the same key | Same key and body return the same shipment with `200`; concurrent duplicates create one row; a different body gives `422 idempotency-key-reused`. | Passing, in memory: `RequestFingerprintTest`, `BookShipmentTest` (the same key and body replay the shipment; another body is refused). `ShipmentsHttpContractTest` passes the `200`, `422` and replay after expiry. Planned: `BookingIdempotencyIntegrationTest` (database concurrency) |
 | 22 to 25: audit after commit | One entry per event under the event's tenant; redelivery has no second effect; a failed write is replayed after restart. | Planned: `ShipmentAuditIntegrationTest`, `AuditDeduplicationTest`, `AuditReplayIntegrationTest` |
-| 26 to 29: label | Byte-identical, escaped, marked SVG with the documented headers; the drawer offers the download. | Planned: `SvgLabelRendererTest`, `ShipmentsHttpContractTest`, `ShipmentDrawer.test.tsx` |
+| 26 to 29: label | Byte-identical, escaped, marked SVG with the documented headers; the drawer offers the download. | Passing: `SvgLabelRendererTest`, `ShipmentsHttpContractTest` (stored in memory). Planned: `ShipmentDrawer.test.tsx`, cancelled-shipment label denial |
 | Whole flow in a browser | Steps 1 to 29 through the UI against the real API, including the double booking and the download; axe finds no violations on each screen. | Planned: `quote-book-label.spec.ts`, `accessibility.spec.ts` |
 
 ## Alternatives and failures
@@ -102,6 +102,10 @@ sequenceDiagram
 | Audit write fails | Booking stays committed; the publication stays incomplete and is replayed. | Planned: `AuditReplayIntegrationTest` |
 | Audit listener deleted | `ArchitectureConformanceTest` fails: absence of REQUIRED `audit -> shipments`. | `ArchitectureConformanceTest` runs in every build; shipments is built, and it evaluates this arrow once audit is built too. |
 | Audit listener present but writes nothing | Architecture check passes (its documented limit); the integration test fails. | Planned: `ShipmentAuditIntegrationTest` |
+
+Shipment browsing is also exercised by `ShipmentsHttpContractTest`: tenant-scoped detail and labels report a foreign
+ID exactly as unknown; list pages use descending booking time and ID, respect the status filter and reject cursors
+from another tenant or filter. None of this supplies database isolation or browser evidence.
 
 ## Executable scenarios
 
@@ -123,8 +127,8 @@ asserted separately.
 | `ScenarioTenantDenial` | `TenantDenialScenarioTest` | shipments' `CurrentTenant.require()` once, then `QuoteOffers.findOffer` once, through the real `BookShipment` | the clerk, the HTTP exchange, the two database reads |
 | First booking, booking replay, label | Planned: `FirstBookingScenarioTest`, `BookingReplayScenarioTest`, `LabelScenarioTest` | | |
 
-Both current reports say `COVERAGE_INCOMPLETE`: "coverage incomplete: 77 known gaps". They retain all 75 Spring
-access findings and two factory-parameter findings, failed coverage checks and `coverage.verified=false`. The exact
+Both current reports say `COVERAGE_INCOMPLETE`: "coverage incomplete: 106 known gaps". They retain all 100 Spring
+access findings and six factory-parameter findings, failed coverage checks and `coverage.verified=false`. The exact
 ledger is `apps/shipping-api/src/test/resources/scenario-coverage-gaps.tsv`; every entry is classified and tagged
 "phase 3 / option 2". No scenario conformance is established while those gaps remain. A matching ledger and held
 outcomes permit the build, not a claim of complete coverage. New, changed, duplicate or disappeared findings fail

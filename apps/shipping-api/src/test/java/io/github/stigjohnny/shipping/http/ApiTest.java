@@ -1,6 +1,7 @@
 package io.github.stigjohnny.shipping.http;
 
 import io.github.stigjohnny.shipping.ShippingApplication;
+import io.github.stigjohnny.shipping.shipments.internal.application.ShipmentsTestDoubles;
 import io.github.stigjohnny.shipping.quotes.internal.application.QuotesTestDoubles;
 import io.github.stigjohnny.shipping.tenants.internal.application.TenantsTestDoubles;
 import java.lang.annotation.ElementType;
@@ -18,14 +19,14 @@ import org.springframework.test.context.ActiveProfiles;
 /**
  * The whole application, started in a test with a mock servlet environment: ShippingApplication with every module,
  * the HTTP edge and Spring Security, in the {@code demo} profile unless a test names other profiles. What has no
- * production adapter yet is a test double: the membership directory, the quote store, deterministic quote IDs and a
- * test clock. PostgreSQL is not started, so the data source is not configured; the next pull request brings it with
+ * production adapter yet is a test double: the membership directory, the quote and shipment stores, deterministic IDs and tracking numbers,
+ * and a test clock. PostgreSQL is not started, so the data source is not configured; the next pull request brings it with
  * the JDBC adapters. The architecture tests' fixtures are excluded from component scanning.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @SpringBootTest(classes = {ShippingApplication.class, TenantsTestDoubles.class, QuotesTestDoubles.class,
-        TestClock.Configuration.class},
+        TestClock.Configuration.class, ShipmentsTestDoubles.class},
         properties = "spring.autoconfigure.exclude="
                 + "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,"
                 + "org.springframework.modulith.events.jdbc.JdbcEventPublicationAutoConfiguration,"

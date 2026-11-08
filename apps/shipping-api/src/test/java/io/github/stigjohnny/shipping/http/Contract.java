@@ -241,7 +241,9 @@ public final class Contract {
 
     private JsonNode assertBody(String location, String mediaType, MockHttpServletResponse response,
             String requestPath, String what) {
-        String body = body(response);
+        // SVG is a raw HTTP string, not a JSON document. Validate its JSON string representation against the
+        // operation's string schema, keeping all documented headers and length assertions active.
+        String body = mediaType.equals("image/svg+xml") ? json.writeValueAsString(body(response)) : body(response);
         List<Error> errors = schemas.getSchema(SchemaLocation.of(location)).validate(body, InputFormat.JSON);
         assertThat(errors).as("%s: the body %s against %s", what, body, location).isEmpty();
         JsonNode parsed = json.readTree(body);

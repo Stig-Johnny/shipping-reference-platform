@@ -12,7 +12,7 @@ import tools.jackson.databind.type.LogicalType;
 /**
  * The application's entry point, and the root from which Spring Modulith finds the modules (ModularityTest). An
  * isolated class of the model: it uses no module, and no module uses it. The application starts in tests, with test
- * doubles for the ports that have no production adapter yet (the membership directory and the quote store); the
+ * doubles for the ports that have no production adapter yet (the membership directory, quote/shipment stores and tracking numbers); the
  * demo profile with PostgreSQL and the JDBC adapters is planned, so outside tests it does not start yet.
  */
 @SpringBootApplication

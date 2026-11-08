@@ -179,13 +179,13 @@ What is built and what remains open under the temporary coverage-debt decision a
   shipments' `CurrentTenant.require()`, then `QuoteOffers.findOffer`. Its outcomes (the booking is rejected as for an
   unknown quote, nothing is stored for Beta, Alpha's offer stays bookable) are asserted by the test, apart from the
   steps. First booking, booking replay and label are planned.
-- **77 known gaps remain.** The full-main census includes the HTTP adapters even though the direct-use-case
-  scenarios do not instantiate them. It retains 75 Spring accesses and two `QuotesConfiguration` factory parameters;
+- **106 known gaps remain.** The full-main census includes the HTTP adapters even though the direct-use-case
+  scenarios do not instantiate them. It retains 100 Spring accesses and six quotes/shipments factory parameters;
   both current scenarios say `COVERAGE_INCOMPLETE`. The factories are not witnessed by the scenario wiring.
-  Classes in the ledger are fixed constants (10), HTTP assembly (23), authentication construction/state (4),
+  Classes in the ledger are fixed constants (11), HTTP assembly (47), authentication construction/state (4),
   credential erasure callback (1), filter superclass construction (1), security builders/callbacks (22), provider
   composition (1), environment dispatch (1), ambient security state (6), authentication/authority extraction (3),
-  framework dispatch to application callbacks (3), and foreign-service factory parameters (2). These labels describe
+  framework dispatch to application callbacks (3), and foreign-service factory parameters (6). These labels describe
   the missing proof, not exemptions. Ambient state, inherited credential callbacks and unknown implementations
   remain unproved; closing them is phase 3 / option 2.
 - **Refused, not evaluated.** Evaluatable `AFTER_COMMIT` steps, task-capable dispatch found in the census, and repeated
@@ -197,3 +197,11 @@ What is built and what remains open under the temporary coverage-debt decision a
 - What a green scenario does not prove: `docs/gaps.md`, section 6.
 - Related: ADR 0002 (the static check), ADR 0006 (events and listeners), ADR 0012 (the modules, carried forward from
   ADR 0003).
+
+### Shipments HTTP coverage debt, issue #88
+
+The new adapter adds 29 exact entries to the existing ledger: 24 HTTP response/problem assembly calls, one media-type
+constant, and four foreign-service factory parameters in `ShipmentsConfiguration` (the booking factory takes both
+`CurrentTenant` and `QuoteOffers`). The original 77 entries remain unchanged. All 106 remain coverage refusals under
+the existing phase 3 / option 2 decision; no receiver, matcher or comparison rule is broadened. The negative fixture
+still rejects its one additional unledgered Spring call, now alongside 106 known gaps (107 raw refusals).

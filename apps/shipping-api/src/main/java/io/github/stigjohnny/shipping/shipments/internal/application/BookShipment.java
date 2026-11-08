@@ -31,8 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
  * number, stored and {@link ShipmentBooked} published. A rejection stores and publishes nothing, so a key that was
  * refused is evaluated again when it is sent again.
  *
- * <p>The transaction takes effect once the class is a Spring bean with a transaction manager; both arrive with the
- * planned JDBC adapter, and nothing tests the transaction before then. The class is not final, so that Spring can
+ * <p>The HTTP adapter wires this class as a Spring bean. Transactions take effect only with the transaction manager
+ * of the planned JDBC adapter, and nothing tests the transaction before then. The class is not final, so that Spring can
  * proxy it. Serializing requests with the same key belongs to that adapter too, and is not done here: an advisory
  * lock on the tenant and the key for the length of the transaction, taken before the key is looked up; the key looked
  * up again under the lock; and a unique-key failure resolved in a fresh transaction, key and fingerprint first. Until
