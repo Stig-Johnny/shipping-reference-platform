@@ -21,6 +21,23 @@ import org.junit.jupiter.params.provider.CsvSource;
  */
 class SourceReaderTest {
 
+    @ParameterizedTest(name = "package style sheet: {0}, {1}")
+    @CsvSource({"allowed/theme.css, SOURCE", "@scope/allowed/theme.css, SOURCE",
+        "allowed/deep/Theme.CSS, SOURCE", "@scope/allowed/deep/Theme.CSS, SOURCE",
+        "allowed/theme.css, TEST", "@scope/allowed/theme.css, TEST",
+        "allowed/deep/Theme.CSS, TEST", "@scope/allowed/deep/Theme.CSS, TEST"})
+    void packageStyleSheetsAreUnsupportedInBrowserAndTestRoots(String specifier, RootKind kind, @TempDir Path root)
+            throws IOException {
+        write(root, "app.ts", "// synthetic fixture\nimport '" + specifier + "';\n");
+
+        SourceSet set = SourceReader.read(root, "src", kind);
+        assertThat(set.imports()).extracting(ResolvedImport::file, ResolvedImport::line,
+                ResolvedImport::specifier, ResolvedImport::resolution)
+                .containsExactly(tuple("app.ts", 2, specifier, new Resolution.Unsupported(
+                        "a TypeScript import of a style sheet is not supported: link style sheets from "
+                                + "index.html")));
+    }
+
     private static final Set<String> FILES = Set.of("app/App.tsx", "app/main.tsx", "ui/Button.tsx", "ui/index.ts",
             "ui/theme.css", "ui/logo.svg", "features/quotes/index.ts", "features/quotes/QuoteCard.tsx",
             "features/quotes/types.d.ts", "both/x.ts", "both/x/index.ts", "api/client.ts");

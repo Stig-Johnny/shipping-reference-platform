@@ -12,6 +12,15 @@ and classes concerned.
 It also holds a web app's TypeScript imports to the web container of the same model, in both directions, with file,
 line and specifier evidence: the web import check, below.
 
+The reader also refuses a slash after `>`: a closing type argument can end a value, while a comparison operator
+starts an expression. Parenthesize the value before dividing; `=>` still starts an arrow-function expression.
+References to `Function`, `Worker`, `SharedWorker` and `importScripts` are refused even without a direct call,
+including aliases, indirect calls and literal computed properties. This conservative rule also refuses type uses
+of those names. In HTML, duplicate attribute names (case-insensitive) and any ampersand in `src`, `href` or `type`
+are refused before URL and import-map checks; the reader does not decode character references. TypeScript imports
+of `.css` package subpaths, scoped or unscoped and in any letter case, are unsupported in both browser code and
+tests, even if the package is approved. Style sheets must be linked from HTML.
+
 The library is built and tested, and the shipping API is its first user: `ArchitectureConformanceTest` in
 `:apps:shipping-api` checks the API's classes with it. `SelfConformanceTest` checks the
 library's own six packages against its self-model, [`architecture/self.dsl`](architecture/self.dsl), and the negative
@@ -86,8 +95,10 @@ Every import is whitelisted twice: in the model, and in `security/allowlist.json
 importing component (`web.packages`, or `web.testPackages` for a test), pinned in `package.json`, and approved for the
 app in the allowlist; code that runs in the browser needs an approval for `dependencies`. Browser code may import no
 Node.js built-in; a test may import those `web.testBuiltins` lists, written with `node:`, when the allowlist approves
-the Node.js that `engines.node` names. Tests are read and held to their component's relationships and entries, but
-never count as evidence, and no production file may import one. Settings of `package.json`, `tsconfig*.json` and the
+the Node.js that `engines.node` names for project `ci` in configuration `web`. Approval for another project does not
+cover these tests, even with the right version and job. Tests are read and held to their component's relationships
+and entries, but never count as evidence, and no production file may import one. Settings of `package.json`,
+`tsconfig*.json` and the
 app's pages that would resolve a specifier otherwise (path aliases, `baseUrl`, an import map, and more) fail the check.
 
 It fails on an import between two components without a relationship, on a REQUIRED relationship between built
@@ -98,6 +109,11 @@ setting of the app's configuration. Its reports, `report.json`
 (`"schema": "c4-contract-kit/web-report/v1"`) and `report.md`, are deterministic like the class check's, and list
 every import of a package or a Node.js built-in with the file and line that make it, the rule that decided it and the
 allowlist entry that approves it.
+
+`WebConformanceTest` checks synthetic repositories through the public API, including the reader's refusals of hidden
+imports, loader references, ambiguous HTML attributes and approved package CSS subpaths. Its wrong-project Node.js
+fixture checks both the failing verdict and the unapproved built-in import records. These library fixtures do not
+yet run the gate over the repository's web app; that integration remains planned.
 
 ## The model
 

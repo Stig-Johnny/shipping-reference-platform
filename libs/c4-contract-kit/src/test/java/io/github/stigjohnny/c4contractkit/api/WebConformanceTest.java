@@ -15,6 +15,9 @@ import java.util.Objects;
 import org.junit.jupiter.api.Test;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The web import check holds a web root's TypeScript imports to the web container of the C4 model, in both
@@ -343,6 +346,102 @@ class WebConformanceTest {
                 tuple(WebViolationType.UNSUPPORTED_SYNTAX, "web/src/api/remote.ts:3" + computed),
                 tuple(WebViolationType.UNSUPPORTED_SYNTAX, "web/src/features/cart/remote.test.ts:1" + scheme),
                 tuple(WebViolationType.UNSUPPORTED_SYNTAX, "web/src/features/cart/remote.test.ts:2" + computed));
+    }
+
+    @ParameterizedTest(name = "generic assertion hiding {0} in {1}")
+    @CsvSource({"import('undeclared'), ts", "import(name), ts",
+        "import('undeclared'), tsx", "import(name), tsx"})
+    void aClosingTypeArgumentCannotHideAnImportFromConformance(String expression, String extension) {
+        String path = "api/hidden." + extension;
+        WebReport report = check(with(path, "type N<T> = number;\nasync function f(value: number) {\n"
+                + "  const n = value as N<number> / (await " + expression + ").n / 2;\n}\n"));
+
+        assertThat(report.passed()).isFalse();
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::message,
+                WebViolation::evidence).containsExactly(tuple(WebViolationType.UNSUPPORTED_SYNTAX,
+                "web/src/" + path + ":3: a / after '>' is not supported: it could start a regular expression or be "
+                        + "an operator, and the reader does not guess; put the expression in parentheses.",
+                evidence("web/src/" + path, 3, "", "refused", "")));
+    }
+
+    @ParameterizedTest(name = "loader reference: {0}")
+    @ValueSource(strings = {
+        "const F = Function; F(\"return import('unlisted')\")();",
+        "Function.call(null, \"return import('unlisted')\")();",
+        "Function.apply(null, [\"return import('unlisted')\"])();",
+        "const F = globalThis.Function.bind(null); F(\"return import('unlisted')\")();",
+        "const { Function: F } = globalThis; F(\"return import('unlisted')\")();",
+        "const F = globalThis['Function']; F(\"return import('unlisted')\")();",
+        "const W = Worker; new W('https://example.invalid/a.js');",
+        "const W = SharedWorker; new W('https://example.invalid/a.js');",
+        "const W = globalThis['Worker']; new W('https://example.invalid/a.js');",
+        "const load = importScripts; load('https://example.invalid/a.js');",
+        "importScripts.call(null, 'https://example.invalid/a.js');"})
+    void loaderReferencesCannotPassConformance(String source) {
+        WebReport report = check(with("api/loader.ts", "// synthetic fixture\n" + source));
+        String reason = source.contains("Function")
+                ? "the Function constructor is not supported: the code it builds could load modules that the check "
+                        + "never sees"
+                : "a worker (Worker, SharedWorker, importScripts, serviceWorker) is not supported: it loads a script "
+                        + "from a URL at run time";
+
+        assertThat(report.passed()).isFalse();
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::message,
+                WebViolation::evidence).containsExactly(tuple(WebViolationType.UNSUPPORTED_SYNTAX,
+                "web/src/api/loader.ts:2: " + reason + ".", evidence("web/src/api/loader.ts", 2, "", "refused", "")));
+    }
+
+    @ParameterizedTest(name = "ambiguous HTML: {0}")
+    @ValueSource(strings = {
+        "<script src=\"&#x68;ttps://example.invalid/a.js\"></script>",
+        "<script src=\"&#104;ttps://example.invalid/a.js\"></script>",
+        "<script src=\"https&colon;//example.invalid/a.js\"></script>",
+        "<script src=\"https://example.invalid/a.js\" SRC=\"./app.js\"></script>",
+        "<link href=\"&#x68;ttps://example.invalid/a.css\" rel=stylesheet>",
+        "<link href=\"&#104;ttps://example.invalid/a.css\" rel=stylesheet>",
+        "<link href=\"https&colon;//example.invalid/a.css\" rel=stylesheet>",
+        "<link href=\"https://example.invalid/a.css\" HREF=\"./app.css\" rel=stylesheet>",
+        "<script type=\"import&#x6d;ap\"></script>",
+        "<script type=\"import&#109;ap\"></script>",
+        "<script type=importmap TYPE=module></script>",
+        "<link rel=stylesheet REL=preload href=./app.css>"})
+    void ambiguousHtmlAttributesCannotPassConformance(String tag) {
+        WebReport report = check(with("/web/index.html", "<!doctype html>\n" + tag + "\n"));
+        String element = tag.startsWith("<script") ? "script" : "link";
+
+        assertThat(report.passed()).isFalse();
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::identifiers,
+                WebViolation::message, WebViolation::evidence).containsExactly(tuple(
+                WebViolationType.UNSUPPORTED_CONFIGURATION, List.of("web/index.html"),
+                "web/index.html:2: the attributes of a <" + element + "> element cannot be read with certainty.",
+                evidence("web/index.html", 2, "", "refused", "")));
+    }
+
+    @ParameterizedTest(name = "approved package CSS: {0}, test={1}")
+    @CsvSource({"allowed/theme.css, false", "@scope/allowed/theme.css, false",
+        "allowed/deep/Theme.CSS, false", "@scope/allowed/deep/Theme.CSS, false",
+        "allowed/theme.css, true", "@scope/allowed/theme.css, true",
+        "allowed/deep/Theme.CSS, true", "@scope/allowed/deep/Theme.CSS, true"})
+    void approvedPackageStyleSheetsCannotPassConformance(String specifier, boolean test) {
+        String name = specifier.startsWith("@") ? "@scope/allowed" : "allowed";
+        String path = "api/style" + (test ? ".test.ts" : ".ts");
+        String model = WebFixture.MODEL.replace("\"web.packages\" \"@shop/client\"",
+                "\"web.packages\" \"@shop/client, " + name + "\"")
+                .replace("\"web.testPackages\" \"@testing-library/react\"",
+                        "\"web.testPackages\" \"@testing-library/react, " + name + "\"");
+        String packages = WebFixture.PACKAGE_JSON.replace("\"dependencies\": {",
+                "\"dependencies\": { \"" + name + "\": \"1.0.0\",");
+        String allowlist = WebFixture.ALLOWLIST.replace("\"entries\": [", "\"entries\": ["
+                + WebFixture.npm(name, "1.0.0", "dependencies") + ",");
+        WebReport report = check(model, with(path, "// synthetic fixture\nimport '" + specifier + "';\n"),
+                packages, allowlist);
+
+        assertThat(report.passed()).isFalse();
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::message,
+                WebViolation::evidence).containsExactly(tuple(WebViolationType.UNSUPPORTED_SYNTAX,
+                "web/src/" + path + ":2: a TypeScript import of a style sheet is not supported: link style sheets "
+                        + "from index.html.", evidence("web/src/" + path, 2, specifier, "side-effect import", "")));
+        assertThat(report.externalImports()).noneMatch(item -> item.specifier().equals(specifier));
     }
 
     @Test
@@ -693,9 +792,9 @@ class WebConformanceTest {
         WebReport notApproved = check(WebFixture.MODEL, WebFixture.files(), WebFixture.PACKAGE_JSON, withoutRuntime);
         assertThat(notApproved.violations()).extracting(WebViolation::type, WebViolation::message).containsOnly(tuple(
                 WebViolationType.UNAPPROVED_IMPORT, "security/allowlist.json approves no nodejs.org/dist node 26.13.0 "
-                        + "for the web job, the Node.js whose built-in node:assert/strict tests import."), tuple(
+                        + "for project ci in the web job, the Node.js whose built-in node:assert/strict tests import."), tuple(
                 WebViolationType.UNAPPROVED_IMPORT, "security/allowlist.json approves no nodejs.org/dist node 26.13.0 "
-                        + "for the web job, the Node.js whose built-in node:test tests import."));
+                        + "for project ci in the web job, the Node.js whose built-in node:test tests import."));
 
         WebReport noEngine = check(WebFixture.MODEL, WebFixture.files(), WebFixture.PACKAGE_JSON.replace(
                 "\"engines\": { \"node\": \"26.13.0\" },", ""), WebFixture.ALLOWLIST);
@@ -703,6 +802,28 @@ class WebConformanceTest {
                 "package.json names no exact engines.node, so the Node.js whose review covers node:assert/strict is "
                         + "not known.", "package.json names no exact engines.node, so the Node.js whose review covers "
                         + "node:test is not known.");
+    }
+
+    @Test
+    void aNodeRuntimeApprovedForAnotherProjectCannotApproveTestBuiltIns() {
+        String allowlist = WebFixture.ALLOWLIST.replace("\"project\": \"ci\"",
+                "\"project\": [\"other-project\"]");
+        WebReport report = check(WebFixture.MODEL, WebFixture.files(), WebFixture.PACKAGE_JSON, allowlist);
+
+        assertThat(report.passed()).isFalse();
+        assertThat(report.violations()).extracting(WebViolation::type, WebViolation::identifiers,
+                WebViolation::message).containsExactly(
+                tuple(WebViolationType.UNAPPROVED_IMPORT, List.of(TEST, "node:assert/strict"),
+                        "security/allowlist.json approves no nodejs.org/dist node 26.13.0 for project ci in the web "
+                                + "job, the Node.js whose built-in node:assert/strict tests import."),
+                tuple(WebViolationType.UNAPPROVED_IMPORT, List.of(TEST, "node:test"),
+                        "security/allowlist.json approves no nodejs.org/dist node 26.13.0 for project ci in the web "
+                                + "job, the Node.js whose built-in node:test tests import."));
+        assertThat(report.externalImports()).filteredOn(item -> item.rule().equals("web.testBuiltins"))
+                .extracting(WebExternalImport::specifier, WebExternalImport::version,
+                        WebExternalImport::allowlistEntry, WebExternalImport::status).containsExactly(
+                tuple("node:assert/strict", "26.13.0", "", ExternalImportStatus.UNAPPROVED),
+                tuple("node:test", "26.13.0", "", ExternalImportStatus.UNAPPROVED));
     }
 
     @Test

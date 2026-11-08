@@ -2,7 +2,7 @@
 title: "Known gaps and limits"
 description: "What v0.1 does not do, what each control cannot prove, and which decisions are still unverified. Read this before trusting a green build."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 # Known gaps and limits
@@ -223,6 +223,19 @@ closes it.
   relationship whose endpoints are built (ADR 0012; its limits are in section 1). Relationships touching planned parts
   are not evaluated, a direct import proves a reference and not behaviour, and a part that no REQUIRED relationship
   reaches can be unused without a report. dependency-cruiser is deferred.
+- The web app's static checks are to cover import boundaries and cycles, and a direct import for each REQUIRED
+  relationship whose endpoints are built (ADR 0012). Relationships touching planned parts are not evaluated, a direct
+  import proves a reference and not behaviour, and a part that no REQUIRED relationship reaches can be unused without
+  a report. dependency-cruiser is deferred.
+- The web source reader and conformance library are implemented and tested on synthetic fixtures; the repository's
+  web conformance gate is still planned. `WebConformanceTest` proves that reader refusals fail the model comparison,
+  and that Node.js built-ins in tests need runtime approval for project `ci` in configuration `web`, at the version
+  named by `engines.node`. This is fixture evidence, not a check of real web imports. The grammar is deliberately
+  restricted: ambiguous slashes after closing type arguments,
+  loader references (including aliases and indirect calls), duplicate HTML attributes, encoded URL/type attributes,
+  and package CSS subpaths are refused. This is no full TypeScript or browser parser and no proof about arbitrary
+  computed property access or runtime behaviour. Conservative refusals can reject harmless type names and literal
+  ampersands too. The reader does not execute a web app or inspect installed packages.
 - The first runnable slice defers the generated client and the component tests (ADR 0012). So there is no
   generated-client drift guarantee: the web app's request and response types are written by hand in
   `apps/shipping-web/src/api` and can drift from `contracts/shipping.openapi.yaml` without failing a build. The

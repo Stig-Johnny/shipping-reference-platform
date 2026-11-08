@@ -33,7 +33,8 @@ import org.jspecify.annotations.Nullable;
  *       starts;
  *   <li>after {@code !} it is an operator where the {@code !} is TypeScript's non-null assertion, that is right after
  *       a value on the same line ({@code n! / 2}), and an expression starts where it is the negation;
- *   <li>after {@code }}, {@code ++}, {@code --}, an unmatched {@code )}, a module specifier and the words {@code of},
+ *   <li>after {@code >} (except in {@code =>}), {@code }}, {@code ++}, {@code --}, an unmatched {@code )},
+ *       a module specifier and the words {@code of},
  *       {@code await} and {@code yield}, either is possible: the lexer refuses the file there instead of guessing.
  * </ul>
  */
@@ -102,7 +103,7 @@ final class SourceLexer {
     /** Keywords whose parenthesis holds a statement's head: after its {@code )} a statement starts. */
     private static final Set<String> CONTROL_KEYWORDS = Set.of("if", "while", "for", "with");
 
-    /** The punctuators of TypeScript, one character each; {@code ++} and {@code --} are read as two-character ones. */
+    /** The punctuators of TypeScript; {@code ++}, {@code --} and {@code =>} are read as two-character ones. */
     private static final String PUNCTUATORS = "{}()[];,<>+-*/%&|^!~?:=.@#";
 
     private static final Pattern JSX_PRAGMA_NAME = Pattern.compile("@jsx",
@@ -600,9 +601,9 @@ final class SourceLexer {
         add(TokenType.NUMBER, "0", line, false);
     }
 
-    /** Punctuators are single characters, except {@code ++} and {@code --}. */
+    /** Keep {@code =>} distinct from a closing type argument or comparison operator. */
     private int punctuatorLength(char c) {
-        return (c == '+' || c == '-') && peek(1) == c ? 2 : 1;
+        return ((c == '+' || c == '-') && peek(1) == c) || (c == '=' && peek(1) == '>') ? 2 : 1;
     }
 
     private void punctuator(int length) {
@@ -643,6 +644,8 @@ final class SourceLexer {
                 case ")" -> parentheses.isEmpty() ? ambiguous("an unmatched ')'")
                         : parentheses.pop() ? Next.EXPRESSION : Next.OPERATOR;
                 case "]" -> Next.OPERATOR;
+                // A type argument may end a value (value as N<number> / 2); a comparison starts an expression.
+                case ">" -> ambiguous("'>'");
                 case "}" -> ambiguous("'}'");
                 case "++", "--" -> ambiguous("'" + token.text() + "'");
                 case "!" -> bang(token);

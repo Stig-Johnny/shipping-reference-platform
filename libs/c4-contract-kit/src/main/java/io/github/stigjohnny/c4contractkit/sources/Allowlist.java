@@ -122,10 +122,11 @@ public record Allowlist(List<Entry> entries, Optional<String> unavailable) {
                 .findFirst();
     }
 
-    /** The approving entry for the Node.js that runs the web app's tests, at an exact version, in the web job. */
+    /** The approving entry for Node.js at an exact version, for project ci in the web job. */
     public Optional<Entry> nodeRuntime(String version) {
         return entries.stream().filter(entry -> entry.kind().equals("runtime")
                 && entry.coordinate().equals(NODE_RUNTIME) && entry.version().equals(version) && entry.approves()
+                && entry.project().contains("ci")
                 && entry.configuration().stream().map(String::strip).anyMatch("web"::equals)).findFirst();
     }
 
