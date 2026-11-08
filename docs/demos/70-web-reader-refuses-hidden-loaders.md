@@ -16,7 +16,10 @@ tests:
 
 The web import reader reads sources and configuration without running them. A generic type assertion could hide an
 import, an alias could hide a loader, and encoded or repeated HTML attributes could conceal a remote script or an
-import map. Those cases now produce refusals. CSS imports through package subpaths are refused too, in browser
+import map. Quoted destructuring keys and escaped or computed property keys could also conceal a loader; URL tabs,
+line breaks and backslashes could conceal an external origin. Those cases now produce refusals. Keys held in const
+bindings and template keys fail closed. String timers and timer aliases are refused, with direct function callbacks
+still supported. URL validation precedes origin classification. CSS imports through package subpaths are refused too, in browser
 sources and tests. Ordinary local imports and local script and stylesheet links still pass.
 
 ## Try it
@@ -63,14 +66,21 @@ Reader verdict: ACCEPTED (0 findings)
 Exit status: 0
 ```
 
-Before the fix, the regression run failed 36 reader cases. After the fix, all 307 tests in the three reader classes
-passed. Separate downstream conformance fixtures also failed before the fix and passed with it; that gate belongs
+The earlier recording above accompanied 36 failing reader cases before correction and 307 passing tests afterward. Separate downstream conformance fixtures also failed before the fix and passed with it; that gate belongs
 to the following slice and is not evidence supplied by this publishing build. The tests named in this demo's
 metadata are the current-build evidence, only when they pass in the build that publishes this page.
+
+The follow-up regression run added 232 failing cases for static keys and URL normalization, then four failing cases
+for timer arguments whose function prefix did not determine the final value. All 543 tests in the three reader
+classes passed after correction. The retained red/green outputs include each new fixture's failing baseline. These
+counts describe recorded runs; the publishing build checks the test classes named above.
 
 ## Limits
 
 This slice does not yet check a real web application against the model. It does not execute TypeScript, simulate
-browser parsing or inspect installed packages. The grammar deliberately refuses uncertainty: harmless type names,
-a slash after a comparison and literal ampersands in URL/type attributes can be rejected too. Arbitrary runtime
-property computation is outside these fixtures. Passing reader tests proves these cases, not general runtime safety.
+browser parsing or inspect installed packages. The grammar deliberately refuses uncertainty: harmless names,
+computed indexing, callback aliases, a slash after a comparison and literal ampersands can be rejected too.
+Non-literal computed access/binding keys are refused even when a person can evaluate their constant value. URL
+attributes accept only a conservative ASCII syntax subset; some valid browser URLs are refused, including IP
+literals, credentials and non-ASCII paths. Reflective calls and general runtime behaviour are outside these fixtures.
+Passing reader tests proves these cases, not general runtime safety.
