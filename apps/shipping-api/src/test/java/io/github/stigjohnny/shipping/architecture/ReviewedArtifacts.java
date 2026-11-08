@@ -25,7 +25,8 @@ import tools.jackson.databind.JsonNode;
  *       entries carry configuration names with a leading space.
  *   <li>A project written as a path ({@code apps/shipping-api}) is the Gradle path {@code :apps:shipping-api}.
  *   <li>{@code :example-app} is the name the reviews' first design gave the API. The owner confirmed that it is
- *       {@code :apps:shipping-api} ({@code acceptance.projectPathConfirmed}, checked by ExternalImportPolicyTest).
+ *       {@code :apps:shipping-api} ({@code projectPathConfirmed} in the current acceptance or its history,
+ *       checked by ExternalImportPolicyTest).
  *   <li>A configuration with a project prefix ({@code :example-app:testCompileClasspath}) applies to that project
  *       only; any other applies to each of the entry's projects.
  * </ul>
@@ -71,11 +72,7 @@ final class ReviewedArtifacts {
 
     static ReviewedArtifacts read(Path allowlist, LocalDate today) {
         JsonNode root = ProviderIndex.JSON.readTree(allowlist);
-        JsonNode acceptance = root.path("acceptance");
-        if (!"accepted".equals(acceptance.path("status").asString(""))
-                || !CONFIRMED_ALIAS.equals(acceptance.path("projectPathConfirmed").asString(""))) {
-            throw new IllegalStateException(":example-app requires the exact accepted projectPathConfirmed record");
-        }
+        String confirmation = confirmedAlias(root.path("acceptance"));
         List<Entry> entries = new ArrayList<>();
         for (JsonNode entry : root.get("entries").values()) {
             JsonNode sha256 = entry.path("sha256");
@@ -86,8 +83,46 @@ final class ReviewedArtifacts {
                     entry.get("verdict").stringValue(), entry.get("reviewRecord").stringValue(),
                     entry.path("expiresAt").asString("")));
         }
-        return new ReviewedArtifacts(List.copyOf(entries),
-                root.path("acceptance").path("projectPathConfirmed").asString(""), today);
+        return new ReviewedArtifacts(List.copyOf(entries), confirmation, today);
+    }
+
+    /**
+     * Current acceptance first, then the newest-first snapshots in {@code acceptance.previous}. PR #73 preserved
+     * the PR #10 confirmation there without a status field: only historical snapshots may omit it. An explicit
+     * non-accepted status or changed confirmation stops the search, so an older affirmation cannot undo withdrawal.
+     * Unrelated accepted snapshots without a confirmation say nothing about the alias and are skipped.
+     */
+    private static String confirmedAlias(JsonNode acceptance) {
+        if (!"accepted".equals(acceptance.path("status").asString(""))) {
+            throw aliasNotConfirmed();
+        }
+        List<JsonNode> records = new ArrayList<>();
+        records.add(acceptance);
+        if (acceptance.has("previous")) {
+            JsonNode previous = acceptance.path("previous");
+            if (!previous.isArray()) {
+                throw aliasNotConfirmed();
+            }
+            records.addAll(previous.values());
+        }
+        for (JsonNode record : records) {
+            if (!record.isObject() || (record.has("status")
+                    && !"accepted".equals(record.path("status").asString("")))) {
+                throw aliasNotConfirmed();
+            }
+            if (record.has("projectPathConfirmed")) {
+                String confirmation = record.path("projectPathConfirmed").asString("");
+                if (!CONFIRMED_ALIAS.equals(confirmation)) {
+                    throw aliasNotConfirmed();
+                }
+                return confirmation;
+            }
+        }
+        throw aliasNotConfirmed();
+    }
+
+    private static IllegalStateException aliasNotConfirmed() {
+        return new IllegalStateException(":example-app requires the exact accepted projectPathConfirmed record");
     }
 
     /** The owner's recorded confirmation of the project path, which the name {@code :example-app} rests on. */

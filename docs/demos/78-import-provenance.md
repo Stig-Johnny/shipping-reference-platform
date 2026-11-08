@@ -17,8 +17,11 @@ by using the API's package name, and an artifact colliding with an output class 
 
 Project providers keep their build identity. Only root-build projects with exact registered repository-owned outputs
 are exempt from Maven review; currently that is the contract kit. Included builds and unverified outputs fail.
-The old `:example-app` name means the API only while the exact existing affirmative owner record and its accepted
-status remain. Missing, changed or withdrawn acceptance fails. No security record or whitelist was widened.
+The old `:example-app` name means the API only while the current acceptance is `accepted` and the exact PR #10
+`projectPathConfirmed` text remains in that record or `acceptance.previous`. History is read newest first in its
+stored order. Historical snapshots may omit `status`, as in PR #73's rollover; an explicit status must be
+`accepted`. A newer changed or negated confirmation, or non-accepted status, blocks older affirmation. Missing
+confirmation also fails. No security record or whitelist was widened.
 
 ## Try it
 
@@ -36,8 +39,10 @@ Reports are in `apps/shipping-api/build/reports/external-imports/`: `main.md`, `
 Recorded output — not rerun by this site build.
 
 Recorded 2026-11-07T23:44:09Z on macOS with Temurin 25.0.5+8, based on revision 4e2b0b6 with uncommitted
-regression tests before the ownership fix. The focused Gradle test run exited 1 because the old policy let these
-cases through. Excerpt; task setup and assertion stack traces are omitted:
+regression tests before the ownership fix. The historical focused command was
+`./gradlew :apps:shipping-api:test --tests '*ExternalImportPolicyTest.anExternal*' --tests '*ExternalImportPolicyTest.anArtifactColliding*' --console=plain`.
+It exited 1 because the old policy let these cases through. Excerpt; task setup and assertion stack traces are
+omitted:
 
 ```text
 ExternalImportPolicyTest > anArtifactCollidingWithAnUnusedMainOutputFails() FAILED
@@ -48,8 +53,9 @@ ExternalImportPolicyTest > anArtifactCollidingWithAnUnusedTestOutputFails() FAIL
 BUILD FAILED in 3s
 ```
 
-Recorded 2026-11-07T23:48:30Z on the same base revision with uncommitted fixes. The Gradle run of
-`ExternalImportPolicyTest` and its build-identity prerequisite exited 0. Excerpt; task setup is omitted:
+Recorded 2026-11-07T23:48:30Z on the same base revision with uncommitted fixes. The historical focused command was
+`./gradlew :apps:shipping-api:test --tests '*ExternalImportPolicyTest' --console=plain`.
+It ran `ExternalImportPolicyTest` and its build-identity prerequisite and exited 0. Excerpt; task setup is omitted:
 
 ```text
 PASS: project identity retains build :
@@ -72,7 +78,8 @@ The API's main-output report from that run says:
 ```
 
 These report excerpts omit the inputs and full dependency tables. `ExternalImportPolicyTest` checks the fixtures and
-the current API outputs in every build. The JDK-only `ProviderIdentityTest` harness checks that Gradle project
+the current API outputs in every build, including the preserved status-less PR #10 confirmation and newer
+withdrawals. The historical recordings above predate that rollover regression. The JDK-only `ProviderIdentityTest` harness checks that Gradle project
 identity retains the build path. Only passing named JUnit evidence from the publishing build is shown as verified
 by the site. These local recordings are review material for pull request #78, not publishing-build evidence.
 

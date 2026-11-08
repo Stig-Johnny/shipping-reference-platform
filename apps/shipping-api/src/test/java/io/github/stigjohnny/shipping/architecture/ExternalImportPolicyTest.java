@@ -47,13 +47,18 @@ class ExternalImportPolicyTest {
     private static final ProviderIndex INDEX = ProviderIndex.current();
     private static final JdkModules JDK = JdkModules.system();
 
-    private final ReviewedArtifacts reviewed = ReviewedArtifacts.read(ReviewedArtifacts.ALLOWLIST,
-            LocalDate.now(ZoneOffset.UTC));
-    private final ExternalImportPolicy policy = new ExternalImportPolicy(INDEX, reviewed, JDK);
+    // Read on use so alias fixtures can test refusal without a failing real-record initializer masking assertions.
+    private static ReviewedArtifacts reviewed() {
+        return ReviewedArtifacts.read(ReviewedArtifacts.ALLOWLIST, LocalDate.now(ZoneOffset.UTC));
+    }
+
+    private static ExternalImportPolicy policy() {
+        return new ExternalImportPolicy(INDEX, reviewed(), JDK);
+    }
 
     @Test
     void theMainClassesUseOnlyReviewedWhitelistedClasses() {
-        Result result = policy.check("main", Scope.MAIN, ExternalImportPolicy.API, ClassDirectories.main());
+        Result result = policy().check("main", Scope.MAIN, ExternalImportPolicy.API, ClassDirectories.main());
 
         ExternalImportReport.write(result, ExternalImportReport.DIRECTORY, inputs());
         assertThat(lines(result.denied())).isEmpty();
@@ -63,7 +68,7 @@ class ExternalImportPolicyTest {
 
     @Test
     void theTestClassesUseOnlyReviewedWhitelistedClasses() {
-        Result result = policy.check("test", Scope.TEST, ExternalImportPolicy.API, ClassDirectories.test());
+        Result result = policy().check("test", Scope.TEST, ExternalImportPolicy.API, ClassDirectories.test());
 
         ExternalImportReport.write(result, ExternalImportReport.DIRECTORY, inputs());
         assertThat(lines(result.denied())).isEmpty();
@@ -73,9 +78,9 @@ class ExternalImportPolicyTest {
 
     @Test
     void everyWhitelistEntryIsUsedByTodaysCode() {
-        Set<ExternalImportWhitelists.Allowed> used = new HashSet<>(policy.check("main", Scope.MAIN,
+        Set<ExternalImportWhitelists.Allowed> used = new HashSet<>(policy().check("main", Scope.MAIN,
                 ExternalImportPolicy.API, ClassDirectories.main()).entriesUsed());
-        used.addAll(policy.check("test", Scope.TEST, ExternalImportPolicy.API, ClassDirectories.test())
+        used.addAll(policy().check("test", Scope.TEST, ExternalImportPolicy.API, ClassDirectories.test())
                 .entriesUsed());
 
         assertThat(ExternalImportWhitelists.all()).allSatisfy(entry -> assertThat(used).as("the %s entry %s is "
@@ -109,7 +114,7 @@ class ExternalImportPolicyTest {
     @Test
     void theReviewsFirstDesignNameIsTheApiAsTheOwnerConfirmed() {
         // ReviewedArtifacts reads :example-app as :apps:shipping-api only because the owner's acceptance says so.
-        assertThat(reviewed.projectPathConfirmed()).isEqualTo(ReviewedArtifacts.CONFIRMED_ALIAS);
+        assertThat(reviewed().projectPathConfirmed()).isEqualTo(ReviewedArtifacts.CONFIRMED_ALIAS);
         assertThat(List.of(ReviewedArtifacts.project("apps/shipping-api"), ReviewedArtifacts.project(":example-app"),
                 ReviewedArtifacts.project(":libs:c4-contract-kit"))).containsExactly(ReviewedArtifacts.API,
                 ReviewedArtifacts.API, ":libs:c4-contract-kit");
@@ -129,19 +134,104 @@ class ExternalImportPolicyTest {
     @Test
     void aChangedAliasRecordFails(@TempDir Path dir) throws IOException {
         assertAliasRefused(dir, Files.readString(ReviewedArtifacts.ALLOWLIST)
-                .replace(reviewed.projectPathConfirmed(), reviewed.projectPathConfirmed() + " Changed."));
+                .replace(ReviewedArtifacts.CONFIRMED_ALIAS, ReviewedArtifacts.CONFIRMED_ALIAS + " Changed."));
     }
 
     @Test
     void aWithdrawnAliasRecordFails(@TempDir Path dir) throws IOException {
         assertAliasRefused(dir, Files.readString(ReviewedArtifacts.ALLOWLIST)
-                .replace(reviewed.projectPathConfirmed(), reviewed.projectPathConfirmed().replace(" is ", " is not ")));
+                .replace(ReviewedArtifacts.CONFIRMED_ALIAS, ReviewedArtifacts.CONFIRMED_ALIAS.replace(" is ", " is not ")));
     }
 
     @Test
     void aWithdrawnAcceptanceFailsEvenWithTheAffirmativeAliasText(@TempDir Path dir) throws IOException {
         assertAliasRefused(dir, Files.readString(ReviewedArtifacts.ALLOWLIST)
                 .replace("\"status\": \"accepted\"", "\"status\": \"withdrawn\""));
+    }
+
+    @Test
+    void theAliasSurvivesTheRealAcceptanceRollover() {
+        var acceptance = ProviderIndex.JSON.readTree(ReviewedArtifacts.ALLOWLIST).path("acceptance");
+        assertThat(acceptance.has("projectPathConfirmed")).isFalse();
+        var preserved = acceptance.path("previous").get(0);
+        assertThat(preserved.has("status")).isFalse();
+        assertThat(preserved.path("projectPathConfirmed").asString()).isEqualTo(ReviewedArtifacts.CONFIRMED_ALIAS);
+        assertThat(reviewed().projectPathConfirmed()).isEqualTo(ReviewedArtifacts.CONFIRMED_ALIAS);
+    }
+
+    @Test
+    void theAliasCanStillBeConfirmedByTheCurrentAcceptance(@TempDir Path dir) throws IOException {
+        assertAliasAccepted(dir, aliasAcceptance("\"status\":\"accepted\"," + aliasConfirmation(), ""));
+    }
+
+    @Test
+    void anExplicitlyAcceptedHistoricalAliasRecordPasses(@TempDir Path dir) throws IOException {
+        assertAliasAccepted(dir, aliasAcceptance("\"status\":\"accepted\"",
+                "{\"status\":\"accepted\"," + aliasConfirmation() + "}"));
+    }
+
+    @Test
+    void aMissingCurrentStatusCannotBeInferredFromHistory(@TempDir Path dir) throws IOException {
+        assertAliasRefused(dir, aliasAcceptance("\"how\":\"no current status\"", "{" + aliasConfirmation() + "}"));
+    }
+
+    @Test
+    void anExplicitNonAcceptedHistoricalStatusFails(@TempDir Path dir) throws IOException {
+        for (String status : List.of("\"withdrawn\"", "\"pending\"", "\"\"", "null")) {
+            assertAliasRefused(dir, aliasAcceptance("\"status\":\"accepted\"",
+                    "{\"status\":" + status + "," + aliasConfirmation() + "}"));
+        }
+    }
+
+    @Test
+    void aNewerCurrentWithdrawalOverridesTheHistoricalAffirmation(@TempDir Path dir) throws IOException {
+        for (String confirmation : List.of("null", "\"Changed\"", "\"" + ReviewedArtifacts.CONFIRMED_ALIAS
+                .replace(" is ", " is not ") + "\"")) {
+            assertAliasRefused(dir, aliasAcceptance("\"status\":\"accepted\",\"projectPathConfirmed\":"
+                    + confirmation, "{" + aliasConfirmation() + "}"));
+        }
+    }
+
+    @Test
+    void aNewerHistoricalWithdrawalOverridesTheOlderAffirmation(@TempDir Path dir) throws IOException {
+        for (String withdrawal : List.of("\"status\":\"withdrawn\"",
+                "\"status\":\"withdrawn\"," + aliasConfirmation(), "\"projectPathConfirmed\":null",
+                "\"projectPathConfirmed\":\"Changed\"", "\"projectPathConfirmed\":\""
+                        + ReviewedArtifacts.CONFIRMED_ALIAS.replace(" is ", " is not ") + "\"")) {
+            assertAliasRefused(dir, aliasAcceptance("\"status\":\"accepted\"", "{" + withdrawal + "},{"
+                    + aliasConfirmation() + "}"));
+        }
+    }
+
+    @Test
+    void unrelatedHistoryDoesNotHideThePreservedAlias(@TempDir Path dir) throws IOException {
+        assertAliasAccepted(dir, aliasAcceptance("\"status\":\"accepted\"",
+                "{\"status\":\"accepted\"},{\"how\":\"unrelated acceptance\"},{" + aliasConfirmation() + "}"));
+    }
+
+    @Test
+    void historyWithoutAnAliasConfirmationFails(@TempDir Path dir) throws IOException {
+        assertAliasRefused(dir, aliasAcceptance("\"status\":\"accepted\"", "{\"how\":\"unrelated acceptance\"}"));
+    }
+
+    @Test
+    void aStatuslessCurrentAffirmationIsNotAHistoricalAcceptance(@TempDir Path dir) throws IOException {
+        assertAliasRefused(dir, aliasAcceptance(aliasConfirmation(), ""));
+    }
+
+    private static String aliasConfirmation() {
+        return "\"projectPathConfirmed\":\"" + ReviewedArtifacts.CONFIRMED_ALIAS + "\"";
+    }
+
+    // acceptance.previous is stored newest first. Fixtures preserve that order and never edit security/.
+    private static String aliasAcceptance(String current, String previous) {
+        return "{\"acceptance\":{" + current + ",\"previous\":[" + previous + "]},\"entries\":[]}";
+    }
+
+    private static void assertAliasAccepted(Path dir, String contents) throws IOException {
+        Path changed = Files.writeString(dir.resolve("allowlist.json"), contents);
+        assertThat(ReviewedArtifacts.read(changed, LocalDate.parse("2026-11-08")).projectPathConfirmed())
+                .isEqualTo(ReviewedArtifacts.CONFIRMED_ALIAS);
     }
 
     private static void assertAliasRefused(Path dir, String contents) throws IOException {
@@ -188,7 +278,7 @@ class ExternalImportPolicyTest {
                   "classes":["org.springframework.context.ApplicationEventPublisher"]
                 }], "duplicates":[]}
                 """.formatted(project, buildPath, repositoryOwned ? "true" : "false"));
-        ExternalImportPolicy unreviewed = new ExternalImportPolicy(ProviderIndex.read(indexFile), reviewed, JDK);
+        ExternalImportPolicy unreviewed = new ExternalImportPolicy(ProviderIndex.read(indexFile), reviewed(), JDK);
         Result result = check(unreviewed, "project-provider", "legitimate", Scope.MAIN, fixture("legitimate"));
         assertThat(result.denied()).filteredOn(use -> use.target().equals(
                 "org.springframework.context.ApplicationEventPublisher"))
@@ -247,7 +337,7 @@ class ExternalImportPolicyTest {
                 Set.of("compileClasspath", "runtimeClasspath", "testCompileClasspath", "testRuntimeClasspath"),
                 provider.classes()));
 
-        Result result = check(new ExternalImportPolicy(moved, reviewed, JDK), "testonly-on-main", "testonly",
+        Result result = check(new ExternalImportPolicy(moved, reviewed(), JDK), "testonly-on-main", "testonly",
                 Scope.MAIN, fixture("testonly"));
 
         String scope = " [allowlist] maven org.assertj:assertj-core:3.27.7 is not approved for :apps:shipping-api "
@@ -353,7 +443,7 @@ class ExternalImportPolicyTest {
         ProviderIndex added = INDEX.adding(new ProviderIndex.Provider("unknown", "unreviewed.jar", "",
                 "unreviewed.jar", null, Set.of("compileClasspath"), Set.of(target)));
 
-        Result result = check(new ExternalImportPolicy(added, reviewed, JDK), "namespace-file", "namespace",
+        Result result = check(new ExternalImportPolicy(added, reviewed(), JDK), "namespace-file", "namespace",
                 Scope.MAIN, classes);
         assertThat(result.denied()).extracting(Use::target, Use::rule).containsExactly(tuple(target, "allowlist"));
     }
@@ -371,7 +461,7 @@ class ExternalImportPolicyTest {
     private void assertOutputCollision(String target, String configuration) {
         ProviderIndex added = INDEX.adding(new ProviderIndex.Provider("unknown", "collision.jar", "",
                 "collision.jar", null, Set.of(configuration), Set.of(target)));
-        ExternalImportPolicy colliding = new ExternalImportPolicy(added, reviewed, JDK);
+        ExternalImportPolicy colliding = new ExternalImportPolicy(added, reviewed(), JDK);
 
         assertThatThrownBy(() -> check(colliding, "collision", "legitimate", Scope.MAIN, fixture("legitimate")))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("collides with API output")
@@ -386,7 +476,7 @@ class ExternalImportPolicyTest {
                 "shadow-context-1.0.jar", null, Set.of("compileClasspath"),
                 Set.of("org.springframework.context.ApplicationEventPublisher", "java.time.Clock")));
 
-        Result result = check(new ExternalImportPolicy(shadowed, reviewed, JDK), "ambiguous", "legitimate",
+        Result result = check(new ExternalImportPolicy(shadowed, reviewed(), JDK), "ambiguous", "legitimate",
                 Scope.MAIN, fixture("legitimate"));
 
         assertThat(lines(result.denied())).containsExactly(
@@ -403,7 +493,7 @@ class ExternalImportPolicyTest {
         // HexagonalLayeringTest's fixture: a class in quotes.internal.util, which is none of a module's five packages.
         String root = getClass().getPackageName() + ".fixtures.layering.extrapackage";
 
-        Result result = policy.check("extrapackage", Scope.MAIN, root, List.of(ClassDirectories.fixture(root)));
+        Result result = policy().check("extrapackage", Scope.MAIN, root, List.of(ClassDirectories.fixture(root)));
         ExternalImportReport.write(result, FIXTURE_REPORTS, inputs());
 
         assertThat(result.denied()).extracting(Use::target).containsExactly("java.lang.Object", "java.lang.Record",
@@ -433,7 +523,7 @@ class ExternalImportPolicyTest {
                 provider.file(), "", provider.file(), provider.sha256(), provider.configurations(),
                 provider.classes()));
 
-        Result result = check(new ExternalImportPolicy(withFile, reviewed, JDK), "file-dependency", "legitimate",
+        Result result = check(new ExternalImportPolicy(withFile, reviewed(), JDK), "file-dependency", "legitimate",
                 Scope.MAIN, fixture("legitimate"));
 
         assertThat(lines(result.denied())).containsExactly(ISSUE_QUOTE + " uses org.springframework.context."
@@ -448,7 +538,7 @@ class ExternalImportPolicyTest {
                 provider.coordinate(), provider.version(), provider.file(), other, provider.configurations(),
                 provider.classes()));
 
-        Result result = check(new ExternalImportPolicy(changed, reviewed, JDK), "changed-bytes", "legitimate",
+        Result result = check(new ExternalImportPolicy(changed, reviewed(), JDK), "changed-bytes", "legitimate",
                 Scope.MAIN, fixture("legitimate"));
 
         assertThat(lines(result.denied())).containsExactly(ISSUE_QUOTE + " uses org.springframework.context."
@@ -480,13 +570,13 @@ class ExternalImportPolicyTest {
         Path broken = Files.write(classes.resolve(fine.replace('.', '/') + ".class").resolveSibling("Broken.class"),
                 new byte[] {(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE, 0});
 
-        assertThatThrownBy(() -> policy.check("unreadable", Scope.MAIN, FIXTURES + "unreadable", List.of(classes)))
+        assertThatThrownBy(() -> policy().check("unreadable", Scope.MAIN, FIXTURES + "unreadable", List.of(classes)))
                 .isInstanceOf(IllegalStateException.class).hasMessage("ArchUnit did not import these class files, so "
                         + "their uses would be missed: " + List.of(broken.toAbsolutePath().normalize()));
     }
 
     private Result check(String fixture, Scope scope, Path classes) {
-        return check(policy, fixture, fixture, scope, classes);
+        return check(policy(), fixture, fixture, scope, classes);
     }
 
     /**

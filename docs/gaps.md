@@ -167,9 +167,12 @@ closes it.
   Maven providers need unexpired approval for the project, configuration and exact file, with SHA-256 comparison
   where the review records a hash. The first-party exemption from Maven review requires root-build identity and an
   exact registered repository-owned output (currently the contract kit); other project providers are rejected.
-  Included-build identity is retained. The check treats `:example-app` as the API only while the exact existing
-  affirmative `acceptance.projectPathConfirmed` text and `accepted` status remain; missing, changed or withdrawn
-  acceptance fails. This is a reading of the existing owner record, not a new scope approval. It does not see:
+  Included-build identity is retained. The check treats `:example-app` as the API only while the current acceptance
+  is `accepted` and the exact PR #10 `projectPathConfirmed` text remains in that record or `acceptance.previous`.
+  History is read newest first in its stored order. Historical snapshots may omit `status`, as PR #73's rollover
+  does; an explicit status must be `accepted`. A newer changed or negated confirmation, or non-accepted status,
+  stops the search before any older affirmation; missing confirmation fails too. This reads the preserved owner
+  record without granting new scope. It does not see:
   - compiler-erased references such as inlined constants, or retained bytecode that ArchUnit 1.5.1 does not report.
     Casts, local variable types, explicit type arguments and array creation are not reported
     (`BytecodeEvidenceTest` pins these), nor are retained type-use annotations such as JSpecify's `@Nullable`
