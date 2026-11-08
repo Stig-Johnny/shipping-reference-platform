@@ -10,9 +10,12 @@ reports class-level evidence. It fails on dependencies the model does not declar
 relationships without any static reference (absences). It reports PERMITTED relationships without references as
 "no static evidence", never as "unused".
 
-The web import check does the same for a web app: it compares the web container of the same model with the imports
-of the app's TypeScript sources, read as data with a restricted import grammar, and reports file, line and specifier
-evidence (section "Web imports").
+Its package `sources` is a partial static lint: it reads a web app's TypeScript sources as data, with a restricted
+import grammar, and resolves the imports it detects to a file or a package (section "Web imports"). It can miss
+imports and unsupported constructs. The web conformance library compares those detected imports with the web
+container of the same model in both directions and reports file, line and specifier evidence. The reader and
+conformance library are implemented and tested on synthetic fixtures; the repository's web-app gate is still
+planned, as are the authoritative controls in ADR 0013.
 
 ## Boundaries
 
@@ -21,8 +24,9 @@ evidence (section "Web imports").
     `WebReport`, result records and `ModelException`.
   - `model`: restricted DSL parsing and validation into an immutable `ContractModel` and `WebModel`.
   - `bytecode`: class import with ArchUnit and evidence extraction.
-  - `sources`: a web root read as data with the restricted import grammar, and each import resolved; the JDK only.
-  - `rules`: comparisons and violation rules.
+  - `sources`: partial lint over a web root read as data with the restricted import grammar, resolving detected
+    imports; the JDK only.
+  - `rules`: comparison and violation rules.
   - `report`: deterministic JSON and Markdown writers.
 - Allowed internal dependencies: `api -> model, bytecode, sources, rules, report`; `rules -> model, bytecode, sources`;
   `report -> rules, model`. No other edges; no cycles. The self-model `libs/c4-contract-kit/architecture/self.dsl`
@@ -73,7 +77,7 @@ public record WebReport(String schema, String modelPath, String sourceRoot, List
     public boolean passed();   // true when violations is empty
 }
 public record ImportEvidence(String file, int line, String specifier, String kind, String target) {}
-/** Every import of a package or Node.js built-in: the model property that lists it and the allowlist entry. */
+/** Every detected import of a package or Node.js built-in: the model property that lists it and the allowlist entry. */
 public record WebExternalImport(String file, int line, String specifier, String target, String version, String rule,
                                 String allowlistEntry, ExternalImportStatus status) {}
 public enum ExternalImportStatus { APPROVED, UNDECLARED, UNPINNED, UNAPPROVED, REFUSED }
@@ -133,6 +137,19 @@ Validation (each is a `ModelException` entry with element identifiers):
 
 ## Web imports
 
+**Partial static lint, accepted by the owner on 2026-11-08 (ADR 0013).** The reader's restrictions below describe
+recognized forms and tested cases. They are not a guarantee that all imports are found or unsupported constructs
+refused. Known open bypass: `import("unlisted")`, `import(name)`, `require("unlisted")` and
+`import.meta.glob("./*.ts")` immediately after `...` can yield no imports and no refusals. The review found object,
+array, call and nested-template spread variants, including whitespace, comments and line breaks after `...`, in
+TS/TSX and source/test placements. Parenthesizing the operand restores detection in the reviewed control, without
+closing the bypass. No other open bypass class was reported by that non-exhaustive probe set.
+
+The planned authoritative controls are the reviewed TypeScript compiler's import graph for import dependencies and
+a strict Content-Security-Policy in the web app enforced by the browser for runtime loading and execution. Neither
+exists in this reader. Do not present the lint or its passing tests as complete enforcement or runtime safety.
+The limits are recorded in `docs/gaps.md`, section 6, and ADR 0013.
+
 The web vocabulary (on the container `web.root`, `web.testRoots`, `web.publicRoots`, `web.testBuiltins` and
 `web.testPackages`; on its components `web.id`, `web.paths`, `web.status`, `web.entry` and `web.packages`; on their
 relationships `web.mode`) and its rules are in the header of `architecture/workspace.dsl`. It is separate from the
@@ -167,10 +184,10 @@ refused wherever they are, comments and strings included; images and fonts are a
 Names that start with a dot are left out, but a symbolic link anywhere is an error, hidden ones and those in hidden
 directories included: links are checked before anything is left out. Files must be UTF-8.
 
-The restricted import grammar reads, with the line of the specifier: `import ... from 'x'`, `import 'x'`,
-`import type`, `export * from`, `export { a } from`, their type-only forms, and `import('x')` with one plain string
-literal anywhere, types included. It refuses: `import()` with anything else, `require`, `import.meta` other than
-`import.meta.env` (a test, which runs in Node.js, may also locate files with `import.meta.url`, `import.meta.dirname`
+For recognized forms, the restricted import grammar reads, with the line of the specifier: `import ... from 'x'`,
+`import 'x'`, `import type`, `export * from`, `export { a } from`, their type-only forms, and `import('x')` with one
+plain string literal, types included. It refuses recognized uses of: `import()` with anything else, `require`,
+`import.meta` other than `import.meta.env` (a test, which runs in Node.js, may also locate files with `import.meta.url`, `import.meta.dirname`
 and `import.meta.filename`), import-equals declarations, import attributes, a module declaration with a module name
 (`module 'x'`, with or without `declare`), code that loads code at run time (`eval` and the `Function` constructor,
 even as properties such as `globalThis.eval`; a call of a `constructor` property; `Worker`, `SharedWorker`,
@@ -178,7 +195,8 @@ even as properties such as `globalThis.eval`; a call of a `constructor` property
 pragmas and a backslash escape in a specifier. Strings, comments, templates, regular expressions and JSX text never
 yield code; template substitutions and JSX expressions do.
 
-The lexer fails closed: where it cannot decide with certainty, it refuses the file with the line, and never guesses.
+The lexer refuses the following recognized ambiguities with a line number. This is partial lint coverage, not a
+general fail-closed guarantee; the spread bypass above remains open.
 
 - A slash, and in `.tsx` a `<`, starts a regular expression or a JSX element where an expression starts: after a
   punctuator other than `)`, `]`, `}`, `++` and `--`, after a keyword such as `return`, `typeof` or `else`, after the
@@ -206,18 +224,18 @@ which a subpath of names may follow: no empty, `.` or `..` segment and no percen
 a built-in module names that module (`node:test`, `node:assert/strict`); any other `node:` specifier is unsupported.
 Absolute specifiers, other schemes (`https:`, `data:`, `virtual:`), queries and fragments are unsupported.
 
-The web app's configuration (`AppConfiguration`, read as strict JSON and as text): the check resolves specifiers
-itself, so a setting that would make TypeScript, Node.js or the browser resolve one otherwise, or add an import that no
-source file shows, is refused with its file and line. In `tsconfig*.json`: `extends`, `references`, and in
-`compilerOptions` `paths`, `baseUrl`, `rootDirs`, `typeRoots`, `moduleSuffixes`, `customConditions`,
-`allowArbitraryExtensions` and `jsxImportSource`; `types` unless it is empty, `importHelpers` when true, and a `jsx`
+The web app's configuration (`AppConfiguration`, read as strict JSON and as text): the lint resolves detected
+specifiers itself and refuses the following recognized settings that can change resolution or add imports, with
+their file and line. This list is not a complete account of compiler or browser behaviour. In `tsconfig*.json`:
+`extends`, `references`, and in `compilerOptions` `paths`, `baseUrl`, `rootDirs`, `typeRoots`, `moduleSuffixes`,
+`customConditions`, `allowArbitraryExtensions` and `jsxImportSource`; `types` unless it is empty, `importHelpers` when true, and a `jsx`
 that imports a JSX runtime. In `package.json`: `imports`, `overrides`, `browser` and dependencies other than
 `dependencies` and `devDependencies`, whose versions must be exact; `engines.node` names one exact version of Node.js.
 In each page (`*.html`): an import map, an inline script, a `<base>` element, a script or link from another origin, and
 a style element that names `@import`. A file that is not plain JSON (comments and trailing commas included), not UTF-8
 or not a regular file is refused too.
 
-Comparison semantics:
+Comparison semantics (import rules apply to the imports the partial reader detects):
 
 - A file of the web root belongs to the component one of whose paths is a directory above it. Files of test and
   public roots belong to no component.
@@ -285,5 +303,6 @@ Demo pull requests 6 to 10 stay open or are preserved as reproducible recordings
 
 - Mutation testing: at least 90 % killed mutants on changed lines (checker logic).
 - Every rule above has a negative fixture: a model or class set that must fail with that exact violation type.
-- Unsupported constructs fail loudly with a clear message; they never pass silently.
+- Recognized unsupported constructs have fixtures asserting a clear refusal. The web reader is a partial lint with
+  known silent misses listed above; its tests do not establish complete detection. Keep that limitation visible.
 - Not published in v0.1. Publishing under an owner-qualified Maven coordinate comes after namespace verification.

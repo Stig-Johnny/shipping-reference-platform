@@ -2,7 +2,7 @@
 title: "ADR 0012: First runnable slice with a plain TypeScript workbench and Spring JDBC"
 description: "Supersedes ADRs 0003, 0004, 0005 and 0009. Their modules, contract-first API and PostgreSQL design carry forward unchanged, except that adapters use Spring JDBC's JdbcClient; the workbench is plain TypeScript with a hand-written typed HTTP adapter, and React and the generated client are deferred."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 date: 2026-11-07
 decision-makers: repository owner
 enforcedBy:
@@ -23,6 +23,12 @@ plannedEnforcement:
 
 Supersedes ADR 0003, ADR 0004, ADR 0005 and ADR 0009. What they decided carries forward here unchanged, except where
 this record says otherwise; their text stays as it was accepted.
+
+**Web reader scope, 2026-11-08:** ADR 0013 records the owner's implementation decision for pull request #70:
+the JDK reader ships as labelled partial static lint with a known spread-syntax bypass. The web import enforcement
+described below is intended design, not a complete guarantee supplied by that reader. The reviewed TypeScript
+compiler's import graph and a strict Content-Security-Policy in the web app enforced by the browser are planned
+authoritative controls. This clarification leaves this record's application design and existing Java evidence intact.
 
 ## Context and Problem Statement
 
