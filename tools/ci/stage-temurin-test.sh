@@ -2,7 +2,8 @@
 # Local transport fixtures; real SHA-256 verification, no network or downloaded code.
 # An optional implementation path supports red/green replay against the old script.
 set -euo pipefail
-script="${1:-$(cd "$(dirname "$0")" && pwd)/stage-temurin.sh}"
+here="$(cd "$(dirname "$0")" && pwd)"
+script="${1:-$here/stage-temurin.sh}"
 fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT
 export fixture
@@ -17,65 +18,8 @@ export digest bytes file
 failures=0
 cases=0
 
-cat > "$fixture/bin/curl" <<'FIXTURE'
-#!/usr/bin/env bash
-set -euo pipefail
-bad_options() { touch "$fixture/bad-options"; exit 97; }
-[[ "$1" == --disable ]] || bad_options
-shift
-flags=' '
-while (( $# )); do
-  case "$1" in
-    --silent|--fail|--location) flags="$flags$1 "; shift ;;
-    --connect-timeout) connect=$2; shift 2 ;;
-    --max-time) deadline=$2; shift 2 ;;
-    --max-redirs) redirects=$2; shift 2 ;;
-    --max-filesize) size=$2; shift 2 ;;
-    --proto) proto=$2; shift 2 ;;
-    --proto-redir) redir=$2; shift 2 ;;
-    --retry) retry=$2; shift 2 ;;
-    --output) output=$2; shift 2 ;;
-    --write-out) format=$2; shift 2 ;;
-    https://*) url=$1; shift ;;
-    *) bad_options ;;
-  esac
-done
-[[ "$flags" == *' --silent '* && "$flags" == *' --fail '* && "$flags" == *' --location '* ]] || bad_options
-[[ "${connect:-}:${size:-}:${proto:-}:${redir:-}:${retry:-}:${format:-}" == "10:$bytes:=https:=https:0:%{http_code}" ]] || bad_options
-case "${url:-}" in
-  "https://mirror.example/sha256/$digest/$file")
-    source=mirror; result=$MIRROR_RESULT
-    [[ "$deadline:$redirects" == 45:0 ]] || bad_options ;;
-  "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.5%2B8/$file")
-    source=official; result=$OFFICIAL_RESULT
-    [[ "$deadline:$redirects" == 90:5 ]] || bad_options ;;
-  *) bad_options ;;
-esac
-printf '%s\n' "$source" >> "$fixture/requests"
-count=$(grep -c "^$source$" "$fixture/requests")
-[[ -f "$output" && ! -s "$output" ]] || bad_options
-[[ "$result" != retry-ok || "$count" == 1 ]] || result=ok
-case "$result" in
-  ok) cp "$fixture/good" "$output"; printf 200 ;;
-  wrong) cp "$fixture/bad" "$output"; printf 200 ;;
-  short) printf partial > "$output"; printf 200 ;;
-  large) printf 200; exit 63 ;;
-  redirect) printf 302; exit 47 ;;
-  missing) printf 404; exit 22 ;;
-  down) printf 503; printf 'untrusted-response-marker\n' >&2; exit 22 ;;
-  cancel) kill -TERM "$STAGING_PID"; printf 000; exit 28 ;;
-  timeout|retry-ok) printf partial > "$output"; printf 000; exit 28 ;;
-  dns) printf 000; exit 6 ;;
-  tls) printf 000; exit 60 ;;
-  throttle) printf 429; exit 22 ;;
-  *) exit 98 ;;
-esac
-FIXTURE
-cat > "$fixture/bin/sleep" <<'FIXTURE'
-#!/usr/bin/env bash
-[[ "$*" == 2 ]] || { touch "$fixture/bad-options"; exit 97; }
-printf 'backoff\n' >> "$fixture/sleeps"
-FIXTURE
+cp "$here/fake-download/curl" "$fixture/bin/curl"
+cp "$here/fake-download/sleep" "$fixture/bin/sleep"
 chmod +x "$fixture/bin/curl" "$fixture/bin/sleep"
 
 run_case() {

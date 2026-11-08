@@ -170,6 +170,38 @@ public final class TestEvidence {
         return otherTests.contains(name);
     }
 
+    /**
+     * What is wrong with reports that must show a passing run, such as the database tests' when CI asks for them: the
+     * directory holds at least one JUnit XML report, and every suite in it ran at least one test, none of which failed,
+     * errored or was skipped. Evidence that is required cannot be absent, so a missing or empty directory is a problem
+     * too. {@code name} is how a problem names the directory.
+     */
+    public static List<String> requiredProblems(Path dir, String name) {
+        if (!Files.isDirectory(dir)) {
+            return List.of(name + ": no test results; the tests that must pass did not run in this build");
+        }
+        List<Path> reports;
+        try (Stream<Path> files = Files.list(dir)) {
+            reports = files.filter(p -> p.getFileName().toString().startsWith("TEST-")
+                    && p.getFileName().toString().endsWith(".xml")).sorted().toList();
+        } catch (IOException e) {
+            throw new DocsException("the test reports cannot be listed", e);
+        }
+        if (reports.isEmpty()) {
+            return List.of(name + ": no test report; the tests that must pass did not run in this build");
+        }
+        List<String> problems = new ArrayList<>();
+        for (Path report : reports) {
+            Result result = parse(report);
+            if (!result.passed()) {
+                problems.add(name + ": " + result.suite() + " ran " + result.tests() + " tests with "
+                        + result.failures() + " failed, " + result.errors() + " errored and " + result.skipped()
+                        + " skipped; it must run at least one and pass them all");
+            }
+        }
+        return List.copyOf(problems);
+    }
+
     /** Whether more than one test class, among the sources or the reports, has this simple name. */
     public boolean ambiguous(String test) {
         return ambiguous.contains(test);

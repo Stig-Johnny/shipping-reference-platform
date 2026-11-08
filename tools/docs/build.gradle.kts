@@ -58,6 +58,20 @@ val testedProjects: List<Pair<String, String>> = rootProject.subprojects
     .filter { it.projectDir.resolve("src/test/java").isDirectory }
     .map { it.path to it.layout.buildDirectory.dir("test-results/test").get().asFile.absolutePath }
 
+// The shipping API's database tests run in their own task, databaseTest, which only a reviewed container engine can
+// pass, so check needs no engine (apps/shipping-api/build.gradle.kts). Full-evidence mode, -PdatabaseEvidence=true,
+// is how CI's java check and the pages workflow's test job build: the docs tasks then depend on databaseTest too, read
+// its reports and fail unless they show at least one test run and none failed, errored or skipped. Without it they
+// never read those reports, so a database report left over from an earlier run cannot count as evidence.
+val databaseEvidence: Boolean = when (val value = providers.gradleProperty("databaseEvidence").orNull) {
+    null -> false
+    "true" -> true
+    else -> throw GradleException("databaseEvidence is true or absent, not '$value'")
+}
+val databaseTested: List<Pair<String, String>> = listOf(":apps:shipping-api").map {
+    it to project(it).layout.buildDirectory.dir("test-results/databaseTest").get().asFile.absolutePath
+}
+
 fun JavaExec.docsTool(command: String) {
     group = "documentation"
     classpath = sourceSets.main.get().runtimeClasspath
@@ -66,6 +80,10 @@ fun JavaExec.docsTool(command: String) {
     dependsOn(testedProjects.map { (path, _) -> "$path:test" })
     args(command, "--repo", repositoryRoot)
     testedProjects.forEach { (_, reports) -> args("--test-results", reports) }
+    if (databaseEvidence) {
+        dependsOn(databaseTested.map { (path, _) -> "$path:databaseTest" })
+        databaseTested.forEach { (_, reports) -> args("--required-results", reports) }
+    }
 }
 
 tasks.register<JavaExec>("generate") {
@@ -84,7 +102,8 @@ val checkGenerated = tasks.register<JavaExec>("checkGenerated") {
 val siteDirectory: String = layout.buildDirectory.dir("site").get().asFile.absolutePath
 val sourceRevision: Provider<String> = providers.environmentVariable("GITHUB_SHA").orElse(
     providers.exec {
-        commandLine("git", "-C", repositoryRoot, "rev-parse", "HEAD")
+        // This project's directory is inside the same worktree; no computed command argument is needed.
+        commandLine("git", "rev-parse", "HEAD")
         isIgnoreExitValue = true
     }.standardOutput.asText.map { it.trim() },
 )

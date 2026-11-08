@@ -18,7 +18,10 @@
 //   5. every npm package in package-lock.json is allowlisted, comes from registry.npmjs.org and carries an integrity hash;
 //   6. every file under a vendor/ directory is byte-identical (SHA-256) to an approved, reviewed artifact;
 //   7. the owner has accepted exactly this reviewed set: every entry, field by field, and every review record, byte
-//      for byte.
+//      for byte;
+//   8. PARTIAL lint: recognized direct container use, image forms and registered-file pin mismatches block;
+//      class names in literal/data text are not use. Unregistered launch/reflection capabilities are warnings only.
+//      Runtime CI Docker guards enforce the engine availability window. See checkContainerImages and ADR 0007.
 // Exit codes: 0 = clean, 1 = findings, 2 = the check could not complete (a broken check never reads as a pass).
 // With --report-only, findings are printed and the exit code is 0 (new checks start report-only, then block).
 
@@ -42,6 +45,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HexFormat;
@@ -102,14 +106,22 @@ public final class PolicyCheck {
 
     private final Path repo;
     private final LocalDate today;
+    private final Map<String, String> launchSites;
     private final List<Json.JObject> rawEntries;
     private final List<Entry> entries;
     private final Json.JObject allowlist;
     /** Every review record as the allowlist writes it, and its normalized path inside the tree. */
     private final Map<String, Path> reviews = new HashMap<>();
     private final Set<Finding> findings = new TreeSet<>();
+    private final Set<String> warnings = new TreeSet<>();
 
     PolicyCheck(Path repo, LocalDate today) throws IOException {
+        this(repo, today, LAUNCH_SITES);
+    }
+
+    /** In-memory fixture registry for tests; no CLI, environment or candidate file can select this overload. */
+    PolicyCheck(Path repo, LocalDate today, Map<String, String> launchSites) throws IOException {
+        this.launchSites = Map.copyOf(launchSites);
         this.repo = withoutLinks(repo);
         this.today = today;
         Path file = this.repo.resolve(ALLOWLIST);
@@ -174,6 +186,7 @@ public final class PolicyCheck {
         checkWorkflowActions();
         checkNpmLockfile();
         checkVendoredFiles();
+        checkContainerImages();
         return findings;
     }
 
@@ -415,6 +428,2225 @@ public final class PolicyCheck {
         }
     }
 
+    // ---- 8. container images ----
+
+    /*
+     * PARTIAL static lint, not engine-access enforcement. Recognized container declarations and unsupported
+     * container/shell forms block; source launch/reflection capabilities outside the registry warn only.
+     * Image references require an approved digest. Runtime CI guards enforce the engine availability window.
+     *
+     * What it reads: every file under a project's src/ directory, whatever its extension (sources, resources, scripts);
+     * every Java, Kotlin and Groovy file (the Gradle build scripts included); gradle.properties; the workflows and every
+     * action file; every shell script, by its .sh extension or its #! line; root and declared workspace package.json
+     * scripts and repository .npmrc files. In the whole tree it also looks for
+     * executables and archives (ELF, Mach-O, PE, Java class, ZIP or JAR, gzip, WebAssembly), which it cannot read.
+     * Documents outside src/, review records and this checker's fixtures are not read for image strings: naming an
+     * image there uses nothing. The Gradle wrapper script is not read either, as long as it is byte for byte the one Gradle generates
+     * (WRAPPER_SCRIPT_SHA256); edited, it is read like any other script.
+     *
+     * What it decodes: Java after its Unicode escapes; Java and Kotlin without their comments, with their string
+     * literals in every form (text blocks, raw strings) and escapes decoded; YAML block mappings and sequences, scalars
+     * on one line (plain, single-quoted, double-quoted without escapes), flow collections on one line and literal blocks
+     * (|, |-, |+), their indentation removed; shell text as bash splits it into words (quotes, $"...", backslash escapes,
+     * line continuations, command substitutions, backquotes, arithmetic, the values of ${...}, and the strings that
+     * bash -c, eval and trap run, read again), with the place of every command known: pipelines and lists, subshells
+     * and functions, if, while, for, case and its patterns, [[ ]] and (( )), assignments, redirections, and the
+     * wrappers that run their arguments (WRAPPERS).
+     *
+     * What it refuses because it cannot decode it:
+     *   - any heredoc (<< and <<-, its delimiter quoted or not) in a script, a workflow or a resource, and one with a
+     *     body in a string literal: whether bash expands a heredoc's body depends on its delimiter, and # is no comment
+     *     there. A here-string (<<<) is read. A shift (<<) in shell arithmetic is refused with them;
+     *   - $'...' quoting with an escape in it, anywhere it reads shell text (without one it is plain quoting);
+     *   - in workflows and action files: a scalar continued over lines (plain or quoted), a folded block (>) and a block
+     *     with an indentation indicator, a double-quoted scalar with an escape, an anchor, an alias, a tag, a merge key,
+     *     an explicit key, a tab in the indentation, a line that is no key and no sequence entry, a flow collection over
+     *     lines and a run or shell key inside one; a GitHub expression (${{ }}) in a run step, whose value GitHub writes
+     *     into the script before bash reads it; a shell other than bash or sh; an action that is not composite;
+     *   - in shell text: a command that is an expansion (a variable, a substitution, ${...}) or holds a glob, brace
+     *     expansion anywhere, a shell that reads its commands from its input (a pipe, a redirection, a process
+     *     substitution), an awk program that runs commands or comes from a file, an interpreter or build tool whose
+     *     programs it does not read (INTERPRETERS, except reviewedCommand's complete web forms), --unix-socket, and a file of
+     *     this tree run as a script that it does not read as one; in a file, a #! line that names anything but bash or sh.
+     *     An executable file without a #! line is read as a script, since sh runs it when its name is run;
+     *   - anywhere it reads: a variable that makes bash, the loader or a runtime run code it does not read
+     *     (STARTUP_VARIABLE: BASH_ENV, LD_PRELOAD, JAVA_TOOL_OPTIONS and others), as a YAML key, a shell word or a string
+     *     literal, and a JVM option that runs a command (JVM_COMMAND);
+     *   - in Java and Kotlin outside the harness and its test: opening a Unix socket (ENGINE_SOCKET), which is how code
+     *     reaches the engine without naming a runtime;
+     *   - Groovy sources and build scripts, whose slashy and dollar-slashy strings and GString templates it does not
+     *     decode. Generic launch capability diagnostics are separate warnings, described below;
+     *   - in string literals: a container runtime's name in a literal with shell metacharacters, once its quotes,
+     *     escapes and expansions are removed, and one split across consecutive literals, whatever joins them (+, a call,
+     *     a template); a Kotlin or Groovy template that holds a string literal;
+     *   - under src/: a file that is not UTF-8 text.
+     *
+     * What it refuses as a use:
+     *   - a digest reference ([registry/]name@sha256:<digest>) that no approved container-image entry has, a tag next
+     *     to the digest, and a digest that is not 64 lowercase hexadecimal digits;
+     *   - in sources and build scripts: any reference to Testcontainers or docker-java (an import, a star import or a
+     *     fully qualified name in code, not literal/data text) outside the database harness (HARNESS);
+     *     DockerImageName.parse of anything but one string literal that holds a
+     *     digest, as a method reference or by a static import; a Testcontainers JDBC URL (jdbc:tc:), which names an
+     *     image by tag; every API that derives, builds or resolves an image name, pulls or builds an image, runs
+     *     another container, copies into one, binds the host, reaches the host, or changes how a container is created
+     *     (FORBIDDEN_API: the conditions of the Testcontainers and runner reviews); a container runtime named in code or
+     *     in a string, which is how a build script or a test would run one as a command;
+     *   - in the harness: any container but org.testcontainers.postgresql.PostgreSQLContainer (the deprecated one in
+     *     .containers included), one made from anything but DockerImageName.parse or a DockerImageName that the
+     *     harness parses, a subclass and a constructor reference;
+     *   - a testcontainers.properties file anywhere and a Testcontainers service file, any setting that gives
+     *     Testcontainers an image (*.container.image, hub.image.name.prefix, image.substitutor, TESTCONTAINERS_*IMAGE*),
+     *     and a container build or compose file (Dockerfile, Containerfile, compose.yaml);
+     *   - in workflows and scripts: docker as a command word (by its path, after the normalisation above) with anything
+     *     but the reads, removals and the one pull that the staging, the checks and the cleanup need (DOCKER_READS), a
+     *     pull of anything but one image by digest, docker's global options, docker in a word it cannot read as a
+     *     command (a value, an expansion), other container runtimes, a runtime's name around an expansion, and job or
+     *     service containers as plain, quoted, flow, escaped or explicit YAML keys.
+     * What warns without failing: recognized process-launch, reflection and method-handle capabilities in source
+     * outside LAUNCH_SITES, including tools/policy and build directories. Opaque Kotlin expression templates and
+     * backquoted identifiers warn too. Present registered files still require their exact SHA-256 even after their
+     * capability is removed, and their command vectors still receive the existing blocking checks. Direct container
+     * checks run separately everywhere they did before; no capability warning downgrades one of their findings.
+     * What stays outside it: repository code run by the reviewed node --test command (matching is not isolation), and
+     * commands assembled by the reviewed, hash-pinned launchers, and the programs an allowed command runs in turn (sed, git's configuration, find -exec), and a library that starts a container
+     * of its own. For those the static check is no guarantee: the runner's checks of the engine's images and
+     * events after the tests (tools/ci/container-engine.sh) are what find a container started that way. The checker's
+     * own directory (CHECKER_DIRECTORY) is excluded from image/string inspection because its tests hold refused
+     * spellings as data. The capability warning scan DOES read it; the test launcher itself is hash-pinned.
+     */
+
+    /** This checker and its tests, whose fixtures hold every refused spelling as data: reviewed as the checker. */
+    static final String CHECKER_DIRECTORY = "tools/policy/";
+    /** The database harness: the only source that may use Testcontainers or docker-java. */
+    static final String HARNESS = "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/ReviewedPostgres.java";
+    /** The harness's own test, which may name the engine's socket as the harness does. */
+    static final String HARNESS_TEST =
+            "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/ReviewedPostgresTest.java";
+    /**
+     * Capability registry, held by the running (base-branch in preflight) checker, never loaded from the candidate.
+     * Exact paths and whole-file bytes: no directory, receiver, command or test-source exemption. Update a pin only
+     * with review of the whole file in a risk-3 PR. An unregistered capability only warns; any present registered file
+     * must match, even if an edit removes its capability. These are the existing sites on this branch and main, not examples.
+     */
+    static final Map<String, String> LAUNCH_SITES = Map.ofEntries(
+            // The reviewed database harness and its engine queries.
+            Map.entry("apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/ReviewedPostgres.java",
+                    "a5a04eeb3ed92b691ac8e6444b5ce392caedab4ea8a3e587a9361767aec97e66"),
+            // The API test JVM's argument provider, carrying the reviewed architecture-test input.
+            Map.entry("apps/shipping-api/build.gradle.kts",
+                    "1ad590a5a8f77f42bce58f96feee8a0ddb9c6511456731323d0108932c707b2c"),
+            // The docs JavaExec tasks and literal git revision read.
+            Map.entry("tools/docs/build.gradle.kts",
+                    "593953cc08fb15c25a3666d63a64cb5a4e0bc1532ed12c6bca7012b8f013e564"),
+            // The existing reviewed PIT JavaExec task (CI only; never part of check).
+            Map.entry("build-logic/src/main/java/io/github/stigjohnny/build/MutationTestingPlugin.java",
+                    "1da58928c02952dfdc89c77731202f8e3a2e97cb66d48c448a0b938a23a05ba3"),
+            // The JDK-only checker launcher, timeout and process cleanup tests.
+            Map.entry("tools/policy/PolicyCheckTest.java",
+                    "4988990ff2721f8d727d18b5f6b48e21bb3151b65dff0a6929e60244db458664"),
+            // Runtime access solely for the fixture-directory cleanup shutdown hook.
+            Map.entry("libs/c4-contract-kit/src/test/java/io/github/stigjohnny/c4contractkit/testing/FixtureCompiler.java",
+                    "954f4b9152ee3e786aea9d8b374bd8863f5771a947dc6b58952634738172fd8b"),
+            // Reflection solely to assert parser features and HTTP restrictions.
+            Map.entry("tools/docs/src/test/java/io/github/stigjohnny/docs/model/RestrictedStructurizrTest.java",
+                    "b035ef03dc230ced0136ec246a3dd4c45c20e22688b871af6922ff928f3bc5c4")
+    );
+    /** Names capabilities before aliases can hide their receivers. No attempt to infer the final command here. */
+    static final Pattern LAUNCH_CAPABILITY = Pattern.compile(
+            "\\b(?:ProcessBuilder|ProcessHandle|Runtime|getRuntime|Exec|JavaExec|ExecSpec|JavaExecSpec|ExecOperations|"
+            + "ExecAction|JavaExecAction|exec|javaexec|commandLine|setCommandLine|setArgs|getArgs|setExecutable|getExecutable|jvmArgs|setJvmArgs|"
+            + "argumentProviders|getArgumentProviders|jvmArgumentProviders|getJvmArgumentProviders|CommandLineArgumentProvider|"
+            + "MethodHandles?|MethodType|VarHandle|KClass|KCallable|KFunction|"
+            + "forName|loadClass|findClass|defineClass|defineHiddenClass|"
+            + "get(?:Declared)?(?:Method|Constructor)s?|getDeclaredFields?|setAccessible|trySetAccessible|"
+            + "invoke|invokeExact|invokeWithArguments)\\b"
+            + "|\\b(?:args|executable)\\s*(?:[=(]|::)|::\\s*(?:args|executable)\\b"
+            + "|\\b(?:java\\s*\\.\\s*lang\\s*\\.\\s*(?:reflect|invoke)|kotlin\\s*\\.\\s*reflect)\\b");
+    static final Pattern KOTLIN_CAPABILITY = Pattern.compile(
+            "\\b(?:members|declaredMembers|memberFunctions|declaredMemberFunctions|functions|constructors|"
+            + "javaMethod|javaConstructor|javaField|kotlinFunction|callBy|args|executable)\\b");
+
+    void checkLaunchSites() throws IOException {
+        for (Path file : files(p -> Language.of(p.getFileName().toString()).isPresent(), true)) {
+            String rel = repo.relativize(file).toString();
+            byte[] bytes = read(file);
+            String pinned = launchSites.get(rel);
+            if (pinned != null) {
+                if (!sha256(bytes).equals(pinned)) add("images", relative(file)
+                        + ": launch-site SHA-256 mismatch; any edit requires review and a registry update");
+                continue; // Existing image/command-form checks still run; a pin never grants a web command exception.
+            }
+            Language language = Language.of(file.getFileName().toString()).orElseThrow();
+            Optional<String> decoded = utf8(bytes);
+            if (decoded.isEmpty() || language == Language.GROOVY) {
+                warnings.add(relative(file) + ": unregistered launch capability; source syntax cannot be inspected");
+                continue;
+            }
+            String text = language == Language.JAVA ? unicodeEscapesDecoded(decoded.get()) : decoded.get();
+            // Java ignores these characters inside identifiers. Retaining them would disguise a capability's name.
+            if (language == Language.JAVA) {
+                StringBuilder normalized = new StringBuilder();
+                text.codePoints().filter(c -> !Character.isIdentifierIgnorable(c)).forEach(normalized::appendCodePoint);
+                text = normalized.toString();
+            }
+            String bare = SourceViews.of(text, language).bare();
+            boolean opaqueKotlin = language == Language.KOTLIN && (text.contains("${") || bare.contains("`"));
+            if (LAUNCH_CAPABILITY.matcher(bare).find() || opaqueKotlin
+                    || language == Language.KOTLIN && KOTLIN_CAPABILITY.matcher(bare).find()) {
+                warnings.add(relative(file) + ": unregistered launch capability; PARTIAL lint only, CI runtime engine guard enforces access");
+            }
+        }
+    }
+
+    /** The Gradle wrapper script, not read while it is byte for byte the one Gradle 9.2.0 generates: it starts java. */
+    static final String WRAPPER_SCRIPT = "gradlew";
+    static final String WRAPPER_SCRIPT_SHA256 = "a5a5c199ba02189ae8c46a334223371a20599d9c298ef65e7540ede4a3f72d59";
+    /** The one archive the tree may hold: the Gradle wrapper JAR, which check 3 holds to its review. */
+    static final String WRAPPER_JAR = "gradle/wrapper/gradle-wrapper.jar";
+    static final String DIGEST = "@sha256:";
+    static final Pattern DIGEST_REFERENCE = Pattern.compile("[^\\s\"'`()\\[\\]{}<>,;=|&]*" + DIGEST
+            + "[^\\s\"'`()\\[\\]{}<>,;=|&]*");
+    static final Pattern SHA256_HEX = Pattern.compile("[0-9a-f]{64}");
+    static final Pattern CONTAINER_LIBRARY = Pattern.compile(
+            "\\b(?:org\\s*\\.\\s*testcontainers|com\\s*\\.\\s*github\\s*\\.\\s*dockerjava)\\s*\\.");
+    static final Pattern PARSE_CALL = Pattern.compile("\\bDockerImageName\\s*\\.\\s*parse\\s*\\(");
+    static final Pattern ONE_LITERAL = Pattern.compile("\\s*\"([^\"\\\\\\n]*)\"\\s*\\)");
+    static final Pattern PARSE_REFERENCE = Pattern.compile("\\bDockerImageName\\s*::\\s*parse\\b");
+    static final Pattern PARSE_IMPORT = Pattern.compile("\\bimport\\s+static\\s+[\\w.]*\\bDockerImageName\\s*\\.");
+    static final Pattern IMAGE_DECLARATION = Pattern.compile(
+            "\\bDockerImageName\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*(?:[\\w.]*\\.)?DockerImageName\\s*\\.\\s*parse\\s*\\(");
+    static final Pattern NEW_CONTAINER = Pattern.compile(
+            "\\bnew\\s+(?:[A-Za-z_$][\\w$]*\\s*\\.\\s*)*([A-Za-z_$][\\w$]*Container)\\b\\s*(?:<[^<>()]*>)?\\s*\\(");
+    static final Pattern CONTAINER_REFERENCE = Pattern.compile("\\b([A-Za-z_$][\\w$]*Container)\\s*::\\s*new\\b");
+    static final Pattern EXTENDS_CONTAINER = Pattern.compile(
+            "\\bextends\\s+(?:[A-Za-z_$][\\w$]*\\s*\\.\\s*)*([A-Za-z_$][\\w$]*Container)\\b");
+    static final Pattern DEPRECATED_CONTAINER = Pattern.compile(
+            "\\borg\\s*\\.\\s*testcontainers\\s*\\.\\s*containers\\s*\\.\\s*PostgreSQLContainer\\b");
+    static final Pattern NEW_IMAGE_NAME = Pattern.compile("\\bnew\\s+(?:[A-Za-z_$][\\w$]*\\s*\\.\\s*)*DockerImageName\\b");
+    static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z_$][\\w$]*");
+    static final String REVIEWED_CONTAINER = "PostgreSQLContainer";
+    static final Pattern FORBIDDEN_API = Pattern.compile("\\b(withTag|withRegistry|withRepository|"
+            + "asCompatibleSubstituteFor|ImageFromDockerfile|RemoteDockerImage|setDockerImageName|DockerComposeContainer|"
+            + "ComposeContainer|withFileSystemBind|addFileSystemBind|withClasspathResourceMapping|withCopyToContainer|"
+            + "withCopyFileToContainer|copyFileToContainer|exposeHostPorts|withAccessToHost|withPrivilegedMode|withReuse|"
+            + "withNetworkMode|withCreateContainerCmdModifier|withVolumesFrom|createContainerCmd|pullImageCmd|"
+            + "buildImageCmd|loadImageCmd|createImageCmd|copyArchiveToContainerCmd|pushImageCmd|tagImageCmd|"
+            + "runInsideDocker|checkAndPullImage)\\b");
+    static final Pattern TC_JDBC_URL = Pattern.compile("jdbc:tc:");
+    static final Pattern IMAGE_SETTING = Pattern.compile("TESTCONTAINERS_[A-Z0-9_]*IMAGE[A-Z0-9_]*"
+            + "|\\b[a-z0-9]+\\.container\\.image\\b|\\bhub\\.image\\.name\\.prefix\\b|\\bimage\\.substitutor\\b");
+    /** A container runtime in code: alone, by its path, or at the start of a command. */
+    static final Pattern RUNTIME_WORD = Pattern.compile(
+            "(?<![\\w.-])(?:[\\w./-]*/)?(docker|docker-compose|podman|nerdctl|buildah)(?![\\w./-])");
+    /** A normalised shell word that is a container runtime, by its name or its path. */
+    static final Pattern RUNTIME_NAME = Pattern.compile("(?:.*/)?(docker|docker-compose|podman|nerdctl|buildah)");
+    /** A container runtime inside a normalised word: not a path component, a file name, a registry or another name. */
+    static final Pattern BOUNDED_RUNTIME = Pattern.compile(
+            "(?<![A-Za-z0-9_.-])(docker-compose|docker|podman|nerdctl|buildah)(?![A-Za-z0-9_./-])(?!://)");
+    /** A container runtime's name anywhere in a text, for the names that literals split between them. */
+    static final Pattern ANY_RUNTIME = Pattern.compile("docker|podman|nerdctl|buildah");
+    /** In Groovy, whose slashy strings (/.../, $/.../$) this check does not parse: a runtime between any delimiters. */
+    static final Pattern GROOVY_RUNTIME = Pattern.compile(
+            "(?<![A-Za-z0-9_])(docker-compose|docker|podman|nerdctl|buildah)(?![A-Za-z0-9_])");
+    /** A Kotlin or Groovy string template whose expression holds a string literal: text assembled in the string. */
+    static final Pattern LITERAL_TEMPLATE = Pattern.compile("\\$\\{[^}\\n]*[\"']");
+    /** A GitHub expression function that builds text: the shell would run text that this check does not see. */
+    static final Pattern EXPRESSION_TEXT = Pattern.compile("\\$\\{\\{[^}]*\\b(format|join|toJSON|fromJSON)\\s*\\(");
+    /** An assignment, read in a word's mask: its name and = written unquoted. */
+    static final Pattern ASSIGNMENT = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(?:\\[[^\\]]*\\])?\\+?=.*", Pattern.DOTALL);
+    /** Words after which the next word is still the command: the wrappers that run their arguments, and keywords. */
+    static final Set<String> WRAPPERS = Set.of("sudo", "exec", "env", "command", "builtin", "nohup", "time", "nice",
+            "xargs", "eval", "timeout", "setsid", "stdbuf", "ionice", "taskset", "chrt", "unshare", "flock", "doas",
+            "then", "do", "else", "elif", "if", "while", "until", "!", "{", "coproc");
+    /** The shells whose -c string is a command, and the commands that run a file as a script. */
+    static final Set<String> SHELLS = Set.of("bash", "sh", "dash", "zsh", "ksh", "source", ".");
+    /** Interpreters whose programs this check does not read: refused in the place of a command. */
+    static final Set<String> INTERPRETERS = Set.of("python", "python2", "python3", "node", "nodejs", "npm", "npx",
+            "yarn", "pnpm", "tsc", "perl", "ruby", "php", "deno", "bun", "lua", "pwsh", "powershell", "osascript",
+            "Rscript", "tclsh", "jshell", "jbang", "groovy", "kotlin", "kotlinc", "make", "gmake", "just", "rake", "ant",
+            "mvn", "sbt", "socat", "ncat");
+    static final Set<String> AWKS = Set.of("awk", "gawk", "mawk", "nawk");
+    /** An awk program that runs a command: system(), a pipe, or getline from one. */
+    static final Pattern AWK_COMMAND = Pattern.compile("\\bsystem\\s*\\(|\\||\\bgetline\\b");
+    /** The variables that make bash, the dynamic loader or a runtime load or run code this check does not read. */
+    static final Pattern STARTUP_VARIABLE = Pattern.compile("(BASH_ENV|ENV|PROMPT_COMMAND|PS4|SHELLOPTS|BASHOPTS|"
+            + "BASH_FUNC_[^=\\s]*|LD_PRELOAD|LD_AUDIT|JAVA_TOOL_OPTIONS|JDK_JAVA_OPTIONS|_JAVA_OPTIONS|NODE_OPTIONS|NODE_PATH|"
+            + "(?i:npm_config_[A-Za-z_]+))");
+    /** A JVM option that runs a command when the JVM fails. */
+    static final Pattern JVM_COMMAND = Pattern.compile("-XX:\\+?On(?:OutOfMemory)?Error\\b");
+    /** The JDK's way to reach a Unix socket, such as the engine's, from code. */
+    static final Pattern ENGINE_SOCKET = Pattern.compile(
+            "\\bUnixDomainSocketAddress\\b|\\bStandardProtocolFamily\\s*\\.\\s*UNIX\\b");
+    /** The interpreters that a string literal may not name on its own (node, kotlin and groovy are also ordinary words). */
+    static final Set<String> LITERAL_INTERPRETERS = Set.of("python", "python2", "python3", "nodejs", "npx", "yarn",
+            "pnpm", "tsc", "perl", "ruby", "php", "deno", "pwsh", "powershell", "osascript", "Rscript", "tclsh", "jshell",
+            "jbang", "kotlinc", "gmake", "mvn", "sbt", "socat", "ncat");
+    /** A #! line that names bash or sh: the only interpreters whose scripts this check reads. */
+    static final Pattern SHELL_SHEBANG = Pattern.compile(
+            "#!\\s*(?:/usr/bin/env\\s+(?:bash|sh)|(?:/usr)?/bin/(?:bash|sh))(?:[ \\t].*)?");
+    /** Brace expansion in a word's mask: {a,b} or {1..9}, its braces unquoted. */
+    static final Pattern BRACE_EXPANSION = Pattern.compile("\\{[^{}]*(?:,|\\.\\.)[^{}]*\\}");
+    static final Pattern GLOB = Pattern.compile("[*?\\[]");
+    static final Pattern JOB_CONTAINER = Pattern.compile(
+            "(?:^|[\\s{,\\[])(?:\"(?:services|container)\"|'(?:services|container)'|services|container)\\s*:");
+    static final Pattern ESCAPED_KEY = Pattern.compile("\"[^\"\\n]*\\\\[^\"\\n]*\"\\s*:");
+    static final Pattern EXPLICIT_KEY = Pattern.compile("^\\s*(?:-\\s+)?\\?(?:\\s|$)");
+    /** A YAML key as workflows write it: plain, or quoted without escapes; then a colon and a blank or the line end. */
+    static final Pattern YAML_KEY = Pattern.compile("(\"[^\"\\\\]*\"|'[^']*'|[A-Za-z0-9_$][A-Za-z0-9_.$/-]*)\\s*:(?=\\s|$)");
+    static final Pattern FLOW_COMMAND = Pattern.compile("(?:^|[\\s{,\\[])['\"]?(?:run|shell)['\"]?\\s*:");
+    static final Set<String> YAML_SHELLS = Set.of("bash", "sh");
+    static final Pattern COMMAND_WORD = Pattern.compile("[a-z][a-z-]*");
+    /** docker's management commands, whose second word is the command. */
+    static final Set<String> DOCKER_GROUPS = Set.of("builder", "buildx", "checkpoint", "compose", "config", "container",
+            "context", "image", "manifest", "network", "node", "plugin", "secret", "service", "stack", "swarm", "system",
+            "trust", "volume");
+    /** What the staging, the checks and the cleanup need; a pull is checked on its own. */
+    static final Set<String> DOCKER_READS = Set.of("version", "info", "images", "inspect", "ps", "rm", "events",
+            "image ls", "image inspect", "container ls", "container inspect", "container rm", "network ls",
+            "network inspect", "network rm", "volume ls", "volume inspect", "volume rm", "manifest inspect");
+
+    /** Complete, literal command forms only. A null directory means unresolved, never the repository root. */
+    record Command(List<String> argv, String directory, boolean ci) {
+        Command(List<String> argv, String directory) { this(argv, directory, false); }
+    }
+    record NpmScript(String directory, String name, String body, List<String> invocation) {}
+    static final String WEB = "apps/shipping-web";
+    static final List<NpmScript> WEB_SCRIPTS = List.of(
+            new NpmScript(".", "build:web", "tsc -p apps/shipping-web",
+                    List.of("npm", "run", "build:web", "--ignore-scripts")),
+            new NpmScript(WEB, "test:unit", "node --test",
+                    List.of("npm", "run", "test:unit", "--ignore-scripts")));
+    private final Map<String, Json.JObject> manifests = new HashMap<>();
+    private boolean reviewedNode;
+    private boolean reviewedLinuxNode;
+    private boolean reviewedTypescript;
+
+    /** Acceptance, expiry and the review file all matter; a maintenance-only runtime cannot authorize CI installs. */
+    boolean effectiveWebEntry(Json.JObject raw, String kind, String coordinate, String version, String artifact,
+                              String project, String condition) {
+        Entry e = toEntry(raw);
+        try {
+            return e.kind().equals(kind) && e.coordinate().equals(coordinate) && e.version().equals(version)
+                    && e.artifact().equals(artifact) && raw.text("project").equals(project) && e.approved()
+                    && !LocalDate.parse(e.expiresAt()).isBefore(today) && !e.reviewRecord().isBlank()
+                    && Files.isRegularFile(reviews.get(e.reviewRecord()), LinkOption.NOFOLLOW_LINKS)
+                    && raw.has("conditions") && raw.get("conditions").asArray().items().stream()
+                    .anyMatch(c -> c instanceof Json.JString s && s.value().contains(condition));
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
+    }
+
+    void prepareWebCommands() throws IOException {
+        for (Path config : files(p -> p.getFileName().toString().equals(".npmrc"))) {
+            add("images", relative(config) + ": npm configuration is not registered; it can change the script shell or lifecycle policy");
+        }
+        Json.JObject accepted = allowlist.get("acceptance").asObject();
+        boolean effective = accepted.text("status").equals("accepted")
+                && accepted.text("reviewedSetSha256").equals(entriesDigest());
+        boolean linux = rawEntries.stream().anyMatch(e -> effectiveWebEntry(e, "runtime", "nodejs.org/dist node",
+                "26.13.0", "https://nodejs.org/dist/v26.13.0/node-v26.13.0-linux-x64.tar.xz", "ci",
+                "The job asserts node --version is v26.13.0 and npm --version is 11.20.0"))
+                && rawEntries.stream().anyMatch(e -> effectiveWebEntry(e, "bundled", "npm", "11.20.0",
+                "bundled in node-v26.13.0-linux-x64 (lib/node_modules/npm)", "ci",
+                "Used as npm ci --ignore-scripts; npm --version is 11.20.0"));
+        boolean local = rawEntries.stream().anyMatch(e -> effectiveWebEntry(e, "runtime", "Node.js", "26.13.0",
+                "node-v26.13.0-darwin-arm64.tar.xz", "local build hosts (macOS arm64, >= 13.5)",
+                "npm runs with --ignore-scripts, as the blueprint mandates for CI"))
+                && rawEntries.stream().anyMatch(e -> effectiveWebEntry(e, "bundled", "npm", "11.20.0",
+                "bundled in node-v26.13.0-darwin-arm64 (lib/node_modules/npm)",
+                "controlled maintenance environment and local build hosts (macOS arm64)",
+                "npm --version is 11.20.0; local build hosts run only npm ci --ignore-scripts"));
+        reviewedNode = effective && (linux || local);
+        reviewedLinuxNode = effective && linux;
+        reviewedTypescript = reviewedNode && rawEntries.stream().anyMatch(e -> effectiveWebEntry(e, "npm", "typescript",
+                "5.9.3", "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz", WEB,
+                "Only the tsc CLI, as tsc -p apps/shipping-web (or a package script that runs exactly that)"));
+        Path root = repo.resolve("package.json");
+        if (!Files.isRegularFile(root, LinkOption.NOFOLLOW_LINKS)) return;
+        Json.JObject manifest = jsonObject(root);
+        manifests.put(".", manifest);
+        if (manifest.has("workspaces")) {
+            Json workspaces = manifest.get("workspaces");
+            if (!(workspaces instanceof Json.JArray list)) {
+                add("images", "package.json: workspaces must be an explicit array of repository directories");
+            } else for (Json item : list.items()) {
+                if (!(item instanceof Json.JString path) || !literalDirectory(path.value()) || path.value().equals(".")) {
+                    add("images", "package.json: an unresolved workspace directory (patterns and external paths are refused)");
+                    continue;
+                }
+                Path file = repo.resolve(path.value()).resolve("package.json");
+                if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+                    add("images", safe(path.value()) + "/package.json: declared workspace manifest is missing");
+                } else manifests.put(path.value(), jsonObject(file));
+            }
+        }
+        for (var entry : manifests.entrySet()) {
+            Json.JObject m = entry.getValue();
+            if (!m.has("scripts")) continue;
+            if (!(m.get("scripts") instanceof Json.JObject scripts)) {
+                add("images", manifestPath(entry.getKey()) + ": scripts must be an object of registered script bodies");
+                continue;
+            }
+            for (var script : scripts.members().entrySet()) {
+                boolean registered = WEB_SCRIPTS.stream().anyMatch(s -> s.directory().equals(entry.getKey())
+                        && s.name().equals(script.getKey()) && script.getValue() instanceof Json.JString body
+                        && s.body().equals(body.value()) && reviewedCommand(new Command(List.of(s.body().split(" ")),
+                        s.directory()), false));
+                if (!registered) add("images", manifestPath(entry.getKey()) + ": unregistered npm script body or lifecycle hook");
+            }
+        }
+    }
+
+    static String manifestPath(String directory) {
+        return directory.equals(".") ? "package.json" : safe(directory) + "/package.json";
+    }
+
+    static boolean literalDirectory(String directory) {
+        return directory.equals(".") || directory.matches("[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*");
+    }
+
+    boolean reviewedCommand(Command command, boolean scripts) {
+        List<String> a = command.argv();
+        String cwd = command.directory();
+        if (!reviewedNode || command.ci() && !reviewedLinuxNode || cwd == null) return false;
+        if ((cwd.equals(".") || cwd.equals(WEB))
+                && (a.equals(List.of("node", "--version")) || a.equals(List.of("npm", "--version")))) return true;
+        if (cwd.equals(".") && a.equals(List.of("npm", "ci", "--ignore-scripts"))) return true;
+        if (reviewedTypescript && cwd.equals(".") && a.equals(List.of("tsc", "-p", WEB))) return true;
+        // Node's default test discovery is rooted ONLY at the declared web workspace, without loaders or extra paths.
+        if (cwd.equals(WEB) && manifests.containsKey(WEB) && a.equals(List.of("node", "--test"))) return true;
+        if (scripts) for (NpmScript s : WEB_SCRIPTS) {
+            Json.JObject manifest = manifests.get(cwd);
+            if (s.directory().equals(cwd) && a.equals(s.invocation()) && manifest != null && manifest.has("scripts")
+                    && manifest.get("scripts") instanceof Json.JObject bodies && bodies.has(s.name())
+                    && bodies.get(s.name()) instanceof Json.JString body
+                    && body.value().equals(s.body())
+                    && reviewedCommand(new Command(List.of(s.body().split(" ")), cwd, command.ci()), false)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** No partial vector can earn an interpreter exception. Other recognized commands retain their existing rules. */
+    void commandForm(String where, Command command) {
+        if (command.argv().isEmpty()) {
+            add("images", where + ": unresolved process command vector; write the complete literal executable and arguments");
+            return;
+        }
+        String program = command.argv().getFirst();
+        if (!program.matches("[A-Za-z0-9_./-]+")) {
+            add("images", where + ": unresolved process executable");
+            return;
+        }
+        String name = program.substring(program.lastIndexOf('/') + 1);
+        if (INTERPRETERS.contains(name) && !reviewedCommand(command, true)) {
+            add("images", where + ": runs " + safe(name) + ", an interpreter whose programs this check does not read; "
+                    + "no effective review for this complete command form and working directory");
+        }
+    }
+
+    static final Pattern PROCESS_CALL = Pattern.compile("\\bProcessBuilder\\s*\\(|\\b(?:commandLine|setCommandLine)\\s*\\(|"
+            + "\\.\\s*command\\s*\\(|\\b(?:Runtime\\s*\\.\\s*)?getRuntime\\s*\\(\\s*\\)\\s*\\.\\s*exec\\s*\\(");
+
+    /** Literal varargs (or Runtime's literal String array). Lists, interpolation, concatenation and setters fail closed. */
+    List<String> literalArguments(String expression, Language language) {
+        String value = expression.strip();
+        if (value.startsWith("new String[]") && value.endsWith("}")) {
+            value = value.substring("new String[]".length()).strip();
+            if (!value.startsWith("{")) return List.of();
+            value = value.substring(1, value.length() - 1);
+        }
+        List<String> result = new ArrayList<>();
+        Matcher m = Pattern.compile("\\s*\"((?:[^\"\\\\\\r\\n]|\\\\.)*)\"\\s*(,|$)").matcher(value);
+        int end = 0;
+        while (m.find() && m.start() == end) {
+            if (language == Language.KOTLIN && m.group(1).contains("$")) return List.of();
+            result.add(SourceViews.decoded(m.group(1), language));
+            end = m.end();
+            if (m.group(2).equals(",") && end == value.length()) return List.of();
+        }
+        return end == value.length() ? result : List.of();
+    }
+
+    Set<Integer> checkProcessCommands(Path file, String text, SourceViews views, Language language) {
+        if (!launchSites.containsKey(repo.relativize(file).toString())) return Set.of();
+        Set<Integer> approvedLiterals = new TreeSet<>();
+        Set<Integer> resolvedDirectories = new TreeSet<>();
+        String bare = views.bare();
+        StringBuilder calls = new StringBuilder(PROCESS_CALL.pattern());
+        Matcher alias = Pattern.compile("\\bRuntime\\s+([A-Za-z_$][\\w$]*)|\\b(?:var|val)\\s+([A-Za-z_$][\\w$]*)"
+                + "(?:\\s*:\\s*Runtime)?\\s*=\\s*Runtime\\s*\\.\\s*getRuntime").matcher(bare);
+        while (alias.find()) {
+            String name = alias.group(1) == null ? alias.group(2) : alias.group(1);
+            calls.append("|\\b").append(Pattern.quote(name)).append("\\s*\\.\\s*exec\\s*\\(");
+        }
+        for (Matcher call = Pattern.compile(calls.toString()).matcher(bare); call.find(); ) {
+            if (call.group().stripLeading().startsWith(".") && !Pattern.compile("\\bProcessBuilder\\b").matcher(bare).find()) {
+                continue; // an unrelated domain method named command(), not a process-launch API
+            }
+            int open = call.end() - 1;
+            int end = closing(bare, open);
+            String expression = end < 0 ? "" : views.code().substring(open + 1, end);
+            List<String> argv = literalArguments(expression, language);
+            if (call.group().matches("(?s).*\\bexec\\s*\\(") && expression.stripLeading().startsWith("\"")) {
+                argv = argv.size() == 1 ? List.of(argv.getFirst().strip().split("\\s+")) : List.of();
+            }
+            String directory = ".";
+            if (call.group().startsWith("commandLine") || call.group().startsWith("setCommandLine")) {
+                directory = repo.relativize(file.getParent()).toString();
+                if (directory.isEmpty()) directory = ".";
+                // The literal workingDir belongs to this Exec block. Other setters or assignments are unresolved.
+                ArrayDeque<Integer> blocks = new ArrayDeque<>();
+                for (int i = 0; i < call.start(); i++) {
+                    if (bare.charAt(i) == '{') blocks.push(i);
+                    else if (bare.charAt(i) == '}' && !blocks.isEmpty()) blocks.pop();
+                }
+                int block = blocks.isEmpty() ? -1 : blocks.peek();
+                int close = block < 0 ? -1 : closing(bare, block, '{', '}');
+                String scope = views.code().substring(Math.max(0, block), close < 0 ? text.length() : close);
+                String scopeBare = bare.substring(Math.max(0, block), close < 0 ? text.length() : close);
+                Pattern directorySetter = Pattern.compile("\\b(?:workingDir|setWorkingDir)\\b");
+                if (count(directorySetter, bare) != 0 && (count(directorySetter, bare) != 1
+                        || count(directorySetter, scopeBare) != 1 || block < 0
+                        || scopeBare.substring(1).contains("{")
+                        || Pattern.compile("\\b(?:if|else|when|for|while|try|fun)\\b").matcher(scopeBare).find())) {
+                    directory = null;
+                } else if (directorySetter.matcher(scopeBare).find()) {
+                    Matcher dir = Pattern.compile("\\bworkingDir\\s*\\(\\s*\"([^\"$\\\\]*)\"\\s*\\)").matcher(scope);
+                    directory = dir.find() && literalDirectory(dir.group(1))
+                            ? (directory.equals(".") ? dir.group(1)
+                            : dir.group(1).equals(".") ? directory : directory + "/" + dir.group(1)) : null;
+                    if (dir.find()) directory = null;
+                }
+            } else if (Pattern.compile("\\.\\s*directory\\s*\\(").matcher(bare).find()) {
+                String tail = end < 0 ? "" : views.code().substring(end + 1);
+                Matcher dir = Pattern.compile("^\\s*\\.\\s*directory\\s*\\(\\s*new\\s+(?:java\\.io\\.)?File\\s*"
+                        + "\\(\\s*\"([^\"$\\\\]*)\"\\s*\\)\\s*\\)").matcher(tail);
+                if (dir.find() && literalDirectory(dir.group(1))) {
+                    directory = dir.group(1);
+                    resolvedDirectories.add(end + 1 + tail.indexOf('.'));
+                } else directory = null;
+            }
+            Command command = new Command(argv, directory);
+            commandForm(at(file, text, call.start()), command);
+            if (!argv.isEmpty() && SHELLS.contains(argv.getFirst().substring(argv.getFirst().lastIndexOf('/') + 1))) {
+                if (argv.size() == 3 && argv.get(1).equals("-c")) {
+                    checkScript(file, argv.get(2), lineOf(text, call.start()), directory);
+                } else add("images", at(file, text, call.start()) + ": unresolved shell process command vector");
+            }
+            if (reviewedCommand(command, true)) for (Literal literal : views.literals()) {
+                if (literal.offset() > open && literal.offset() < end) approvedLiterals.add(literal.offset());
+            }
+        }
+        if (Pattern.compile("\\bProcessBuilder\\b").matcher(bare).find()) {
+            for (Matcher dir = Pattern.compile("\\.\\s*directory\\s*\\(").matcher(bare); dir.find(); ) {
+                if (!resolvedDirectories.contains(dir.start())) add("images", at(file, text, dir.start())
+                        + ": unresolved process working directory; use the literal constructor chain");
+            }
+        }
+        find(file, text, bare, Pattern.compile("\\b(?:executable\\s*(?:=|\\()|commandLine\\s*=|ProcessBuilder\\s*::\\s*new"
+                        + "|ProcessBuilder\\s*\\.\\s*startPipeline)|::\\s*(?:ProcessBuilder|commandLine|exec)\\b"),
+                "an unresolved process command vector; use a complete literal commandLine or ProcessBuilder call");
+        return approvedLiterals;
+    }
+
+    void checkContainerImages() throws IOException {
+        checkLaunchSites();
+        prepareWebCommands();
+        for (Path file : files(p -> !repo.relativize(p).toString().startsWith(CHECKER_DIRECTORY)
+                && !repo.relativize(p).toString().equals(WRAPPER_JAR))) {
+            executableFormat(file).ifPresent(format -> add("images", ("%s: an executable or an archive (%s): this check "
+                    + "cannot read what it runs or holds, and the reviews allow none but the wrapper JAR")
+                    .formatted(relative(file), format)));
+        }
+        for (Path file : files(this::namesImages)) {
+            String rel = repo.relativize(file).toString();
+            String name = file.getFileName().toString();
+            if (name.equals("testcontainers.properties") || name.equals(".testcontainers.properties")
+                    || rel.contains("META-INF/services/org.testcontainers.")) {
+                add("images", "%s: a Testcontainers configuration file; the reviews allow none (no "
+                        .formatted(relative(file)) + "testcontainers.properties, no service file)");
+                continue;
+            }
+            if (containerFile(name)) {
+                add("images", "%s: a container build or compose file; the reviews allow none".formatted(relative(file)));
+                continue;
+            }
+            byte[] bytes = read(file);
+            if (rel.equals(WRAPPER_SCRIPT) && sha256(bytes).equals(WRAPPER_SCRIPT_SHA256)) continue;
+            Optional<String> decoded = utf8(bytes);
+            if (decoded.isEmpty()) {
+                if (executableFormat(file).isEmpty()) {
+                    add("images", "%s: not UTF-8 text, which this check cannot read".formatted(relative(file)));
+                }
+                continue;
+            }
+            Optional<Language> language = Language.of(name);
+            String text = language.orElse(null) == Language.JAVA ? unicodeEscapesDecoded(decoded.get()) : decoded.get();
+            SourceViews views = language.map(l -> SourceViews.of(text, l)).orElse(null);
+            List<String> texts = views == null ? List.of(text) : List.of(text, views.code());
+            for (String view : texts) imageNames(file, text, view, 0, 0);
+            if (views != null) {
+                for (Literal literal : views.literals()) imageNames(file, text, literal.value(), literal.offset(), 1);
+            }
+            boolean workflow = workflowFile(rel, name);
+            // An executable without #! is run by sh when its name is run: a script too.
+            boolean script = !workflow && (name.endsWith(".sh") || text.startsWith("#!")
+                    || language.isEmpty() && Files.isExecutable(file));
+            if (workflow) {
+                checkWorkflow(file, text);
+            } else if (script) {
+                String first = text.lines().findFirst().orElse("");
+                if (first.startsWith("#!") && !SHELL_SHEBANG.matcher(first).matches()) {
+                    add("images", "%s:1: a #! line that names an interpreter other than bash or sh, whose programs this "
+                            .formatted(relative(file)) + "check does not read");
+                }
+                checkScript(file, text, 1);
+            }
+            if (views != null) checkImageCode(file, text, views, language.orElseThrow(), rel.equals(HARNESS));
+            if (views == null && !script && !workflow && (("/" + rel).contains("/src/") || name.equals("gradle.properties"))) {
+                checkResource(file, text);
+            }
+        }
+    }
+
+    /**
+     * Digest references, Testcontainers JDBC URLs and image settings in a view of a file: the text itself, its code
+     * without comments, or a string literal's decoded value starting at an offset of the text (literal = 1, so that a
+     * line of the value counts from the literal's own).
+     */
+    void imageNames(Path file, String text, String view, int start, int literal) {
+        for (Matcher m = DIGEST_REFERENCE.matcher(view); m.find(); ) {
+            String where = place(file, text, view, start, literal, m.start());
+            imageProblem(m.group()).ifPresent(problem ->
+                    add("images", "%s: %s %s".formatted(where, safe(m.group()), problem)));
+        }
+        for (Matcher m = TC_JDBC_URL.matcher(view); m.find(); ) {
+            add("images", place(file, text, view, start, literal, m.start())
+                    + ": a Testcontainers JDBC URL (jdbc:tc:) names an image by tag");
+        }
+        for (Matcher m = JVM_COMMAND.matcher(view); m.find(); ) {
+            add("images", "%s: a JVM option that runs a command (%s); this check cannot read what it runs"
+                    .formatted(place(file, text, view, start, literal, m.start()), m.group()));
+        }
+        for (Matcher m = IMAGE_SETTING.matcher(view); m.find(); ) {
+            add("images", "%s: %s configures an image for Testcontainers".formatted(
+                    place(file, text, view, start, literal, m.start()), safe(m.group())));
+        }
+    }
+
+    /** The place of an offset of a view: in the text, or within a literal's value that starts at an offset of it. */
+    String place(Path file, String text, String view, int start, int literal, int offset) {
+        if (literal == 0) return at(file, text, offset);
+        int line = lineOf(text, start) + (int) view.substring(0, offset).chars().filter(c -> c == '\n').count();
+        return relative(file) + ":" + line;
+    }
+
+    static int lineOf(String text, int offset) {
+        return 1 + (int) text.substring(0, Math.min(offset, text.length())).chars().filter(c -> c == '\n').count();
+    }
+
+    /**
+     * The files that can name an image or run one: everything under src/, sources and build scripts, workflows and
+     * action files, shell scripts (those without the .sh extension included, by their #! line), and container files.
+     */
+    boolean namesImages(Path p) {
+        String rel = repo.relativize(p).toString();
+        if (rel.startsWith(CHECKER_DIRECTORY)) return false;
+        String name = p.getFileName().toString();
+        return ("/" + rel).contains("/src/") || name.endsWith(".sh") || name.equals("gradle.properties")
+                || name.endsWith("testcontainers.properties") || Language.of(name).isPresent() || containerFile(name)
+                || workflowFile(rel, name) || startsWithShebang(p) || Files.isExecutable(p);
+    }
+
+    /** A workflow, or an action's definition (a composite action runs its steps as a workflow does). */
+    static boolean workflowFile(String rel, String name) {
+        return rel.startsWith(".github/workflows/") && (name.endsWith(".yml") || name.endsWith(".yaml"))
+                || name.equals("action.yml") || name.equals("action.yaml");
+    }
+
+    /** A container build or compose file. */
+    static boolean containerFile(String name) {
+        String n = name.toLowerCase(java.util.Locale.ROOT);
+        return n.equals("dockerfile") || n.equals("containerfile") || n.startsWith("dockerfile.")
+                || n.startsWith("containerfile.") || n.endsWith(".dockerfile") || n.endsWith(".containerfile")
+                || n.matches("(?:docker-)?compose(?:\\.[\\w-]+)?\\.ya?ml");
+    }
+
+    /** Whether a file starts with #!; one that cannot be opened is read, so that the read stops the check. */
+    static boolean startsWithShebang(Path p) {
+        byte[] head = head(p, 2);
+        return head == null || head.length == 2 && head[0] == '#' && head[1] == '!';
+    }
+
+    /** The first bytes of a file, or null when it cannot be opened. */
+    static byte[] head(Path p, int n) {
+        try (InputStream in = Files.newInputStream(p, LinkOption.NOFOLLOW_LINKS)) {
+            return in.readNBytes(n);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    /** The executable or archive format a file starts with, by its magic number; empty when it is none of them. */
+    static Optional<String> executableFormat(Path p) {
+        byte[] h = head(p, 4);
+        if (h == null || h.length < 2) return Optional.empty();
+        int b0 = h[0] & 0xff;
+        int b1 = h[1] & 0xff;
+        if (b0 == 'M' && b1 == 'Z') return Optional.of("a PE executable");
+        if (b0 == 0x1f && b1 == 0x8b) return Optional.of("a gzip archive");
+        if (h.length < 4) return Optional.empty();
+        int magic = (b0 << 24) | (b1 << 16) | ((h[2] & 0xff) << 8) | (h[3] & 0xff);
+        return switch (magic) {
+            case 0x7f454c46 -> Optional.of("an ELF executable");
+            case 0xfeedface, 0xfeedfacf, 0xcefaedfe, 0xcffaedfe -> Optional.of("a Mach-O executable");
+            case 0xcafebabe -> Optional.of("a Java class or a universal binary");
+            case 0x504b0304, 0x504b0506, 0x504b0708 -> Optional.of("a ZIP or JAR archive");
+            case 0x0061736d -> Optional.of("a WebAssembly module");
+            default -> Optional.empty();
+        };
+    }
+
+    /** A file's bytes as UTF-8 text, or empty when they are not UTF-8. */
+    static Optional<String> utf8(byte[] bytes) {
+        try {
+            return Optional.of(StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString());
+        } catch (CharacterCodingException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Why a digest reference is not an approved image, or empty when it is one: [registry/]name@sha256:<digest>,
+     * where the name with its registry is the coordinate of an approved container-image entry and the digest is its
+     * sha256. Docker Hub's spellings are one registry: docker.io, index.docker.io and none.
+     */
+    Optional<String> imageProblem(String reference) {
+        int at = reference.indexOf(DIGEST);
+        String name = reference.substring(0, at);
+        String digest = reference.substring(at + DIGEST.length());
+        if (!SHA256_HEX.matcher(digest).matches()) {
+            return Optional.of("is not a sha256 digest of 64 lowercase hexadecimal digits");
+        }
+        if (name.indexOf(':', name.lastIndexOf('/') + 1) >= 0) {
+            return Optional.of("names a tag next to its digest; an image is named by its digest alone");
+        }
+        String coordinate = imageCoordinate(name);
+        List<Entry> matching = entries.stream().filter(e -> "container-image".equals(e.kind())
+                && e.coordinate().equals(coordinate) && e.sha256().equals(digest)).toList();
+        if (matching.stream().anyMatch(Entry::approved)) return Optional.empty();
+        return Optional.of(matching.isEmpty() ? "has no review on the allowlist"
+                : "was REJECTED in " + safe(matching.getFirst().reviewRecord()));
+    }
+
+    /** An image name as the allowlist writes it: registry/path, with Docker Hub as docker.io and its library/. */
+    static String imageCoordinate(String name) {
+        int slash = name.indexOf('/');
+        String first = slash < 0 ? "" : name.substring(0, slash);
+        boolean registry = first.contains(".") || first.contains(":") || first.equals("localhost");
+        String host = registry ? first : "docker.io";
+        String path = registry ? name.substring(slash + 1) : name;
+        if (host.equals("index.docker.io") || host.equals("registry-1.docker.io")) host = "docker.io";
+        if (host.equals("docker.io") && !path.contains("/")) path = "library/" + path;
+        return host + "/" + path;
+    }
+
+    /**
+     * A source or build script: container-library identifiers outside comments and literals, image arguments and
+     * container-runtime strings, Testcontainers and docker-java nowhere but in the harness, and in the harness the
+     * container it makes. Its string literals, decoded, are read as shell text, alone and with their neighbours.
+     */
+    void checkImageCode(Path file, String text, SourceViews views, Language language, boolean harness) {
+        Set<Integer> processLiterals = checkProcessCommands(file, text, views, language);
+        codeRules(file, text, views.code(), views.bare(), harness);
+        String rel = repo.relativize(file).toString();
+        if (!harness && !rel.equals(HARNESS_TEST)) {
+            if (PROCESS_CALL.matcher(views.bare()).find()) {
+                find(file, text, views.code(), Pattern.compile("/(?:var/)?run/(?:user/[0-9]+/)?docker\\.sock\\b"),
+                        "a Docker socket path passed to a source launcher; only the harness talks to the engine");
+            }
+            find(file, text, views.code(), ENGINE_SOCKET, "opens a Unix socket, which is how code reaches the engine "
+                    + "without naming a runtime; only the harness talks to the engine");
+        }
+        if (language == Language.KOTLIN) {
+            if (views.bare().contains("`")) launchProblem(file, relative(file)
+                    + ": a backquoted Kotlin identifier; this PARTIAL lint cannot resolve the name");
+            // The names the backquotes held, read as Kotlin reads them: a backquote is no part of the name.
+            codeRules(file, text, views.code().replace('`', ' '), views.bare().replace('`', ' '), harness);
+        }
+        if (language == Language.GROOVY) {
+            add("images", relative(file) + ":1: a Groovy source or build script; this check does not decode Groovy's "
+                    + "strings (slashy and dollar-slashy strings, GString templates), so the reviews allow Java and Kotlin");
+        }
+        // A runtime in code: in the code without comments, and for Kotlin and Groovy, whose string templates and slashy
+        // strings this check does not parse, in the text with its comments too.
+        List<String> runtimeViews = language == Language.JAVA ? List.of(views.code()) : List.of(text, views.code());
+        for (String view : runtimeViews) {
+            for (Matcher m = RUNTIME_WORD.matcher(view); m.find(); ) runtime(file, lineOf(text, m.start()), m.group(1));
+        }
+        if (language == Language.GROOVY) {
+            for (Matcher m = GROOVY_RUNTIME.matcher(text); m.find(); ) runtime(file, lineOf(text, m.start()), m.group(1));
+        }
+        if (language != Language.JAVA) {
+            find(file, text, text, LITERAL_TEMPLATE, "a string template that holds a string literal assembles text this "
+                    + "check cannot read; write the text plainly");
+        }
+        List<Literal> literals = views.literals();
+        for (Literal literal : literals) {
+            int line = lineOf(text, literal.offset());
+            String value = literal.value();
+            textRules(file, Shell.flatten(Shell.data(value, line), 0, false), "runs a container runtime as a command (%s)");
+            if (value.chars().anyMatch(c -> " \t\n\"'\\`$(){}[]*?;|&<>".indexOf(c) >= 0)) {
+                Matcher m = BOUNDED_RUNTIME.matcher(literalSkeleton(value));
+                if (m.find()) runtime(file, line, m.group(1));
+            }
+            String stripped = value.strip();
+            String interpreter = stripped.substring(stripped.lastIndexOf('/') + 1);
+            Matcher startup = STARTUP_VARIABLE.matcher(stripped);
+            if (startup.lookingAt() && (startup.end() == stripped.length() || stripped.charAt(startup.end()) == '=')) {
+                startupVariable(file, line, startup.group(1));
+            }
+            if (LITERAL_INTERPRETERS.contains(interpreter) && !processLiterals.contains(literal.offset())) {
+                launchProblem(file, "%s:%d: runs %s, an interpreter whose programs this check does not read"
+                        .formatted(relative(file), line, interpreter));
+            }
+        }
+        // A name split across consecutive literals, whatever joins them: "do" + "cker", String.join, a template.
+        for (int i = 0; i < literals.size(); i++) {
+            StringBuilder joined = new StringBuilder(literals.get(i).value());
+            int alone = count(ANY_RUNTIME, literalSkeleton(literals.get(i).value()));
+            for (int j = i + 1; j < literals.size() && j - i < 16; j++) {
+                joined.append(literals.get(j).value());
+                alone += count(ANY_RUNTIME, literalSkeleton(literals.get(j).value()));
+                if (count(ANY_RUNTIME, literalSkeleton(joined.toString())) > alone) {
+                    add("images", "%s:%d: a container runtime's name split across string literals; this check refuses it "
+                            .formatted(relative(file), lineOf(text, literals.get(i).offset())) + "whatever joins them");
+                    break;
+                }
+            }
+        }
+    }
+
+    static int count(Pattern pattern, String text) {
+        int n = 0;
+        for (Matcher m = pattern.matcher(text); m.find(); ) n++;
+        return n;
+    }
+
+    /** A literal's text as a shell would join it: without quotes, backslashes and the expansions that may be empty. */
+    static String literalSkeleton(String value) {
+        return value.replaceAll("\\$\\{[^}]*\\}|\\$\\([^)]*\\)|`[^`]*`|\\$(?:[A-Za-z_][A-Za-z0-9_]*|[0-9@*#?$!-])", "")
+                .replaceAll("[\"'\\\\]", "");
+    }
+
+    void startupVariable(Path file, int line, String name) {
+        add("images", "%s:%d: sets %s, which makes a shell, the loader or a runtime run code this check does not read"
+                .formatted(relative(file), line, safe(name)));
+    }
+
+    void runtime(Path file, int line, String runtime) {
+        add("images", "%s:%d: runs a container runtime as a command (%s)".formatted(relative(file), line, runtime));
+    }
+
+    /** Identifiers are inspected outside comments/literals; image arguments retain their literal values. */
+    void codeRules(Path file, String text, String view, String bare, boolean harness) {
+        for (Matcher m = PARSE_CALL.matcher(bare); m.find(); ) {
+            Matcher literal = ONE_LITERAL.matcher(view).region(m.end(), view.length());
+            if (!literal.lookingAt()) {
+                add("images", "%s: DockerImageName.parse takes something other than one string literal"
+                        .formatted(at(file, text, m.start())));
+            } else if (!literal.group(1).contains(DIGEST)) {
+                add("images", "%s: %s is not pinned by digest".formatted(at(file, text, m.start()), safe(literal.group(1))));
+            }
+        }
+        find(file, text, bare, PARSE_REFERENCE, "DockerImageName::parse makes image names from values this check cannot read");
+        find(file, text, bare, PARSE_IMPORT, "a static import of DockerImageName hides the calls this check reads");
+        find(file, text, bare, NEW_IMAGE_NAME, "new DockerImageName builds an image name that this check cannot read");
+        find(file, text, bare, DEPRECATED_CONTAINER, "org.testcontainers.containers.PostgreSQLContainer is the deprecated "
+                + "container; the review approves org.testcontainers.postgresql.PostgreSQLContainer");
+        for (Matcher m = FORBIDDEN_API.matcher(bare); m.find(); ) {
+            add("images", "%s: %s is forbidden by the Testcontainers and runner reviews".formatted(
+                    at(file, text, m.start()), m.group(1)));
+        }
+        if (!harness) {
+            find(file, text, bare, CONTAINER_LIBRARY, "uses Testcontainers or docker-java; only ReviewedPostgres may ("
+                    + HARNESS + "), so that every container is made and checked there");
+            for (Matcher m = NEW_CONTAINER.matcher(bare); m.find(); ) {
+                if (REVIEWED_CONTAINER.equals(m.group(1))) {
+                    add("images", "%s: only ReviewedPostgres makes the PostgreSQLContainer".formatted(
+                            at(file, text, m.start())));
+                }
+            }
+            return;
+        }
+        Set<String> parsedHere = new TreeSet<>();
+        for (Matcher m = IMAGE_DECLARATION.matcher(bare); m.find(); ) parsedHere.add(m.group(1));
+        for (Matcher m = NEW_CONTAINER.matcher(bare); m.find(); ) {
+            String where = at(file, text, m.start());
+            if (!REVIEWED_CONTAINER.equals(m.group(1))) {
+                add("images", "%s: %s is not the reviewed org.testcontainers.postgresql.PostgreSQLContainer"
+                        .formatted(where, safe(m.group(1))));
+                continue;
+            }
+            int close = closing(view, m.end() - 1);
+            String argument = close < 0 ? "" : view.substring(m.end(), close).strip();
+            boolean parsed = PARSE_CALL.matcher(argument).lookingAt()
+                    || argument.startsWith("org.testcontainers.utility.") && PARSE_CALL.matcher(argument).find();
+            boolean declared = IDENTIFIER.matcher(argument).matches() && parsedHere.contains(argument);
+            if (!parsed && !declared) {
+                add("images", "%s: PostgreSQLContainer is made from something other than DockerImageName.parse, or a "
+                        .formatted(where) + "DockerImageName this file parses");
+            } else if (close >= 0 && view.substring(close + 1).stripLeading().startsWith("{")) {
+                add("images", "%s: an anonymous subclass of PostgreSQLContainer".formatted(where));
+            }
+        }
+        for (Matcher m = CONTAINER_REFERENCE.matcher(bare); m.find(); ) {
+            add("images", "%s: %s::new makes containers from values this check cannot read"
+                    .formatted(at(file, text, m.start()), safe(m.group(1))));
+        }
+        for (Matcher m = EXTENDS_CONTAINER.matcher(bare); m.find(); ) {
+            add("images", "%s: extends %s; a test may not subclass a container".formatted(at(file, text, m.start()),
+                    safe(m.group(1))));
+        }
+    }
+
+    /** A resource: data that code can read and run, read as shell text without comments. */
+    void checkResource(Path file, String text) {
+        textRules(file, Shell.flatten(Shell.data(text, 1), 0, false),
+                "names a container runtime (%s) in a resource, which code can read and run");
+    }
+
+    /**
+     * Shell text that is no script of its own (a string literal, a resource, a workflow's other values): its heredocs
+     * with a body, its $'...' quoting and every container runtime that its words name, whole or around an expansion.
+     */
+    void textRules(Path file, List<Shell.Word> words, String problem) {
+        for (Shell.Word w : words) {
+            String where = "%s:%d".formatted(relative(file), w.line());
+            if (w.operator()) {
+                if (w.text().equals(Shell.HEREDOC)) add("images", where + HEREDOC_PROBLEM);
+                else if (w.text().equals(Shell.ANSI)) add("images", where + ANSI_PROBLEM);
+                continue;
+            }
+            if (w.kind() == Shell.Kind.QUOTED) continue;
+            String name = runtimeIn(w.text());
+            if (name != null) add("images", where + ": " + problem.formatted(name));
+        }
+    }
+
+    static final String HEREDOC_PROBLEM = ": a heredoc; this check does not decode heredocs (bash expands a body or not "
+            + "by its delimiter's quotes, and # starts no comment in it), so write the text another way";
+    static final String ANSI_PROBLEM = ": $'...' quoting; write the text plainly, so that this check reads it";
+
+    /** The container runtime a normalised word names: whole, by its path, inside it, or around an expansion; or null. */
+    static String runtimeIn(String text) {
+        for (String candidate : List.of(text, skeleton(text))) {
+            Matcher name = RUNTIME_NAME.matcher(candidate);
+            if (name.matches()) return name.group(1);
+            Matcher bounded = BOUNDED_RUNTIME.matcher(candidate);
+            if (bounded.find()) return bounded.group(1);
+        }
+        return null;
+    }
+
+    /** A normalised word without the expansions in it, which may be empty: $() for a substitution, ${} and $name. */
+    static String skeleton(String text) {
+        return text.replace("${}", "").replace("$()", "").replaceAll("\\$(?:[A-Za-z_][A-Za-z0-9_]*|[0-9@*#?$!-])", "");
+    }
+
+    /**
+     * A workflow or an action file, read line by line as the YAML that workflows use: block mappings and sequences,
+     * scalars on one line, flow collections on one line and literal blocks. Every other form is refused. Each run
+     * step's script, decoded as YAML decodes it, is read as a script; every other value is read as words, in which no
+     * container runtime may be named.
+     */
+    void checkWorkflow(Path file, String text) {
+        String[] lines = text.split("\n", -1);
+        StringBuilder rest = new StringBuilder();
+        int scalarColumn = -1;
+        for (int n = 0; n < lines.length; ) {
+            String where = "%s:%d".formatted(relative(file), n + 1);
+            String line = withoutComment(lines[n]).stripTrailing();
+            if (line.isBlank()) {
+                rest.append('\n');
+                n++;
+                continue;
+            }
+            int indent = 0;
+            while (indent < line.length() && line.charAt(indent) == ' ') indent++;
+            if (line.charAt(indent) == '\t') add("images", where + ": a tab in YAML indentation; indent with spaces");
+            if (scalarColumn >= 0 && indent > scalarColumn) {
+                add("images", where + ": a YAML scalar continued over lines; write a value on one line, or as a literal "
+                        + "block (|)");
+            }
+            scalarColumn = -1;
+            if (JOB_CONTAINER.matcher(line).find()) {
+                add("images", where + ": a job or service container; the runner review allows Testcontainers only");
+            }
+            if (ESCAPED_KEY.matcher(line).find() || EXPLICIT_KEY.matcher(line).find()) {
+                add("images", where + ": a workflow key that is escaped or explicit (?); write keys plainly");
+            }
+            if (yamlStringWithEscape(line)) {
+                add("images", where + ": a double-quoted YAML string with an escape; write it plainly, so that this "
+                        + "check reads what the runner runs");
+            }
+            String body = line.substring(indent);
+            boolean entry = false;
+            while (body.equals("-") || body.startsWith("- ")) {
+                entry = true;
+                body = body.substring(1).stripLeading();
+            }
+            int column = line.length() - body.length();
+            if (body.isEmpty()) {
+                rest.append(line).append('\n');
+                n++;
+                continue;
+            }
+            if (body.startsWith("<<")) add("images", where + ": a YAML merge key (<<); write each value where it is used");
+            String key = null;
+            String value = body;
+            Matcher k = YAML_KEY.matcher(body);
+            if (k.lookingAt()) {
+                String raw = k.group(1);
+                key = raw.startsWith("\"") || raw.startsWith("'") ? raw.substring(1, raw.length() - 1) : raw;
+                value = body.substring(k.end()).strip();
+            } else if (!entry) {
+                add("images", where + ": a YAML line that is no key and no sequence entry (a scalar continued over lines, "
+                        + "or a form this check does not read)");
+                rest.append(line).append('\n');
+                n++;
+                continue;
+            }
+            int keyColumn = column;
+            boolean run = "run".equals(key);
+            if (key != null && STARTUP_VARIABLE.matcher(key).matches()) startupVariable(file, n + 1, key);
+            if (value.startsWith("|") || value.startsWith(">")) {
+                boolean literal = value.matches("\\|[-+]?");
+                if (!literal) {
+                    add("images", where + ": a folded block (>) or a block with an indentation indicator; write it as a "
+                            + "literal block (|)");
+                }
+                List<String> content = new ArrayList<>();
+                int contentIndent = -1;
+                int j = n + 1;
+                for (; j < lines.length; j++) {
+                    String l = lines[j];
+                    if (l.isBlank()) {
+                        content.add("");
+                        continue;
+                    }
+                    int ind = 0;
+                    while (ind < l.length() && l.charAt(ind) == ' ') ind++;
+                    if (contentIndent < 0) {
+                        if (ind <= keyColumn) break;
+                        contentIndent = ind;
+                    }
+                    if (ind < contentIndent) break;
+                    content.add(l.substring(contentIndent));
+                }
+                // Blank lines at the end belong to whatever follows: they are counted there.
+                while (!content.isEmpty() && content.getLast().isEmpty() && j > n + 1 && lines[j - 1].isBlank()) {
+                    content.removeLast();
+                    j--;
+                }
+                rest.append(run ? line.substring(0, line.length() - value.length()) : line).append('\n');
+                if (run && literal) runStep(file, String.join("\n", content), n + 2, workflowDirectory(lines, n));
+                for (String c : content) rest.append(run ? "" : c).append('\n');
+                n = j;
+                continue;
+            }
+            String decoded = null;
+            if (value.isEmpty()) {
+                // a mapping or a sequence follows
+            } else if (value.startsWith("\"")) {
+                int end = 1;
+                while (end < value.length() && value.charAt(end) != '"') end += value.charAt(end) == '\\' ? 2 : 1;
+                if (end >= value.length()) {
+                    add("images", where + ": a double-quoted YAML scalar continued over lines; write it on one line");
+                } else if (value.substring(1, end).indexOf('\\') < 0 && value.substring(end + 1).isBlank()) {
+                    decoded = value.substring(1, end);
+                }
+            } else if (value.startsWith("'")) {
+                StringBuilder single = new StringBuilder();
+                int end = 1;
+                for (; end < value.length(); end++) {
+                    char c = value.charAt(end);
+                    if (c == '\'' && end + 1 < value.length() && value.charAt(end + 1) == '\'') {
+                        single.append('\'');
+                        end++;
+                    } else if (c == '\'') {
+                        break;
+                    } else {
+                        single.append(c);
+                    }
+                }
+                if (end >= value.length()) {
+                    add("images", where + ": a single-quoted YAML scalar continued over lines; write it on one line");
+                } else if (value.substring(end + 1).isBlank()) {
+                    decoded = single.toString();
+                }
+            } else if ("&*!%@`".indexOf(value.charAt(0)) >= 0) {
+                add("images", where + ": a YAML anchor, alias, tag or reserved indicator; this check reads each value "
+                        + "where it is written");
+            } else if (value.startsWith("{") || value.startsWith("[")) {
+                if (!closesOnItsLine(value)) {
+                    add("images", where + ": a YAML flow collection continued over lines; write it on one line");
+                }
+                if (FLOW_COMMAND.matcher(value).find()) {
+                    add("images", where + ": a run or shell key inside a YAML flow collection; write it as a block mapping");
+                }
+            } else {
+                decoded = value;
+            }
+            if (!value.isEmpty()) scalarColumn = key == null ? indent : keyColumn;
+            if (run && !value.isEmpty()) {
+                if (decoded == null) add("images", where + ": a run step whose script this check cannot decode");
+                else runStep(file, decoded, n + 1, workflowDirectory(lines, n));
+                rest.append(line, 0, line.length() - value.length()).append('\n');
+            } else {
+                if ("shell".equals(key) && (decoded == null || !YAML_SHELLS.contains(decoded.strip()))) {
+                    add("images", where + ": a shell other than bash or sh, which the runner runs as a command");
+                }
+                if ("using".equals(key) && (decoded == null || !decoded.strip().equals("composite"))) {
+                    add("images", where + ": an action that is not composite (a JavaScript or a container action); "
+                            + "this check reads composite actions only");
+                }
+                rest.append(line).append('\n');
+            }
+            n++;
+        }
+        find(file, text, text, EXPRESSION_TEXT, "a GitHub expression that builds text the runner runs; write the text "
+                + "plainly, so that this check reads it");
+        textRules(file, Shell.flatten(Shell.read(rest.toString(), 1), 0, true), "names a container runtime (%s) outside a "
+                + "run step");
+    }
+
+    /** A run step's script: no GitHub expression in it, then read as a script. */
+    void runStep(Path file, String script, int line, String directory) {
+        int expression = script.indexOf("${{");
+        if (expression >= 0) {
+            add("images", "%s:%d: a GitHub expression in a run step; GitHub writes its value into the script before bash "
+                    .formatted(relative(file), line + lineOf(script, expression) - 1) + "reads it, so pass it in env:");
+        }
+        checkScript(file, script, line, directory);
+    }
+
+    /** Step-local literal cwd, before or after run. Defaults/expressions we cannot resolve earn no exception. */
+    static String workflowDirectory(String[] lines, int run) {
+        int start = run;
+        while (start >= 0 && !lines[start].stripLeading().startsWith("- ")) start--;
+        if (start < 0) return null;
+        int indent = lines[start].length() - lines[start].stripLeading().length();
+        String directory = null;
+        int count = 0;
+        for (int i = start; i < lines.length; i++) {
+            String body = withoutComment(lines[i]).stripTrailing();
+            int column = body.length() - body.stripLeading().length();
+            if (i > start && !body.isBlank() && column <= indent) break;
+            if (i == start) body = body.stripLeading().substring(2);
+            else if (column == indent + 2) body = body.stripLeading();
+            else continue;
+            Matcher dir = Pattern.compile("(?:['\"]working-directory['\"]|working-directory):\\s*['\"]?([A-Za-z0-9_./-]+)['\"]?").matcher(body);
+            if (body.contains("working-directory")) {
+                count++;
+                directory = dir.matches() && literalDirectory(dir.group(1)) ? dir.group(1) : null;
+            }
+        }
+        if (count == 1) return directory;
+        if (count > 1) return null;
+        // Conservatively refuse inherited defaults rather than apply a directory from another job or step.
+        return Stream.of(lines).anyMatch(l -> l.contains("working-directory")) ? null : ".";
+    }
+
+    /** Whether a flow collection's brackets close on its own line, outside its quotes. */
+    static boolean closesOnItsLine(String value) {
+        int depth = 0;
+        char quote = 0;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (quote != 0) {
+                if (c == quote) quote = 0;
+            } else if (c == '"' || c == '\'') {
+                quote = c;
+            } else if (c == '{' || c == '[') {
+                depth++;
+            } else if ((c == '}' || c == ']') && --depth == 0) {
+                return value.substring(i + 1).isBlank();
+            }
+        }
+        return false;
+    }
+
+    /**
+     * A script: a shell file or a run step's script. Its words as bash reads them, each command in its place: docker as
+     * a command may only read, remove and pull by digest; any other runtime, and docker in a word that is not a
+     * command, is refused; and so is every form this check cannot decode.
+     */
+    void checkScript(Path file, String text, int line) {
+        checkScript(file, text, line, ".");
+    }
+
+    void checkScript(Path file, String text, int line, String directory) {
+        // A single leading, guarded cd is resolvable. Conditional or subsequent directory changes are not.
+        Matcher cd = Pattern.compile("^\\s*cd (apps/shipping-web|\\.) &&[ \\t]*").matcher(text);
+        if (cd.find()) {
+            directory = ".".equals(directory) ? cd.group(1) : null;
+            text = " ".repeat(cd.end()) + text.substring(cd.end());
+            if (Shell.read(text.stripTrailing(), line).stream().anyMatch(Shell.Word::operator)) directory = null;
+        }
+        List<Shell.Word> words = Shell.flatten(Shell.read(text, line), 0, true);
+        if (words.stream().anyMatch(w -> Set.of("cd", "pushd", "popd").contains(w.text()))) directory = null;
+        new CommandWalk(file, directory).walk(words);
+        for (int k = 0; k < words.size(); k++) {
+            Shell.Word word = words.get(k);
+            String where = "%s:%d".formatted(relative(file), word.line());
+            if (word.operator()) {
+                switch (word.text()) {
+                    case Shell.HEREDOC, Shell.EMPTY_HEREDOC -> add("images", where + HEREDOC_PROBLEM);
+                    case Shell.ANSI -> add("images", where + ANSI_PROBLEM);
+                    case Shell.TOO_DEEP -> add("images", where + ": shell text nested too deeply for this check to read");
+                    default -> { }
+                }
+                continue;
+            }
+            Matcher startup = STARTUP_VARIABLE.matcher(word.text());
+            if (startup.lookingAt() && word.text().startsWith(startup.group(1) + "=")) {
+                startupVariable(file, word.line(), startup.group(1));
+            }
+            if (word.text().startsWith("--unix-socket")) {
+                add("images", where + ": talks to a Unix socket directly (--unix-socket); only the engine's own commands "
+                        + "may reach the engine");
+            }
+            if (word.kind() == Shell.Kind.QUOTED) continue;
+            Matcher name = RUNTIME_NAME.matcher(word.text());
+            if (!name.matches()) {
+                Matcher bounded = BOUNDED_RUNTIME.matcher(word.text());
+                String assembled = runtimeIn(skeleton(word.text()));
+                if (bounded.find()) {
+                    add("images", "%s: %s in a word this check cannot read as a command (a value, an expansion or part "
+                            .formatted(where, bounded.group(1)) + "of a word)");
+                } else if (assembled != null) {
+                    add("images", "%s: %s, its name assembled around an expansion; this check cannot read the word it "
+                            .formatted(where, assembled) + "makes");
+                }
+                continue;
+            }
+            if (!name.group(1).equals("docker")) {
+                add("images", "%s: %s is not the reviewed engine".formatted(where, name.group(1)));
+                continue;
+            }
+            if (serviceUnit(words, k)) continue;
+            List<String> rest = new ArrayList<>();
+            for (int j = k + 1; j < words.size() && !words.get(j).operator(); j++) rest.add(words.get(j).text());
+            String command = rest.isEmpty() ? "" : commandOf(rest);
+            if (command.equals("pull") || command.equals("image pull")) {
+                if (!pullsOneDigest(rest.subList(command.split(" ").length, rest.size()))) {
+                    add("images", where + ": docker pull of something other than one image by digest");
+                }
+            } else if (!DOCKER_READS.contains(command)) {
+                add("images", "%s: docker %s is not an allowed use of the reviewed engine (allowed: pull by "
+                        .formatted(where, command.isEmpty() ? "without a command this check can read" : safe(command))
+                        + "digest, and reads and removals)");
+            }
+        }
+    }
+
+    /** What the words of a frame are to bash. */
+    enum Frame { COMMANDS, CASE_HEAD, CASE_PATTERNS, CASE_BODY, CONDITION, ARITHMETIC, ARRAY, TEXT }
+
+    /**
+     * The place of every command in a script's words: where bash expects a command, the word is one, and is refused
+     * when this check cannot read what it runs. It follows the frames that operators open and close: substitutions,
+     * subshells, functions, case, [[ ]], (( )), arrays, and the strings that bash -c, eval and trap run; any other
+     * string is text, whose words are no commands.
+     */
+    final class CommandWalk {
+        /** The state of a frame, kept while an inner frame is read. */
+        private static final class State {
+            String opener = "";
+            Frame frame = Frame.COMMANDS;
+            boolean commandNext = true;
+            boolean wrapped;
+            boolean target;
+            String command;
+            String previous;
+            boolean commandString;
+            boolean scriptRead;
+            boolean optionValue;
+            boolean strictNext;
+            int line;
+            List<String> argv = new ArrayList<>();
+            boolean complete = true;
+
+            State copy() {
+                State s = new State();
+                s.opener = opener;
+                s.frame = frame;
+                s.commandNext = commandNext;
+                s.wrapped = wrapped;
+                s.target = target;
+                s.command = command;
+                s.previous = previous;
+                s.commandString = commandString;
+                s.scriptRead = scriptRead;
+                s.optionValue = optionValue;
+                s.strictNext = strictNext;
+                s.line = line;
+                s.argv = new ArrayList<>(argv);
+                s.complete = complete;
+                return s;
+            }
+        }
+
+        private final Path file;
+        private final String directory;
+        private final ArrayDeque<State> stack = new ArrayDeque<>();
+        private State s = new State();
+        private String lastOperator = "";
+        private boolean lastWasOperator;
+
+        CommandWalk(Path file, String directory) {
+            this.file = file;
+            this.directory = directory;
+        }
+
+        void walk(List<Shell.Word> words) {
+            for (Shell.Word w : words) {
+                if (w.operator()) {
+                    operator(w);
+                    lastOperator = w.text();
+                    lastWasOperator = true;
+                } else {
+                    if (w.kind() != Shell.Kind.VALUE) word(w);
+                    lastWasOperator = false;
+                }
+            }
+            endCommand();
+            while (!stack.isEmpty()) pop();
+        }
+
+        /** The end of a command: a shell given no script and no -c string reads its commands from its input. */
+        private void endCommand() {
+            if (s.command != null && INTERPRETERS.contains(s.command.substring(s.command.lastIndexOf('/') + 1))) {
+                commandForm("%s:%d".formatted(relative(file), s.line),
+                    new Command(s.argv, s.complete ? directory : null,
+                            workflowFile(repo.relativize(file).toString(), file.getFileName().toString())));
+            }
+            if (s.command == null || s.scriptRead || s.commandString) return;
+            String name = s.command.substring(s.command.lastIndexOf('/') + 1);
+            if (SHELLS.contains(name) && !name.equals("source") && !name.equals(".")) {
+                add("images", "%s:%d: a shell that reads its commands from its input (a pipe, a redirection or a process "
+                        .formatted(relative(file), s.line) + "substitution); this check cannot read them");
+            }
+        }
+
+        private boolean commands() {
+            return s.frame == Frame.COMMANDS || s.frame == Frame.CASE_BODY;
+        }
+
+        /** Opens a frame; after it closes, the outer frame expects a command or not, as after says. */
+        private void push(String opener, Frame frame, boolean after) {
+            State outer = s.copy();
+            outer.commandNext = after;
+            stack.push(outer);
+            s = new State();
+            s.opener = opener;
+            s.frame = frame;
+        }
+
+        private void pop() {
+            endCommand();
+            if (!stack.isEmpty()) s = stack.pop();
+        }
+
+        private void separate() {
+            endCommand();
+            s.commandNext = true;
+            s.wrapped = false;
+            s.target = false;
+            s.command = null;
+            s.previous = null;
+            s.commandString = false;
+            s.scriptRead = false;
+            s.optionValue = false;
+            s.strictNext = false;
+            s.argv.clear();
+            s.complete = true;
+        }
+
+        private void operator(Shell.Word w) {
+            String t = w.text();
+            boolean redirected = lastWasOperator && (lastOperator.equals("<") || lastOperator.equals(">"));
+            switch (t) {
+                case "$(" -> push(t, Frame.COMMANDS, s.commandNext);
+                case "$((" -> push(t, Frame.ARITHMETIC, s.commandNext);
+                case "((" -> push(t, Frame.ARITHMETIC, false);
+                case "(" -> {
+                    if (s.frame == Frame.CASE_PATTERNS) return;
+                    if (redirected && commands()) {
+                        s.target = false;
+                        push(t, Frame.COMMANDS, s.commandNext); // a process substitution: <(...) or >(...)
+                    } else if (!commands()) {
+                        push(t, s.frame, s.commandNext);
+                    } else if (s.previous != null && s.previous.endsWith("=")) {
+                        push(t, Frame.ARRAY, s.commandNext);
+                    } else if (!s.commandNext && s.command != null && s.previous != null && s.previous.equals(s.command)) {
+                        push(t, Frame.TEXT, true); // a function's (): its body is a command
+                    } else {
+                        push(t, Frame.COMMANDS, false); // a subshell: after it, its redirections
+                    }
+                }
+                case ")" -> {
+                    if (s.frame == Frame.CASE_PATTERNS) {
+                        s.frame = Frame.CASE_BODY;
+                        separate();
+                    } else if (s.opener.equals("(") || s.opener.equals("$(")) {
+                        pop();
+                    }
+                }
+                case "))" -> {
+                    if (s.opener.equals("((") || s.opener.equals("$((")) pop();
+                }
+                case Shell.STRING_OPEN -> {
+                    boolean strict = commands() && s.strictNext;
+                    s.strictNext = false;
+                    push(t, strict ? Frame.COMMANDS : Frame.TEXT, s.commandNext);
+                }
+                case Shell.STRING_CLOSE -> {
+                    while (!stack.isEmpty() && !s.opener.equals(Shell.STRING_OPEN)) pop();
+                    pop();
+                }
+                case "<", ">", Shell.HERESTRING, Shell.HEREDOC, Shell.EMPTY_HEREDOC -> {
+                    if (commands()) s.target = true;
+                }
+                case "&" -> {
+                    if (commands() && !redirected) separate();
+                }
+                case ";" -> {
+                    if (s.frame == Frame.CASE_BODY && lastWasOperator && lastOperator.equals(";")) {
+                        s.frame = Frame.CASE_PATTERNS;
+                    } else if (commands()) {
+                        separate();
+                    }
+                }
+                case "|", "\n" -> {
+                    if (commands()) separate();
+                }
+                default -> { }
+            }
+        }
+
+        private void word(Shell.Word w) {
+            String t = w.text();
+            String mask = w.mask();
+            boolean quoted = w.kind() == Shell.Kind.QUOTED;
+            switch (s.frame) {
+                case CASE_HEAD -> {
+                    if (t.equals("in")) s.frame = Frame.CASE_PATTERNS;
+                    return;
+                }
+                case CASE_PATTERNS -> {
+                    if (t.equals("esac")) pop();
+                    return;
+                }
+                case CONDITION -> {
+                    if (t.equals("]]")) pop();
+                    return;
+                }
+                case ARITHMETIC, ARRAY, TEXT -> {
+                    return;
+                }
+                default -> { }
+            }
+            String where = "%s:%d".formatted(relative(file), w.line());
+            if (BRACE_EXPANSION.matcher(mask).find()) {
+                add("images", where + ": brace expansion; this check does not expand it, so write the words out");
+            }
+            if (s.target) {
+                s.target = false;
+                return;
+            }
+            if (!s.commandNext) {
+                s.argv.add(t);
+                if (mask.indexOf('$') >= 0 || GLOB.matcher(mask).find()) s.complete = false;
+                argument(w, where);
+                s.previous = t;
+                return;
+            }
+            if (ASSIGNMENT.matcher(mask).matches()) {
+                s.previous = t;
+                return;
+            }
+            if (WRAPPERS.contains(t)) {
+                s.wrapped = true;
+                s.previous = t;
+                s.strictNext = t.equals("eval");
+                return;
+            }
+            if (s.wrapped && t.startsWith("-") && !quoted) {
+                if (t.startsWith("-S") || t.startsWith("--split-string")) {
+                    add("images", where + ": an unresolved env split-string command vector");
+                }
+                s.previous = t;
+                return;
+            }
+            if (s.strictNext) {
+                // the string that eval runs: a command of its own
+                s.strictNext = quoted;
+            }
+            commandWord(w, where);
+            if (t.equals("[[")) {
+                push(t, Frame.CONDITION, false);
+                return;
+            }
+            if (t.equals("case")) {
+                push(t, Frame.CASE_HEAD, false);
+                return;
+            }
+            if (t.equals("esac") && s.frame == Frame.CASE_BODY) {
+                pop();
+                return;
+            }
+            s.command = t;
+            s.argv.add(t);
+            s.complete = s.complete && !s.wrapped && mask.indexOf('$') < 0 && !GLOB.matcher(mask).find();
+            s.line = w.line();
+            s.commandNext = false;
+            s.wrapped = false;
+            s.previous = t;
+        }
+
+        /** A word in the place of a command. */
+        private void commandWord(Shell.Word w, String where) {
+            String t = w.text();
+            String mask = w.mask();
+            if (mask.indexOf('$') >= 0) {
+                add("images", where + ": the command is an expansion (a variable, a substitution or ${...}); this check "
+                        + "cannot read what it runs");
+            } else if (GLOB.matcher(mask).find() && !t.equals("[") && !t.equals("[[")) {
+                add("images", where + ": a glob in the place of a command; this check cannot read what it runs");
+            } else {
+                String name = t.substring(t.lastIndexOf('/') + 1);
+                if (!s.commandNext && INTERPRETERS.contains(name)) {
+                    commandForm(where, new Command(List.of(t), null));
+                }
+                if (t.contains("/")) runsFile(where, t);
+            }
+        }
+
+        /** A word after the command: a shell's -c string or the script it runs, and trap's command. */
+        private void argument(Shell.Word w, String where) {
+            String t = w.text();
+            String command = s.command == null ? "" : s.command.substring(s.command.lastIndexOf('/') + 1);
+            if (command.equals("trap") && s.previous != null && s.previous.equals(s.command)) {
+                if (w.kind() == Shell.Kind.QUOTED) s.strictNext = true;
+                else commandWord(w, where);
+                return;
+            }
+            if (AWKS.contains(command) && !s.scriptRead) {
+                if (s.optionValue) {
+                    s.optionValue = false;
+                } else if (t.equals("-f") || t.startsWith("--file")) {
+                    s.scriptRead = true;
+                    add("images", where + ": an awk program in a file, which this check does not read");
+                } else if (t.equals("-F") || t.equals("-v")) {
+                    s.optionValue = true;
+                } else if (!t.startsWith("-") || w.kind() == Shell.Kind.QUOTED) {
+                    s.scriptRead = true;
+                    if (AWK_COMMAND.matcher(t).find()) {
+                        add("images", where + ": an awk program that runs commands (system, a pipe or getline); this "
+                                + "check does not read what it runs");
+                    }
+                }
+                return;
+            }
+            if (!SHELLS.contains(command) || s.scriptRead) return;
+            if (s.optionValue) {
+                s.optionValue = false;
+                return;
+            }
+            if ((t.startsWith("-") || t.startsWith("+")) && w.kind() != Shell.Kind.QUOTED && !t.equals("-")) {
+                if (t.matches("[-+][A-Za-z]*c[A-Za-z]*")) s.commandString = true;
+                if (t.matches("[-+][A-Za-z]*[oO]")) s.optionValue = true;
+                return;
+            }
+            s.scriptRead = true;
+            if (s.commandString) {
+                // the string that the shell runs: a command of its own
+                if (w.kind() == Shell.Kind.QUOTED) s.strictNext = true;
+                else commandWord(w, where);
+            } else if (w.mask().indexOf('$') < 0 && !GLOB.matcher(w.mask()).find()) {
+                runsFile(where, t);
+            }
+        }
+
+        /** A literal path that a command runs: refused when it is a file of this tree that this check does not read. */
+        private void runsFile(String where, String path) {
+            if (path.isEmpty() || path.startsWith("/") || path.startsWith("~")) return;
+            Path target;
+            try {
+                target = repo.resolve(path).normalize();
+            } catch (InvalidPathException e) {
+                return;
+            }
+            if (!target.startsWith(repo) || target.equals(repo) || !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
+                return;
+            }
+            String rel = repo.relativize(target).toString();
+            String name = target.getFileName().toString();
+            if (rel.startsWith(CHECKER_DIRECTORY) || name.endsWith(".sh") || startsWithShebang(target)
+                    || Language.of(name).isPresent() || Files.isExecutable(target)) {
+                return;
+            }
+            add("images", "%s: runs %s, a file this check does not read as a script; give it the .sh extension or a #! "
+                    .formatted(where, safe(rel)) + "line");
+        }
+    }
+
+    /** docker as the unit that systemctl manages (systemctl restart docker), not as a command. */
+    static boolean serviceUnit(List<Shell.Word> words, int k) {
+        return k >= 2 && !words.get(k - 1).operator() && !words.get(k - 2).operator()
+                && words.get(k - 2).text().equals("systemctl") && COMMAND_WORD.matcher(words.get(k - 1).text()).matches();
+    }
+
+    /** Whether a line holds a double-quoted YAML scalar (one that starts a value) with a backslash in it. */
+    static boolean yamlStringWithEscape(String line) {
+        for (int i = 0; i < line.length(); i++) {
+            if (line.charAt(i) != '"') continue;
+            String before = line.substring(0, i).stripTrailing();
+            boolean startsValue = before.isEmpty() || before.endsWith(":") || before.endsWith("-") || before.endsWith("[")
+                    || before.endsWith("{") || before.endsWith(",") || before.endsWith("?");
+            int end = i + 1;
+            boolean escaped = false;
+            while (end < line.length() && line.charAt(end) != '"') {
+                if (line.charAt(end) == '\\') {
+                    escaped = true;
+                    end++;
+                }
+                end++;
+            }
+            if (startsValue && escaped) return true;
+            i = end;
+        }
+        return false;
+    }
+
+    /** The command a docker invocation names: its first word, or two for a management command; "" when unreadable. */
+    static String commandOf(List<String> words) {
+        String first = words.getFirst();
+        if (!COMMAND_WORD.matcher(first).matches()) return "";
+        if (!DOCKER_GROUPS.contains(first)) return first;
+        return words.size() > 1 && COMMAND_WORD.matcher(words.get(1)).matches() ? first + " " + words.get(1) : "";
+    }
+
+    /** The arguments of a pull, up to the end of its command: only --quiet and --platform, then one digest reference. */
+    static boolean pullsOneDigest(List<String> arguments) {
+        List<String> positional = new ArrayList<>();
+        for (int i = 0; i < arguments.size(); i++) {
+            String word = arguments.get(i);
+            if (word.equals("--platform")) {
+                i++;
+            } else if (word.startsWith("--platform=") || word.equals("--quiet") || word.equals("-q")) {
+                continue;
+            } else if (word.startsWith("-")) {
+                return false;
+            } else {
+                positional.add(word);
+            }
+        }
+        return positional.size() == 1 && positional.getFirst().contains(DIGEST);
+    }
+
+    /** A line of a workflow or a script without its comment: from an unquoted # at its start or after whitespace. */
+    static String withoutComment(String line) {
+        boolean single = false;
+        boolean dbl = false;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '\'' && !dbl) single = !single;
+            else if (c == '"' && !single) dbl = !dbl;
+            else if (c == '#' && !single && !dbl && (i == 0 || Character.isWhitespace(line.charAt(i - 1)))) {
+                return line.substring(0, i);
+            }
+        }
+        return line;
+    }
+
+    /**
+     * Shell text as bash splits it into words, as far as check 8 needs it: quotes removed and adjacent parts joined,
+     * $"..." read as "...", backslash escapes and line continuations applied, comments dropped (data keeps them).
+     * Command substitutions ($(...), backquotes), also inside double quotes, give their words between the operators $(
+     * and ), and $() in the word; arithmetic ($((...)) and ((...))) its words between $(( or (( and )); a ${...} gives
+     * the value it may expand to (what follows its name and operator) as a VALUE, and ${} in the word. $'...' gives the
+     * operator ANSI when it holds an escape; << the operator HEREDOC, or EMPTY_HEREDOC when no line follows it; <<< the
+     * operator HERESTRING.
+     * Other operators (; & | ( ) < > and line ends) are words of their own, so that a command ends at one. Each word
+     * has a mask: its characters as written unquoted, q where they were quoted, $ where they are an expansion.
+     */
+    static final class Shell {
+        enum Kind { WORD, VALUE, QUOTED, OPERATOR }
+
+        /** A word, a ${...} value, a word that is read again, or an operator; the line it starts on; and its mask. */
+        record Word(String text, int line, Kind kind, String mask) {
+            boolean operator() {
+                return kind == Kind.OPERATOR;
+            }
+        }
+
+        static final String ANSI = "$'";
+        static final String TOO_DEEP = "...";
+        static final String HEREDOC = "<<";
+        static final String EMPTY_HEREDOC = "<<.";
+        static final String HERESTRING = "<<<";
+        static final String STRING_OPEN = "\"(";
+        static final String STRING_CLOSE = ")\"";
+        static final int DEEPEST = 6;
+
+        private final String s;
+        private final List<Word> words = new ArrayList<>();
+        private final int depth;
+        /** Whether # starts a comment: in shell text it does, in data that code reads it does not. */
+        private final boolean comments;
+        private StringBuilder word;
+        private StringBuilder mask;
+        private int wordLine;
+        private int line;
+        private int i;
+
+        private Shell(String s, int line, int depth, boolean comments) {
+            this.s = s;
+            this.line = line;
+            this.depth = depth;
+            this.comments = comments;
+        }
+
+        static List<Word> read(String text, int line) {
+            return read(text, line, 0, true);
+        }
+
+        /** Data: text that code reads, in which # starts no comment. */
+        static List<Word> data(String text, int line) {
+            return read(text, line, 0, false);
+        }
+
+        private static List<Word> read(String text, int line, int depth, boolean comments) {
+            Shell shell = new Shell(text, line, depth, comments);
+            if (depth > DEEPEST) {
+                shell.operator(TOO_DEEP);
+                return shell.words;
+            }
+            shell.read();
+            return shell.words;
+        }
+
+        /**
+         * The words, with every word that holds quotes, escapes or blanks (a string that bash -c or eval would run, or
+         * that a quote joined) read again as shell text: the word as QUOTED, then its words between the operators
+         * STRING_OPEN and STRING_CLOSE. A ${...} value is read again between them alone.
+         */
+        static List<Word> flatten(List<Word> words, int depth, boolean comments) {
+            List<Word> flat = new ArrayList<>();
+            for (Word w : words) {
+                boolean again = !w.operator() && w.text().chars().anyMatch(c -> " \t\n'\"\\`".indexOf(c) >= 0);
+                if (!again) {
+                    flat.add(w);
+                } else if (depth >= DEEPEST) {
+                    flat.add(new Word(TOO_DEEP, w.line(), Kind.OPERATOR, TOO_DEEP));
+                } else {
+                    if (w.kind() != Kind.VALUE) flat.add(new Word(w.text(), w.line(), Kind.QUOTED, w.mask()));
+                    flat.add(new Word(STRING_OPEN, w.line(), Kind.OPERATOR, STRING_OPEN));
+                    flat.addAll(flatten(read(w.text(), w.line(), 0, comments), depth + 1, comments));
+                    flat.add(new Word(STRING_CLOSE, w.line(), Kind.OPERATOR, STRING_CLOSE));
+                }
+            }
+            return flat;
+        }
+
+        private void read() {
+            while (i < s.length()) {
+                char c = s.charAt(i);
+                if (c == '\\') {
+                    if (next('\n')) line++;
+                    else if (i + 1 < s.length()) append(s.charAt(i + 1), 'q');
+                    i += 2;
+                } else if (c == '\n') {
+                    flush();
+                    operator("\n");
+                    line++;
+                    i++;
+                } else if (c == ' ' || c == '\t' || c == '\r') {
+                    flush();
+                    i++;
+                } else if (c == '#' && word == null && comments) {
+                    while (i < s.length() && s.charAt(i) != '\n') i++;
+                } else if (c == '\'') {
+                    int end = s.indexOf('\'', i + 1);
+                    end = end < 0 ? s.length() : end;
+                    appendQuoted(s.substring(i + 1, end));
+                    i = end + 1;
+                } else if (c == '$' && next('\'')) {
+                    int end = i + 2;
+                    while (end < s.length() && s.charAt(end) != '\'') end += s.charAt(end) == '\\' ? 2 : 1;
+                    String quoted = s.substring(i + 2, Math.min(end, s.length()));
+                    if (quoted.indexOf('\\') >= 0) operator(ANSI); // without an escape, $'...' is '...'
+                    appendQuoted(quoted);
+                    i = end + 1;
+                } else if (c == '$' && next('"')) {
+                    i++; // $"..." is "..." translated, and there is no message catalog
+                } else if (c == '"') {
+                    doubleQuoted();
+                } else if (c == '$' && next('(')) {
+                    substitution(i + 1);
+                } else if (c == '$' && next('{')) {
+                    parameter();
+                } else if (c == '`') {
+                    backquote();
+                } else if (c == '<' && s.startsWith("<<<", i)) {
+                    flush();
+                    operator(HERESTRING);
+                    i += 3;
+                } else if (c == '<' && next('<')) {
+                    flush();
+                    int end = s.indexOf('\n', i);
+                    operator(end >= 0 && !s.substring(end + 1).isBlank() ? HEREDOC : EMPTY_HEREDOC);
+                    i += 2;
+                } else if (c == '(' && next('(') && word == null && arithmetic(i, "((")) {
+                    // read by arithmetic
+                } else if (";&|()<>".indexOf(c) >= 0) {
+                    flush();
+                    operator(String.valueOf(c));
+                    i++;
+                } else {
+                    append(c, c);
+                    i++;
+                }
+            }
+            flush();
+        }
+
+        /** (( ... )) at open, or the (( of $(( ... )): its words between the operator and )), when it closes as one. */
+        private boolean arithmetic(int open, String operator) {
+            int close = matching(s, open);
+            if (close >= s.length() || close - 1 <= open + 1 || s.charAt(close - 1) != ')') return false;
+            String inside = s.substring(open + 2, close - 1);
+            operator(operator);
+            words.addAll(read(inside, line, depth + 1, comments));
+            operator("))");
+            line += (int) inside.chars().filter(ch -> ch == '\n').count();
+            i = close + 1;
+            return true;
+        }
+
+        private void doubleQuoted() {
+            start();
+            i++;
+            while (i < s.length() && s.charAt(i) != '"') {
+                char c = s.charAt(i);
+                if (c == '\\' && i + 1 < s.length() && "$`\"\\\n".indexOf(s.charAt(i + 1)) >= 0) {
+                    if (s.charAt(i + 1) == '\n') {
+                        line++;
+                    } else {
+                        word.append(s.charAt(i + 1));
+                        mask.append('q');
+                    }
+                    i += 2;
+                } else if (c == '$' && next('(')) {
+                    substitution(i + 1);
+                } else if (c == '$' && next('{')) {
+                    parameter();
+                } else if (c == '`') {
+                    backquote();
+                } else {
+                    if (c == '\n') line++;
+                    word.append(c);
+                    mask.append(c == '$' ? '$' : 'q');
+                    i++;
+                }
+            }
+            i++;
+        }
+
+        /** $( at i - 1 and ( at open: the words inside, between the operators $( and ), and $() in the word. */
+        private void substitution(int open) {
+            if (open + 1 < s.length() && s.charAt(open + 1) == '(') {
+                int at = i;
+                StringBuilder held = word;
+                StringBuilder heldMask = mask;
+                int heldLine = wordLine;
+                word = null;
+                mask = null;
+                if (arithmetic(open, "$((")) {
+                    word = held;
+                    mask = heldMask;
+                    wordLine = heldLine;
+                    start();
+                    word.append("$()");
+                    mask.append("$$$");
+                    return;
+                }
+                word = held;
+                mask = heldMask;
+                wordLine = heldLine;
+                i = at;
+            }
+            int close = matching(s, open);
+            String inside = s.substring(open + 1, Math.min(close, s.length()));
+            operator("$(");
+            words.addAll(read(inside, line, depth + 1, comments));
+            operator(")");
+            line += (int) inside.chars().filter(c -> c == '\n').count();
+            start();
+            word.append("$()");
+            mask.append("$$$");
+            i = close + 1;
+        }
+
+        private void backquote() {
+            int end = i + 1;
+            while (end < s.length() && s.charAt(end) != '`') end += s.charAt(end) == '\\' ? 2 : 1;
+            String inside = s.substring(i + 1, Math.min(end, s.length()));
+            operator("$(");
+            words.addAll(read(inside, line, depth + 1, comments));
+            operator(")");
+            line += (int) inside.chars().filter(c -> c == '\n').count();
+            start();
+            word.append("$()");
+            mask.append("$$$");
+            i = end + 1;
+        }
+
+        /** ${...}: ${} in the word, and the value it may expand to as a VALUE of its own. */
+        private void parameter() {
+            int nesting = 0;
+            int end = i + 1;
+            for (; end < s.length(); end++) {
+                if (s.charAt(end) == '{') nesting++;
+                if (s.charAt(end) == '}' && --nesting == 0) break;
+            }
+            String inside = s.substring(i + 2, Math.min(end, s.length()));
+            String value = inside.replaceFirst("^[#!]?(?:[A-Za-z_][A-Za-z0-9_]*|[0-9]+|[@*#?$!-])?(?:\\[[^\\]]*\\])?", "")
+                    .replaceFirst("^[:\\-=+?#%/^,@]+", "");
+            if (!value.isEmpty()) words.add(new Word(value, line, Kind.VALUE, value));
+            start();
+            word.append("${}");
+            mask.append("$$$");
+            i = end + 1;
+        }
+
+        /** The index of the parenthesis that closes the one at open, across quotes and nested parentheses. */
+        static int matching(String s, int open) {
+            int nesting = 0;
+            for (int k = open; k < s.length(); k++) {
+                char c = s.charAt(k);
+                if (c == '\\') {
+                    k++;
+                } else if (c == '\'') {
+                    int end = s.indexOf('\'', k + 1);
+                    k = end < 0 ? s.length() : end;
+                } else if (c == '"') {
+                    k++;
+                    while (k < s.length() && s.charAt(k) != '"') k += s.charAt(k) == '\\' ? 2 : 1;
+                } else if (c == '(') {
+                    nesting++;
+                } else if (c == ')' && --nesting == 0) {
+                    return k;
+                }
+            }
+            return s.length();
+        }
+
+        private boolean next(char c) {
+            return i + 1 < s.length() && s.charAt(i + 1) == c;
+        }
+
+        private void start() {
+            if (word == null) {
+                word = new StringBuilder();
+                mask = new StringBuilder();
+                wordLine = line;
+            }
+        }
+
+        private void append(char c, char m) {
+            start();
+            word.append(c);
+            mask.append(m);
+        }
+
+        private void appendQuoted(String text) {
+            start();
+            word.append(text);
+            mask.append("q".repeat(text.length()));
+            line += (int) text.chars().filter(c -> c == '\n').count();
+        }
+
+        private void flush() {
+            if (word != null) {
+                words.add(new Word(word.toString(), wordLine, Kind.WORD, mask.toString()));
+                word = null;
+                mask = null;
+            }
+        }
+
+        private void operator(String text) {
+            words.add(new Word(text, line, Kind.OPERATOR, text));
+        }
+    }
+
+    /** The languages whose sources check 8 reads as code; their comments and string literals differ. */
+    enum Language {
+        JAVA, KOTLIN, GROOVY;
+
+        static Optional<Language> of(String name) {
+            if (name.endsWith(".java")) return Optional.of(JAVA);
+            if (name.endsWith(".kt") || name.endsWith(".kts")) return Optional.of(KOTLIN);
+            if (name.endsWith(".groovy") || name.endsWith(".gradle")) return Optional.of(GROOVY);
+            return Optional.empty();
+        }
+    }
+
+    /** A string literal's value, its escapes decoded the way its language decodes them, and where its text starts. */
+    record Literal(String value, int offset) {}
+
+    /**
+     * A source without its comments (code: blanked, its lines kept, so that offsets and lines stay), without its string
+     * literals too (bare), and its string literals: plain and character literals, Java text blocks (incidental
+     * indentation removed before the escapes, as javac does), Kotlin raw strings (no escapes) and Groovy single, double
+     * and triple quotes. Recognized Kotlin template expressions remain code in bare. Groovy slashy strings are not parsed: a Groovy file is refused whatever it holds.
+     */
+    record SourceViews(String code, String bare, List<Literal> literals) {
+
+        static SourceViews of(String text, Language language) {
+            StringBuilder code = new StringBuilder(text);
+            StringBuilder bare = new StringBuilder(text);
+            List<Literal> literals = new ArrayList<>();
+            int i = 0;
+            int n = text.length();
+            while (i < n) {
+                if (text.startsWith("//", i)) {
+                    int end = text.indexOf('\n', i);
+                    end = end < 0 ? n : end;
+                    blank(code, i, end);
+                    blank(bare, i, end);
+                    i = end;
+                } else if (text.startsWith("/*", i)) {
+                    int end = i + 2;
+                    int depth = 1;
+                    while (end < n && depth > 0) {
+                        if (language == Language.KOTLIN && text.startsWith("/*", end)) {
+                            depth++;
+                            end += 2;
+                        } else if (text.startsWith("*/", end)) {
+                            depth--;
+                            end += 2;
+                        } else end++;
+                    }
+                    blank(code, i, end);
+                    blank(bare, i, end);
+                    i = end;
+                } else if (text.startsWith("\"\"\"", i) || language == Language.GROOVY && text.startsWith("'''", i)) {
+                    String delimiter = text.substring(i, i + 3);
+                    boolean escapes = language != Language.KOTLIN;
+                    int j = i + 3;
+                    while (j < n && !text.startsWith(delimiter, j)) {
+                        int close = language == Language.KOTLIN && text.startsWith("${", j)
+                                ? closing(text, j + 1, '{', '}', true) : -1;
+                        j = close >= 0 ? close + 1 : j + (escapes && text.charAt(j) == '\\' ? 2 : 1);
+                    }
+                    String content = text.substring(i + 3, Math.min(j, n));
+                    if (language == Language.JAVA) content = withoutIncidentalIndentation(content);
+                    literals.add(new Literal(escapes ? decoded(content, language) : content, i + 3));
+                    blank(bare, i, Math.min(n, j + 3));
+                    if (language == Language.KOTLIN) kotlinExpressions(text, bare, i + 3, Math.min(j, n), false);
+                    i = Math.min(n, j + 3);
+                } else if (text.charAt(i) == '"' || text.charAt(i) == '\'') {
+                    char quote = text.charAt(i);
+                    int j = i + 1;
+                    while (j < n && text.charAt(j) != quote && text.charAt(j) != '\n') {
+                        int close = language == Language.KOTLIN && quote == '"' && text.startsWith("${", j)
+                                ? closing(text, j + 1, '{', '}', true) : -1;
+                        j = close >= 0 ? close + 1 : j + (text.charAt(j) == '\\' ? 2 : 1);
+                    }
+                    literals.add(new Literal(decoded(text.substring(i + 1, Math.min(j, n)), language), i + 1));
+                    blank(bare, i, Math.min(n, j + 1));
+                    if (language == Language.KOTLIN && quote == '"') kotlinExpressions(text, bare, i + 1, Math.min(j, n), true);
+                    i = Math.min(n, j + 1);
+                } else {
+                    i++;
+                }
+            }
+            return new SourceViews(code.toString(), bare.toString(), List.copyOf(literals));
+        }
+
+        private static void kotlinExpressions(String text, StringBuilder bare, int from, int to, boolean escapes) {
+            for (int i = from; i < to; i++) {
+                if (escapes && text.charAt(i) == '\\') {
+                    i++;
+                } else if (text.startsWith("${", i)) {
+                    int close = closing(text, i + 1, '{', '}', true);
+                    if (close < 0 || close >= to) return; // Opaque templates still receive the capability warning.
+                    String expression = of(text.substring(i + 2, close), Language.KOTLIN).bare();
+                    bare.replace(i + 2, close, expression);
+                    i = close;
+                }
+            }
+        }
+
+        private static void blank(StringBuilder code, int from, int to) {
+            for (int k = from; k < to; k++) {
+                if (code.charAt(k) != '\n') code.setCharAt(k, ' ');
+            }
+        }
+
+        /** A Java text block's content without the indentation that javac strips, before its escapes are decoded. */
+        static String withoutIncidentalIndentation(String content) {
+            List<String> lines = new ArrayList<>(List.of(content.split("\n", -1)));
+            lines.removeFirst(); // the rest of the opening line, which javac requires to be blank
+            int indentation = Integer.MAX_VALUE;
+            for (int k = 0; k < lines.size(); k++) {
+                String l = lines.get(k);
+                boolean last = k == lines.size() - 1;
+                if (l.isBlank() && !last) continue;
+                int leading = 0;
+                while (leading < l.length() && (l.charAt(leading) == ' ' || l.charAt(leading) == '\t')) leading++;
+                indentation = Math.min(indentation, leading);
+            }
+            StringBuilder out = new StringBuilder();
+            for (int k = 0; k < lines.size(); k++) {
+                String l = lines.get(k);
+                out.append(l.length() >= indentation ? l.substring(indentation) : "").append(k < lines.size() - 1 ? "\n" : "");
+            }
+            return out.toString();
+        }
+
+        /** A literal's text with its escapes decoded: octal (Java, Groovy), Unicode (Kotlin, Groovy), line continuations. */
+        static String decoded(String text, Language language) {
+            StringBuilder out = new StringBuilder();
+            for (int k = 0; k < text.length(); k++) {
+                char c = text.charAt(k);
+                if (c != '\\' || k + 1 >= text.length()) {
+                    out.append(c);
+                    continue;
+                }
+                char e = text.charAt(++k);
+                switch (e) {
+                    case 'b' -> out.append('\b');
+                    case 't' -> out.append('\t');
+                    case 'n' -> out.append('\n');
+                    case 'f' -> out.append('\f');
+                    case 'r' -> out.append('\r');
+                    case 's' -> out.append(' ');
+                    case '\n' -> { }
+                    case 'u' -> {
+                        int h = k;
+                        while (h < text.length() && text.charAt(h) == 'u') h++;
+                        if (h + 4 <= text.length() && text.substring(h, h + 4).matches("[0-9a-fA-F]{4}")) {
+                            out.append((char) Integer.parseInt(text.substring(h, h + 4), 16));
+                            k = h + 3;
+                        } else {
+                            out.append(e);
+                        }
+                    }
+                    default -> {
+                        if (e >= '0' && e <= '7' && language != Language.KOTLIN) {
+                            int end = k;
+                            int digits = e <= '3' ? 3 : 2;
+                            while (end < text.length() && end - k < digits && text.charAt(end) >= '0' && text.charAt(end) <= '7') {
+                                end++;
+                            }
+                            out.append((char) Integer.parseInt(text.substring(k, end), 8));
+                            k = end - 1;
+                        } else {
+                            out.append(e);
+                        }
+                    }
+                }
+            }
+            return out.toString();
+        }
+    }
+
+    /**
+     * A Java source as javac reads it (JLS 3.3): a backslash that an even number of backslashes precede, then one or
+     * more u and four hexadecimal digits, is the character they encode, so that no escape can hide a name.
+     */
+    static String unicodeEscapesDecoded(String text) {
+        StringBuilder out = new StringBuilder(text.length());
+        int backslashes = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '\\' && backslashes % 2 == 0) {
+                int j = i + 1;
+                while (j < text.length() && text.charAt(j) == 'u') j++;
+                if (j > i + 1 && j + 4 <= text.length() && text.substring(j, j + 4).matches("[0-9a-fA-F]{4}")) {
+                    out.append((char) Integer.parseInt(text.substring(j, j + 4), 16));
+                    i = j + 3;
+                    backslashes = 0;
+                    continue;
+                }
+            }
+            backslashes = c == '\\' ? backslashes + 1 : 0;
+            out.append(c);
+        }
+        return out.toString();
+    }
+
+    /** The index of the parenthesis that closes the one at open, skipping string and character literals; -1 if none. */
+    static int closing(String text, int open) {
+        return closing(text, open, '(', ')');
+    }
+
+    static int closing(String text, int open, char left, char right) {
+        return closing(text, open, left, right, false);
+    }
+
+    /** Kotlin templates are scanned before comments are blanked, unlike the other callers. */
+    static int closing(String text, int open, char left, char right, boolean kotlinComments) {
+        int depth = 0;
+        for (int i = open; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (kotlinComments && text.startsWith("//", i)) {
+                while (i + 1 < text.length() && text.charAt(i + 1) != '\n' && text.charAt(i + 1) != '\r') i++;
+            } else if (kotlinComments && text.startsWith("/*", i)) {
+                int comments = 1;
+                for (i += 2; i < text.length() && comments > 0; ) {
+                    if (text.startsWith("/*", i)) {
+                        comments++;
+                        i += 2;
+                    } else if (text.startsWith("*/", i)) {
+                        comments--;
+                        i += 2;
+                    } else i++;
+                }
+                i--;
+            } else if (c == '"' || c == '\'') {
+                for (i++; i < text.length() && text.charAt(i) != c; i++) {
+                    if (text.charAt(i) == '\\') i++;
+                }
+            } else if (c == left) {
+                depth++;
+            } else if (c == right && --depth == 0) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Each match of a pattern in a view of a file's text, at its line. */
+    void find(Path file, String text, String view, Pattern pattern, String problem) {
+        for (Matcher m = pattern.matcher(view); m.find(); ) add("images", at(file, text, m.start()) + ": " + problem);
+    }
+
+    /** A place in a file for a message: its path and line number. */
+    String at(Path file, String text, int offset) {
+        return relative(file) + ":" + lineOf(text, offset);
+    }
+
     // ---- shared ----
 
     void requireApproved(String area, String kind, String coordinate, String version, String where) {
@@ -435,11 +2667,27 @@ public final class PolicyCheck {
 
     void add(String area, String message) { findings.add(new Finding(area, message)); }
 
+    /** Generic source capabilities warn outside the registry; direct container rules never use this path. */
+    void launchProblem(Path file, String message) {
+        if (launchSites.containsKey(repo.relativize(file).toString())) add("images", message);
+        else warnings.add(message);
+    }
+
     List<Path> files(java.util.function.Predicate<Path> wanted) throws IOException {
+        return files(wanted, false);
+    }
+
+    List<Path> files(java.util.function.Predicate<Path> wanted, boolean launchSources) throws IOException {
         try (Stream<Path> walk = Files.walk(repo)) {
             return walk.filter(p -> Files.isRegularFile(p, LinkOption.NOFOLLOW_LINKS))
-                    .filter(p -> Stream.of(".git", "build", "node_modules", ".gradle").noneMatch(skip ->
-                            repo.relativize(p).toString().startsWith(skip + "/") || repo.relativize(p).toString().contains("/" + skip + "/")))
+                    .filter(p -> {
+                        String rel = repo.relativize(p).toString();
+                        // The capability warning scan reads every source, including tools/policy, caches and build outputs.
+                        if (launchSources) return !rel.startsWith(".git/");
+                        return Stream.of(".git", "node_modules", ".gradle").noneMatch(skip ->
+                                rel.startsWith(skip + "/") || rel.contains("/" + skip + "/"))
+                                && !rel.startsWith("build/") && !rel.contains("/build/");
+                    })
                     .filter(wanted).sorted().toList();
         } catch (IOException | UncheckedIOException e) {
             throw new Stop("the checked tree changed while it was read");
@@ -591,6 +2839,10 @@ public final class PolicyCheck {
                 out.append("\n### ").append(area).append("\n\n");
             }
             out.append("- ").append(f.message()).append('\n');
+        }
+        if (!warnings.isEmpty()) {
+            out.append("\n### Warnings (check 8, non-blocking)\n\n");
+            for (String warning : warnings) out.append("- ").append(warning).append('\n');
         }
         return out.toString();
     }

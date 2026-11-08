@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Synthetic fixtures for the output scan. Optional argument: another implementation, for red/green evidence.
 set -euo pipefail
-scanner="${1:-$(cd "$(dirname "$0")" && pwd)/check-generated-password.sh}"
+here="$(cd "$(dirname "$0")" && pwd)"
+scanner="${1:-$here/check-generated-password.sh}"
 fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT
 failures=0
 cases=0
-real_find=$(command -v find)
-real_grep=$(command -v grep)
-export real_find real_grep
+scan_fixture_path=$PATH
+export scan_fixture_path
 
 reset_fixture() {
   rm -rf "$fixture/candidate" "$fixture/bin"
@@ -48,16 +48,8 @@ expect_exit 2 'empty console output'
 
 # A partial discovery must not look like a complete list. The marker shows grep was never reached.
 reset_fixture
-cat > "$fixture/bin/find" <<'FIXTURE'
-#!/usr/bin/env bash
-"$real_find" "$@"
-exit 2
-FIXTURE
-cat > "$fixture/bin/grep" <<'FIXTURE'
-#!/usr/bin/env bash
-touch grep-was-run
-exec "$real_grep" "$@"
-FIXTURE
+cp "$here/fake-password-scan/find" "$fixture/bin/find"
+cp "$here/fake-password-scan/grep-discovery" "$fixture/bin/grep"
 chmod +x "$fixture/bin/find" "$fixture/bin/grep"
 expect_exit 2 'find error after partial output'
 cases=$((cases + 1))
@@ -70,25 +62,20 @@ fi
 
 for location in console report; do
   reset_fixture
-  cat > "$fixture/bin/grep" <<'FIXTURE'
-#!/usr/bin/env bash
-case "$*" in
-  *gradle-check.log*) [[ "$SCAN_ERROR" != console ]] || exit 2 ;;
-  *index.html*) [[ "$SCAN_ERROR" != report ]] || exit 2 ;;
-esac
-exec "$real_grep" "$@"
-FIXTURE
+  cp "$here/fake-password-scan/grep-read-error" "$fixture/bin/grep"
   chmod +x "$fixture/bin/grep"
   export SCAN_ERROR=$location
   expect_exit 2 "grep read error: $location"
 done
 
+newline='
+'
 for output in gradle-check.log candidate/apps/api/build/test-results/test/TEST-fixture.xml \
   candidate/apps/api/build/reports/tests/test/index.html \
-  $'candidate/apps/api/build/test-results/test/binary output\nfixture.bin'; do
+  "candidate/apps/api/build/test-results/test/binary output${newline}fixture.bin"; do
   reset_fixture
   printf '\0Using generated security password: synthetic-fixture\n' > "$fixture/$output"
-  expect_exit 1 "forbidden phrase: ${output//$'\n'/<newline>}"
+  expect_exit 1 "forbidden phrase: ${output//$newline/<newline>}"
 done
 
 printf '%s scan fixtures, %s failures\n' "$cases" "$failures"

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+[[ "$*" == 2 ]] || { touch "$fixture/bad-options"; exit 97; }
+printf 'backoff\n' >> "$fixture/sleeps"

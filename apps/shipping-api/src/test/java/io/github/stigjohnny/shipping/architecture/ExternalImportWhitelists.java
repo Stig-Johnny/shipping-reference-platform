@@ -26,6 +26,8 @@ final class ExternalImportWhitelists {
         ADAPTER_IN_WEB("internal.adapter.in.web"),
         ADAPTER_OUT_JDBC("internal.adapter.out.jdbc"),
         MODULE_TESTS("module tests"),
+        DATABASE_HARNESS("database harness"),
+        DATABASE_TESTS("database tests"),
         HTTP_TESTS("http tests"),
         SCENARIO_TESTS("scenario tests"),
         SCENARIO_FIXTURES("scenario fixtures"),
@@ -56,6 +58,46 @@ final class ExternalImportWhitelists {
             "quotes.internal.application.ScenarioAlterations", "quotes.internal.application.GatedQuoteStore",
             "tenants.api.TenantBadge", "tenants.internal.application.ScenarioReference");
     private static final Map<Area, List<Allowed>> WHITELISTS = whitelists(List.of(
+            // Only ReviewedPostgres and its nested types may reach the reviewed container libraries.
+            types(Area.DATABASE_HARNESS, "ReviewedPostgres: start the reviewed image and inspect its engine and ports",
+                    "org.testcontainers.DockerClientFactory", "org.testcontainers.dockerclient.TransportConfig",
+                    "org.testcontainers.postgresql.PostgreSQLContainer", "org.testcontainers.utility.DockerImageName",
+                    "com.github.dockerjava.api.DockerClient", "com.github.dockerjava.api.command.InfoCmd",
+                    "com.github.dockerjava.api.command.InspectContainerResponse",
+                    "com.github.dockerjava.api.command.InspectImageCmd",
+                    "com.github.dockerjava.api.command.InspectImageResponse",
+                    "com.github.dockerjava.api.command.VersionCmd", "com.github.dockerjava.api.exception.NotFoundException",
+                    "com.github.dockerjava.api.model.ContainerConfig", "com.github.dockerjava.api.model.ExposedPort",
+                    "com.github.dockerjava.api.model.HostConfig", "com.github.dockerjava.api.model.Info",
+                    "com.github.dockerjava.api.model.NetworkSettings", "com.github.dockerjava.api.model.Ports",
+                    "com.github.dockerjava.api.model.Ports$Binding", "com.github.dockerjava.api.model.Version",
+                    "com.github.dockerjava.api.model.VersionComponent"),
+            types(Area.DATABASE_HARNESS, "ReviewedPostgres: validate local configuration and the reviewed socket URI",
+                    "java.io.IOException", "java.io.PrintStream", "java.net.URI", "java.nio.file.Files",
+                    "java.nio.file.Path", "java.lang.Class", "java.lang.System"),
+            types(Area.DATABASE_HARNESS, "ReviewedPostgres: generate a per-container database password",
+                    "java.security.SecureRandom", "java.util.HexFormat"),
+            types(Area.DATABASE_HARNESS, "ReviewedPostgres: immutable facts, validation failures and resource cleanup",
+                    "java.lang.AutoCloseable", "java.lang.Boolean", "java.lang.Enum", "java.lang.IllegalStateException",
+                    "java.lang.Integer", "java.lang.Object", "java.lang.Record", "java.lang.String", "java.lang.Throwable",
+                    "java.util.ArrayList", "java.util.Collection", "java.util.Iterator", "java.util.List",
+                    "java.util.Map", "java.util.Map$Entry", "java.util.Objects", "java.util.Optional", "java.util.Set",
+                    "java.util.TreeMap", "java.util.regex.Matcher", "java.util.regex.Pattern",
+                    "java.util.stream.Collectors", "java.util.stream.Stream"),
+            types(Area.DATABASE_TESTS, "database tests: the harness handle supplies the JDBC connection for the query",
+                    "java.sql.Connection", "java.sql.DriverManager", "java.sql.ResultSet", "java.sql.SQLException",
+                    "java.sql.Statement"),
+            types(Area.DATABASE_TESTS, "database tests: synthetic configuration files and environment facts",
+                    "java.io.IOException", "java.nio.file.Files", "java.nio.file.Path", "java.util.HashMap",
+                    "java.util.List", "java.util.Map", "java.util.Set"),
+            types(Area.DATABASE_TESTS, "database tests: language types and package nullness",
+                    "java.lang.Object", "java.lang.String", "java.lang.Throwable", NULL_MARKED),
+            types(Area.DATABASE_TESTS, "database tests: JUnit tests, the mandatory database task tag and fixtures",
+                    "org.junit.jupiter.api.Test", "org.junit.jupiter.api.Tag", "org.junit.jupiter.api.io.TempDir",
+                    "org.junit.jupiter.params.ParameterizedTest", "org.junit.jupiter.params.provider.ValueSource"),
+            packages(Area.DATABASE_TESTS, "AssertJ's assertions: assertThat returns an assertion type per value",
+                    "org.assertj.core.api"),
+
             // The root package: the isolated bootstrap, correlation filter and fallback problem handler.
             types(Area.ROOT, "the Spring Boot entry point", "org.springframework.boot.SpringApplication",
                     "org.springframework.boot.autoconfigure.SpringBootApplication"),
@@ -763,6 +805,10 @@ final class ExternalImportWhitelists {
      * The area for one compiled class, including test fixtures that must retain a module package for the recorder.
      */
     static Optional<Area> areaOfClass(Scope scope, String root, String className) {
+        String harness = root + ".database.ReviewedPostgres";
+        if (scope == Scope.TEST && (className.equals(harness) || className.startsWith(harness + "$"))) {
+            return Optional.of(Area.DATABASE_HARNESS);
+        }
         if (scope == Scope.TEST && SCENARIO_FIXTURE_TYPES.stream().anyMatch(type ->
                 className.equals(root + "." + type) || className.startsWith(root + "." + type + "$"))) {
             return Optional.of(Area.SCENARIO_FIXTURES);
@@ -773,11 +819,15 @@ final class ExternalImportWhitelists {
     /**
      * The area of a package below {@code root}. Main classes: the root package, a module's root or {@code api}
      * package, and the four internal layers. Test classes: the architecture tests, their fixtures, the exact http
-     * package, the exact scenarios and scenarios.support packages, and the tests in a module's packages. Named
-     * scenario fixtures are handled by areaOfClass. Any other package has no area, and every class it uses fails.
+     * package, the exact database, scenarios and scenarios.support packages, and the tests in a module's packages.
+     * The reviewed database harness and named scenario fixtures are handled by areaOfClass. Any other package has
+     * no area, and every class it uses fails.
      */
     static Optional<Area> area(Scope scope, String root, String packageName) {
         if (scope == Scope.TEST) {
+            if (packageName.equals(root + ".database")) {
+                return Optional.of(Area.DATABASE_TESTS);
+            }
             if (packageName.equals(root + ".scenarios") || packageName.equals(root + ".scenarios.support")) {
                 return Optional.of(Area.SCENARIO_TESTS);
             }

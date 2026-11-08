@@ -69,6 +69,9 @@ configurations.configureEach {
 tasks.withType<Test>().configureEach {
     // Ryuk (Testcontainers' cleanup container) is rejected: it needs a privileged container holding the Docker socket.
     environment("TESTCONTAINERS_RYUK_DISABLED", "true")
+    // Testcontainers' startup checks would run another image (alpine) with a bind mount; the runner review turns
+    // them off. The database harness, src/test/java/.../database/ReviewedPostgres.java, refuses to start without both.
+    environment("TESTCONTAINERS_CHECKS_DISABLE", "true")
     // Spring's test framework initialises Mockito in every Spring test (MockitoResetTestExecutionListener), so its
     // inline mock maker is loaded as an explicit agent, never self-attached, as its review requires
     // (security/reviews/maven--test-libraries--mockito-5.23.0-byte-buddy-1.18.15-and-assertion-libs.md, condition 3).
@@ -76,6 +79,19 @@ tasks.withType<Test>().configureEach {
     val mockito: FileCollection = configurations.testRuntimeClasspath.get()
         .filter { it.name.startsWith("mockito-core-") }
     jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-javaagent:" + mockito.singleFile.absolutePath) })
+}
+
+// The database tests, tagged "database", start the reviewed PostgreSQL through ReviewedPostgres, which refuses to
+// start it on an engine that no review approves. They run in their own task, databaseTest, which CI's java check and
+// the pages workflow's test job run explicitly; check does not, so check needs only the reviewed JDK. Missing engine
+// prerequisites fail databaseTest; a test is never skipped for want of an engine.
+tasks.test {
+    useJUnitPlatform { excludeTags("database") }
+}
+tasks.register<Test>("databaseTest") {
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags("database") }
 }
 
 // The HTTP contract tests read the contract from the test class path (a classpath: IRI), as the json-schema-validator
@@ -94,7 +110,8 @@ tasks.processTestResources {
 // build/reports/scenarios/ name the revision they ran on: GITHUB_SHA in CI, the checked-out commit locally.
 val revision: Provider<String> = providers.environmentVariable("GITHUB_SHA").orElse(
     providers.exec {
-        commandLine("git", "-C", rootDir.absolutePath, "rev-parse", "HEAD")
+        // The project directory is in this worktree; the literal vector also satisfies check 8.
+        commandLine("git", "rev-parse", "HEAD")
         isIgnoreExitValue = true
     }.standardOutput.asText.map { it.trim() },
 )

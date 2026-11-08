@@ -29,6 +29,8 @@ closes it.
   module are partial, and so is the HTTP contract control. Every other capability in
   `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for them is still to
   be written (red first), except `ShipmentTest`, which exists for booking and does not yet assert cancellation.
+  The shipping API's database harness exists too: in CI, `PostgresHarnessIntegrationTest` starts the reviewed
+  PostgreSQL 18.6 image under the runner review's conditions and queries it; no schema exists yet.
 - **The application starts in its tests only, without a database.** The HTTP tests start `ShippingApplication` with
   test doubles for the two ports that have no adapter yet: the tenants module's membership directory, which holds the
   synthetic users of `docs/modules/tenants.md`, and the quotes module's store, in memory. They leave out the data
@@ -195,6 +197,10 @@ closes it.
   human accepted it: the owner and the AI agents use the same GitHub account, and the agent that records the
   acceptance also computes the digest. The record quotes the owner's words and their timestamp from the chat
   transcript.
+- **Database test imports have separate scopes.** Only `ReviewedPostgres` and its nested types may use the
+  explicitly listed Testcontainers and docker-java classes. The exact database test package has its own JDBC,
+  fixture and assertion types; this grants no container-library access to ordinary tests or production code.
+  `ExternalImportPolicyTest` checks these boundaries and rejects unused whitelist entries.
 - **Scope is recorded, and enforced only for the classes the API uses.** The allowlist check matches coordinate,
   version and checksum. Which projects and configurations a review approved is a condition the code owner checks in
   review: a reviewed library added to a project its review does not cover passes `preflight`. `ExternalImportPolicyTest`
@@ -258,6 +264,34 @@ closes it.
   parsing assembles for an empty group (for example with a `$` group separator) stays in the parser's own table:
   no element carries it, so it is not checked and cannot reach a report.
 
+- **Check 8 is a PARTIAL static lint; runtime CI guards enforce engine availability.** The owner's 2026-11-08
+  decision at about 19:35 UTC separates a blocking subset from warnings. Recognized direct Testcontainers/docker-java
+  imports or use outside the harness, container CLI commands outside reviewed forms, direct Docker socket access,
+  Dockerfile/compose files, unpinned or unreviewed image references and registered-file pin mismatches remain
+  findings (exit 1). Class names only in literals, text blocks or data are not use. Reflection, method handles,
+  ProcessBuilder/Runtime and other recognized launch APIs outside registered sites appear under a separate
+  non-blocking warning heading. Direct container findings are never downgraded by a capability warning.
+  Benign servlet `getMethod()` can still warn. Registered sites retain their pins and command-form checks.
+  Known gaps include Gradle argument/executable mutation, wrappers and inferred Runtime aliases; CR comment
+  boundaries; JavaBeans reflection and Groovy process APIs; implicit Gradle launch tasks; dynamic strings, indirect
+  commands, approved libraries and code imported by Node tests. Warnings do not close these gaps, and single-digest
+  launch pins still have no trusted base/candidate update sequence.
+  [ADR 0007](adr/0007-dependency-allowlist-and-pre-use-enforcement.md#known-static-lint-gaps-from-the-two-pr-54-reviews)
+  records the limits. A clean lint result is not proof that code cannot access an engine.
+- **CI enforces engine availability at runtime, within the workflow's privilege boundary.** Every job stops and
+  masks the engine units, unlinks the socket and probes CLI and direct socket access before checkout. Only the
+  reviewed harness steps in Java CI and Pages testing re-enable it; shutdown and both probes run immediately
+  afterwards, even after failure. Later work requires successful shutdown. Failed stop/mask/unlink operations and
+  failed probe tools refuse the job. The fixture regression exercises those failures without a real engine.
+  Hosted CI execution remains necessary to verify the runner's service behaviour. A privileged process can undo
+  the guard or use another/remote engine: these jobs are not a hostile-code sandbox. Gradle still configures the
+  build in the database step. The harness checks its own container's privileges, mounts and network; the subsequent
+  engine audit sees image/event history, not every other container's configuration.
+- **The platform image is inferred, not read back.** The runner's engine keeps an image's index digest, not the
+  digest of the platform manifest it pulled. That the tests ran the linux/amd64 image `sha256:e923a22a…` follows
+  from the pinned index, whose platforms the review lists, and from the image's reported platform; nothing compares
+  that digest itself.
+
 - **Dependabot sees the workflows' Actions, not the Gradle dependencies.** GitHub's dependency graph lists only what
   it can read without running the build: the pinned Actions. Gradle dependencies would need a dependency-submission
   step, which is not set up, because an automatic submission build would run the build outside the reviewed
@@ -285,6 +319,19 @@ closes it.
   first connection without authentication, so its review forbids developer machines whose firewall lets inbound
   connections reach `java`. On 2026-11-06 the library's development ran PIT on such a machine (firewall off) before
   that condition was checked; the exposure was one listening socket per run, for the length of the run.
+- **Database tests run only where a reviewed engine is prepared.** `./gradlew check` runs checks requiring only the
+  reviewed JDK. Database tests run through `:apps:shipping-api:databaseTest` and are mandatory in Java CI and Pages
+  testing. Missing engine prerequisites fail that task; tests are never conditionally skipped. The engine is
+  GitHub-hosted ubuntu-24.04 with Docker Engine 28.0.4, prepared by `tools/ci/container-engine.sh`; anywhere else
+  `ReviewedPostgres` refuses to start PostgreSQL. A local `./gradlew check` therefore shows no database evidence, which
+  only CI's builds read and require. The two colima hosts that a review approves are not engines of the harness yet.
+- **The event check sees the engine's last 256 events.** After the tests, the workflow reads their window from the
+  engine's event buffer to show that every container came from the reviewed image and nothing was copied into one.
+  It fails when the window holds 256 events or more, because it could no longer show that it saw them all.
+- **The site's evidence passes between jobs as a job output.** The publishing job builds the site from the test job's
+  JUnit reports, the database tests' included, which travel as a job output of at most 100,000 characters (they
+  arrive as an environment variable, which Linux limits to 128 KiB). Reports that outgrow it fail the handover, and
+  another transport, such as an artifact download, needs its own review first.
 - axe-core finds a subset of accessibility problems; manual keyboard and screen reader checks are required and
   recorded by hand.
 - The web app's repository import gate is implemented: `WebArchitectureConformanceTest` holds `src`, the `e2e`

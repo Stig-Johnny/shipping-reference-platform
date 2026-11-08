@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$*" == info ]] || exit 99
+echo info >> "$FAKE_GUARD_LOG"
+[[ "$FAKE_GUARD_SCENARIO" != cli-error ]] || exit 127
+[[ "$FAKE_GUARD_SCENARIO" == cli-reachable ]]

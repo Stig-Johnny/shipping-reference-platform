@@ -56,6 +56,13 @@ Built and running:
   The tenant-denial test separately asserts the outcome, a rejection as for an unknown
   quote with nothing stored for the other tenant; that assertion is not a verified step
   ([Executable scenarios](docs/flows/quote-book-label.md#executable-scenarios)).
+- **The database harness** of the shipping API's tests. It starts the reviewed PostgreSQL image, by digest, only on
+  a container engine that a review approves. CI stops and masks the engine and probes CLI/socket denial before
+  checkout in every job and after the reviewed harness window. This runtime guard enforces engine availability;
+  check 8 is a PARTIAL static lint: direct container findings and registered-file pin mismatches block, while
+  unregistered launch/reflection capabilities warn. Literal/data class names are not use (ADR 0007). The harness validates its PostgreSQL instance,
+  and CI checks subsequent engine activity. Privileged code could undo the guard; it is not a hostile-code sandbox.
+  No schema exists yet.
 - **The documentation tool**, `tools/docs`, with its tests. It generates the C4 view pages, `BRAIN.md` and a static
   site. In `java`, it checks committed generated files for drift, repository-local links and anchors for validity,
   and shipped or partial capability claims against passing test evidence. The `pages` workflow scans the site before
@@ -232,7 +239,7 @@ it runs) and which part is **planned**.
 | Domain invariants | Golden tariff prices, monotonicity and rounding properties, idempotent booking, expiry rules. | Wrong requirements. | `java` (parameterized property tests included: `SyntheticTariffPropertiesTest`) | partial: the tariff, expiry and booking tests run in `java`, booking with stores in memory; idempotent booking against the database is planned |
 | Event delivery | A failed audit write is lost, or a replay has a second effect. | Consumers nobody has written yet. | `java`: `AuditReplayIntegrationTest` | planned |
 | Mutation testing | Fewer than 80 % of mutants on changed lines are killed (90 % for pricing and checker code). | Tests that consistently assert the wrong thing; hand-reviewed equivalent mutants. | `mutation` | planned (today the `mutation` job runs PIT on the contract kit and fails under 90 % killed; it is not a required check) |
-| Dependency allowlist, before use | A locked dependency, the Gradle wrapper or an Action has no approved, unexpired review; a checksum or a vendored file differs from its review; an Action is not pinned to an allowlisted commit; the reviewed set changed after the owner accepted it; the checked tree holds a symbolic link. | Build code that downloads executables itself, compromised approved artifacts, runner compromise, local agents bypassing CI, a reviewed component used outside the scope of its review. | `preflight` (from the base branch); `java` before Gradle starts, then the checker's tests (`tools/policy/PolicyCheckTest.java`) | **enforced**: `preflight` is a required check, made to fail on purpose by pull requests #16 and #17 (`security/README.md`). Planned, which is why `capabilities.yaml` still lists the control as planned: a schema for the allowlist, the checker's acceptance tests named there (its JDK-only tests run in `java` but write no JUnit report), and approval bound to a pull request's head |
+| Dependency allowlist and CI engine availability | A locked dependency, the Gradle wrapper or an Action has no approved, unexpired review; a checksum differs; the reviewed set changed after acceptance; the checked tree holds a symbolic link; engine shutdown or denial probes fail outside the reviewed harness window. | Check 8 is a PARTIAL static lint with known bypasses (ADR 0007); privileged code can undo the runtime guard. Build code downloading executables, compromised artifacts, runner compromise, local-agent bypass and review-scope misuse remain gaps. | `preflight` from the base branch; `java` before Gradle; engine guards in every CI job | **partial** in `capabilities.yaml`, with `ContainerEngineWorkflowTest` evidence and executable shell fixtures. The allowlist gate and runtime guard run today; schema validation, the remaining named acceptance tests and approval bound to the current head are planned. |
 | Risk-levelled approval | A level 3 change lacks the owner's approval of its current head. | A sensitive change that matches no rule; a single approver is not two-person review. | `risk-approval` | planned |
 | AI review record | No AI review with findings and dispositions is recorded for the final commit. | AI reviewers being wrong. | `ai-review` | planned |
 | Web import conformance | A detected import crosses parts without a relationship in the model, or a `REQUIRED` relationship between built parts has no detected direct import; a detected import bypasses a feature's `index.ts`, forms a cycle or imports a test from production code; a file is in no part or in a planned one; a detected import names a package or Node.js built-in that the model does not list or `security/allowlist.json` does not approve (no part lists a package; tests may import `node:assert/strict`, `node:test` and `node:fs`); a recognized setting of `package.json`, `tsconfig*.json` or `index.html` would resolve a specifier otherwise; the restricted import grammar reports a refused construct or file. | Imports and loaders hidden after spread syntax and other silent reader misses (see `docs/gaps.md`, section 6); a bundler or test-runner configuration that resolves modules (none is used); `url()` in style sheets; what a test does with a built-in at run time; the web app's network calls; an unused part that no `REQUIRED` relationship reaches. | `java`: `WebArchitectureConformanceTest` runs the partial web import lint on `apps/shipping-web` (ADR 0015) | **partial**: each rule fails its negative fixture, and the repository gate scans `src`, `e2e`, `public` and app configuration in every build; a file in a planned part or a detected unapproved test import fails it. Every part is still planned and the source and test roots are empty, so no real web imports have been checked. The authoritative tsc import graph and browser-enforced strict CSP remain planned in the web app pull request |
@@ -264,6 +271,8 @@ policy/                          risk.json (risk levels)
 security/                        allowlist.json, reviews/ and verifications/, explained in README.md
 tools/policy/                    PolicyCheck.java, the dependency allowlist check, and PolicyCheckTest.java, its tests
 tools/ci/                        bounded, verified CI JDK staging and its local fixtures; build-output scan and fixtures
+                                 container-engine.sh: the container engine review around database tests;
+                                 site-handover.sh: Pages test-report handover; their fixtures use a fake engine
 tools/docs/                      Gradle project :tools:docs: docs, brain and site generator, publication scan
 build-logic/                     Gradle convention plugins: compiler settings, Error Prone and NullAway, locking, PIT
 gradle/                          wrapper, version catalog (libs.versions.toml), verification metadata
@@ -289,10 +298,19 @@ off.
 | Test the allowlist checker (the JDK alone) | `java tools/policy/PolicyCheckTest.java` |
 | Test CI JDK downloads (local transport fixtures, no network) | `bash tools/ci/stage-temurin-test.sh` |
 | Run all Java checks (compile with Error Prone and NullAway, tests), the web import check included | `./gradlew check` |
+| Run the database tests (CI only: they need the reviewed container engine, which the `java` job prepares) | `./gradlew :apps:shipping-api:databaseTest` |
+| Test the CI scripts (bash and GNU tar, as on the runner; no container engine) | `bash tools/ci/engine-guard-test.sh`; `bash tools/ci/container-engine-test.sh`; `bash tools/ci/site-handover-test.sh` |
 | Run the web import check alone (the JDK alone; reports in `libs/c4-contract-kit/build/reports/c4-contract-web/`) | `./gradlew :libs:c4-contract-kit:test --tests '*WebArchitectureConformanceTest'` |
 | Run mutation tests (CI only, the `mutation` job: PIT's control socket accepts unauthenticated connections) | `./gradlew :libs:c4-contract-kit:pitest` |
 | Check docs and the brain; regenerate them | `./gradlew :tools:docs:check`; `./gradlew :tools:docs:generate` |
 | Build the documentation site into `tools/docs/build/site/` (open its `index.html`) | `./gradlew :tools:docs:site` |
+
+`./gradlew check` runs checks requiring only the reviewed JDK. Database tests run through
+`:apps:shipping-api:databaseTest` and are mandatory in Java CI and Pages testing. Missing engine prerequisites fail
+that task; tests are never conditionally skipped. They start the reviewed PostgreSQL 18.6 image through Testcontainers
+only on a container engine that a review approves: today the GitHub-hosted ubuntu-24.04 runner, prepared by
+`tools/ci/container-engine.sh`. The workflows run this task alone in the engine window, shut the engine down, then
+run ordinary checks with `-x databaseTest -PdatabaseEvidence=true`, requiring the reports already produced in that job.
 
 CI stages the reviewed JDK through `tools/ci/stage-temurin.sh`. Its committed mirror base URL is empty: downloads
 still use the official source. Transient failures get at most two attempts, a 10-second connect timeout, a

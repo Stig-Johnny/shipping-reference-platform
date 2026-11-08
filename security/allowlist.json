@@ -4,24 +4,32 @@
   "acceptance": {
     "status": "accepted",
     "by": "Stig-Johnny (repository owner and code owner)",
-    "at": "2026-11-07T23:45:39.135Z",
-    "how": "In chat to the orchestrator: \"accept #73 2f2f841a…ec22 as recommended, 9a\", in reply to a private review deck for pull request #73 (issue #59) showing the review records, the bundled-kind gate, the limits and exactly decisions 1-11 from the pull request body with their recommendations, and asking for \"accept #73 <full digest> as recommended, 9a\". The reply abbreviates the digest to its first 8 and last 4 hex digits, which match reviewedSetSha256 2f2f841a4832531d5ebfc114b623a36eb2dde366b969bb5407dad0ec67cfec22. \"As recommended\" accepts decisions 1-8, 10 and 11 as recommended; \"9a\" selects decision 9(a), with its rehearsal condition.",
+    "at": "2026-11-08T09:46:29.393Z",
+    "how": "In chat to the orchestrator: \"accept #54 03d8223632a17e66bf31d5b2d0c0bdbc7d5f3837a7f3a032080343bb46517e8d\", in reply to a request for renewed acceptance for pull request #54 (issue #51) that stated exactly what changed against the accepted 2f2f841a4832531d5ebfc114b623a36eb2dde366b969bb5407dad0ec67cfec22 set: the runner-image entry's artifact and third condition record containerd v2.4.2 and runc 1.5.2 from run 42410533646 and require acceptance before merging the harness; the matching review record's amendment records those versions and the limit that advisories for those containerd/runc versions were not reviewed. The request stated that the other 518 entries and 78 records are unchanged.",
     "scope": "Exactly the reviewed set whose digest is reviewedSetSha256: every entry, field by field, and every review record, byte for byte. Changing, adding or removing an entry, or editing a review record, afterwards fails the checker until the owner accepts again.",
-    "decisions": [
-      "1. Accepted as recommended: npm 11.20.0, both bundled copies, under Artistic-2.0, as an unmodified build tool never distributed.",
-      "2. Accepted as recommended: Chrome Headless Shell 158.0.8127.18 under Google's Chrome for Testing terms, Chromium's BSD-3-Clause and its bundled licences, for CI only, never uploaded or redistributed.",
-      "3. Accepted as recommended: TypeScript 5.9.3 declaration files under the W3C Software and Document License, CC-BY-4.0, W3C Community Final Specification Agreement, Unicode data-files licence and Khronos MIT-style licence, for compiling only; none reaches emitted JavaScript.",
-      "4. Accepted as recommended: ISC for the 12 components inlined in Playwright, copied pixelmatch and 9 components inlined in axe-core, test tooling only, never distributed.",
-      "5. Accepted as recommended: BlueOak-1.0.0 for minimatch 10.2.5 inlined in Playwright, never distributed.",
-      "6. Accepted as recommended: CC-BY-4.0 for caniuse-lite 1.0.30001810 in Playwright's Babel bundle, never redistributed.",
-      "7. Accepted as recommended: confirm the PostgreSQL License for attended-demo use of postgres 18.6-trixie, accepted with its base record in #10; nothing is redistributed.",
-      "8. Accepted as recommended: prohibit uploading, publishing or attaching Playwright HTML report folders and traces, including as CI artifacts (condition 7); CI keeps text results and screenshots.",
-      "9. Selected (a): variant B, the Mac Mini rigbuild over SSH, including the SSH tunnel for the application's HTTP port; the live demo still requires a passed rehearsal under host review condition 12. If none passes by Monday 2026-11-09 noon, choose (c), CI evidence only (test results and real-application screenshots at the same revision, no local engine), or (d), defer the live demo.",
-      "10. Accepted as recommended: the new allowlist kind bundled, with npm 11.20.0 moved to it, so an inlined copy cannot approve a standalone package in a lockfile.",
-      "11. Accepted as recommended: the exact reviewed set identified by reviewedSetSha256, following decisions 1-10."
-    ],
-    "reviewedSetSha256": "2f2f841a4832531d5ebfc114b623a36eb2dde366b969bb5407dad0ec67cfec22",
+    "reviewedSetSha256": "03d8223632a17e66bf31d5b2d0c0bdbc7d5f3837a7f3a032080343bb46517e8d",
     "previous": [
+      {
+        "status": "accepted",
+        "by": "Stig-Johnny (repository owner and code owner)",
+        "at": "2026-11-07T23:45:39.135Z",
+        "how": "In chat to the orchestrator: \"accept #73 2f2f841a…ec22 as recommended, 9a\", in reply to a private review deck for pull request #73 (issue #59) showing the review records, the bundled-kind gate, the limits and exactly decisions 1-11 from the pull request body with their recommendations, and asking for \"accept #73 <full digest> as recommended, 9a\". The reply abbreviates the digest to its first 8 and last 4 hex digits, which match reviewedSetSha256 2f2f841a4832531d5ebfc114b623a36eb2dde366b969bb5407dad0ec67cfec22. \"As recommended\" accepts decisions 1-8, 10 and 11 as recommended; \"9a\" selects decision 9(a), with its rehearsal condition.",
+        "scope": "Exactly the reviewed set whose digest is reviewedSetSha256: every entry, field by field, and every review record, byte for byte. Changing, adding or removing an entry, or editing a review record, afterwards fails the checker until the owner accepts again.",
+        "decisions": [
+          "1. Accepted as recommended: npm 11.20.0, both bundled copies, under Artistic-2.0, as an unmodified build tool never distributed.",
+          "2. Accepted as recommended: Chrome Headless Shell 158.0.8127.18 under Google's Chrome for Testing terms, Chromium's BSD-3-Clause and its bundled licences, for CI only, never uploaded or redistributed.",
+          "3. Accepted as recommended: TypeScript 5.9.3 declaration files under the W3C Software and Document License, CC-BY-4.0, W3C Community Final Specification Agreement, Unicode data-files licence and Khronos MIT-style licence, for compiling only; none reaches emitted JavaScript.",
+          "4. Accepted as recommended: ISC for the 12 components inlined in Playwright, copied pixelmatch and 9 components inlined in axe-core, test tooling only, never distributed.",
+          "5. Accepted as recommended: BlueOak-1.0.0 for minimatch 10.2.5 inlined in Playwright, never distributed.",
+          "6. Accepted as recommended: CC-BY-4.0 for caniuse-lite 1.0.30001810 in Playwright's Babel bundle, never redistributed.",
+          "7. Accepted as recommended: confirm the PostgreSQL License for attended-demo use of postgres 18.6-trixie, accepted with its base record in #10; nothing is redistributed.",
+          "8. Accepted as recommended: prohibit uploading, publishing or attaching Playwright HTML report folders and traces, including as CI artifacts (condition 7); CI keeps text results and screenshots.",
+          "9. Selected (a): variant B, the Mac Mini rigbuild over SSH, including the SSH tunnel for the application's HTTP port; the live demo still requires a passed rehearsal under host review condition 12. If none passes by Monday 2026-11-09 noon, choose (c), CI evidence only (test results and real-application screenshots at the same revision, no local engine), or (d), defer the live demo.",
+          "10. Accepted as recommended: the new allowlist kind bundled, with npm 11.20.0 moved to it, so an inlined copy cannot approve a standalone package in a lockfile.",
+          "11. Accepted as recommended: the exact reviewed set identified by reviewedSetSha256, following decisions 1-10."
+        ],
+        "reviewedSetSha256": "2f2f841a4832531d5ebfc114b623a36eb2dde366b969bb5407dad0ec67cfec22"
+      },
       {
         "by": "Stig-Johnny (repository owner and code owner)",
         "at": "2026-11-06T20:03:16.131Z",
@@ -11692,7 +11700,7 @@
       "kind": "runner-image",
       "coordinate": "github-hosted ubuntu-24.04 (actions/runner-images) / Docker Engine docker-ce",
       "version": "28.0.4",
-      "artifact": "docker-ce 28.0.4 from download.docker.com, as installed in runner image ubuntu24/20261101.360 (Image Version 20261101.360.1); containerd.io and runc versions to be recorded by the first run",
+      "artifact": "docker-ce 28.0.4 from download.docker.com, as installed in runner image ubuntu24/20261101.360 (Image Version 20261101.360.1); the first CI run (run 42410533646, 2026-11-07) recorded containerd v2.4.2 and runc 1.5.2 (the review's amendment of 2026-11-07)",
       "sha256": null,
       "project": ":example-app",
       "configuration": [
@@ -11703,7 +11711,7 @@
       "conditions": [
         "Fail closed in code: abort unless Engine ServerVersion is exactly 28.0.4 and runc >= 1.3.3 (1.2.x rejected); log ServerVersion, ApiVersion, containerd and runc versions and commits, KernelVersion, OperatingSystem",
         "runs-on: ubuntu-24.04 exactly; keep the Set up job > Runner Image version with the run",
-        "First CI run's containerd and runc versions appended to the review as an amendment before the job becomes a required check",
+        "First CI run's containerd and runc versions appended to the review (amendment of 2026-11-07: containerd v2.4.2, runc 1.5.2, run 42410533646); java was already a required check, so the owner's acceptance of the amendment precedes merging the database harness",
         "TESTCONTAINERS_RYUK_DISABLED=true; no privileged container",
         "Only the reviewed PostgreSQL 18.6 image by index digest; image-set diff before/after fails the job on any other new image",
         "TESTCONTAINERS_CHECKS_DISABLE=true; no bind mounts, no copy-to-container (archive API), no exposeHostPorts/withAccessToHost, image builds, host networking or create-command modifiers",

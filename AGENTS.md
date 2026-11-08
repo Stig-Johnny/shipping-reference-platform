@@ -120,7 +120,8 @@ The commands that exist today. The others arrive with their code; until then, sa
 |---|---|
 | Dependency allowlist (the JDK alone) | `java tools/policy/PolicyCheck.java .` |
 | CI JDK download fixtures (no network) | `bash tools/ci/stage-temurin-test.sh` |
-| All Java checks | `./gradlew check` |
+| All Java checks (the reviewed JDK alone) | `./gradlew check` |
+| Database tests (mandatory in Java CI and Pages testing; they fail without the reviewed container engine, never skip) | `./gradlew :apps:shipping-api:databaseTest` |
 | Web import check (the JDK alone, part of `./gradlew check`) | `./gradlew :libs:c4-contract-kit:test --tests '*WebArchitectureConformanceTest'` |
 | Web type check and tests | not built yet |
 | Contract and end-to-end tests | not built yet |

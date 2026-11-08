@@ -80,6 +80,15 @@ public final class PolicyCheckTest {
             actions();
             npm();
             vendored();
+            images();
+            imageBypasses();
+            imageNormalisation();
+            imageFailClosed();
+            imageFailClosedForms();
+            imageOwnEvasionsRound3();
+            reviewedWebCommands();
+            structuralLaunchSites();
+            lintScope();
             tree();
             commandLine();
         } finally {
@@ -555,6 +564,605 @@ public final class PolicyCheckTest {
         });
     }
 
+    // ---- container images: only approved digests, only in the forms the reviews allow ----
+
+    /** The approved image's index digest, the rejected one's and one that no entry has (all synthetic). */
+    static final String POSTGRES = "a1".repeat(32);
+    static final String RYUK = "b2".repeat(32);
+    static final String UNLISTED = "c3".repeat(32);
+    /** The database harness: the one source that may use Testcontainers, so the fixtures put their test code there. */
+    static final String HARNESS = "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/ReviewedPostgres.java";
+    static final String DATABASE_TEST = HARNESS;
+    static final String OTHER_TEST = "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/OtherTest.java";
+    static final String WORKFLOW = ".github/workflows/ci.yml";
+    static final String STAGING = "tools/ci/stage-image.sh";
+
+    /**
+     * The clean repository with an approved postgres image and a rejected ryuk image on the allowlist, a test that
+     * starts postgres in the reviewed form, and a script that stages it by digest.
+     */
+    static Repo withImages() throws IOException {
+        Repo repo = Repo.clean();
+        repo.reviewedFixtureSources.add(HARNESS);
+        repo.entry("container-image", "docker.io/library/postgres", "18.6", "OCI image index", POSTGRES);
+        repo.entry("container-image", "docker.io/testcontainers/ryuk", "0.14.0", "manifest list", RYUK)
+                .put("verdict", "REJECT");
+        return repo.write(DATABASE_TEST, database("DockerImageName.parse(\"postgres@sha256:" + POSTGRES + "\")",
+                "new PostgreSQLContainer(IMAGE)")).write(STAGING, staging("docker pull --quiet postgres@sha256:" + POSTGRES));
+    }
+
+    /** A test class: its seventh line declares the image, its eighth constructs the container. */
+    static String database(String image, String container) {
+        return """
+                package demo;
+
+                import org.testcontainers.postgresql.PostgreSQLContainer;
+                import org.testcontainers.utility.DockerImageName;
+
+                class DatabaseTest {
+                    static final DockerImageName IMAGE = %s;
+                    final PostgreSQLContainer postgres = %s;
+                }
+                """.formatted(image, container);
+    }
+
+    /** A staging script whose fourth line is the given command. */
+    static String staging(String command) {
+        return """
+                #!/usr/bin/env bash
+                # Stages the reviewed image; the docker group and a docker run in this comment are only text.
+                set -euo pipefail
+                %s
+                docker image inspect --format '{{json .RepoDigests}}' postgres@sha256:%s
+                sudo systemctl restart docker
+                """.formatted(command, POSTGRES);
+    }
+
+    static void images() {
+        test("images: an approved image by digest, in the reviewed form, passes", () ->
+                expectClean(withImages().findings()));
+        for (String name : List.of("docker.io/library/postgres", "library/postgres", "index.docker.io/library/postgres")) {
+            test("images: the approved digest spelled " + name + " passes", () -> expectClean(withImages()
+                    .write(DATABASE_TEST, database("DockerImageName.parse(\"" + name + "@sha256:" + POSTGRES + "\")",
+                            "new PostgreSQLContainer(IMAGE)")).findings()));
+        }
+        test("images: a digest that is not on the allowlist fails, by file and line", () -> expectOnly(withImages()
+                .edit(DATABASE_TEST, POSTGRES, UNLISTED).findings(), "images",
+                DATABASE_TEST + ":7: postgres@sha256:" + UNLISTED + " has no review on the allowlist"));
+        for (String name : List.of("mysql", "registry.example.org/library/postgres", "ghcr.io/library/postgres",
+                "docker.io/example/postgres")) {
+            test("images: the approved digest under the name " + name + " fails", () -> expectOnly(withImages()
+                    .edit(DATABASE_TEST, "\"postgres@", "\"" + name + "@").findings(), "images",
+                    DATABASE_TEST + ":7: " + name + "@sha256:" + POSTGRES + " has no review on the allowlist"));
+        }
+        test("images: a rejected image fails and names its review", () -> expectOnly(withImages()
+                .edit(DATABASE_TEST, "\"postgres@sha256:" + POSTGRES, "\"testcontainers/ryuk@sha256:" + RYUK).findings(),
+                "images", "testcontainers/ryuk@sha256:" + RYUK
+                        + " was REJECTED in security/reviews/container-image--docker.io-testcontainers-ryuk--0.14.0.md"));
+        test("images: an image named by tag only fails", () -> expectOnly(withImages()
+                .edit(DATABASE_TEST, "postgres@sha256:" + POSTGRES, "postgres:18.6").findings(), "images",
+                DATABASE_TEST + ":7: postgres:18.6 is not pinned by digest"));
+        test("images: a tag next to the digest fails", () -> expectOnly(withImages()
+                .edit(DATABASE_TEST, "postgres@sha256:", "postgres:18.6@sha256:").findings(), "images",
+                DATABASE_TEST + ":7: postgres:18.6@sha256:" + POSTGRES + " names a tag next to its digest"));
+        for (String digest : List.of(POSTGRES.toUpperCase(), POSTGRES.substring(1), POSTGRES + "0", "")) {
+            test("images: a digest that is not 64 lowercase hexadecimal digits fails: " + show(digest), () ->
+                    expectOnly(withImages().edit(DATABASE_TEST, POSTGRES, digest).findings(), "images",
+                            DATABASE_TEST + ":7: ", "is not a sha256 digest of 64 lowercase hexadecimal digits"));
+        }
+        for (String image : List.of("DockerImageName.parse(NAME)", "DockerImageName.parse(\"postgres@sha256:\" + DIGEST)",
+                "DockerImageName.parse(\"postgres\", \"18.6\")")) {
+            test("images: DockerImageName.parse of anything but one string literal fails: " + image, () ->
+                    expectFinding(withImages().write(DATABASE_TEST, database(image, "new PostgreSQLContainer(IMAGE)"))
+                            .findings(), "images", DATABASE_TEST + ":7: DockerImageName.parse takes something other "
+                            + "than one string literal"));
+        }
+        for (String image : List.of("DockerImageName::parse", "org.testcontainers.utility.DockerImageName::parse")) {
+            test("images: DockerImageName::parse as a method reference fails: " + image, () -> expectFinding(withImages()
+                    .write(DATABASE_TEST, database(image, "new PostgreSQLContainer(IMAGE)")).findings(), "images",
+                    DATABASE_TEST + ":7: DockerImageName::parse"));
+        }
+        test("images: a static import of DockerImageName.parse fails", () -> expectFinding(withImages()
+                .edit(DATABASE_TEST, "import org.testcontainers.utility.DockerImageName;",
+                        "import static org.testcontainers.utility.DockerImageName.parse;").findings(), "images",
+                DATABASE_TEST + ":4: a static import of DockerImageName"));
+        for (String container : List.of("new PostgreSQLContainer(\"postgres:18.6\")", "new PostgreSQLContainer()",
+                "new PostgreSQLContainer(name)", "new PostgreSQLContainer(IMAGE.toString())",
+                "new PostgreSQLContainer(IMAGE) { }")) {
+            test("images: a PostgreSQLContainer made from anything but a parsed digest fails: " + container, () ->
+                    expectFinding(withImages().write(DATABASE_TEST, database("DockerImageName.parse(\"postgres@sha256:"
+                            + POSTGRES + "\")", container)).findings(), "images", DATABASE_TEST + ":8: "));
+        }
+        test("images: a PostgreSQLContainer made from DockerImageName.parse of the approved digest passes", () ->
+                expectClean(withImages().write(DATABASE_TEST, database("DockerImageName.parse(\"postgres@sha256:"
+                        + POSTGRES + "\")", "new org.testcontainers.postgresql.PostgreSQLContainer(DockerImageName.parse("
+                        + "\"postgres@sha256:" + POSTGRES + "\"))")).findings()));
+        for (String container : List.of("new GenericContainer<>(IMAGE)", "new FixedHostPortGenericContainer(IMAGE)",
+                "new org.testcontainers.containers.GenericContainer<>(IMAGE)", "PostgreSQLContainer::new")) {
+            test("images: a container class other than the reviewed PostgreSQLContainer fails: " + container, () ->
+                    expectFinding(withImages().write(DATABASE_TEST, database("DockerImageName.parse(\"postgres@sha256:"
+                            + POSTGRES + "\")", container)).findings(), "images", DATABASE_TEST + ":8: "));
+        }
+        test("images: the deprecated org.testcontainers.containers.PostgreSQLContainer fails", () -> expectFinding(
+                withImages().edit(DATABASE_TEST, "org.testcontainers.postgresql.PostgreSQLContainer",
+                        "org.testcontainers.containers.PostgreSQLContainer").findings(), "images",
+                DATABASE_TEST + ":3: org.testcontainers.containers.PostgreSQLContainer"));
+        test("images: a class that extends a container fails", () -> expectFinding(withImages().edit(DATABASE_TEST,
+                "class DatabaseTest {", "class DatabaseTest extends PostgreSQLContainer {").findings(), "images",
+                DATABASE_TEST + ":6: extends PostgreSQLContainer"));
+        for (String call : List.of("IMAGE.withTag(\"18\")", "IMAGE.withRegistry(\"registry.example.org\")",
+                "IMAGE.withRepository(\"other\")", "IMAGE.asCompatibleSubstituteFor(\"postgres\")",
+                "new DockerImageName(\"postgres\")", "new ImageFromDockerfile()", "new RemoteDockerImage(IMAGE)")) {
+            test("images: an image name derived, built or resolved in code fails: " + call, () -> expectFinding(
+                    withImages().edit(DATABASE_TEST, "    final PostgreSQLContainer postgres",
+                            "    final Object other = " + call + ";\n    final PostgreSQLContainer postgres").findings(),
+                    "images", DATABASE_TEST + ":8: "));
+        }
+        for (String call : List.of("withFileSystemBind(\"/tmp\", \"/x\")", "withClasspathResourceMapping(\"a\", \"/b\", null)",
+                "withCopyToContainer(null, \"/x\")", "withCopyFileToContainer(null, \"/x\")", "copyFileToContainer(null, \"/x\")",
+                "withAccessToHost(true)", "withPrivilegedMode(true)", "withReuse(true)", "withNetworkMode(\"host\")",
+                "withCreateContainerCmdModifier(cmd -> { })", "withVolumesFrom(null, null)")) {
+            test("images: a container feature the reviews forbid fails: " + call, () -> expectFinding(withImages()
+                    .edit(DATABASE_TEST, "new PostgreSQLContainer(IMAGE)", "new PostgreSQLContainer(IMAGE)." + call)
+                    .findings(), "images", DATABASE_TEST + ":8: "));
+        }
+        for (String call : List.of("Testcontainers.exposeHostPorts(5432)", "new DockerComposeContainer(null)",
+                "new ComposeContainer(null)", "client.createContainerCmd(\"alpine\")", "client.pullImageCmd(\"alpine\")",
+                "client.buildImageCmd()", "client.loadImageCmd(null)", "client.copyArchiveToContainerCmd(\"x\")",
+                "factory.runInsideDocker(null, null)", "factory.checkAndPullImage(client, \"alpine\")")) {
+            test("images: a Testcontainers or docker-java call that pulls, builds, copies or runs another container fails: "
+                    + call, () -> expectFinding(withImages().edit(DATABASE_TEST, "    final PostgreSQLContainer postgres",
+                    "    final Object other = " + call + ";\n    final PostgreSQLContainer postgres").findings(), "images",
+                    DATABASE_TEST + ":8: "));
+        }
+        test("images: a Testcontainers JDBC URL fails, in code and in configuration", () -> {
+            Repo repo = withImages().edit(DATABASE_TEST, "    final PostgreSQLContainer postgres",
+                    "    final String url = \"jdbc:tc:postgresql:18.6:///shipping\";\n    final PostgreSQLContainer postgres")
+                    .write("apps/demo/src/test/resources/application.yml",
+                            "spring:\n  datasource:\n    url: jdbc:tc:postgresql:18.6:///shipping\n");
+            List<String> findings = repo.findings();
+            expect(findings.size() == 2, findings.toString());
+            expectFinding(findings, "images", DATABASE_TEST + ":8: a Testcontainers JDBC URL");
+            expectFinding(findings, "images", "apps/demo/src/test/resources/application.yml:3: a Testcontainers JDBC URL");
+        });
+        for (String file : List.of("apps/demo/src/test/resources/testcontainers.properties", ".testcontainers.properties",
+                "testcontainers.properties", "apps/demo/src/test/resources/META-INF/services/"
+                        + "org.testcontainers.utility.ImageNameSubstitutor")) {
+            test("images: a Testcontainers configuration file fails wherever it is: " + file, () -> expectOnly(
+                    withImages().write(file, "# only a comment\n").findings(), "images",
+                    file + ": a Testcontainers configuration file"));
+        }
+        for (String[] setting : new String[][] {
+                {".github/workflows/ci.yml", "jobs:\n  x:\n    env:\n      TESTCONTAINERS_RYUK_CONTAINER_IMAGE: other\n", "4"},
+                {"apps/demo/build.gradle.kts", "tasks.test { environment(\"TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX\", \"m/\") }\n", "1"},
+                {"gradle.properties", "systemProp.image.substitutor=demo.Substitutor\n", "1"},
+                {DATABASE_TEST, database("DockerImageName.parse(\"postgres@sha256:" + POSTGRES + "\")",
+                        "new PostgreSQLContainer(IMAGE); final String key = \"tinyimage.container.image\"").strip(), "8"}}) {
+            test("images: a Testcontainers image setting fails in " + setting[0], () -> expectOnly(withImages()
+                    .write(setting[0], setting[1]).findings(), "images",
+                    setting[0] + ":" + setting[2] + ": ", "configures an image for Testcontainers"));
+        }
+        test("images: a pull of anything but one digest fails, and an unapproved digest is named", () -> {
+            for (String command : List.of("docker pull alpine:3.17", "docker image pull alpine", "docker pull \"$image\"",
+                    "docker pull")) {
+                expectOnly(withImages().write(STAGING, staging(command)).findings(), "images",
+                        STAGING + ":4: docker pull of something other than one image by digest");
+            }
+            expectOnly(withImages().write(STAGING, staging("docker pull postgres@sha256:" + UNLISTED)).findings(),
+                    "images", STAGING + ":4: postgres@sha256:" + UNLISTED + " has no review on the allowlist");
+            expectClean(withImages().write(STAGING, staging("docker pull --platform linux/amd64 postgres@sha256:"
+                    + POSTGRES)).findings());
+        });
+        for (String command : List.of("docker run --rm postgres@sha256:" + POSTGRES, "docker create alpine",
+                "docker container run alpine", "docker build .", "docker buildx build .", "docker compose up",
+                "docker login", "docker load --input image.tar", "docker image import image.tar", "docker exec x id",
+                "docker cp file x:/tmp", "docker tag a b", "docker --host tcp://example.org:2375 info", "docker \"$command\"",
+                "docker-compose up", "podman run alpine")) {
+            test("images: a workflow or script runs no container, builds no image and logs in nowhere: " + command, () ->
+                    expectOnly(withImages().write(STAGING, staging(command)).findings(), "images", STAGING + ":4: "));
+        }
+        test("images: the docker commands of the staging, the checks and the cleanup pass", () -> {
+            for (String command : List.of("docker version --format '{{.Server.Version}}'", "docker info",
+                    "docker image ls --digests", "docker images", "docker ps -aq --filter label=x",
+                    "docker rm -f -v \"$id\"", "docker network ls -q", "docker network rm \"$id\"",
+                    "docker events --since 1 --until 2", "docker inspect x", "docker manifest inspect --verbose postgres@sha256:"
+                            + POSTGRES, "echo ok # docker run is only a comment here")) {
+                expectClean(withImages().write(STAGING, staging(command)).findings());
+            }
+        });
+        test("images: a workflow with a job or service container fails", () -> {
+            for (String key : List.of("container", "services")) {
+                Repo repo = withImages().write(".github/workflows/ci.yml",
+                        "jobs:\n  x:\n    runs-on: ubuntu-24.04\n    " + key + ":\n      image: alpine\n");
+                expectOnly(repo.findings(), "images", ".github/workflows/ci.yml:4: a job or service container");
+            }
+        });
+        test("images: a build script or a test that runs a container runtime as a command fails", () -> {
+            Repo script = withImages().write("apps/demo/build.gradle.kts",
+                    "tasks.register<Exec>(\"pull\") { commandLine(\"docker\", \"pull\", \"alpine\") }\n");
+            expectFinding(script.findings(), "images", "runs a container runtime as a command");
+            script.reviewedFixtureSources.add("apps/demo/build.gradle.kts");
+            expectOnly(script.findings(), "images", "apps/demo/build.gradle.kts:1: runs a container runtime as a command");
+            expectOnly(withImages().edit(DATABASE_TEST, "    final PostgreSQLContainer postgres",
+                    "    final ProcessBuilder pull = new ProcessBuilder(\"podman\", \"pull\");\n    final PostgreSQLContainer postgres")
+                    .findings(), "images", DATABASE_TEST + ":8: runs a container runtime as a command");
+        });
+        test("images: a reference in documents, reviews and the checker's own tests is no use of an image", () -> {
+            Repo repo = withImages().write("docs/notes.md", "Ryuk would be testcontainers/ryuk@sha256:" + RYUK
+                    + "; docker run alpine:3.17 and jdbc:tc:postgresql:18.6:///x are rejected.\n")
+                    .write("tools/policy/Example.java", "class Example { String s = \"alpine@sha256:" + UNLISTED + "\"; }\n");
+            expectClean(repo.findings());
+        });
+        test("images: a file that is not Testcontainers code may name its own classes Container", () ->
+                expectClean(withImages().write("apps/demo/src/main/java/demo/Parcel.java",
+                        "package demo;\n\nrecord Parcel(ShippingContainer container) {\n"
+                                + "    Parcel { container = new ShippingContainer(\"blue\"); }\n}\n").findings()));
+        test("images: markup in an image reference is printed as safe characters", () -> {
+            List<String> findings = withImages().edit(DATABASE_TEST, "\"postgres@sha256:" + POSTGRES,
+                    "\"**md**_x/postgres@sha256:" + UNLISTED).findings();
+            expectOnly(findings, "images", "??md???x/postgres@sha256:" + UNLISTED + " has no review on the allowlist");
+            expect(!findings.getFirst().contains("**"), findings.toString());
+        });
+    }
+
+    /** A workflow whose fifth line is the given text, inside a job. */
+    static String workflow(String fifth) {
+        return """
+                name: ci
+                on: push
+                jobs:
+                  x:
+                %s
+                    steps:
+                      - run: echo "the test containers are removed"
+                """.formatted(fifth);
+    }
+
+    /** Ordinary shell and YAML spellings that name what the check refuses, each of which got through it once. */
+    static void imageBypasses() {
+        for (String command : List.of("/usr/bin/docker run alpine:3.17", "\"docker\" run alpine:3.17",
+                "'docker' run alpine:3.17", "\"/usr/bin/docker\" \"run\" alpine:3.17", "sudo /usr/bin/docker run alpine:3.17",
+                "/usr/bin/docker login", "/usr/bin/docker cp file x:/tmp", "/usr/local/bin/docker build .",
+                "/usr/bin/docker run --network host -v /:/host postgres@sha256:" + POSTGRES, "exec docker run alpine",
+                "env docker run alpine", "$(command -v docker) run alpine", "runtime=docker", "\"docker\"")) {
+            test("bypasses: a script that names docker this way is refused: " + command, () -> expectFinding(
+                    withImages().write(STAGING, staging(command)).findings(), "images", STAGING + ":4: "));
+        }
+        test("bypasses: a workflow step that runs docker by its path is refused", () -> expectOnly(withImages()
+                .write(WORKFLOW, workflow("    steps:\n      - run: /usr/bin/docker run alpine:3.17").replace(
+                        "    steps:\n      - run: echo", "      - run: echo")).findings(), "images",
+                WORKFLOW + ":6: docker run is not an allowed use"));
+        test("bypasses: restarting the docker service is no docker command", () -> expectClean(withImages()
+                .write(STAGING, staging("sudo systemctl restart docker")).findings()));
+        for (String key : List.of("    \"container\": alpine:3.17", "    'container': alpine:3.17",
+                "    \"services\":", "    'services': {db: {image: alpine}}", "    {container: alpine}",
+                "    runs-on: ubuntu-24.04 # then\n    defaults: {run: {shell: bash}, container: alpine}",
+                "    \"cont\\u0061iner\": alpine", "    ? container\n    : alpine")) {
+            test("bypasses: a job or service container in another YAML spelling is refused: " + show(key), () ->
+                    expectFinding(withImages().write(WORKFLOW, workflow(key)).findings(), "images", WORKFLOW + ":"));
+        }
+        test("bypasses: a test that only has the harness's handle cannot reach the container's API", () -> expectFinding(
+                withImages().write(OTHER_TEST, """
+                        package io.github.stigjohnny.shipping.database;
+
+                        class OtherTest {
+                            void bind() {
+                                var postgres = ReviewedPostgres.start();
+                                postgres.withFileSystemBind("/", "/host");
+                            }
+                        }
+                        """).findings(), "images", OTHER_TEST + ":6: withFileSystemBind is forbidden"));
+        test("bypasses: a test other than the harness may not use Testcontainers, not even in the reviewed form", () ->
+                expectFinding(withImages().write(OTHER_TEST, database("DockerImageName.parse(\"postgres@sha256:" + POSTGRES
+                        + "\")", "new PostgreSQLContainer(IMAGE)").replace("package demo;",
+                        "package io.github.stigjohnny.shipping.database;")).findings(), "images",
+                        OTHER_TEST + ":3: ", "only ReviewedPostgres"));
+        test("bypasses: a fully qualified docker-java call outside the harness is refused", () -> expectFinding(
+                withImages().write(OTHER_TEST, "class OtherTest { Object c = com.github.dockerjava.api.model.Bind.parse(\"/:/h\"); }\n")
+                        .findings(), "images", OTHER_TEST + ":1: ", "only ReviewedPostgres"));
+        test("bypasses: a unicode escape does not hide Testcontainers from the check", () -> expectFinding(
+                withImages().write(OTHER_TEST, "import \\u006frg.testcontainers.containers.GenericContainer;\n"
+                        + "class OtherTest { }\n").findings(), "images", OTHER_TEST + ":1: ", "only ReviewedPostgres"));
+        for (String script : List.of(
+                "tasks.register(\"image\") { doLast { org.testcontainers.utility.DockerImageName.parse(\"alpine:3.17\") } }\n",
+                "val image = DockerImageName.parse(\"alpine:3.17\")\n",
+                "tasks.register<Exec>(\"pull\") { commandLine(\"sh\", \"-c\", \"docker run alpine:3.17\") }\n",
+                "tasks.register<Exec>(\"pull\") { commandLine(\"/usr/bin/docker\", \"run\", \"alpine\") }\n",
+                "dependencies { testImplementation(\"org.testcontainers:testcontainers-postgresql\") }\n"
+                        + "val pg = GenericContainer<Nothing>(\"alpine\").withFileSystemBind(\"/\", \"/h\")\n")) {
+            test("bypasses: a build script is read like test code: " + show(script.strip()), () -> expectFinding(
+                    withImages().write("apps/demo/build.gradle.kts", script).findings(), "images",
+                    "apps/demo/build.gradle.kts:"));
+        }
+        test("bypasses: a script without the .sh extension is read by its #! line", () -> {
+            expectOnly(withImages().write("tools/ci/run-it", "#!/usr/bin/env bash\nset -e\ndocker run alpine:3.17\n")
+                    .findings(), "images", "tools/ci/run-it:3: docker run is not an allowed use");
+            expectClean(withImages().write("docs/notes", "Not a script: docker run alpine:3.17 is refused.\n").findings());
+        });
+        test("bypasses: a build script may still declare the reviewed Testcontainers artifacts", () -> expectClean(
+                withImages().write("apps/demo/build.gradle.kts",
+                        "dependencies { testImplementation(\"org.testcontainers:testcontainers-postgresql\") }\n")
+                        .findings()));
+    }
+
+    /**
+     * What the shell, javac, kotlinc, groovyc or a YAML parser reads as docker, Testcontainers or a container, whatever
+     * the spelling: quotes, escapes, comments and string forms are normalised before matching, not enumerated. First
+     * the counterexamples of the second review of pull request #54, then the spellings this pull request tried itself.
+     */
+    static void imageNormalisation() {
+        String groovy = "apps/demo/build.gradle";
+        String kotlin = "apps/demo/build.gradle.kts";
+        // The second review's counterexamples.
+        for (String command : List.of("d\"ocker\" run alpine:3.17", "dock\\er run alpine:3.17")) {
+            test("normalised: the shell joins quotes and escapes into docker: " + show(command), () -> expectFinding(
+                    withImages().write(STAGING, staging(command)).findings(), "images", STAGING + ":4: docker run"));
+        }
+        test("normalised: a Groovy build script's single-quoted strings are strings", () -> expectFinding(withImages()
+                .write(groovy, "tasks.register('pull', Exec) { commandLine 'docker', 'run', 'alpine:3.17' }\n")
+                .findings(), "images", groovy + ":1: runs a container runtime as a command"));
+        test("normalised: a comment between the parts of a package name hides nothing", () -> expectFinding(withImages()
+                .write(OTHER_TEST, "import org./*gap*/testcontainers.containers.GenericContainer;\n\nclass OtherTest {\n"
+                        + "    void run() {\n        new GenericContainer<>(\"alpine:3.17\").start();\n    }\n}\n")
+                .findings(), "images", OTHER_TEST + ":1: ", "only ReviewedPostgres"));
+        // The class of each: shell quoting, escapes and expansions; comments; every string form; any reference.
+        for (String command : List.of("'do''cker' run alpine:3.17", "do\"\"cker run alpine:3.17",
+                "\"$(echo docker)\" run alpine:3.17", "`echo docker` run alpine:3.17", "x=${runtime:-docker}",
+                "bash -c 'd''ocker run alpine:3.17'", "eval d\\\"ocker\\\" run alpine:3.17", "sudo -E d\\ocker run alpine")) {
+            test("normalised: a script that spells docker this way is refused: " + show(command), () -> expectFinding(
+                    withImages().write(STAGING, staging(command)).findings(), "images", STAGING + ":4: "));
+        }
+        test("normalised: a workflow step that quotes docker is refused", () -> expectFinding(withImages().write(WORKFLOW,
+                workflow("    steps:\n      - run: d\"ocker\" run alpine:3.17").replace(
+                        "    steps:\n      - run: echo", "      - run: echo")).findings(), "images", WORKFLOW + ":6: "));
+        test("normalised: a line comment and a line break hide no package name", () -> {
+            expectFinding(withImages().write(OTHER_TEST, "import org.//gap\ntestcontainers.containers.GenericContainer;\n"
+                    + "class OtherTest { }\n").findings(), "images", OTHER_TEST + ":1: ", "only ReviewedPostgres");
+            expectFinding(withImages().write(OTHER_TEST, "class OtherTest { Object c = com./**/github./**/dockerjava.api"
+                    + ".model.Bind.parse(\"/:/h\"); }\n").findings(), "images", OTHER_TEST + ":1: ", "only ReviewedPostgres");
+        });
+        test("normalised: any reference to Testcontainers outside the harness is refused, a star import too", () ->
+                expectFinding(withImages().write(OTHER_TEST, "import org.testcontainers.containers.*;\n\nclass OtherTest {\n"
+                        + "    Object c = new GenericContainer<>(\"alpine:3.17\");\n}\n").findings(), "images",
+                        OTHER_TEST + ":1: ", "only ReviewedPostgres"));
+        for (String script : List.of("tasks.register('pull', Exec) { commandLine '''docker''', 'run', 'alpine:3.17' }\n",
+                "tasks.register('pull', Exec) { commandLine \"\"\"docker\"\"\", 'run', 'alpine:3.17' }\n",
+                "tasks.register('pull', Exec) { commandLine 'd\\u006fcker', 'run', 'alpine:3.17' }\n")) {
+            test("normalised: a Groovy string form is read: " + show(script.strip()), () -> expectFinding(withImages()
+                    .write(groovy, script).findings(), "images", groovy + ":1: runs a container runtime as a command"));
+        }
+        for (String script : List.of(
+                "tasks.register<Exec>(\"pull\") { commandLine(\"sh\", \"-c\", \"\"\"d\"ocker\" run alpine\"\"\") }\n",
+                "tasks.register<Exec>(\"pull\") { commandLine(\"\\u0064ocker\", \"run\", \"alpine\") }\n")) {
+            test("normalised: a Kotlin string form is read: " + show(script.strip()), () -> expectFinding(withImages()
+                    .write(kotlin, script).findings(), "images", kotlin + ":1: runs a container runtime as a command"));
+        }
+        // Spellings this pull request tried against its own check. The first three are new to it: ANSI-C quoting, a
+        // Java octal escape and an escaped YAML string. Each reaches docker in bash, javac or the workflow's parser.
+        test("own evasion 1: ANSI-C quoting spells docker with an escape", () -> expectFinding(withImages().write(STAGING,
+                staging("$'\\x64ocker' run alpine:3.17")).findings(), "images", STAGING + ":4: "));
+        test("own evasion 2: a Java octal escape spells docker in a command", () -> expectFinding(withImages()
+                .write(OTHER_TEST, "class OtherTest {\n    ProcessBuilder p = new ProcessBuilder(\"\\144ocker\", \"run\", "
+                        + "\"alpine:3.17\");\n}\n").findings(), "images", OTHER_TEST + ":2: runs a container runtime"));
+        test("own evasion 3: an escaped YAML string spells docker in a workflow step", () -> expectFinding(withImages()
+                .write(WORKFLOW, workflow("    steps:\n      - run: \"\\u0064ocker run alpine:3.17\"").replace(
+                        "    steps:\n      - run: echo", "      - run: echo")).findings(), "images", WORKFLOW + ":6: "));
+        test("own evasion 4: a heredoc that bash runs is read as commands", () -> expectFinding(withImages().write(
+                STAGING, staging("bash <<'SCRIPT'\ndocker run alpine:3.17\nSCRIPT")).findings(), "images", STAGING + ":5: "));
+        test("own evasion 5: a Java text block joins a line break into docker", () -> expectFinding(withImages()
+                .write(OTHER_TEST, "class OtherTest {\n    String s = \"\"\"\n        doc\\\n        ker run alpine:3.17\n"
+                        + "        \"\"\";\n}\n").findings(), "images", OTHER_TEST + ":", "runs a container runtime"));
+        // Then against the normalising version itself: spellings that still reached docker after the first round of
+        // normalisation, or that try to. Each must be refused.
+        test("own evasion 6: brace expansion assembles docker run", () -> expectFinding(withImages().write(STAGING,
+                staging("{docker,run} alpine:3.17")).findings(), "images", STAGING + ":4: "));
+        test("own evasion 7: a Groovy slashy string is a string", () -> expectFinding(withImages().write(groovy,
+                "tasks.register('pull', Exec) { commandLine /docker/, 'run', 'alpine:3.17' }\n").findings(), "images",
+                groovy + ":1: "));
+        test("own evasion 8: a Kotlin string template splits docker around a literal", () -> expectFinding(withImages()
+                .write(kotlin, "tasks.register<Exec>(\"pull\") { commandLine(\"doc${\"\"}ker\", \"run\", \"alpine\") }\n")
+                .findings(), "images", kotlin + ":1: "));
+        test("own evasion 9: a line continuation in a YAML block joins the indented next line", () -> expectFinding(
+                withImages().write(WORKFLOW, workflow("    steps:\n      - run: |\n          doc\\\n          ker run alpine:3.17")
+                        .replace("    steps:\n      - run: echo", "      - run: echo")).findings(), "images", WORKFLOW + ":"));
+        test("own evasion 10: a GitHub expression that builds the command", () -> expectFinding(withImages().write(
+                WORKFLOW, workflow("    steps:\n      - run: ${{ format('{0}ocker run alpine:3.17', 'd') }}").replace(
+                        "    steps:\n      - run: echo", "      - run: echo")).findings(), "images", WORKFLOW + ":6: "));
+        test("own evasion 11: a command substitution in the place of the command", () -> expectFinding(withImages()
+                .write(STAGING, staging("$(printf '\\x64ocker') run alpine:3.17")).findings(), "images", STAGING + ":4: "));
+        test("own evasion 12: a test resource that holds the command", () -> expectFinding(withImages().write(
+                "apps/demo/src/test/resources/command.txt", "docker run alpine:3.17\n").findings(), "images",
+                "apps/demo/src/test/resources/command.txt:1: "));
+        test("own evasion 13: a Java file outside src/, run by java as a single-file program", () -> expectFinding(
+                withImages().write("tools/run/Pull.java", "class Pull { public static void main(String[] a) throws Exception {"
+                        + " new ProcessBuilder(\"docker\", \"run\", \"alpine:3.17\").start(); } }\n").findings(), "images",
+                "tools/run/Pull.java:1: runs a container runtime as a command"));
+        // What the normalisation must leave alone.
+        test("normalised: paths, the socket, the service and a read of the engine are no refused command", () -> {
+            for (String command : List.of("printf '{\"ip\":\"127.0.0.1\"}\\n' | sudo tee /etc/docker/daemon.json > /dev/null",
+                    "export DOCKER_HOST=unix:///var/run/docker.sock", "sudo systemctl restart docker || exit 1",
+                    "echo \"the engine runs\"", "docker version --format \"$(printf '%s' '{{.Server.Version}}')\"")) {
+                expectClean(withImages().write(STAGING, staging(command)).findings());
+            }
+            expectClean(withImages().write(OTHER_TEST, "class OtherTest {\n    String socket = \"unix:///var/run/docker.sock\";"
+                    + "\n    // A comment may say that a docker run is refused.\n}\n").findings());
+        });
+    }
+
+    /**
+     * Fail closed: a form that this check cannot decode completely is refused, whatever it holds. First the
+     * counterexamples of the third review of pull request #54, each through every entry point it named.
+     */
+    static void imageFailClosed() {
+        String heredoc = "cat <<EOF\n# $(d\"ocker\" run alpine:3.17)\nEOF";
+        test("closed: an unquoted heredoc in a script, where # does not start a comment", () -> expectFinding(withImages()
+                .write(STAGING, staging(heredoc)).findings(), "images", STAGING + ":4: ", "heredoc"));
+        test("closed: the heredoc as a bash -c string from Java", () -> expectFinding(withImages().write(OTHER_TEST,
+                "class OtherTest {\n    ProcessBuilder p = new ProcessBuilder(\"bash\", \"-c\", \"cat <<EOF\\n# $(d\\\"ocker\\\""
+                        + " run alpine:3.17)\\nEOF\");\n}\n").findings(), "images", OTHER_TEST + ":2: ", "heredoc"));
+        test("closed: the heredoc as a bash -c string from Kotlin", () -> expectFinding(withImages().write(
+                "apps/demo/src/test/kotlin/demo/Probe.kt", "package demo\n\nval p = ProcessBuilder(\"bash\", \"-c\", \"\"\"" + heredoc
+                        + "\"\"\")\n").findings(), "images", "apps/demo/src/test/kotlin/demo/Probe.kt:3: ", "heredoc"));
+        test("closed: the heredoc as a bash -c string from the Kotlin DSL", () -> expectFinding(withImages().write(
+                "apps/demo/build.gradle.kts", "tasks.register<Exec>(\"probe\") { commandLine(\"bash\", \"-c\", \"\"\"" + heredoc
+                        + "\"\"\") }\n").findings(), "images", "apps/demo/build.gradle.kts:1: ", "heredoc"));
+        test("closed: the heredoc as a bash -c string from Groovy", () -> expectFinding(withImages().write(
+                "apps/demo/src/test/groovy/demo/Probe.groovy", "class Probe { def p = ['bash', '-c', '''" + heredoc
+                        + "'''].execute() }\n").findings(), "images", "apps/demo/src/test/groovy/demo/Probe.groovy:1: "));
+        test("closed: the heredoc as a bash -c string from the Groovy DSL", () -> expectFinding(withImages().write(
+                "apps/demo/build.gradle", "tasks.register('probe', Exec) { commandLine 'bash', '-c', '''" + heredoc
+                        + "''' }\n").findings(), "images", "apps/demo/build.gradle:1: "));
+        test("closed: a YAML double-quoted scalar that spans lines, with an escape", () -> expectFinding(withImages()
+                .write(WORKFLOW, workflow("    steps:\n      - run: \"\n          d\\u006fcker run alpine:3.17\"").replace(
+                        "    steps:\n      - run: echo", "      - run: echo")).findings(), "images", WORKFLOW + ":6: "));
+        test("closed: a quoted line continuation in a run block, which YAML dedents", () -> expectFinding(withImages()
+                .write(WORKFLOW, workflow("    steps:\n      - run: |\n          d\"oc\\\n          ker\" run alpine:3.17")
+                        .replace("    steps:\n      - run: echo", "      - run: echo")).findings(), "images", WORKFLOW + ":"));
+        test("closed: a Kotlin escaped identifier in a package name", () -> expectFinding(withImages().write(
+                "apps/demo/src/test/kotlin/demo/Probe.kt", "package demo\n\nimport org.`testcontainers`.containers.GenericContainer"
+                        + "\n\nfun test() { GenericContainer<Nothing>(\"alpine:3.17\").start() }\n").findings(), "images",
+                "apps/demo/src/test/kotlin/demo/Probe.kt:3: "));
+        test("closed: a constant concatenation that spells docker", () -> expectFinding(withImages().write(OTHER_TEST,
+                "class OtherTest {\n    Process p() throws Exception {\n        return new ProcessBuilder(\"do\" + \"cker\", \"run\", "
+                        + "\"alpine:3.17\").start();\n    }\n}\n").findings(), "images", OTHER_TEST + ":3: "));
+        test("closed: a script in a resource, by its #! line, whatever its extension", () -> expectFinding(withImages()
+                .write("apps/demo/src/test/resources/probe.bash", "#!/usr/bin/env bash\ndocker run alpine:3.17\n").findings(),
+                "images", "apps/demo/src/test/resources/probe.bash:2: docker run"));
+        test("closed: a resource is normalised like shell text", () -> expectFinding(withImages().write(
+                "apps/demo/src/test/resources/command.txt", "d\"ocker\" run alpine:3.17\n").findings(), "images",
+                "apps/demo/src/test/resources/command.txt:1: "));
+        // What must still pass: the repository's own forms.
+        test("closed: here-strings, arithmetic, conditions, case patterns and wrappers are read, not refused", () -> {
+            for (String command : List.of("read -r a b <<< \"$line\"", "count=$((count + 1))",
+                    "if (( 10#${have[i]} > 10#${need[i]} )); then echo more; fi",
+                    "[[ \"$name\" != TESTCONTAINERS_* || \"$name\" == \"X\" ]] || exit 1",
+                    "case \"${1:-}\" in\n  prepare | stage) echo one ;;\n  *) echo usage ;;\nesac",
+                    "(cd \"$dir\" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) > out",
+                    "exec /usr/bin/grep -q x file", "sudo -E env A=1 tee /etc/docker/daemon.json < /dev/null")) {
+                expectClean(withImages().write(STAGING, staging(command)).findings());
+            }
+            expectClean(withImages().write(WORKFLOW, "name: ci\non: push\njobs:\n  x:\n    runs-on: ubuntu-24.04\n"
+                    + "    env:\n      FLAG: 'true'\n    steps:\n      - name: A step\n        if: ${{ !cancelled() }}\n"
+                    + "        run: |\n          echo \"3b8a  x.jar\" | sha256sum --check --strict\n"
+                    + "          if [[ -n \"$links\" ]]; then\n            exit 1\n          fi\n").findings());
+        });
+    }
+
+    /** A workflow whose seventh line is the first of the given step lines. */
+    static String steps(String lines) {
+        return "name: ci\non: push\njobs:\n  x:\n    runs-on: ubuntu-24.04\n    steps:\n" + lines + "\n";
+    }
+
+    /** Each form the check now refuses because it cannot decode it, one fixture each, and the forms it still reads. */
+    static void imageFailClosedForms() {
+        for (String[] form : new String[][] {
+                {"cat <<-EOF\n\tx\n\tEOF", "heredoc"}, {"x=$(( 1 << 2 ))", "heredoc"},
+                {"/usr/bin/d?cker run alpine:3.17", "a glob in the place of a command"},
+                {"c=dock; ${c}er run alpine:3.17", "the command is an expansion"},
+                {"d{o,}cker run alpine:3.17", "brace expansion"},
+                {"$\"docker\" run alpine:3.17", "docker run is not an allowed use"},
+                {"python3 -c 'print(1)'", "an interpreter whose programs this check does not read"},
+                {"bash docs/notes.md", "a file this check does not read as a script"}}) {
+            test("forms: a script that holds this form is refused: " + show(form[0]), () -> expectFinding(withImages()
+                    .write("docs/notes.md", "Notes.\n").write(STAGING, staging(form[0])).findings(), "images",
+                    STAGING + ":4: ", form[1]));
+        }
+        for (String[] form : new String[][] {
+                {"      - run: >\n          echo x", "a folded block"},
+                {"      - run: |2\n          echo x", "an indentation indicator"},
+                {"      - run: &cmd echo x", "anchor"}, {"      - run: *cmd", "alias"},
+                {"      - run: !!str echo x", "tag"},
+                {"      - run: echo one\n          two", "continued over lines", "8"},
+                {"      - run: 'echo\n          x'", "single-quoted YAML scalar continued over lines"},
+                {"      - {name: x, run: echo x}", "inside a YAML flow collection"},
+                {"      - run: echo ${{ github.sha }}", "a GitHub expression in a run step"},
+                {"      - run: echo x\n        shell: python {0}", "a shell other than bash or sh", "8"},
+                {"      <<: {run: echo x}", "merge key"}}) {
+            test("forms: a workflow that holds this form is refused: " + show(form[0]), () -> expectFinding(withImages()
+                    .write(WORKFLOW, steps(form[0])).findings(), "images", WORKFLOW + ":" + (form.length > 2 ? form[2]
+                    : "7") + ": ", form[1]));
+        }
+        test("forms: a tab in a workflow's indentation is refused", () -> expectFinding(withImages().write(WORKFLOW,
+                steps("      - run: echo x\n\t  name: y")).findings(), "images", WORKFLOW + ":8: ", "a tab"));
+        test("forms: an action that is not composite is refused", () -> expectFinding(withImages().write(
+                ".github/actions/probe/action.yml", "runs:\n  using: node20\n  main: index.js\n").findings(), "images",
+                ".github/actions/probe/action.yml:2: ", "not composite"));
+        test("forms: a #! line for another interpreter is refused", () -> expectFinding(withImages().write(
+                "tools/run/probe", "#!/usr/bin/python3\nprint(1)\n").findings(), "images", "tools/run/probe:1: a #! line"));
+        test("forms: a Groovy file is refused, whatever it holds", () -> expectFinding(withImages().write(
+                "apps/demo/build.gradle", "// nothing\n").findings(), "images", "apps/demo/build.gradle:1: a Groovy"));
+        test("forms: a backquoted Kotlin name warns", () -> expectLaunchWarning(withImages().write(
+                "apps/demo/src/test/kotlin/demo/Probe.kt", "package demo\n\nfun `a test`() { }\n")));
+        test("forms: a binary file under src/ is refused", () -> expectFinding(withImages().write(
+                "apps/demo/src/test/resources/image.png", new byte[] {(byte) 0x89, 'P', 'N', 'G', (byte) 0xff, 0}).findings(),
+                "images", "apps/demo/src/test/resources/image.png: not UTF-8 text"));
+        test("forms: an executable anywhere in the tree is refused", () -> expectFinding(withImages().write(
+                "tools/bin/probe", new byte[] {0x7f, 'E', 'L', 'F', 2, 1, 1, 0}).findings(), "images",
+                "tools/bin/probe: an executable or an archive (an ELF executable)"));
+        test("forms: a container build file is refused", () -> expectFinding(withImages().write("tools/Dockerfile",
+                "FROM alpine:3.17\n").findings(), "images", "tools/Dockerfile: a container build or compose file"));
+        test("forms: a registered interpreter launch is refused", () -> expectFinding(withImages().reviewedSource(
+                OTHER_TEST, "class OtherTest {\n    ProcessBuilder p = new ProcessBuilder(\"python3\", \"x.py\");\n}\n")
+                .findings(), "images", OTHER_TEST + ":2: runs python3"));
+        test("forms: $'...' quoting in a string literal is refused", () -> expectFinding(withImages().write(OTHER_TEST,
+                "class OtherTest {\n    ProcessBuilder p = new ProcessBuilder(\"bash\", \"-c\", \"$'\\\\x64ocker' run "
+                        + "alpine\");\n}\n").findings(), "images", OTHER_TEST + ":2: $'...' quoting"));
+        test("forms: $'...' without an escape is plain quoting, as in a SQL pattern in a resource", () -> expectClean(
+                withImages().write("apps/demo/src/main/resources/db/V1__x.sql", "select 1 where 'a' ~ '^a$';\n")
+                        .write(STAGING, staging("echo $'plain'")).findings()));
+        test("forms: functions, arrays, traps, loops, process substitution and case in a substitution are read", () ->
+                expectClean(withImages().write(STAGING, staging("f() { local -a names=(\"$1\" \"$2\"); printf '%s\\n' "
+                        + "\"${names[@]}\"; }\ntrap 'rm -f \"$tmp\"' EXIT\nwhile read -r x; do echo \"$x\"; done < <(printf "
+                        + "'a\\n')\nfor x in a b; do f \"$x\" y; done\ny=$(case \"$x\" in a) echo 1 ;; *) echo 2 ;; esac)\n"
+                        + "echo \"$x is set\" 2>&1 | tee out")).findings()));
+    }
+
+    /**
+     * Ten evasions this pull request tried against the fail-closed version itself. The first seven got through it and
+     * are refused since; the last three were refused at the first try.
+     */
+    static void imageOwnEvasionsRound3() {
+        test("own evasion 14: a pipe into bash runs text that printf assembles", () -> expectFinding(withImages()
+                .write(STAGING, staging("printf '%s%s run alpine:3.17\\n' d ocker | bash")).findings(), "images",
+                STAGING + ":4: ", "reads its commands from its input"));
+        test("own evasion 15: BASH_ENV makes every bash step source a file this check does not read", () ->
+                expectFinding(withImages().write("tools/ci/steps.txt", "docker run alpine:3.17\n").write(WORKFLOW,
+                        "name: ci\non: push\njobs:\n  x:\n    runs-on: ubuntu-24.04\n    env:\n      BASH_ENV: "
+                                + "tools/ci/steps.txt\n    steps:\n      - run: echo x\n").findings(), "images",
+                        WORKFLOW + ":7: sets BASH?ENV"));
+        test("own evasion 16: an awk program runs the command", () -> expectFinding(withImages().write(STAGING,
+                staging("awk 'BEGIN { system(\"d\" \"ocker run alpine:3.17\") }'")).findings(), "images", STAGING + ":4: ",
+                "an awk program that runs commands"));
+        test("own evasion 17: an executable without #! or extension, run by its name on PATH", () -> {
+            Repo repo = withImages().write("tools/bin/probe", "docker run alpine:3.17\n")
+                    .write(STAGING, staging("PATH=\"$PWD/tools/bin:$PATH\" probe"));
+            Files.setPosixFilePermissions(repo.root.resolve("tools/bin/probe"), PosixFilePermissions.fromString("rwxr-xr-x"));
+            expectFinding(repo.findings(), "images", "tools/bin/probe:1: docker run");
+        });
+        test("own evasion 18: make runs a Makefile's recipe", () -> expectFinding(withImages().write("tools/ci/probe.mk",
+                "x:\n\tdocker run alpine:3.17\n").write(STAGING, staging("make -f tools/ci/probe.mk")).findings(), "images",
+                STAGING + ":4: runs make"));
+        test("own evasion 19: a test talks to the engine's socket, naming no runtime", () -> expectFinding(withImages()
+                .write(OTHER_TEST, "class OtherTest {\n    Object engine() throws Exception {\n        return java.nio.channels"
+                        + ".SocketChannel.open(java.net.UnixDomainSocketAddress.of(\"/var/run/docker.sock\"));\n    }\n}\n")
+                .findings(), "images", OTHER_TEST + ":3: opens a Unix socket"));
+        test("own evasion 20: a JVM option in gradle.properties runs the command", () -> expectFinding(withImages()
+                .write("gradle.properties", "org.gradle.jvmargs=-XX:OnError=d''ocker run alpine:3.17\n").findings(),
+                "images", "gradle.properties:1: "));
+        test("own evasion 21: a char array spells docker", () -> expectFinding(withImages().write(OTHER_TEST,
+                "class OtherTest {\n    ProcessBuilder p = new ProcessBuilder(new String(new char[] {'d', 'o', 'c', 'k', "
+                        + "'e', 'r'}), \"run\", \"alpine:3.17\");\n}\n").findings(), "images", OTHER_TEST + ":2: ",
+                "split across string literals"));
+        test("own evasion 22: a Kotlin template joins a variable to the rest of the name", () -> expectFinding(withImages()
+                .write("apps/demo/src/test/kotlin/demo/Probe.kt", "package demo\n\nval d = \"do\"\nval p = ProcessBuilder("
+                        + "\"${d}cker\", \"run\", \"alpine:3.17\")\n").findings(), "images",
+                "apps/demo/src/test/kotlin/demo/Probe.kt:3: ", "split across string literals"));
+        test("own evasion 23: a local composite action runs the step", () -> expectFinding(withImages().write(
+                ".github/actions/probe/action.yml", "runs:\n  using: composite\n  steps:\n    - run: docker run alpine:3.17\n"
+                        + "      shell: bash\n").write(WORKFLOW, steps("      - uses: ./.github/actions/probe")).findings(),
+                "images", ".github/actions/probe/action.yml:4: docker run"));
+    }
+
     // ---- the checked tree: no symbolic link in it, nothing read from outside it ----
 
     static void tree() {
@@ -890,9 +1498,365 @@ public final class PolicyCheckTest {
     // ---- fixtures ----
 
     /** A repository in a temporary directory: security/allowlist.json, its review records and the files a case adds. */
+    /** Round 4: the same complete command must receive the same decision at every execution boundary. */
+    static void reviewedWebCommands() {
+        for (String command : List.of("node --version", "npm --version", "npm ci --ignore-scripts",
+                "tsc -p apps/shipping-web", "node --test", "npm run build:web --ignore-scripts",
+                "npm run test:unit --ignore-scripts")) {
+            for (String site : List.of("shell", "workflow", "java", "kotlin")) {
+                test("web forms: accepts " + site + " " + command, () ->
+                        expectClean(webCommand(webRepo(), site, command, webCwd(command)).webFindings(site)));
+            }
+        }
+        for (String command : List.of("node --test --watch", "node --test ../outside.test.ts", "node -e code",
+                "node --import startup.mjs --test", "npm ci", "npm ci --ignore-scripts --foreground-scripts",
+                "npm run launch", "npm run build:web", "npm run build:web --ignore-scripts -- --watch",
+                "npm exec tsc", "npx tsc", "npm install --package-lock-only --ignore-scripts --no-audit --no-fund",
+                "tsc -p apps/shipping-web --watch", "tsc -p packages/shipping-client")) {
+            for (String site : List.of("shell", "workflow", "java", "kotlin")) {
+                test("web forms: refuses " + site + " " + command, () -> expectFinding(
+                        webCommand(webRepo(), site, command, webCwd(command)).webFindings(site), "images"));
+            }
+        }
+        for (String site : List.of("shell", "workflow", "java", "kotlin")) {
+            test("web forms: refuses wrong cwd in " + site, () -> expectFinding(
+                    webCommand(webRepo(), site, "node --test", ".").webFindings(site), "images"));
+            for (String field : List.of("missing node", "missing npm", "expired", "rejected", "missing review",
+                    "wrong node", "wrong npm", "wrong typescript", "wrong scope", "missing conditions", "pending", "stale")) {
+                test("web forms: refuses " + field + " in " + site, () -> {
+                    Repo r = webRepo();
+                    Map<String, Object> node = r.entries.stream().filter(e -> e.get("kind").equals("runtime")).findFirst().orElseThrow();
+                    Map<String, Object> npm = r.entries.stream().filter(e -> e.get("kind").equals("bundled")).findFirst().orElseThrow();
+                    Map<String, Object> ts = r.entries.stream().filter(e -> e.get("coordinate").equals("typescript")).findFirst().orElseThrow();
+                    switch (field) {
+                        case "missing node" -> r.entries.remove(node);
+                        case "missing npm" -> r.entries.remove(npm);
+                        case "expired" -> node.put("expiresAt", "2026-11-06");
+                        case "rejected" -> node.put("verdict", "REJECT");
+                        case "missing review" -> Files.delete(r.root.resolve((String) node.get("reviewRecord")));
+                        case "wrong node" -> node.put("version", "26.12.0");
+                        case "wrong npm" -> npm.put("version", "12.2.1");
+                        case "wrong typescript" -> ts.put("version", "7.0.2");
+                        case "wrong scope" -> ts.put("project", "packages/shipping-client");
+                        case "missing conditions" -> npm.put("conditions", List.of());
+                        case "pending" -> r.acceptance.put("status", "pending");
+                        case "stale" -> r.acceptance.put("reviewedSetSha256", SHA_B);
+                        default -> throw new AssertionError(field);
+                    }
+                    if (!field.equals("stale")) r.accept();
+                    String cmd = field.equals("wrong typescript") || field.equals("wrong scope")
+                            ? "tsc -p apps/shipping-web" : "npm ci --ignore-scripts";
+                    expectFinding(webCommand(r, site, cmd, ".").webFindings(site), "images");
+                });
+            }
+        }
+        test("web forms: ProcessBuilder npm run plus manifest docker is refused at both sites", () -> {
+            Repo r = webCommand(webRepo(), "java", "npm run launch", ".")
+                    .write("package.json", "{\"scripts\":{\"launch\":\"docker run alpine:3.17\"}}");
+            expectWarning(r, "unregistered launch capability");
+            expectFinding(r.webFindings("java"), "images", "Probe.java");
+            expectFinding(r.findings(), "images", "package.json");
+        });
+        for (String manifest : List.of("package.json", "apps/shipping-web/package.json")) {
+            for (String body : List.of("docker run alpine:3.17", "node -e code", "tsc -p apps/shipping-web --watch")) {
+                test("web forms: unregistered body in " + manifest + " " + body, () -> expectFinding(webRepo()
+                        .write(manifest, json(map("scripts", map("launch", body)), false)).findings(), "images", manifest));
+            }
+            for (String hook : List.of("preinstall", "install", "postinstall", "prepare", "prebuild:web", "posttest:unit")) {
+                test("web forms: refuses lifecycle " + manifest + " " + hook, () -> expectFinding(webRepo()
+                        .write(manifest, json(map("scripts", map(hook, "node --version")), false)).findings(), "images", manifest));
+            }
+        }
+        for (String source : List.of("new ProcessBuilder(command)", "new ProcessBuilder(\"node\", flags)",
+                "new ProcessBuilder(\"node\", \"--\" + \"version\")", "new ProcessBuilder(List.of(\"node\", \"--version\"))",
+                "new ProcessBuilder().command(command)", "Runtime.getRuntime().exec(command)",
+                "Runtime.getRuntime().exec(\"node -e code\")", "new ProcessBuilder(\"npm\", \"run\", \"launch\")")) {
+            test("web forms: unresolved or unreviewed process " + source, () -> expectFinding(webRepo()
+                    .write("tools/run/Probe.java", "class Probe { Object p = " + source + "; }").webFindings("java"), "images"));
+        }
+        for (String source : List.of("commandLine(command)", "commandLine(\"node\", flags)",
+                "commandLine(listOf(\"node\", \"--version\"))", "executable = \"node\"; args(\"--version\")")) {
+            test("web forms: unresolved Kotlin process " + source, () -> expectFinding(webRepo()
+                    .write("build.gradle.kts", "tasks.register<Exec>(\"probe\") { " + source + " }").webFindings("kotlin"), "images"));
+        }
+        for (String script : List.of("node --version $EXTRA", "node --version \"$EXTRA\"", "node --version *.ts",
+                "cd apps/shipping-web; node --test", "cd \"$TARGET\" && node --test", "NODE_OPTIONS=--import=x node --version",
+                "npm_config_ignore_scripts=false npm ci --ignore-scripts", "env -S 'node --version -e code'")) {
+            test("web forms: unresolved shell context " + script, () -> expectFinding(webRepo()
+                    .write("tools/web.sh", script + "\n").findings(), "images"));
+        }
+        test("web forms: ordinary node metadata is not an execution", () -> expectClean(webRepo()
+                .write("tools/run/Probe.java", "class Probe { String node = \"node\"; String npm = \"npm\"; }").findings()));
+        reviewedWebAdversarial();
+    }
+
+    static void reviewedWebAdversarial() {
+        for (String source : List.of(
+                "Runtime runtime = Runtime.getRuntime(); Object p = runtime.exec(new String[] {\"npm\", \"run\", \"launch\"});",
+                "Object p = new ProcessBuilder(\"sh\", \"-c\", \"node -e code\");",
+                "Object p = new ProcessBuilder(\"node\", \"--test\").directory(new java.io.File(\"apps/shipping-web\")); "
+                        + "void change() { p.directory(other); }")) {
+            test("web adversarial: source " + source, () -> expectFinding(webRepo()
+                    .write("tools/run/Probe.java", "class Probe { " + source + " }").webFindings("java"), "images", "Probe.java"));
+        }
+        test("web adversarial: Gradle workingDir is relative to the project", () -> expectFinding(webRepo()
+                .reviewedSource("apps/demo/build.gradle.kts", "tasks.register<Exec>(\"probe\") { workingDir(\"apps/shipping-web\"); "
+                        + "commandLine(\"node\", \"--test\") }").findings(), "images", "build.gradle.kts"));
+        for (String script : List.of("cd apps/shipping-web && true\nnode --test", "env -Snode -e code",
+                "trap node EXIT", "bash -c 'node -e code'")) {
+            test("web adversarial: shell " + show(script), () -> expectFinding(webRepo()
+                    .write("tools/web.sh", script).findings(), "images", "tools/web.sh"));
+        }
+        for (String config : List.of("script-shell=./launch.sh", "ignore-scripts=false")) {
+            test("web adversarial: npm configuration " + config, () -> expectFinding(webRepo()
+                    .write(".npmrc", config).findings(), "images", ".npmrc"));
+        }
+        for (String workflow : List.of(
+                "jobs:\n  web:\n    defaults:\n      run:\n        working-directory: apps/shipping-web\n"
+                        + "    steps:\n      - run: node --test\n",
+                "jobs:\n  web:\n    steps:\n      - run: node --test\n        working-directory: ${{ matrix.path }}\n")) {
+            test("web adversarial: unresolved workflow cwd " + show(workflow), () -> expectFinding(webRepo()
+                    .write(".github/workflows/web.yml", workflow).findings(), "images", "web.yml"));
+        }
+        for (String body : List.of("tsc -p apps/shipping-web && node -e code", "tsc -p apps/shipping-web ")) {
+            test("web adversarial: registered name with different body " + body, () -> expectFinding(webRepo()
+                    .edit("package.json", "tsc -p apps/shipping-web", body).findings(), "images", "package.json"));
+        }
+        test("web adversarial: Runtime literal argv gets the same positive decision", () -> expectClean(webRepo()
+                .write("tools/run/Probe.java", "class Probe { Object p = Runtime.getRuntime().exec(new String[] "
+                        + "{\"npm\", \"ci\", \"--ignore-scripts\"}); }").webFindings("java")));
+        for (String source : List.of("new ProcessBuilder(\"/bin/bash\", \"-c\", \"node -e code\")",
+                "getRuntime().exec(\"npm run launch\")")) {
+            test("web adversarial: alternate API spelling " + source, () -> expectFinding(webRepo()
+                    .write("tools/run/Probe.java", "import static java.lang.Runtime.getRuntime; class Probe { Object p = "
+                            + source + "; }").webFindings("java"), "images", "Probe.java"));
+        }
+        for (String source : List.of("commandLine = listOf(\"npm\", \"run\", \"launch\")",
+                "setCommandLine(\"npm\", \"run\", \"launch\")", "val start = ::ProcessBuilder")) {
+            test("web adversarial: alternate Kotlin API " + source, () -> expectFinding(webRepo()
+                    .write("build.gradle.kts", "tasks.register<Exec>(\"probe\") { " + source + " }").webFindings("kotlin"), "images"));
+        }
+        test("web adversarial: local review permits local script", () -> expectClean(
+                webCommand(webRepo("local"), "shell", "npm ci --ignore-scripts", ".").findings()));
+        test("web adversarial: local review cannot authorize a workflow", () -> expectFinding(
+                webCommand(webRepo("local"), "workflow", "npm ci --ignore-scripts", ".").findings(), "images", "web.yml"));
+        for (String body : List.of(
+                "if (enabled) { workingDir(\"apps/shipping-web\") }; commandLine(\"node\", \"--test\")",
+                "if (enabled) workingDir(\"apps/shipping-web\"); commandLine(\"node\", \"--test\")",
+                "workingDir(\"apps/shipping-web\"); workingDir = file(other); commandLine(\"node\", \"--test\")",
+                "setWorkingDir(other); commandLine(\"npm\", \"ci\", \"--ignore-scripts\")")) {
+            test("web adversarial: conditional or overridden cwd " + body, () -> expectFinding(webRepo()
+                    .write("build.gradle.kts", "tasks.register<Exec>(\"probe\") { " + body + " }").webFindings("kotlin"), "images", "build.gradle.kts"));
+        }
+    }
+
+    /** Partial lint: unregistered capabilities warn; registered files still require exact bytes. */
+    static void structuralLaunchSites() {
+        Map<String, String> bypasses = Map.ofEntries(
+                Map.entry("Gradle args after commandLine", "workingDir(\"apps/shipping-web\"); "
+                        + "commandLine(\"node\", \"--test\"); args(\"--import\", \"./startup.mjs\")"),
+                Map.entry("Gradle setArgs after commandLine", "commandLine(\"node\", \"--version\"); "
+                        + "setArgs(listOf(\"-e\", \"code\"))"),
+                Map.entry("Gradle setExecutable after commandLine", "commandLine(\"echo\", \"-e\", \"code\"); "
+                        + "setExecutable(\"node\")"),
+                Map.entry("ProcessBuilder env wrapper", "new ProcessBuilder(\"env\", \"node\", \"-e\", \"code\").start();"),
+                Map.entry("qualified inferred Runtime", "var rt = java.lang.Runtime.getRuntime(); rt.exec(\"node -e code\");"),
+                Map.entry("static import inferred Runtime", "import static java.lang.Runtime.getRuntime; "
+                        + "var rt = getRuntime(); rt.exec(\"node -e code\");"),
+                Map.entry("earlier ProcessBuilder npm run", "new ProcessBuilder(\"npm\", \"run\", \"launch\").start();"));
+        bypasses.forEach((name, source) -> test("launch registry: " + name, () -> expectLaunchWarning(webRepo()
+                .write(name.startsWith("Gradle") ? "build.gradle.kts" : "tools/run/Probe.java", source))));
+        for (String source : List.of(
+                "new ProcessBuilder(\"true\").start();", "ProcessHandle.current();", "Runtime.getRuntime();",
+                "import java.lang.ProcessBuilder as PB; val p = PB(\"true\")", "val p = ::ProcessBuilder",
+                "import static java.lang.Runtime.*;", "tasks.register<JavaExec>(\"probe\") {}",
+                "tasks.register<Exec>(\"probe\") {}", "providers.exec {}", "args(\"anything\")",
+                "setArgs(values)", "setExecutable(value)", "executable = value", "commandLine = values",
+                "argumentProviders.add(provider)", "getArgumentProviders().add(provider)",
+                "getArgs().add(value)", "getExecutable()", "jvmArgs(values)", "setJvmArgs(values)",
+                "Class.forName(name)", "import static java.lang.Class.forName;", "type.getDeclaredMethods()",
+                "type.getConstructor().newInstance()", "loader.loadClass(name)", "Class::getMethod",
+                "import java.lang.invoke.MethodHandles as MH", "import java.lang.reflect.*;",
+                "import kotlin.reflect.full.*", "type.getDeclaredFields()",
+                "new Pro" + "\\u0063" + "essBuilder(\"true\")")) {
+            test("launch registry: warns on capability " + source, () -> expectLaunchWarning(Repo.clean()
+                    .write("tools/run/Probe.java", source)));
+        }
+        for (String path : List.of("tools/run/New.java", "tools/policy/New.java", "tools/build/New.java",
+                "build-logic/src/main/java/example/build/New.java", "build/Probe.java", "tools/docs/build/Probe.kt",
+                ".gradle/Probe.kts", "node_modules/probe/Probe.java", "security/Probe.kt", "docs/Probe.kts")) {
+            test("launch registry: no directory exemption " + path, () -> expectLaunchWarning(Repo.clean()
+                    .write(path, "new ProcessBuilder(\"true\").start();")));
+        }
+        for (String source : List.of(
+                "val text = \"${ProcessBuilder(command).start()}\"",
+                "val text = \"${run { ProcessBuilder(command).start() }}\"",
+                "type.members.first().call()", "type.constructors.first().call()",
+                "args += values", "executable += suffix",
+                "/* outer /* inner */ \" */ ProcessBuilder(command)",
+                "val p = `ProcessBuilder`(command)")) {
+            test("launch registry: Kotlin indirect capability " + source, () -> expectLaunchWarning(Repo.clean()
+                    .write("tools/run/Probe.kt", source)));
+        }
+        String registered = "tools/docs/build.gradle.kts";
+        test("launch registry: unchanged registered file passes", () -> expectClean(Repo.clean()
+                .write(registered, Files.readAllBytes(checker().getParent().getParent().getParent().resolve(registered)))
+                .findings()));
+        test("launch registry: any registered edit fails its hash", () -> expectFinding(Repo.clean()
+                .write(registered, Files.readString(checker().getParent().getParent().getParent().resolve(registered))
+                        + "\n// inert edit still requires review\n").findings(), "images", "launch-site SHA-256 mismatch"));
+        test("launch registry: removing all capability text still fails its hash", () -> expectFinding(Repo.clean()
+                .write(registered, "// replaced\n").findings(), "images", "launch-site SHA-256 mismatch"));
+        test("launch registry: copying a reviewed file to another path warns", () -> expectLaunchWarning(Repo.clean()
+                .write("tools/copy/build.gradle.kts", Files.readAllBytes(checker().getParent().getParent().getParent()
+                        .resolve(registered)))));
+        test("launch registry: metadata and comments remain data", () -> expectClean(Repo.clean()
+                .write("tools/run/Probe.java", "// ProcessBuilder Runtime exec reflection\n"
+                        + "class Probe { String node = \"node\"; String npm = \"npm\"; "
+                        + "String api = \"ProcessBuilder\"; }").findings()));
+    }
+
+    /** Owner decision 2026-11-08: data is not use; capabilities warn; direct container use still blocks. */
+    static void lintScope() {
+        for (String name : List.of("org.testcontainers.containers.GenericContainer",
+                "com.github.dockerjava.api.DockerClient", "org.testcontainers.containers.PostgreSQLContainer")) {
+            test("lint scope: literal-only class name passes " + name, () -> expectClean(Repo.clean()
+                    .write(OTHER_TEST, "class Names { String value = \"" + name + "\"; }").findings()));
+            test("lint scope: text-block class name passes " + name, () -> expectClean(Repo.clean()
+                    .write(OTHER_TEST, "class Names { String value = \"\"\"\n" + name + "\n\"\"\"; }").findings()));
+            test("lint scope: class name in resource data passes " + name, () -> expectClean(Repo.clean()
+                    .write("apps/demo/src/test/resources/names.txt", name).findings()));
+            test("lint scope: real import still fails " + name, () -> expectFinding(Repo.clean()
+                    .write(OTHER_TEST, "import " + name + ";").findings(), "images", "uses Testcontainers or docker-java"));
+        }
+        for (String source : List.of("Class.forName(\"org.testcontainers.containers.GenericContainer\")",
+                "new ProcessBuilder(command).start()", "Runtime.getRuntime().exec(command)",
+                "import java.lang.invoke.MethodHandles;", "request.getMethod()")) {
+            test("lint scope: capability only warns " + source, () -> expectLaunchWarning(Repo.clean()
+                    .write(OTHER_TEST, source)));
+        }
+        for (String runtime : List.of("docker", "podman", "nerdctl")) {
+            test("lint scope: warning never downgrades " + runtime, () -> {
+                Repo repo = Repo.clean().write(OTHER_TEST, "new ProcessBuilder(\"" + runtime + "\", \"run\", \"alpine\")");
+                expectWarning(repo, "unregistered launch capability");
+                expectFinding(repo.findings(), "images", "runs a container runtime as a command");
+            });
+        }
+        test("lint scope: unregistered interpreter launch only warns", () -> expectLaunchWarning(Repo.clean()
+                .write(OTHER_TEST, "new ProcessBuilder(\"python3\", \"x.py\")")));
+        test("lint scope: Kotlin literal-only class name passes", () -> expectClean(Repo.clean()
+                .write("tools/run/Probe.kt", "val name = \"org.testcontainers.containers.GenericContainer\"").findings()));
+        test("lint scope: Kotlin template container use stays blocking", () -> expectFinding(Repo.clean()
+                .write("tools/run/Probe.kt", "val value = \"${org.testcontainers.containers.GenericContainer(image)}\"")
+                .findings(), "images", "uses Testcontainers or docker-java"));
+        test("lint scope: Kotlin template container with quoted argument stays blocking", () -> expectFinding(Repo.clean()
+                .write("tools/run/Probe.kt", "val value = \"${org.testcontainers.containers.GenericContainer(\"image\")}\"")
+                .findings(), "images", "uses Testcontainers or docker-java"));
+        for (String delimiter : List.of("\"", "\"\"\"")) {
+            for (String comment : List.of("/* } */", "/* { */", "/* outer /* inner */ } */", "/* outer /* inner */ { */",
+                    "// }\n", "// {\n")) {
+                String source = "val value = " + delimiter + "${ " + comment
+                        + " org.testcontainers.DockerClientFactory.instance().client() }" + delimiter;
+                String name = "Kotlin " + (delimiter.length() == 1 ? "ordinary" : "raw") + " template " + show(comment);
+                test("lint scope: " + name + " keeps container use blocking", () -> expectFinding(Repo.clean()
+                        .write("tools/run/Probe.kt", source).findings(), "images", "uses Testcontainers or docker-java"));
+                test("cli: " + name + " exits 1", () -> {
+                    Repo repo = Repo.clean().write("tools/run/Probe.kt", source).save();
+                    Run run = launch(repo.root.toString());
+                    expect(run.exit() == 1 && run.output().contains("uses Testcontainers or docker-java"), run.toString());
+                });
+            }
+        }
+        test("lint scope: escaped Kotlin template is literal data", () -> expectClean(Repo.clean()
+                .write("tools/run/Probe.kt", "val value = \"\\${org.testcontainers.containers.GenericContainer(image)}\"")
+                .findings()));
+        test("lint scope: Docker socket path blocks outside the harness", () -> expectFinding(Repo.clean()
+                .write(OTHER_TEST, "new ProcessBuilder(\"curl\", \"--unix-socket\", \"/var/run/docker.sock\")").findings(), "images", "Docker socket path"));
+        test("lint scope: warnings have their own stable report section", () -> {
+            PolicyCheck check = Repo.clean().write("z/Probe.java", "Class.forName(name)")
+                    .write("a/Probe.java", "Runtime.getRuntime()").check();
+            Set<PolicyCheck.Finding> findings = check.run();
+            expect(findings.isEmpty(), findings.toString());
+            String report = check.report(findings, false);
+            expect(report.startsWith("## Dependency allowlist: clean\n"), report);
+            expect(report.contains("### Warnings (check 8, non-blocking)"), report);
+            expect(report.indexOf("a/Probe.java") < report.indexOf("z/Probe.java"), report);
+            expectEquals(report, check.report(check.run(), false));
+        });
+        test("cli: capability warnings exit 0", () -> {
+            Repo repo = Repo.clean().write(OTHER_TEST, "Class.forName(name)").save();
+            Run run = launch(repo.root.toString());
+            expect(run.exit() == 0 && run.output().contains("### Warnings (check 8, non-blocking)"), run.toString());
+        });
+        test("cli: literal-only mention passes but real import exits 1", () -> {
+            Repo repo = Repo.clean().write(OTHER_TEST, "String name = \"org.testcontainers.containers.GenericContainer\";").save();
+            expect(launch(repo.root.toString()).exit() == 0, "literal-only mention failed");
+            repo.write(OTHER_TEST, "import org.testcontainers.containers.GenericContainer;");
+            Run run = launch(repo.root.toString());
+            expect(run.exit() == 1 && run.output().contains("uses Testcontainers or docker-java"), run.toString());
+        });
+    }
+
+    static void expectWarning(Repo repo, String message) throws IOException {
+        PolicyCheck check = repo.check();
+        String report = check.report(check.run(), false);
+        int heading = report.indexOf("### Warnings (check 8, non-blocking)");
+        expect(heading >= 0 && report.substring(heading).contains(message), report);
+    }
+
+    static void expectLaunchWarning(Repo repo) throws IOException {
+        expectClean(repo.findings());
+        expectWarning(repo, "unregistered launch capability");
+    }
+
+    static String webCwd(String command) {
+        return command.startsWith("node --test") || command.startsWith("npm run test:unit") ? "apps/shipping-web" : ".";
+    }
+
+    static Repo webCommand(Repo r, String site, String command, String cwd) throws IOException {
+        String vector = Stream.of(command.split(" ")).map(s -> "\"" + s + "\"").collect(Collectors.joining(", "));
+        return switch (site) {
+            case "shell" -> r.write("tools/web.sh", (cwd.equals(".") ? "" : "cd " + cwd + " && ") + command + "\n");
+            case "workflow" -> r.write(".github/workflows/web.yml", "jobs:\n  web:\n    steps:\n      - run: "
+                    + command + "\n        working-directory: " + cwd + "\n");
+            case "java" -> r.write("tools/run/Probe.java", "class Probe { Object p = new ProcessBuilder(" + vector
+                    + ").directory(new java.io.File(\"" + cwd + "\")); }");
+            case "kotlin" -> r.write("build.gradle.kts", "tasks.register<Exec>(\"probe\") { workingDir(\"" + cwd
+                    + "\"); commandLine(" + vector + ") }\n");
+            default -> throw new AssertionError(site);
+        };
+    }
+
+    static Repo webRepo() throws Exception {
+        return webRepo("ci");
+    }
+
+    static Repo webRepo(String platform) throws Exception {
+        Repo r = Repo.clean();
+        // Real entry identities and conditions; synthetic reviews/acceptance, never real tools or payloads executed.
+        PolicyCheck.Json.JObject real = parse(Files.readString(checker().getParent().getParent().getParent()
+                .resolve("security/allowlist.json"))).asObject();
+        for (PolicyCheck.Json value : real.get("entries").asArray().items()) {
+            PolicyCheck.Json.JObject e = value.asObject();
+            if (!(e.text("coordinate").equals(platform.equals("ci") ? "nodejs.org/dist node" : "Node.js")
+                    && !e.text("project").contains("maintenance")
+                    || e.text("coordinate").equals("npm") && e.text("kind").equals("bundled")
+                    && (platform.equals("ci") ? e.text("project").equals("ci") : e.text("project").contains("local build hosts"))
+                    || e.text("coordinate").equals("typescript") && e.text("version").equals("5.9.3"))) continue;
+            Map<String, Object> entry = r.entry(e.text("kind"), e.text("coordinate"), e.text("version"), e.text("artifact"), SHA_A);
+            entry.put("project", e.text("project"));
+            entry.put("conditions", e.get("conditions").asArray().stream().map(v -> ((PolicyCheck.Json.JString) v).value()).toList());
+        }
+        r.write("package.json", "{\"workspaces\":[\"apps/shipping-web\"],\"scripts\":{\"build:web\":\"tsc -p apps/shipping-web\"}}");
+        r.write("apps/shipping-web/package.json", "{\"scripts\":{\"test:unit\":\"node --test\"}}");
+        return r;
+    }
+
     static final class Repo {
         final Path root;
         final List<Map<String, Object>> entries = new ArrayList<>();
+        // Synthetic reviewed files for existing image/vector tests, never added to the production registry.
+        final Set<String> reviewedFixtureSources = new java.util.HashSet<>();
         /** The acceptance record, or null for none. Without a digest, save() records the digest of the set as it is. */
         Map<String, Object> acceptance = map("status", "accepted");
         boolean pretty;
@@ -964,11 +1928,32 @@ public final class PolicyCheckTest {
 
         PolicyCheck check() throws IOException {
             save();
-            return new PolicyCheck(root, TODAY);
+            Map<String, String> pins = new LinkedHashMap<>(PolicyCheck.LAUNCH_SITES);
+            for (String path : reviewedFixtureSources) {
+                pins.put(path, PolicyCheck.sha256(Files.readAllBytes(root.resolve(path))));
+            }
+            return new PolicyCheck(root, TODAY, pins);
         }
 
         List<String> findings() throws IOException {
             return check().run().stream().map(f -> f.area() + ": " + f.message()).toList();
+        }
+
+        /**
+         * A synthetic reviewed source lets the original vector assertions exercise the checks INSIDE a pinned site.
+         * Assert the production registry warns about it first. Shell/workflow tests use only the production registry.
+         */
+        List<String> webFindings(String site) throws IOException {
+            if (site.equals("java") || site.equals("kotlin")) {
+                expectWarning(this, "unregistered launch capability");
+                reviewedFixtureSources.add(site.equals("java") ? "tools/run/Probe.java" : "build.gradle.kts");
+            }
+            return findings();
+        }
+
+        Repo reviewedSource(String path, String text) throws IOException {
+            reviewedFixtureSources.add(path);
+            return write(path, text);
         }
 
         Repo write(String path, String text) throws IOException {

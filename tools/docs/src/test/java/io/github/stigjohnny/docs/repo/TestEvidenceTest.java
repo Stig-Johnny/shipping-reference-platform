@@ -67,6 +67,34 @@ class TestEvidenceTest {
     }
 
     @Test
+    void requiredResultsPassOnlyWhenEverySuiteRanAtLeastOneTestAndNoneFailedErroredOrWasSkipped() {
+        Fixture passing = Fixture.copy(dir.resolve("passing"))
+                .report("io.github.stigjohnny.shipping.database.PostgresHarnessIntegrationTest", 1, 0, 0, 0);
+        assertThat(TestEvidence.requiredProblems(passing.reports(), "database")).isEmpty();
+
+        for (int[] counts : new int[][] {{1, 1, 0, 0}, {1, 0, 1, 0}, {1, 0, 0, 1}, {0, 0, 0, 0}}) {
+            Fixture fixture = Fixture.copy(dir.resolve("case-" + counts[0] + counts[1] + counts[2] + counts[3]))
+                    .report("io.github.stigjohnny.shipping.database.PostgresHarnessIntegrationTest", 1, 0, 0, 0)
+                    .report("io.github.stigjohnny.shipping.database.OtherIntegrationTest", counts[0], counts[1],
+                            counts[2], counts[3]);
+            assertThat(TestEvidence.requiredProblems(fixture.reports(), "database")).singleElement().asString()
+                    .startsWith("database: io.github.stigjohnny.shipping.database.OtherIntegrationTest ran "
+                            + counts[0] + " tests with " + counts[1] + " failed, " + counts[2] + " errored and "
+                            + counts[3] + " skipped");
+        }
+    }
+
+    @Test
+    void requiredResultsThatAreMissingOrEmptyAreAProblemNotAPass() {
+        Fixture empty = Fixture.copy(dir);
+
+        assertThat(TestEvidence.requiredProblems(empty.reports(), "database")).containsExactly(
+                "database: no test report; the tests that must pass did not run in this build");
+        assertThat(TestEvidence.requiredProblems(dir.resolve("absent"), "database")).containsExactly(
+                "database: no test results; the tests that must pass did not run in this build");
+    }
+
+    @Test
     void aReportWithADoctypeIsRefused() {
         Fixture fixture = Fixture.copy(dir).write("../reports/TEST-x.Evil.xml",
                 "<?xml version=\"1.0\"?><!DOCTYPE t [<!ENTITY e SYSTEM \"file:///etc/passwd\">]><testsuite name=\"&e;\" "

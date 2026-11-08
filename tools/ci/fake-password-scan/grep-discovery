@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+touch grep-was-run
+PATH="$scan_fixture_path" exec grep "$@"

@@ -1,7 +1,7 @@
 // c4-contract-kit: compares a Structurizr C4 model with the code's static dependencies, in both directions.
 // It has no Spring dependency. Its own tests are mutation-tested (PIT), and it checks its own architecture.
 plugins {
-    `java-library`
+    id("java-library")
     id("srp.mutation-testing")
 }
 

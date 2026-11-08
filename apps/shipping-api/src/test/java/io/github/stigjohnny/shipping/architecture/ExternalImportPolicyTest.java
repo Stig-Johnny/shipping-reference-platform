@@ -73,7 +73,8 @@ class ExternalImportPolicyTest {
         ExternalImportReport.write(result, ExternalImportReport.DIRECTORY, inputs());
         assertThat(lines(result.denied())).isEmpty();
         assertThat(result.uses()).extracting(Use::area).contains("module tests", "architecture tests",
-                "architecture fixtures", "http tests", "scenario tests", "scenario fixtures");
+                "architecture fixtures", "http tests", "scenario tests", "scenario fixtures",
+                "database harness", "database tests");
     }
 
     @Test
@@ -84,6 +85,24 @@ class ExternalImportPolicyTest {
         assertThat(ExternalImportWhitelists.area(Scope.TEST, ExternalImportPolicy.API, http + ".extra")).isEmpty();
         assertThat(ExternalImportWhitelists.area(Scope.MAIN, ExternalImportPolicy.API, http)
                 .map(ExternalImportWhitelists.Area::label)).contains("module root and api");
+    }
+
+    @Test
+    void onlyTheReviewedHarnessAndItsNestedTypesGetTheHarnessWhitelist() {
+        String database = ExternalImportPolicy.API + ".database";
+        String harness = database + ".ReviewedPostgres";
+        for (String name : List.of(harness, harness + "$Database", harness + "$EngineReport")) {
+            assertThat(ExternalImportWhitelists.areaOfClass(Scope.TEST, ExternalImportPolicy.API, name)
+                    .map(ExternalImportWhitelists.Area::label)).contains("database harness");
+            assertThat(ExternalImportWhitelists.areaOfClass(Scope.MAIN, ExternalImportPolicy.API, name)
+                    .map(ExternalImportWhitelists.Area::label)).contains("module root and api");
+        }
+        for (String name : List.of(harness + "Test", harness + "Extra", database + ".PostgresHarnessIntegrationTest")) {
+            assertThat(ExternalImportWhitelists.areaOfClass(Scope.TEST, ExternalImportPolicy.API, name)
+                    .map(ExternalImportWhitelists.Area::label)).contains("database tests");
+        }
+        assertThat(ExternalImportWhitelists.area(Scope.TEST, ExternalImportPolicy.API, database + ".extra"))
+                .isEmpty();
     }
 
     @Test
@@ -198,9 +217,13 @@ class ExternalImportPolicyTest {
     void theAliasSurvivesTheRealAcceptanceRollover() {
         var acceptance = ProviderIndex.JSON.readTree(ReviewedArtifacts.ALLOWLIST).path("acceptance");
         assertThat(acceptance.has("projectPathConfirmed")).isFalse();
-        var preserved = acceptance.path("previous").get(0);
-        assertThat(preserved.has("status")).isFalse();
-        assertThat(preserved.path("projectPathConfirmed").asString()).isEqualTo(ReviewedArtifacts.CONFIRMED_ALIAS);
+        // #54 renewed acceptance again: the original confirmation remains in history, after the newer snapshot.
+        assertThat(acceptance.path("previous").values()).filteredOn(record -> record.has("projectPathConfirmed"))
+                .singleElement().satisfies(preserved -> {
+                    assertThat(preserved.has("status")).isFalse();
+                    assertThat(preserved.path("projectPathConfirmed").asString())
+                            .isEqualTo(ReviewedArtifacts.CONFIRMED_ALIAS);
+                });
         assertThat(reviewed().projectPathConfirmed()).isEqualTo(ReviewedArtifacts.CONFIRMED_ALIAS);
     }
 
