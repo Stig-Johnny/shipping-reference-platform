@@ -3,6 +3,7 @@ package io.github.stigjohnny.shipping.scenarios;
 import static io.github.stigjohnny.shipping.quotes.internal.domain.QuoteFixtures.ALPHA;
 import static io.github.stigjohnny.shipping.quotes.internal.domain.QuoteFixtures.BETA;
 import static io.github.stigjohnny.shipping.quotes.internal.domain.QuoteFixtures.EXAMPLE;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.stigjohnny.shipping.quotes.internal.application.CreateQuote;
 import io.github.stigjohnny.shipping.quotes.internal.domain.QuoteResult;
@@ -33,6 +34,11 @@ class QuoteScenarioTest {
 
             QuoteOutcomes.issuedFor(run, "Tenant Alpha's quote", result, ALPHA, BETA);
             run.verify();
+
+            assertThat(run.result().markdown()).content().contains("> In one exercised run, the 2 evaluated steps "
+                    + "conformed to their declarations, within the recorder's coverage. The 4 steps that were not "
+                    + "evaluated were neither checked nor assumed, and this does not cover all paths, schedules or "
+                    + "inputs.");
         }
     }
 }

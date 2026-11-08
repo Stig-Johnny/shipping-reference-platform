@@ -118,6 +118,50 @@ class SidecarValidationTest {
                 .hasMessageContaining("not strict JSON");
     }
 
+    /**
+     * The review's case: A (0..*), B (1) and C (1..*) in order, where A and C repeat one signature. The execution A B C C
+     * is valid, but matching in view order gives A both interactions of that signature and blames B for the order. Such
+     * a sidecar is refused; with exact cardinalities the same view is accepted.
+     */
+    @Test
+    void repeatedSignaturesWithAVaryingCardinalityAreRefused() throws IOException {
+        String model = Files.readString(MODEL, StandardCharsets.UTF_8).replace("        styles {", """
+                        dynamic api "ScenarioRepeated" "Fixture: one signature twice." {
+                            quotes -> tenants "Resolves the tenant"
+                            quotes -> db "Publishes QuoteIssued"
+                            quotes -> tenants "Resolves the tenant again"
+                            autoLayout lr
+                        }
+
+                        styles {""");
+        Path dsl = Files.writeString(dir.resolve("workspace.dsl"), model, StandardCharsets.UTF_8);
+        ScenarioModel repeated = ScenarioModel.read(dsl, Conformance.check(dsl, ClassDirectories.main()));
+        String step = "{\"order\": %d, \"id\": \"%s\", \"kind\": \"%s\", \"from\": \"quotes\", \"to\": \"%s\", "
+                + "\"operation\": %s, \"phase\": \"SYNCHRONOUS\", \"cardinality\": \"%s\", \"after\": [%s]}";
+        String require = "{\"interface\": \"io.github.stigjohnny.shipping.tenants.api.CurrentTenant\", \"method\": "
+                + "\"require\"}";
+        String publish = "{\"event\": \"io.github.stigjohnny.shipping.quotes.api.QuoteIssued\"}";
+        String sidecar = "{\"schema\": \"shipping-scenarios/sidecar/v1\", \"view\": \"ScenarioRepeated\", \"steps\": [%s, "
+                + "%s, %s]}";
+
+        Path varying = Files.writeString(dir.resolve("scenario-repeated.json"), sidecar.formatted(
+                step.formatted(1, "a", "MODULE_API_CALL", "tenants", require, "0..*", ""),
+                step.formatted(2, "b", "EVENT_PUBLICATION", "db", publish, "1", "\"a\""),
+                step.formatted(3, "c", "MODULE_API_CALL", "tenants", require, "1..*", "\"b\"")),
+                StandardCharsets.UTF_8);
+        assertThatThrownBy(() -> Sidecar.read(varying, "fixture", repeated)).hasMessageContaining("steps a, c: they "
+                + "repeat one signature, and a cardinality among them varies, so an interaction could belong to more "
+                + "than one of them: give repeated steps exact cardinalities");
+
+        Path exact = Files.writeString(dir.resolve("scenario-repeated.json"), sidecar.formatted(
+                step.formatted(1, "a", "MODULE_API_CALL", "tenants", require, "1", ""),
+                step.formatted(2, "b", "EVENT_PUBLICATION", "db", publish, "1", "\"a\""),
+                step.formatted(3, "c", "MODULE_API_CALL", "tenants", require, "2", "\"b\"")),
+                StandardCharsets.UTF_8);
+        assertThat(Sidecar.read(exact, "fixture", repeated).steps()).extracting(Sidecar.Step::id)
+                .containsExactly("a", "b", "c");
+    }
+
     @Test
     void aSidecarMustCarryItsViewsFileName() throws IOException {
         Path file = Files.writeString(dir.resolve("quote.json"), quote(), StandardCharsets.UTF_8);

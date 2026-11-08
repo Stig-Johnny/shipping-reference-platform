@@ -202,6 +202,7 @@ public record Sidecar(String path, String view, List<Step> steps) {
             problems.add("the file", "the view " + viewKey + " has " + view.steps().size() + " steps and the sidecar "
                     + position + " entries; each step needs exactly one entry and each entry a step");
         }
+        ambiguous(steps, problems);
         problems.failIfAny();
         return new Sidecar(displayPath, viewKey, steps);
     }
@@ -258,6 +259,27 @@ public record Sidecar(String path, String view, List<Step> steps) {
         semantics(kind, from, to, operation, model, where, problems);
         return Optional.of(new Step(position, id, kind, from, to, operation, phase, cardinality.get(), after,
                 drawn.get().description()));
+    }
+
+    /**
+     * Refuses steps that repeat one signature (kind, endpoints and operation) when one of them has a cardinality that
+     * varies: an interaction could then belong to either, and matching it in view order can blame the wrong step. Steps
+     * that repeat a signature with exact cardinalities are matched in view order, which is unambiguous.
+     */
+    private static void ambiguous(List<Step> steps, Problems problems) {
+        Map<String, List<Step>> bySignature = new LinkedHashMap<>();
+        for (Step step : steps) {
+            String to = step.kind() == StepKind.EVENT_PUBLICATION ? "" : step.to();
+            bySignature.computeIfAbsent(step.kind() + "|" + step.from() + "|" + to + "|" + step.operationText(),
+                    k -> new ArrayList<>()).add(step);
+        }
+        for (List<Step> repeated : bySignature.values()) {
+            if (repeated.size() > 1 && repeated.stream().anyMatch(s -> s.cardinality().min() != s.cardinality().max())) {
+                problems.add("steps " + String.join(", ", repeated.stream().map(Step::id).toList()), "they repeat one "
+                        + "signature, and a cardinality among them varies, so an interaction could belong to more than "
+                        + "one of them: give repeated steps exact cardinalities");
+            }
+        }
     }
 
     private static Map<String, String> operation(JsonNode node, StepKind kind, String where, Problems problems) {

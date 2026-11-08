@@ -21,6 +21,7 @@ import io.github.stigjohnny.shipping.scenarios.support.ScenarioRun;
 import io.github.stigjohnny.shipping.tenants.api.CurrentTenant;
 import io.github.stigjohnny.shipping.tenants.api.TenantId;
 import io.github.stigjohnny.shipping.tenants.internal.application.ThreadTenantContext;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +61,8 @@ class ScenarioFixturesTest {
             assertThat(finished.verdict()).isEqualTo("DOES_NOT_CONFORM");
             assertThat(finished.failing()).extracting(Finding::type, Finding::step)
                     .containsExactly(tuple(FindingType.MISSING_STEP, "resolve-tenant"));
+            assertThat(finished.markdown()).content().contains("> This run does not conform to its declared steps: 1 "
+                    + "findings fail it, listed below.").doesNotContain("conformed to their declarations");
         }
     }
 
@@ -175,6 +178,25 @@ class ScenarioFixturesTest {
             assertThat(finished.verdict()).isEqualTo("DOES_NOT_CONFORM");
             assertThat(finished.failing()).extracting(Finding::type, Finding::message).containsExactly(tuple(
                     FindingType.MISSING_STEP, "no stimulus of the scenario ran, so nothing could be observed"));
+        }
+    }
+
+    @Test
+    void aStepDeclaredAfterCommitIsRefusedNotPassedWhenItRunsBeforeAnyCommit(TestInfo test) {
+        try (ScenarioRun run = ScenarioRun.fixtureWithSidecar("ScenarioQuote", "after-commit-premature",
+                Path.of("src/test/resources/scenario-fixtures/after-commit"), test, Observers.inProcess(),
+                InProcessModules.Core.class, InProcessModules.InMemoryStore.class, InProcessModules.Quotes.class)) {
+            QuoteResult result = quoteFor(run, ALPHA, "alpha");
+            QuoteOutcomes.issuedFor(run, "Tenant Alpha's quote", result, ALPHA, BETA);
+
+            ScenarioRun.Result finished = run.finish();
+
+            assertThat(finished.outcomesHeld()).isTrue();
+            assertThat(finished.verdict()).isEqualTo("DOES_NOT_CONFORM");
+            assertThat(finished.failing()).extracting(Finding::type, Finding::step, Finding::message)
+                    .containsExactly(tuple(FindingType.COVERAGE_GAP, "publish-quote-issued", "step "
+                            + "publish-quote-issued is declared AFTER_COMMIT, but no run observes commits yet, so when "
+                            + "it happened cannot be checked: it is refused, not passed"));
         }
     }
 

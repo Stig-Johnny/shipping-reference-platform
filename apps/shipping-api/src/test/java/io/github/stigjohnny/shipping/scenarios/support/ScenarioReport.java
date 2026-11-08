@@ -24,10 +24,27 @@ public final class ScenarioReport {
     public static final String SCHEMA = "shipping-scenarios/report/v1";
 
     /**
-     * What a report says this run shows, and what it does not.
+     * What the report says the run shows, which depends on its verdict: for CONFORMS, that the evaluated steps
+     * conformed, within the recorder's coverage; for NO_STEP_EVALUATED, that no declared step was verified; for
+     * DOES_NOT_CONFORM, that the run does not conform. Outcomes are reported apart from it.
      */
-    public static final String CLAIM = "One exercised run of this scenario conforms to its declared steps, within the "
-            + "recorder's coverage. It does not cover all paths, schedules or inputs.";
+    String claim() {
+        long evaluated = result.steps().stream().filter(s -> s.status() == Status.PASSED).count();
+        long notEvaluated = count(Status.NOT_EVALUATED);
+        long runs = stimuli.stream().map(Recorder.Stimulus::run).filter(r -> !r.equals(Recorder.SETUP)).distinct()
+                .count();
+        return switch (verdict()) {
+            case "CONFORMS" -> "In " + (runs == 1 ? "one exercised run" : runs + " exercised runs") + ", the "
+                    + evaluated + " evaluated steps conformed to their declarations, within the recorder's coverage. "
+                    + "The " + notEvaluated + " steps that were not evaluated were neither checked nor assumed, and "
+                    + "this does not cover all paths, schedules or inputs.";
+            case "NO_STEP_EVALUATED" -> "No declared step was verified: none of the " + sidecar.steps().size()
+                    + " steps could be evaluated in this run. It checked only that no interaction crossed a module "
+                    + "boundary without being declared, within the recorder's coverage.";
+            default -> "This run does not conform to its declared steps: " + result.failing().size() + " findings fail "
+                    + "it, listed below.";
+        };
+    }
 
     /** Where the report's inputs come from, as paths relative to the repository and their SHA-256 digests. */
     public record Provenance(String revision, String model, String modelSha256, String sidecar, String sidecarSha256,
@@ -100,7 +117,7 @@ public final class ScenarioReport {
         root.put("schema", SCHEMA);
         root.put("verdict", verdict());
         root.put("outcomesHeld", outcomes.stream().allMatch(Outcome::held));
-        root.put("claim", CLAIM);
+        root.put("claim", claim());
         root.put("scenario", map("view", sidecar.view(), "title", title, "sidecar", provenance.sidecar(),
                 "sidecarSha256", provenance.sidecarSha256()));
         root.put("test", map("class", testClass, "method", testMethod));
@@ -155,7 +172,7 @@ public final class ScenarioReport {
                 .append(", not evaluated: ").append(count(Status.NOT_EVALUATED)).append(". Failing findings: ")
                 .append(result.failing().size()).append(". Outcomes held: ").append(held).append(" of ")
                 .append(outcomes.size()).append(".\n\n");
-        out.append("> ").append(CLAIM).append(" A step that is not evaluated was neither checked nor assumed.\n\n");
+        out.append("> ").append(claim()).append("\n\n");
         out.append("## Steps\n\n| # | Step | Kind | From -> To | Operation | Description | Status | Observed |\n")
                 .append("|---|---|---|---|---|---|---|---|\n");
         for (StepResult step : result.steps()) {

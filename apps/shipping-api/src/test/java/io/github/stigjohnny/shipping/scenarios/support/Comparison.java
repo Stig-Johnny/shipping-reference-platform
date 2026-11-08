@@ -289,6 +289,10 @@ public final class Comparison {
     }
 
     private static Optional<String> gap(Step step, Coverage.Result coverage) {
+        if (step.phase() == Phase.AFTER_COMMIT) {
+            return Optional.of("step " + step.id() + " is declared AFTER_COMMIT, but no run observes commits yet, so "
+                    + "when it happened cannot be checked: it is refused, not passed");
+        }
         String api = step.operation().getOrDefault("interface", "");
         if (step.kind() == StepKind.MODULE_API_CALL && !coverage.observedApis().contains(api)) {
             return Optional.of("no observed bean implements " + step.operation().get("interface") + " in this run, so "
