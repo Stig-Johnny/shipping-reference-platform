@@ -77,6 +77,10 @@ jobs:
         working-directory: candidate
         run: bash tools/ci/check-generated-password-test.sh
 
+      - name: Test JDK staging with local download fixtures
+        working-directory: candidate
+        run: bash tools/ci/stage-temurin-test.sh
+
       - name: Build and test
         working-directory: candidate
         env:
