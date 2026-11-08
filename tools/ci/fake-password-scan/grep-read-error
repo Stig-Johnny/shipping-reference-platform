@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+case "$*" in
+  *gradle-check.log*) [[ "$SCAN_ERROR" != console ]] || exit 2 ;;
+  *index.html*) [[ "$SCAN_ERROR" != report ]] || exit 2 ;;
+esac
+PATH="$scan_fixture_path" exec grep "$@"

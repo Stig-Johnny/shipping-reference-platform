@@ -7,12 +7,14 @@ import io.github.stigjohnny.docs.yaml.YamlValue;
 import io.github.stigjohnny.docs.yaml.YamlValue.YMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /** {@code docs/capabilities/capabilities.yaml}: the capabilities of each module and the controls, with evidence. */
 public record Capabilities(List<Capability> capabilities, List<Capability> controls) {
 
     public static final String PATH = "docs/capabilities/capabilities.yaml";
     private static final String NONE_YET = "none yet";
+    private static final String ACTORS = "actors";
 
     public Capabilities {
         capabilities = List.copyOf(capabilities);
@@ -71,9 +73,38 @@ public record Capabilities(List<Capability> capabilities, List<Capability> contr
                     control ? entry.string("negativeFixture") : "",
                     entry.optionalString("enforcedSubset").orElse(""),
                     entry.optionalString("plannedRemainder").orElse(""),
-                    entry.optionalString("evidenceLabel").orElse("")));
+                    entry.optionalString("evidenceLabel").orElse(""),
+                    actors(entry, control, where)));
         }
         return out;
+    }
+
+    /** A capability's actors, which it always declares, [] for none; a control names none. */
+    private static List<String> actors(YMap entry, boolean control, String where) {
+        Optional<YamlValue> value = entry.find(ACTORS);
+        if (control) {
+            if (value.isPresent()) {
+                throw new DocsException(where + ": a control names no actors");
+            }
+            return List.of();
+        }
+        if (value.isEmpty()) {
+            throw new DocsException(where + ": actors is missing; name the model's people or external systems that "
+                    + "take part, or write [] to declare none");
+        }
+        if (!(value.get() instanceof YamlValue.YList list)) {
+            throw new DocsException(where + ": actors is a list of the model's identifiers, such as [clerk], or [] "
+                    + "to declare none");
+        }
+        List<String> actors = new ArrayList<>();
+        for (YamlValue item : list.items()) {
+            String actor = item.asText(ACTORS);
+            if (actors.contains(actor)) {
+                throw new DocsException(where + ": actor '" + actor + "' is named twice");
+            }
+            actors.add(actor);
+        }
+        return actors;
     }
 
     private static List<String> evidence(YMap entry, String where) {

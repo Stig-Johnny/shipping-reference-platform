@@ -1,6 +1,6 @@
 -- V1: schema tenants (docs/modules/tenants.md, ADR 0005). Flyway applies it as shipping_owner. Never edit it once it
 -- is merged; change the schema with a new migration. db/down/V1__tenants.down.sql reverts it in development and CI
--- only (ADR 0012).
+-- only (ADR 0016).
 --
 -- The four identity tables are read before a tenant is known, so they have no row-level security. shipping_app has no
 -- privileges on them and reads them only through tenants.resolve_demo_token. prototype_flag is tenant-owned: its key

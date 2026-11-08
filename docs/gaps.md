@@ -2,7 +2,7 @@
 title: "Known gaps and limits"
 description: "What v0.1 does not do, what each control cannot prove, and which decisions are still unverified. Read this before trusting a green build."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 # Known gaps and limits
@@ -18,16 +18,48 @@ closes it.
   `tools/docs`, exists: it generates the C4 view pages, `BRAIN.md` and the module brains, and builds the
   documentation site, which `.github/workflows/pages.yml` publishes from `main` after the publication scan. Its own
   controls, `control.brain-check` and `control.publication-scan`, are shipped with their tests as evidence. The
-  library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. The
-  first database migrations exist: `V1__tenants.sql` and `V2__quotes.sql` with their down scripts and the role
-  bootstrap, proven against PostgreSQL 18.6 in the `java` check, which makes `control.migrations` shipped and
-  `tenants.row-level-security` partial. No Java application code exists yet. Every other capability in
+  library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. So does
+  its partial web import check, which compares detected imports in `apps/shipping-web` with the web container of the
+  model; every web part is planned and the source and test roots are empty, so no real web imports are checked yet.
+  The first
+  application code exists, checked by `ArchitectureConformanceTest`, `ModularityTest` and `HexagonalLayeringTest`: the
+  `quotes` module with its two HTTP operations, booking in the `shipments` module, in its domain and application layers,
+  the `tenants` module's demo authentication with `GET /api/v1/me`, and the HTTP edge. Nine capabilities have passing
+  tests: two of the quotes module are shipped, and three of it, two of the tenants module and two of the shipments
+  module are partial, and so is the HTTP contract control. Every other capability in
   `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for them is still to
-  be written (red first).
+  be written (red first), except `ShipmentTest`, which exists for booking and does not yet assert cancellation.
+  The shipping API's database harness exists too: in CI, `PostgresHarnessIntegrationTest` starts the reviewed
+  PostgreSQL 18.6 image under the runner review's conditions and queries it. V1 (tenants), V2 (quotes), their down
+  scripts and the role bootstrap now exist. MigrationFilesTest supplies only file-pairing evidence; the merged tree's
+  up/down execution and RLS proof are pending CI, so control.migrations is partial and tenants.row-level-security
+  remains planned. All four database test classes are tagged database and required in the reviewed harness window.
+- **The application starts in its tests only, without a database.** The HTTP tests start `ShippingApplication` with
+  test doubles for the two ports that have no adapter yet: the tenants module's membership directory, which holds the
+  synthetic users of `docs/modules/tenants.md`, and the quotes module's store, in memory. They leave out the data
+  source and Spring Modulith's event publication registry, which need PostgreSQL. So they prove the HTTP edge, the
+  problems, and that the tenant comes from the membership only. They do not prove that a token is resolved through
+  `tenants.resolve_demo_token`, that a quote is stored in PostgreSQL, or that the database hides another tenant's
+  quote. No transaction manager exists, so the `@Transactional` of `CreateQuote` and `GetQuote` has no effect, and
+  that `QuoteIssued` is published inside the quote's transaction is unproven until `QuotesModuleIntegrationTest`
+  exists. Outside its tests the application does not start yet: its ports have no production adapters, and the
+  `demo` profile has no database configuration.
+  The scenario checks wire the quotes and tenants classes as beans of a plain Spring context of their own,
+  which is not the application's wiring (section 6).
+- **The shipments module runs in its tests only.** No class of it is a Spring bean, and no endpoint, database or
+  running application exists. `BookShipment`'s `@Transactional` has no effect yet, and that `ShipmentBooked` is
+  published inside the booking's transaction is unproven until `ShipmentEventsIntegrationTest` exists. Requests with
+  the same `Idempotency-Key` are not serialized yet: the advisory lock, the recheck under it and the handling of
+  unique-key failures belong to the planned JDBC adapter, and `BookingIdempotencyIntegrationTest`, which is to show
+  that concurrent duplicates create one shipment, is planned. The stores and the tracking numbers its tests use are in
+  memory. The scenario checks wire `BookShipment` as a bean of their own plain Spring context, not the application's
+  wiring (section 6).
 - The versions in the ADRs were checked against their sources on 2026-11-06. Their combination (JDK 25, Gradle
   9.8.2, Spring Boot 4.1.2, Spring Modulith 2.1.2, Error Prone 2.51.0, NullAway 0.14.3, JUnit 6.0.3 (property
-  tests as `@ParameterizedTest` in the normal test task), PIT 1.30.2 with its JUnit 5 plugin 1.2.3) has not been
-  built together yet. In particular,
+  tests as `@ParameterizedTest` in the normal test task), PIT 1.30.2 with its JUnit 5 plugin 1.2.3) now compiles the
+  API and runs its tests, and Spring Modulith 2.1.2's verification passes on ArchUnit 1.5.1; the application context
+  starts in the HTTP tests, without a database, while the scenario checks start a separate plain Spring context.
+  In particular,
   PIT's JUnit 5 plugin with JUnit 6 is unverified; the fallback is running PIT against a JUnit 5.14.4 test task.
   The library runs PIT with JUnit 5.14.4, and that combination works.
 
@@ -43,18 +75,27 @@ closes it.
 - **"No static evidence" is not "unused".** Reflection, Spring wiring by type or name, serialisation, configuration
   properties and string-built class names create runtime use that bytecode analysis does not see.
 - **Invisible channels.** SQL that reads another module's schema, shared database rows, HTTP calls, message
-  payloads, files and environment variables are not dependencies to the checker. `TableOwnershipTest` covers only
-  mapped `@Table` entities, not SQL strings.
+  payloads, files and environment variables are not dependencies to the checker. `TableOwnershipTest`, planned, is to
+  check the SQL of each module's adapters against the module's schema (ADR 0012); SQL anywhere else stays invisible
+  to it.
 - **Ordering and timing.** The model says who may depend on whom, not in which order things happen or whether they
   happen in the same transaction. The dynamic view and `docs/flows/quote-book-label.md` describe order; tests
-  assert it.
+  assert it. The scenario checks compare the order of one run's module API calls and publications with a scenario
+  view, in process only (section 6).
+- **The use case overview is not compared with what runs.** The dynamic view and the site's use case overview (sheet
+  M-07) show who takes part in what, as the model and `docs/capabilities/capabilities.yaml` declare it. A use case's
+  stamp there says that its named acceptance tests passed in the build that made the site, not that an actor started
+  it or that its interactions happened as drawn. Only the scenario views (sheets M-08 and M-09) are compared with a
+  run, and only for the steps that their reports count as evaluated (section 6).
 - **Only direct references.** A transitive path neither satisfies nor violates an edge. Two modules can be coupled
   through a third without any report.
 - **Only what the class file records, as ArchUnit 1.5.1 reads it.** javac copies compile-time constants
   (`static final` primitives and strings) into the class that uses them, so using another module's constant leaves
   no reference. Casts, the types of local variables, explicit type arguments of method calls and array creation
   (`new T[n]`) are not reported either. A module that uses another only in these ways shows no divergence, and such
-  a use does not satisfy a REQUIRED edge. `BytecodeEvidenceTest` pins this list.
+  a use does not satisfy a REQUIRED edge. `BytecodeEvidenceTest` pins this list. Type patterns in a `switch`
+  (`case T t`, `case T _`) compile to an `invokedynamic` type switch whose bootstrap arguments hold the classes; they
+  are not reported either, and `BytecodeEvidenceTest` does not pin that yet (issue #69).
 - **Granularity.** Mapping is by package root. A class placed in the wrong module's package is attributed to that
   module. Encapsulation inside a module (which internal class may call which) is Spring Modulith's and ArchUnit's
   job, and both see the same static references only.
@@ -64,8 +105,31 @@ closes it.
   The checker does not understand intent. The compensating control is to be the owner's approval: `architecture/` is
   level 3 and owned by the owner. That approval is not enforced yet (section 5), and the demonstration of a weakening
   pull request waiting for it, the library's slice 8, is planned.
-- **The web app is outside the check.** The C4 relationships from the web app to the API are network calls. Java
-  static analysis does not see them; the contract tests and Playwright tests do, for the operations they exercise.
+- **The web app's calls are outside the check.** The C4 relationships from the web app to the API are network calls.
+  No static check sees them; the contract tests and Playwright tests do, for the operations they exercise.
+- **The web import check reads text, not types.** It compares detected imports with the model's web container using a
+  restricted import grammar, never the TypeScript compiler. Reported refusals fail the build with their file and
+  line, but imports and unsupported constructs can pass unseen, including the known spread-syntax bypass in
+  section 6. This is partial lint, not a general fail-closed guarantee (ADR 0015). These limits follow:
+  - It reads `package.json`, `tsconfig*.json` and the app's `*.html` pages as data and refuses recognized settings that
+    would make TypeScript, Node.js or the browser resolve a specifier otherwise (path aliases, `baseUrl`, `rootDirs`,
+    an import map, and more). It reads no other configuration: a bundler or test-runner configuration that resolved
+    modules differently would not be seen. ADR 0012 has no bundler; `vite.config.ts` and `vitest.config.ts` are risk
+    level 2 in `policy/risk.json` (`web-build-configuration`), which does not require the owner's approval.
+  - Tests are read and their detected imports held to their part's relationships and entries; every package and
+    built-in a detected import names must be declared and approved, but test imports are never evidence. What a test
+    does at run time with a built-in it may import (`node:fs` reads files) is not checked.
+  - A package or built-in is approved when an entry of `security/allowlist.json` matches its kind, coordinate, exact
+    version, project and configuration with an approving verdict. The check leaves expiry to `PolicyCheck`, and an
+    approved package's own dependencies to the allowlist and lock checks; it sees only the imports in the app's files.
+    No part declares a package today.
+  - `url()` in style sheets and assets that code names in strings at run time are not dependencies to it.
+  - It refuses recognized unsupported TypeScript forms, such as a slash it cannot classify as division or a regular
+    expression, a generic arrow function starting with `<` in a `.tsx` file, `require`, `import.meta.glob` and
+    triple-slash directives. A reported refusal fails the build; an unrecognized construct can still hide an import.
+  - Calls of globals, such as `fetch` outside `src/api`, are not imports; review enforces that rule
+    (`apps/shipping-web/AGENTS.md`).
+  - As in the class check, a REQUIRED web relationship proves an import, not that the imported code runs.
 - **Library self-model.** The library's internal structure is governed by `libs/c4-contract-kit/architecture/self.dsl`,
   not by `architecture/workspace.dsl`; the two are checked separately.
 
@@ -85,7 +149,7 @@ closes it.
 - **The owner role can change the policies, and superusers bypass row-level security.** Forced row-level security
   holds the owner role's queries to the bound tenant, but not its DDL: it can disable, change or drop a policy. Only
   Flyway uses the owner role, and every migration is level 3.
-- **Row-level security is proven at the database only.** The database tests bind a tenant with `set_config` over
+- **Row-level security awaits database evidence for this merged tree.** The implemented tests bind a tenant with `set_config` over
   plain JDBC. Nothing in the application binds one yet: `TenantBindingTransactionManager`, the HTTP checks of
   `CrossTenantAccessTest` and the listeners' tenant scope are planned, and so are the tables of shipments and audit.
   A session that can call `set_config` chooses its tenant: the setting scopes a connection, it authenticates nobody.
@@ -110,6 +174,14 @@ closes it.
 
 ## 5. Supply chain and approvals
 
+- **The download mirror is disabled.** JDK staging has bounded retries, size/SHA-256 checks on every successful
+  retrieval and a tested mirror-first path, but its committed mirror URL is empty. Gradle retains its official
+  wrapper URL and checksum with longer timeouts and retries. Local shell fixtures substitute transport and sleep;
+  they prove branching, retry budgets and integrity refusal, not live DNS/TLS, throughput or outage recovery.
+  Enabling a new source still needs review amendments and renewed owner acceptance, infrastructure and publication
+  evidence. A staged Gradle launcher and repeated offline signature checks are not built; the existing first-use
+  signature record remains unchanged. Issue #82 tracks the later rollout. These fixtures run separately in CI and
+  produce no JUnit evidence, so they do not change capability status.
 - **Pre-use enforcement covers the sanctioned CI path only.** It controls declared dependencies on that path. It
   cannot stop arbitrary build code downloading executables, compromised approved artifacts, runner compromise or
   local-agent bypass. Those need stronger execution isolation and egress controls.
@@ -133,9 +205,57 @@ closes it.
   human accepted it: the owner and the AI agents use the same GitHub account, and the agent that records the
   acceptance also computes the digest. The record quotes the owner's words and their timestamp from the chat
   transcript.
-- **Scope is recorded, not enforced.** The allowlist check matches coordinate, version and checksum. Which projects
-  and configurations a review approved is a condition the code owner checks in review: a reviewed library added to a
-  project its review does not cover passes CI.
+- **Database test imports have separate scopes.** Only `ReviewedPostgres` and its nested types may use the
+  explicitly listed Testcontainers and docker-java classes. The exact database test package has its own JDBC,
+  fixture and assertion types; this grants no container-library access to ordinary tests or production code.
+  `ExternalImportPolicyTest` checks these boundaries and rejects unused whitelist entries.
+- **Scope is recorded, and enforced only for the classes the API uses.** The allowlist check matches coordinate,
+  version and checksum. Which projects and configurations a review approved is a condition the code owner checks in
+  review: a reviewed library added to a project its review does not cover passes `preflight`. `ExternalImportPolicyTest`
+  checks the scope of an artifact only when a class of the API uses one of its classes (next entry). On 2026-11-07,
+  23 artifacts across 26 configuration pairs on the API's classpaths had no entry for `:apps:shipping-api` and the configuration they are on, and
+  nothing failed: among them ArchUnit 1.5.1 on `runtimeClasspath`, which Spring Modulith brings and its review
+  approves for the API's test classpaths only, and the contract kit's own dependencies on `testRuntimeClasspath`,
+  approved for `:libs:c4-contract-kit`. Enforcing scope for every locked artifact first needs the entries' scope
+  migrated to one machine-readable form, with the owner's acceptance: today they name the API three ways
+  (`:apps:shipping-api`, `apps/shipping-api` and the first design's `:example-app`) and write configurations with
+  and without a project prefix.
+- **The external-import check covers dependencies reported by ArchUnit 1.5.1 only.** `ExternalImportPolicyTest`
+  reads the API's main and test outputs. Internal ownership comes from the actual classes in those outputs, not a
+  package prefix; an artifact colliding with any of them fails even without a use. External targets are classified
+  through the provider index or the JDK's module descriptors and checked against the caller's layer whitelist.
+  The isolated root HTTP classes and the quotes and tenants web adapters have exact class grants; the shared
+  `io.github.stigjohnny.shipping.http` test package has its own exact-class whitelist, separate from module tests.
+  The exact `scenarios` and `scenarios.support` test packages have a separate exact-class whitelist. A second
+  scenario area covers only the named test fixtures `ScenarioAlterations`, `GatedQuoteStore`, `TenantBadge` and
+  `ScenarioReference`, including their nested classes; they retain module packages for the recorder's attribution.
+  These grants do not apply to main output or other module tests. They permit the harness to inspect and exercise
+  deliberately refused behavior; they do not close any of the 77 scenario coverage gaps in section 6.
+  No package grants cover these additions, and every whitelist entry must be used by the current compiled outputs.
+  The JDBC adapter whitelist stays empty until an adapter exists.
+  Maven providers need unexpired approval for the project, configuration and exact file, with SHA-256 comparison
+  where the review records a hash. The first-party exemption from Maven review requires root-build identity and an
+  exact registered repository-owned output (currently the contract kit); other project providers are rejected.
+  Included-build identity is retained. The check treats `:example-app` as the API only while the current acceptance
+  is `accepted` and the exact PR #10 `projectPathConfirmed` text remains in that record or `acceptance.previous`.
+  History is read newest first in its stored order. Historical snapshots may omit `status`, as PR #73's rollover
+  does; an explicit status must be `accepted`. A newer changed or negated confirmation, or non-accepted status,
+  stops the search before any older affirmation; missing confirmation fails too. This reads the preserved owner
+  record without granting new scope. It does not see:
+  - compiler-erased references such as inlined constants, or retained bytecode that ArchUnit 1.5.1 does not report.
+    Casts, local variable types, explicit type arguments and array creation are not reported
+    (`BytecodeEvidenceTest` pins these), nor are retained type-use annotations such as JSpecify's `@Nullable`
+    (`ExternalImportPolicyTest` pins this). A source-level pass with the JDK's compiler is planned
+    (`ExternalImportSourceTest`);
+  - use at run time: reflection, `ServiceLoader`, Spring's wiring and auto-configuration, class names in
+    configuration, native libraries. The whitelists name what the API's code refers to, not what its frameworks load;
+  - the classes that run: a main class is checked against `compileClasspath` and a test class against
+    `testCompileClasspath`, and the artifact that provides a class at run time can differ (jackson-annotations is
+    2.21 when the tests compile and 2.22 when they run, and only the kit's entry approves 2.22);
+  - the code of the contract kit, the docs tool, the policy checker and the build logic;
+  - review conditions below the class: a whitelist names classes and packages, not methods, so a condition such as
+    ArchUnit's ban on `importClasspath` or AssertJ's on `isXmlEqualTo` is still the reviewer's to check;
+  - which JDK runs: the reports name the JDK reviews of the running version, and another version fails nothing.
 - **A vendored file is checked by hash only.** The check proves the file is the reviewed one. How a page may load it
   (Mermaid's `strict` mode, the Content Security Policy, the diagram validator) is a review condition that the docs
   generator's tests enforce, not the allowlist check.
@@ -152,6 +272,34 @@ closes it.
   parsing assembles for an empty group (for example with a `$` group separator) stays in the parser's own table:
   no element carries it, so it is not checked and cannot reach a report.
 
+- **Check 8 is a PARTIAL static lint; runtime CI guards enforce engine availability.** The owner's 2026-11-08
+  decision at about 19:35 UTC separates a blocking subset from warnings. Recognized direct Testcontainers/docker-java
+  imports or use outside the harness, container CLI commands outside reviewed forms, direct Docker socket access,
+  Dockerfile/compose files, unpinned or unreviewed image references and registered-file pin mismatches remain
+  findings (exit 1). Class names only in literals, text blocks or data are not use. Reflection, method handles,
+  ProcessBuilder/Runtime and other recognized launch APIs outside registered sites appear under a separate
+  non-blocking warning heading. Direct container findings are never downgraded by a capability warning.
+  Benign servlet `getMethod()` can still warn. Registered sites retain their pins and command-form checks.
+  Known gaps include Gradle argument/executable mutation, wrappers and inferred Runtime aliases; CR comment
+  boundaries; JavaBeans reflection and Groovy process APIs; implicit Gradle launch tasks; dynamic strings, indirect
+  commands, approved libraries and code imported by Node tests. Warnings do not close these gaps, and single-digest
+  launch pins still have no trusted base/candidate update sequence.
+  [ADR 0007](adr/0007-dependency-allowlist-and-pre-use-enforcement.md#known-static-lint-gaps-from-the-two-pr-54-reviews)
+  records the limits. A clean lint result is not proof that code cannot access an engine.
+- **CI enforces engine availability at runtime, within the workflow's privilege boundary.** Every job stops and
+  masks the engine units, unlinks the socket and probes CLI and direct socket access before checkout. Only the
+  reviewed harness steps in Java CI and Pages testing re-enable it; shutdown and both probes run immediately
+  afterwards, even after failure. Later work requires successful shutdown. Failed stop/mask/unlink operations and
+  failed probe tools refuse the job. The fixture regression exercises those failures without a real engine.
+  Hosted CI execution remains necessary to verify the runner's service behaviour. A privileged process can undo
+  the guard or use another/remote engine: these jobs are not a hostile-code sandbox. Gradle still configures the
+  build in the database step. The harness checks its own container's privileges, mounts and network; the subsequent
+  engine audit sees image/event history, not every other container's configuration.
+- **The platform image is inferred, not read back.** The runner's engine keeps an image's index digest, not the
+  digest of the platform manifest it pulled. That the tests ran the linux/amd64 image `sha256:e923a22a…` follows
+  from the pinned index, whose platforms the review lists, and from the image's reported platform; nothing compares
+  that digest itself.
+
 - **Dependabot sees the workflows' Actions, not the Gradle dependencies.** GitHub's dependency graph lists only what
   it can read without running the build: the pinned Actions. Gradle dependencies would need a dependency-submission
   step, which is not set up, because an automatic submission build would run the build outside the reviewed
@@ -163,21 +311,148 @@ closes it.
 
 - Contract conformance covers only the responses that tests exercise. Not enforced yet: a check that every
   documented operation and status code is exercised, and OpenAPI style linting.
+- The HTTP tests run on MockMvc, with the servlet filters that the application registers, in their order. No servlet
+  container starts, so the container's own request parsing and error pages are not exercised.
 - Mutation testing runs for `libs/c4-contract-kit` only, in CI (the `mutation` job), over all its production classes,
   at a 90 % threshold. The planned measure per change (80 % of mutants on changed lines, 90 % for pricing and checker
-  code) is not built yet, and equivalent-mutant exclusions are reviewed by hand.
+  code) is not built yet, and equivalent-mutant exclusions are reviewed by hand. So the pricing code of the `quotes`
+  module and the booking code of the `shipments` module are not mutation-tested yet: PIT is not reviewed for
+  `:apps:shipping-api`.
+- `ModularityTest` sees the modules as Spring Modulith finds them, from the class path without the test classes;
+  `ArchitectureConformanceTest` and `HexagonalLayeringTest` read the API's main class-output directories only.
+- Mockito is on the API's test class path, and Spring's test framework initialises it in every Spring test, even
+  though no test uses it. Every test task of the API therefore loads it as an explicit `-javaagent`, as its review
+  requires; without that, the first HTTP test attached the agent to the running JVM itself.
 - PIT runs only on disposable CI workers. Its parent JVM listens on all network interfaces and accepts its workers'
   first connection without authentication, so its review forbids developer machines whose firewall lets inbound
   connections reach `java`. On 2026-11-06 the library's development ran PIT on such a machine (firewall off) before
   that condition was checked; the exposure was one listening socket per run, for the length of the run.
+- **Database tests run only where a reviewed engine is prepared.** `./gradlew check` runs checks requiring only the
+  reviewed JDK. Database tests run through `:apps:shipping-api:databaseTest` and are mandatory in Java CI and Pages
+  testing. Missing engine prerequisites fail that task; tests are never conditionally skipped. The engine is
+  GitHub-hosted ubuntu-24.04 with Docker Engine 28.0.4, prepared by `tools/ci/container-engine.sh`; anywhere else
+  `ReviewedPostgres` refuses to start PostgreSQL. A local `./gradlew check` therefore shows no database evidence, which
+  only CI's builds read and require. The two colima hosts that a review approves are not engines of the harness yet.
+- **The event check sees the engine's last 256 events.** After the tests, the workflow reads their window from the
+  engine's event buffer to show that every container came from the reviewed image and nothing was copied into one.
+  It fails when the window holds 256 events or more, because it could no longer show that it saw them all.
+- **The site's evidence passes between jobs as a job output.** The publishing job builds the site from the test job's
+  JUnit reports, the database tests' included, which travel as a job output of at most 100,000 characters (they
+  arrive as an environment variable, which Linux limits to 128 KiB). Reports that outgrow it fail the handover, and
+  another transport, such as an artifact download, needs its own review first.
 - axe-core finds a subset of accessibility problems; manual keyboard and screen reader checks are required and
   recorded by hand.
-- The web app's static checks cover import boundaries and cycles only. dependency-cruiser and required frontend
-  edges are deferred.
+- The web app's repository import gate is implemented: `WebArchitectureConformanceTest` holds `src`, the `e2e`
+  test root, `public` and app configuration to the model in every build using **partial static lint**. It compares
+  detected imports for boundaries and cycles, and requires a detected direct import for each REQUIRED relationship
+  whose endpoints are built (ADRs 0012 and 0015; limits in section 1). All six web parts remain planned, the source
+  and test roots contain no real files, and every relationship touches a planned part, so no real web imports are
+  checked and no relationship is evaluated yet.
+  The control remains partial. A direct import proves a reference, not behaviour, and a part that no REQUIRED
+  relationship reaches can be unused without a report. dependency-cruiser is deferred.
+- **The web reader, conformance rules and repository gate ship as a labelled partial static check.**
+  The owner accepted this scope for pull requests #70, #71 and #72 on 2026-11-08 (ADRs 0012 and 0015).
+  `control.web-import-boundaries` stays partial; authoritative enforcement remains planned. The reader and conformance
+  library are implemented, and the import rules have synthetic fixture evidence. The reader can miss imports and
+  unsupported constructs without a refusal.
+  `WebArchitectureConformanceTest` proves that an unapproved import in the repository model's `e2e` root fails the
+  gate. `WebConformanceTest` proves that the tested reader refusals fail the model comparison, and that Node.js
+  built-ins in tests need runtime approval for project `ci` in configuration `web`, at the version named by `engines.node`.
+  `WebReaderRefusalConformanceTest` checks the quoted/escaped loader keys, computed keys, indirect timers and ambiguous
+  script/link URLs through the same public gate, asserting the failing verdict and exact findings in browser sources
+  and both kinds of test root. It also checks all 66 numeric-boundary
+  and regex-flag refusal fixtures independently in six TS/TSX source/test placements, asserting the failing verdict
+  and exact file, line and reason, including multiple findings on one line and findings after continued strings.
+  This is fixture evidence, not a check of real web imports. The reader's grammar is deliberately restricted;
+  the following are recognized forms covered by fixtures, not universal guarantees:
+  ambiguous slashes after closing type arguments, loader references (including quoted keys, aliases and indirect
+  calls), escaped property keys, non-literal computed access/binding keys (including templates and const-derived keys),
+  duplicate HTML attributes, encoded URL/type attributes, and package CSS subpaths are refused.
+  Timers require a direct call with a visible function literal.
+  Numeric literals preserve following property names; malformed numeric continuations, misplaced separators and
+  legacy leading-zero forms are refused. Regex flags accept only distinct letters from `dgimsuy`: unknown, escaped,
+  duplicate and Unicode-set (`v`) flags are refused. This rejects some valid syntax intentionally.
+  Every scanned URL attribute is validated before origin classification against a conservative ASCII subset:
+  controls, spaces, backslashes, malformed escapes and uncertain schemes/authorities are refused. This is no full
+  TypeScript, browser or WHATWG URL parser and no proof about reflective calls or general runtime behaviour.
+  Conservative refusals reject harmless names (including type names), literal ampersands, computed indexing,
+  array destructuring, callback aliases and valid URLs outside that subset too. The reader does not execute a web app
+  or inspect installed packages.
+- **Known open bypass forms after spread syntax.** The review found literal dynamic imports
+  (`const p = { ...import("unlisted") };`), computed dynamic imports (`const p = { ...import(name) };`),
+  `require` loaders (`const p = { ...require("unlisted") };`) and unsupported `import.meta` loaders
+  (`const p = { ...import.meta.glob("./*.ts") };`) producing `imports=[], refusals=[]`.
+  The conformance gate in pull requests #71 and #72 can return `passed=true, findings=[]` for these forms.
+  Object, array, call and nested-template spreads reproduce this, including whitespace,
+  comments and line breaks after `...`, in TS/TSX and source/test placements. The lexer splits `...` into dots and
+  the scanner treats the next keyword as a property name. Parenthesizing the operand restores detection in the
+  reviewed control; that does not close the bypass. The review reported the numeric-token defect fixed and no other
+  open bypass class in its probe set; that set was not exhaustive. A green lint result cannot prove the absence of
+  undeclared imports or hidden runtime loaders. The conformance rules only compare detected imports and propagate
+  reported refusals; they do not recover dependencies the reader misses. Their passing verdict cannot establish
+  complete boundary or cycle coverage. `control.web-import-boundaries` remains partial: the repository gate exists
+  and runs, but its passing verdict neither closes this bypass nor proves complete detection.
+- **Authoritative web controls are planned in the web app pull request.** The reviewed TypeScript compiler's
+  `tsc` import graph is to supply import dependencies, and a strict Content-Security-Policy in the web app is to be
+  enforced by the browser for runtime loading and execution (ADRs 0012 and 0015). The compiler graph is not a proof
+  of general runtime behaviour, and CSP does not enforce module boundaries. Neither control is implemented by the
+  reader, conformance rules or repository gate in this slice; their fixtures are not evidence of either one.
+- The first runnable slice defers the generated client and the component tests (ADR 0012). So there is no
+  generated-client drift guarantee: the web app's request and response types are written by hand in
+  `apps/shipping-web/src/api` and can drift from `contracts/shipping.openapi.yaml` without failing a build. The
+  server's HTTP contract tests and the Playwright tests catch drift only for the operations and fields they exercise.
+  The component tests (`ParcelForm.test.tsx`, `QuoteCardList.test.tsx`, `BookingForm.test.tsx`,
+  `ShipmentDrawer.test.tsx`, `ProblemAlert.test.tsx`, `ThemeToggle.test.tsx`) wait for Vitest, Testing Library and
+  jsdom. They stay acceptance targets, so the capabilities that name them stay unshipped; until they exist, only
+  logic tests under `node --test` and the Playwright specs test the web app.
 - The CI time target of 8 to 12 minutes is a target, not a measurement.
-- The round trip of the migrations (ADR 0012) compares catalogs, not data, and runs on empty databases: no down script
-  has run against rows that a release wrote. It compares the kinds of objects `CatalogSnapshot` lists; operators,
-  casts, collations, text search objects, foreign data objects, publications and event triggers are not compared.
+- The migration round trip (ADR 0016) compares catalogs, not data, and runs on empty databases. It covers only
+  the object kinds listed by CatalogSnapshot, not operators, casts, collations, text search objects, foreign data
+  objects, publications or event triggers. It does not establish that down scripts restore rows from a release.
+- **The scenario checks prove one run, within what the recorder sees** (`control.scenario-conformance`, partial). A
+  run without detected gaps can show its evaluated steps conformed for one exercised run, not every path, schedule
+  or input. Today's two reports instead say `COVERAGE_INCOMPLETE`, "coverage incomplete: 77 known gaps".
+  Four of their twelve steps are evaluated. They run in process on the built modules with test wiring; the HTTP
+  tests separately use the application's wiring: HTTP exchanges, database steps and listener executions are not
+  observed yet, and steps that touch a person, a simulated system or a planned module are never evaluated; the report
+  counts each one with its reason. Outcomes, such as the tenant denial's rejection and absence of stored data, are
+  test assertions, not verified steps.
+  - **Known coverage debt, still refused:** 75 Spring accesses in the HTTP adapters and two foreign-service
+    factory parameters remain `COVERAGE_GAP`, with `coverage.verified=false`. The source-controlled exact ledger
+    `apps/shipping-api/src/test/resources/scenario-coverage-gaps.tsv` records owner, member/JVM descriptor,
+    origin signature/descriptor, access kind and source line where available, plus classification and
+    "phase 3 / option 2". Only exact matches may pass the build as incomplete. New/changed findings, removed
+    entries, duplicate findings and disappeared findings without a ledger update fail; generation never updates it.
+    This is an explicit change in build acceptance, not proof that framework calls are safe. The ledger's classes
+    and counts are in ADR 0013. Production factory invocations, ambient security state, inherited credential-erasure
+    callbacks, interface implementations and builder callback graphs remain unproved until phase 3 / option 2.
+  - **Refused, not passed** (each is a coverage gap or a refused sidecar): an `AFTER_COMMIT` step that would be
+    evaluated, since no run observes commits; task-capable APIs found by the census (thread creation/builders,
+    executors, futures, timers and explicit parallel dispatch), since tasks are not tracked to completion; a recorded
+    interaction on a thread other than the stimulus's, a new non-system platform thread present at the final snapshot,
+    and a late interaction observed by close; a sidecar that repeats one signature with a varying cardinality; a raw
+    receiver found by the walk; reflection,
+    method handles and Spring lookups from module code; an `api` method that takes or returns anything but values; a
+    listener method; a module object registered as a ready singleton; a walk beyond 200,000 object/owning-module pairs; a model
+    line where a comment opens or closes beside other text.
+  - **Still unsound, without a gap:** the walk checks receivers only through what is reachable from module beans and
+    from static fields before and after the run, so a reference obtained and dropped during the run is seen only
+    through the census of the code that used it. The census reads all main module classes and the dependency closure
+    of reached test module classes, not arbitrary external helpers or test code outside that closure. References
+    that the test passes into a stimulus are not walked; async dispatch hidden in unexamined code can escape the
+    dispatch checks. The thread snapshot excludes virtual threads and does not track tasks on pre-existing executors;
+    close checks late calls only once, so work released later cannot change a completed verdict. The virtual-thread
+    and pre-existing-executor fixtures are refused by their examined dispatch sites before close, not by those
+    snapshots. Calls are told apart by interface and method name, not by overload; the caller is the
+    first application frame on the stack, mapped by `contract.packages`; whether a type holds values only is judged
+    from its declared field types.
+  - **The model reader** is a restricted text reader, since Structurizr's review covers only the kit's and the docs
+    tool's parsers. It refuses what it does not read exactly; `ScenarioModelTest` compares its reading of the
+    repository's dynamic views with Structurizr's generated pages. Accepted/refused syntax fixtures use a fabricated
+    kit report and assert against `ScenarioModel` alone; they have no independent Structurizr oracle. This is not
+    equivalence for every possible DSL text.
+  - A report's revision is the checked-out commit. Its digests cover the model, sidecar and main classes, not test
+    support or wiring; uncommitted changes to the latter are not identified by report provenance.
 
 ## 7. Documentation
 

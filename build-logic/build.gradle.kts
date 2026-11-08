@@ -1,5 +1,5 @@
 plugins {
-    `java-gradle-plugin`
+    id("java-gradle-plugin")
 }
 
 tasks.withType<JavaCompile>().configureEach {
@@ -20,3 +20,14 @@ gradlePlugin {
         }
     }
 }
+
+// This harness uses only the JDK and the Gradle API already used by the plugin.
+val providerIdentityTests = sourceSets.create("providerIdentityTest") {
+    compileClasspath += sourceSets.main.get().output + sourceSets.main.get().compileClasspath
+    runtimeClasspath += compileClasspath
+}
+val providerIdentityTest = tasks.register<JavaExec>("providerIdentityTest") {
+    classpath = providerIdentityTests.runtimeClasspath
+    mainClass = "io.github.stigjohnny.build.ProviderIdentityTest"
+}
+tasks.check { dependsOn(providerIdentityTest) }

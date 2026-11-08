@@ -123,8 +123,12 @@ final class DecisionPages {
      */
     private static final Map<String, String> EVIDENCE_SCOPE = Map.of(
             "0001", "This verifies the documentation's structure and references.",
-            "0002", "This verifies generated documentation, not shipping-module conformance.",
-            "0011", "This verifies documentation tooling and publication controls, not shipping behaviour.");
+            "0002", "This verifies the generated view pages and the built modules' static dependencies against the "
+                    + "model, not runtime behaviour.",
+            "0011", "This verifies documentation tooling and publication controls, not shipping behaviour.",
+            "0012", "This verifies the structure of the built modules, their exercised HTTP responses and the "
+                    + "web import gate on synthetic fixtures; persistence and runtime behaviour beyond those HTTP "
+                    + "tests remain unverified, and no real web imports are checked yet.");
 
     private static String scope(DocFile adr) {
         String file = adr.path().substring(adr.path().lastIndexOf('/') + 1);
@@ -155,10 +159,18 @@ final class DecisionPages {
             // The control's own two sentences, linked to the details in the record's implementation status.
             String anchor = MarkdownRenderer.headings(adr.body(), adr.path()).stream()
                     .filter(h -> h.text().startsWith("Implementation status")).map(Section::id).findFirst().orElse("");
-            implementation = Badge.PLANNED.html("Planned") + " " + linked(String.join(" ", summarised.stream()
+            String remainder = linked(String.join(" ", summarised.stream()
                     .map(Capability::plannedRemainder).filter(t -> !t.isEmpty()).toList()), anchor);
-            verified = Badge.PARTIAL.html("Partly enforced") + " " + linked(String.join(" ", summarised.stream()
+            String subset = Badge.PARTIAL.html("Partly enforced") + " " + linked(String.join(" ", summarised.stream()
                     .map(Capability::enforcedSubset).filter(t -> !t.isEmpty()).toList()), anchor);
+            if (passing.isEmpty() && labels.isEmpty()) {
+                implementation = Badge.PLANNED.html("Planned") + " " + remainder;
+                verified = subset;
+            } else {
+                // The record's own passing tests stay; the partial control it also documents adds its sentences.
+                implementation = implementation + " " + remainder;
+                verified = verified + " " + subset;
+            }
         }
         StringBuilder design = new StringBuilder(Statuses.design(adr.status(), "Decided " + adr.text("date")
                 + "; updated " + adr.updated() + "."));

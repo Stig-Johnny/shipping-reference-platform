@@ -23,13 +23,19 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 class ReviewedPostgresTest {
 
-    private static final String REFERENCE = ReviewedPostgres.IMAGE.asCanonicalNameString();
+    private static final String REFERENCE =
+            "postgres@sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583";
 
     @TempDir
     Path home;
 
     @TempDir
     Path dockerConfig;
+
+    @Test
+    void theHarnessNamesTheReviewedImageByItsIndexDigestAlone() {
+        assertThat(ReviewedPostgres.reference()).isEqualTo(REFERENCE);
+    }
 
     @Test
     void theEnvironmentThatTheRunnerPreparesHasNoProblem() throws IOException {
@@ -108,13 +114,14 @@ class ReviewedPostgresTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"1.3.3", "1.3.4", "v1.3.3", "1.4.0", "1.4.0-rc.3", "1.10.0", "2.0.0"})
+    @ValueSource(strings = {"1.3.3", "1.3.4", "v1.3.3", "1.4.0", "1.4.0-rc.3", "1.3.4-rc.1", "1.10.0", "2.0.0"})
     void runcFrom133OnIsAccepted(String version) {
         assertThat(ReviewedPostgres.runcAccepted(version)).isTrue();
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"1.2.5", "1.2.8", "1.3.2", "1.3.0-rc.1", "1.1.15", "0.9.9", "", "1.3", "unknown"})
+    @ValueSource(strings = {"1.2.5", "1.2.8", "1.3.2", "1.3.0-rc.1", "1.1.15", "0.9.9", "", "1.3", "unknown", "1.3.3-rc.1",
+            "v1.3.3-rc.2", "1.3.3+dirty"})
     void runcBefore133OrUnreadableIsRefused(String version) {
         assertThat(ReviewedPostgres.runcAccepted(version)).isFalse();
         assertThat(ReviewedPostgres.engineProblems(GITHUB_UBUNTU_24_04, report("28.0.4", version, "Ubuntu 24.04.5 LTS")))

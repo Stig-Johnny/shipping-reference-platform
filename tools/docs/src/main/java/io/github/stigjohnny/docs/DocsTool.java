@@ -2,6 +2,7 @@ package io.github.stigjohnny.docs;
 
 import io.github.stigjohnny.docs.generate.GeneratedFiles;
 import io.github.stigjohnny.docs.repo.Sources;
+import io.github.stigjohnny.docs.repo.TestEvidence;
 import io.github.stigjohnny.docs.scan.Finding;
 import io.github.stigjohnny.docs.scan.PublicationScanner;
 import io.github.stigjohnny.docs.scan.ScanExceptions;
@@ -36,6 +37,10 @@ import org.jspecify.annotations.Nullable;
  * DocsTool site            --repo DIR [--test-results DIR]... --out DIR [--revision TEXT]   build the public site
  * DocsTool scan            --repo DIR --site DIR --summary FILE   scan the built site before it is published
  * </pre>
+ *
+ * <p>{@code --required-results DIR}, for generate, check-generated and site, reads DIR as test results too and fails
+ * the command unless they show a passing run: at least one report, every suite with a test run and none failed,
+ * errored or skipped. CI passes the database tests' reports so.
  *
  * <p>The scan reads {@code PUBLIC_SCAN_DICTIONARY} and {@code GITHUB_SHA} from the environment, and appends its summary
  * to {@code GITHUB_STEP_SUMMARY} when that is set.
@@ -123,6 +128,7 @@ public final class DocsTool {
 
     private static void execute(Arguments arguments, PrintStream out, Function<String, @Nullable String> environment) {
         Path repo = arguments.repo();
+        requirePassed(arguments);
         switch (arguments.command()) {
             case "generate" -> {
                 Map<String, String> files = GeneratedFiles.generate(Sources.read(repo, arguments.testResults()));
@@ -151,6 +157,25 @@ public final class DocsTool {
             case "scan" -> scan(arguments, out, environment);
             default -> throw new DocsException("unknown command '" + arguments.command()
                     + "' (generate, check-generated, site, scan)");
+        }
+    }
+
+    /**
+     * Fails unless every --required-results directory shows a passing run (TestEvidence#requiredProblems): CI passes
+     * the database tests' reports so, because the documentation it builds must show their evidence from this build.
+     */
+    private static void requirePassed(Arguments arguments) {
+        List<String> problems = new ArrayList<>();
+        for (Path dir : arguments.requiredResults()) {
+            Path absolute = dir.toAbsolutePath().normalize();
+            String name = absolute.startsWith(arguments.repo())
+                    ? arguments.repo().relativize(absolute).toString().replace('\\', '/') : "--required-results "
+                            + absolute.getFileName();
+            problems.addAll(TestEvidence.requiredProblems(absolute, name));
+        }
+        if (!problems.isEmpty()) {
+            throw new DocsException("the test results that must pass in this build do not:\n  - "
+                    + String.join("\n  - ", problems));
         }
     }
 
@@ -196,13 +221,13 @@ public final class DocsTool {
     }
 
     /** The parsed command line. */
-    record Arguments(String command, Path repo, List<Path> testResults, @Nullable Path out, String revision,
-            @Nullable Path summary, @Nullable Path site) {
+    record Arguments(String command, Path repo, List<Path> testResults, List<Path> requiredResults, @Nullable Path out,
+            String revision, @Nullable Path summary, @Nullable Path site) {
 
         static Arguments parse(String[] args) {
             if (args.length == 0) {
-                throw new DocsException("usage: DocsTool <command> --repo DIR [--test-results DIR]... [--out DIR] "
-                        + "[--revision TEXT] [--summary FILE]");
+                throw new DocsException("usage: DocsTool <command> --repo DIR [--test-results DIR]... "
+                        + "[--required-results DIR]... [--out DIR] [--revision TEXT] [--summary FILE]");
             }
             Path repo = null;
             Path out = null;
@@ -210,6 +235,7 @@ public final class DocsTool {
             Path site = null;
             String revision = "";
             List<Path> testResults = new ArrayList<>();
+            List<Path> requiredResults = new ArrayList<>();
             for (int i = 1; i < args.length; i++) {
                 String option = args[i];
                 if (i + 1 >= args.length) {
@@ -219,6 +245,11 @@ public final class DocsTool {
                 switch (option) {
                     case "--repo" -> repo = Path.of(value);
                     case "--test-results" -> testResults.add(Path.of(value));
+                    case "--required-results" -> {
+                        // Evidence like any other test results, which must also show a passing run.
+                        testResults.add(Path.of(value));
+                        requiredResults.add(Path.of(value));
+                    }
                     case "--out" -> out = Path.of(value);
                     case "--revision" -> revision = value;
                     case "--summary" -> summary = Path.of(value);
@@ -229,8 +260,8 @@ public final class DocsTool {
             if (repo == null) {
                 throw new DocsException("--repo is required");
             }
-            return new Arguments(args[0], repo.toAbsolutePath().normalize(), List.copyOf(testResults), out, revision,
-                    summary, site);
+            return new Arguments(args[0], repo.toAbsolutePath().normalize(), List.copyOf(testResults),
+                    List.copyOf(requiredResults), out, revision, summary, site);
         }
     }
 }

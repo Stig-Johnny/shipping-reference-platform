@@ -12,18 +12,20 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * ADR 0012: every migration can be reverted by its down script, proven on PostgreSQL. For each migration n, a new
+ * ADR 0016: every migration can be reverted by its down script, proven on PostgreSQL. For each migration n, a new
  * database is migrated to n - 1 and its catalog recorded, migrated to n, reverted with n's down script (which must
  * restore the catalog of n - 1 exactly) and migrated to n again (which must restore the catalog of n exactly). A
  * database that went down and up through every version equals one migrated straight to the latest. The comparison is
  * {@link CatalogSnapshot}; the last two tests show that it fails on an incomplete down script and on each kind of
  * change it compares.
  */
+@Tag("database")
 class MigrationRoundTripTest {
 
     private static DatabaseServer server;

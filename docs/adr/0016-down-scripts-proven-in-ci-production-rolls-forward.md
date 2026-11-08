@@ -1,16 +1,17 @@
 ---
-title: "ADR 0012: Every migration has a down script, proven in CI; production rolls forward"
+title: "ADR 0016: Every migration has a down script, proven in CI; production rolls forward"
 description: "The reviewed Flyway Community edition has no undo migrations, so each migration has a down script in db/down that CI proves restores the previous catalog exactly; a deployed database is only ever migrated forward."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 date: 2026-11-07
 decision-makers: repository owner
 enforcedBy:
-  - "java: MigrationRoundTripTest, against PostgreSQL 18.6 in CI: for every migration, its down script restores the previous catalog and the migration the next one"
   - "java: MigrationFilesTest, without a database: one down script per migration, outside Flyway's location"
+plannedEnforcement:
+  - "java: MigrationRoundTripTest is implemented and required in databaseTest; CI evidence for the merged tree is pending"
 ---
 
-# ADR 0012: Every migration has a down script, proven in CI; production rolls forward
+# ADR 0016: Every migration has a down script, proven in CI; production rolls forward
 
 Accepted with the pull request that adds the first two migrations (issue #52), on the owner's approval of its head.
 
@@ -53,7 +54,7 @@ migration's footprint unchecked. Option 4 deletes data: a down script drops tabl
   script and delete version n from `flyway.flyway_schema_history`, and only when n is the latest applied migration.
   The next `migrate` applies it again.
 - A deployed database (none exists yet) is never migrated down. A mistake is corrected by a new migration, applied
-  migrations are never edited, and changes are backward compatible, expand then contract (ADR 0005), so that the
+  migrations are never edited, and changes are backward compatible, expand then contract (ADR 0012), so that the
   previous release keeps working on the newer schema: going back means redeploying the previous release, not
   reverting the schema. Flyway's documentation gives the same advice for production: keep the database compatible
   with every deployed version of the code, and rely on a tested backup and restore.
@@ -63,8 +64,8 @@ migration's footprint unchecked. Option 4 deletes data: a down script drops tabl
 - Good, because each migration's effect on the catalog is written twice, as the migration and as its inverse, and a
   test fails when the two disagree, including a change the migration does not mention, such as a grant on another
   schema, a role attribute or a default privilege.
-- Good, because no edition, module or tool is added: the test uses the reviewed Flyway, PostgreSQL JDBC driver and
-  Testcontainers.
+- Good, because no edition, module or tool is added: the test uses the reviewed Flyway and PostgreSQL JDBC driver through the
+  opaque handle returned by ReviewedPostgres; only that harness uses Testcontainers.
 - Bad, because every migration needs a second script, and a migration that transforms data has no exact inverse for
   the data: the round trip compares the catalog, not the rows.
 - Bad, because the comparison covers the kinds of objects that `CatalogSnapshot` lists, not operators, casts, text
@@ -84,8 +85,24 @@ migration's footprint unchecked. Option 4 deletes data: a down script drops tabl
   neither holds transaction control or a Flyway placeholder, and the migration location holds versioned SQL migrations
   only (the Flyway review's condition 3).
 
+## Implementation and evidence (2026-11-08)
+
+V1 creates the tenants schema and V2 the quotes schema, each with a matching down script. The role bootstrap
+runs through JDBC as the harness superuser before migration; it sets no committed passwords. The fixtures generate
+fresh role passwords per server, then Flyway runs as shipping_owner and keeps its history in the flyway schema.
+The runtime role shipping_app has no privileges there. Neither role inherits another role's privileges.
+
+MigrationFilesTest checks the paired SQL files without PostgreSQL. MigrationsIntegrationTest,
+MigrationRoundTripTest, RowLevelSecurityCatalogTest and RowLevelSecurityIntegrationTest carry the database tag and
+run only through databaseTest, inside CI's reviewed engine window. The merged tree's database run is pending;
+no local migration execution or RLS result is claimed. The public record is
+`docs/demos/55-reversible-migrations-and-tenant-isolation.md`.
+
+The application still lacks JDBC port adapters, transaction tenant binding and database configuration. Migrations
+V3 to V5 and the demo seed remain planned. Down scripts compare empty-database catalogs, not data restoration.
+
 ## More Information
 
 - Flyway documentation, undo migrations: <https://documentation.red-gate.com/fd/undo-migrations-273973334.html>
 - Flyway documentation, the undo command: <https://documentation.red-gate.com/flyway/reference/commands/undo>
-- The schema, roles and row-level security: ADR 0005, `docs/modules/tenants.md`, `docs/modules/quotes.md`.
+- The schema, roles and row-level security: ADR 0012, `docs/modules/tenants.md`, `docs/modules/quotes.md`.

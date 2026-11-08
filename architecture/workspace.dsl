@@ -1,7 +1,8 @@
 // shipping-reference-platform: C4 model in Structurizr DSL (parsed with com.structurizr:structurizr-dsl 6.2.4).
 //
 // This file is the structural authority for the shipping product (ADR 0002). People read the rendered views;
-// c4-contract-kit reads this same file and compares it with the API's compiled classes in both directions.
+// c4-contract-kit reads this same file and compares it with the API's compiled classes. Its partial web check
+// compares detected TypeScript imports in both directions and runs on the repository's web app in every build.
 // Changing this file is a risk level 3 change and needs the owner's approval (policy/risk.json, .github/CODEOWNERS).
 //
 // Restrictions, enforced by c4-contract-kit's restricted parser: no !include, !script, !plugin, !docs, !adrs or
@@ -50,8 +51,64 @@
 // software systems or containers are documentation: they must not carry contract.mode and are not checked by Java
 // static analysis (the web app's calls are checked by contract and end-to-end tests instead).
 //
+// WEB PROPERTIES
+//
+// WebConformance implements a labelled partial static check, tested on synthetic repositories (ADR 0015).
+// It compares only detected imports and propagates reported refusals; spread-syntax loaders can pass unseen.
+// WebArchitectureConformanceTest implements the repository's web-app gate; all six web parts remain planned.
+// The authoritative compiler import graph and browser-enforced web-app CSP remain planned.
+// The web vocabulary is separate: the contract properties above belong to the API alone, and the web container,
+// its components and their relationships must not carry them. The import rules below apply to detected imports.
+//
+// On the one container whose TypeScript sources are checked (exactly one container may carry web.root):
+//   web.root      Directory of the container's source files, relative to the repository root. Every file under it
+//                 must belong to exactly one component by directory. Names that start with a dot are not part of it.
+//                 The directory above it is the app's: its package.json, tsconfig*.json and *.html are read too.
+//   web.testRoots     Optional. Comma-separated directories of tests only, inside the app's directory. Every .ts and
+//                     .tsx file in them is a test. No root may equal or lie inside another, web.root included.
+//   web.publicRoots   Optional. Comma-separated directories of files served as they are (style sheets, images and
+//                     fonts only), inside the app's directory.
+//   web.testBuiltins  Optional. Comma-separated built-in modules of Node.js that tests may import, each written with
+//                     node: (node:test). Browser code may import none, and a test none without node:.
+//   web.testPackages  Optional. Comma-separated npm package names that tests may import with a bare specifier.
+//
+// On every component of that container:
+//   web.id        Stable identifier matching [a-z][a-z0-9-]*, unique among the web components. Used in reports.
+//   web.paths     Comma-separated directories relative to web.root. A file belongs to the component whose directory
+//                 is above it. No directory may equal or lie inside another, in one component or across components.
+//   web.status    built | planned, with the tag "Planned" exactly when planned.
+//                 built    the directories must hold at least one .ts or .tsx file (test files do not count).
+//                 planned  the directories must hold no file at all; the component's edges are not evaluated.
+//   web.entry     Optional. A .ts or .tsx file inside the component's directories, relative to web.root, and not a
+//                 test. Other components, and their tests, may import the component through that file only.
+//   web.packages  Optional. Comma-separated npm package names that the component's files may import with a bare
+//                 specifier (react also covers react/jsx-runtime). Any other bare specifier fails the check.
+//
+// Every package and built-in an import names is whitelisted twice: here, and in security/allowlist.json. A package
+// of browser code must be pinned in package.json "dependencies" and approved there for the app (project
+// apps/shipping-web, configuration dependencies); a test's package in "devDependencies" or "dependencies". A test's
+// built-ins need the approval of the Node.js that package.json "engines" names, for project ci, configuration web.
+//
+// On relationships between two components of that container, and nowhere else:
+//   web.mode      REQUIRED | PERMITTED, as contract.mode above with an import in place of a reference: "a -> b"
+//                 means files of a may import files of b. Absent means PERMITTED; this file states it on every such
+//                 relationship. The tag "Required import" must be present exactly when the mode is REQUIRED. At most
+//                 one relationship per ordered pair of components; the graph must be acyclic.
+//
+// A detected import from one web component to another without a relationship fails the check (a divergence), as does
+// a REQUIRED relationship between built components without any detected import (an absence). Type-only imports, re-exports and
+// import() of a string literal count; imports inside one component do not, but no files may import each other in a
+// cycle. Test files (*.test.ts, *.test.tsx) are held to the relationships and entries of their component, and the files
+// of a test root, which belong to no component, may import only files of that root; but tests are never evidence: a
+// test never satisfies a REQUIRED relationship, and no production file may import a test. The sources are read as data
+// with a deliberately restricted import grammar, never executed: recognized unsupported forms (require, import() of
+// anything but a string literal, import.meta other than import.meta.env, absolute, aliased or URL specifiers, .js and
+// .json files, CSS @import, and settings such as tsconfig paths, baseUrl or an import map that would resolve a
+// specifier otherwise) fail the check. This is not a general fail-closed guarantee: silent misses can hide imports
+// and unsupported constructs. The rules are in libs/c4-contract-kit/AGENTS.md ("Web imports").
+//
 // What this model cannot prove is listed in docs/gaps.md. In short: a REQUIRED edge proves that a static reference
-// exists, not that the behaviour behind it runs.
+// or import exists, not that the behaviour behind it runs.
 
 workspace "Shipping reference platform" "Reference monorepo: webshop parcel shipping with synthetic data, checked against this model." {
 
@@ -67,35 +124,92 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
 
         platform = softwareSystem "Shipping reference platform" "Quotes, books and labels parcels for webshop tenants." {
 
-            web = container "Web app" "Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer." "React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client" "WebApp,Planned"
+            web = container "Web app" "Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer." "Plain TypeScript SPA (no framework), TypeScript 5.9.3" "WebApp,Planned" {
+                properties {
+                    "web.root" "apps/shipping-web/src"
+                    "web.testRoots" "apps/shipping-web/e2e"
+                    "web.publicRoots" "apps/shipping-web/public"
+                    "web.testBuiltins" "node:assert/strict, node:test, node:fs"
+                }
 
-            api = container "API" "Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals." "Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring Data JDBC" "Planned" {
+                webShell = component "App shell" "Left navigation, the router on the History API, the theme and the route outlet; mounts the app." "TypeScript" "Planned" {
+                    properties {
+                        "web.id" "app"
+                        "web.paths" "app"
+                        "web.status" "planned"
+                    }
+                }
+
+                webAuth = component "Auth" "Synthetic user picker and sign-in; holds the demo token and the membership in memory only." "TypeScript" "Planned" {
+                    properties {
+                        "web.id" "auth"
+                        "web.paths" "auth"
+                        "web.status" "planned"
+                    }
+                }
+
+                webApi = component "API adapter" "The typed HTTP adapter, the only caller of fetch: hand-written request and response types, the bearer token and Correlation-Id on every call." "TypeScript" "Planned" {
+                    properties {
+                        "web.id" "api"
+                        "web.paths" "api"
+                        "web.status" "planned"
+                    }
+                }
+
+                webQuoteFeature = component "Quote feature" "ParcelForm, QuoteCardList and QuoteCard: price a parcel and compare its offers." "TypeScript" "Planned" {
+                    properties {
+                        "web.id" "quote-feature"
+                        "web.paths" "features/quotes"
+                        "web.status" "planned"
+                        "web.entry" "features/quotes/index.ts"
+                    }
+                }
+
+                webShipmentFeature = component "Shipment feature" "BookingForm, ShipmentTable and ShipmentDrawer: book, list and open shipments and download their labels (LabelPreview is deferred)." "TypeScript" "Planned" {
+                    properties {
+                        "web.id" "shipment-feature"
+                        "web.paths" "features/shipments"
+                        "web.status" "planned"
+                        "web.entry" "features/shipments/index.ts"
+                    }
+                }
+
+                webUi = component "UI" "Presentational components: Button, ProblemAlert, EmptyState, StatusBadge, Skeleton and ThemeToggle." "TypeScript, CSS" "Planned" {
+                    properties {
+                        "web.id" "ui"
+                        "web.paths" "ui"
+                        "web.status" "planned"
+                    }
+                }
+            }
+
+            api = container "API" "Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals." "Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient)" {
                 properties {
                     "contract.root" "io.github.stigjohnny.shipping"
                     "contract.isolated" "io.github.stigjohnny.shipping.ShippingApplication,io.github.stigjohnny.shipping.CorrelationIdFilter,io.github.stigjohnny.shipping.FallbackProblemHandler"
                 }
 
-                quotes = component "Quotes" "Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes." "Spring Modulith module" "Planned" {
+                quotes = component "Quotes" "Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes." "Spring Modulith module" {
                     properties {
                         "contract.id" "quotes"
                         "contract.packages" "io.github.stigjohnny.shipping.quotes"
-                        "contract.status" "planned"
+                        "contract.status" "built"
                     }
                 }
 
-                shipments = component "Shipments" "Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled." "Spring Modulith module" "Planned" {
+                shipments = component "Shipments" "Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled." "Spring Modulith module" {
                     properties {
                         "contract.id" "shipments"
                         "contract.packages" "io.github.stigjohnny.shipping.shipments"
-                        "contract.status" "planned"
+                        "contract.status" "built"
                     }
                 }
 
-                tenants = component "Tenants" "Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags." "Spring Modulith module" "Planned" {
+                tenants = component "Tenants" "Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags." "Spring Modulith module" {
                     properties {
                         "contract.id" "tenants"
                         "contract.packages" "io.github.stigjohnny.shipping.tenants"
-                        "contract.status" "planned"
+                        "contract.status" "built"
                     }
                 }
 
@@ -132,7 +246,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
                 }
             }
 
-            db = container "Database" "One schema per v0.1 module plus the event publication registry, with forced row-level security on tenant data. Built: the schemas tenants and quotes (migrations V1 and V2, tested in CI). Planned: shipments, audit and the registry." "PostgreSQL 18.6" "Database"
+            db = container "Database" "One schema per v0.1 module plus the event publication registry, with forced row-level security on tenant data. Built: the schemas tenants and quotes (migrations V1 and V2; CI verification pending). Planned: shipments, audit and the registry." "PostgreSQL 18.6" "Database"
         }
 
         // System context relationships.
@@ -146,7 +260,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
         clerk -> web "Prices parcels, books shipments and downloads labels in" "HTTPS, browser"
         admin -> web "Will manage tenants and memberships in (planned; no admin screens in v0.1)" "HTTPS, browser" "Planned"
         admin -> db "Provisions synthetic tenants and memberships through reviewed seed migrations run as the migration role" "Flyway"
-        web -> api "Calls the shipping API through the generated client" "JSON over HTTPS"
+        web -> api "Calls the shipping API through its hand-written typed HTTP adapter" "JSON over HTTPS"
         webshop -> api "Will submit orders to ship (planned)" "JSON over HTTPS" "Planned"
         api -> db "Reads and writes tenant-scoped data as the application role, which lacks BYPASSRLS" "JDBC"
         api -> carrier "Obtains rates, tracking numbers and labels (simulated in-process; no network call in v0.1)" "In-process simulation" "Simulated"
@@ -156,13 +270,81 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
         web -> quotes "Creates and reads quotes" "JSON over HTTPS"
         web -> shipments "Books, lists, reads and cancels shipments; downloads labels" "JSON over HTTPS"
         webshop -> orders "Will submit orders to ship" "JSON over HTTPS" "Planned"
-        quotes -> db "Stores quotes and offers in schema quotes" "Spring Data JDBC"
-        shipments -> db "Stores shipments and idempotency keys in schema shipments; writes event publications" "Spring Data JDBC"
+        quotes -> db "Stores quotes and offers in schema quotes" "Spring JDBC (JdbcClient)"
+        shipments -> db "Stores shipments and idempotency keys in schema shipments; writes event publications" "Spring JDBC (JdbcClient)"
         tenants -> db "Resolves demo tokens through a security-definer function, reads prototype flags, sets app.tenant_id in every transaction" "JDBC"
-        audit -> db "Appends audit entries in schema audit" "Spring Data JDBC"
+        audit -> db "Appends audit entries in schema audit" "Spring JDBC (JdbcClient)"
         quotes -> carrier "Prices each service level from the carrier's synthetic tariff (simulated in-process)" "In-process simulation" "Simulated"
         shipments -> carrier "Assigns simulated tracking numbers and renders simulated labels (in-process)" "In-process simulation" "Simulated"
         tracking -> carrier "Will receive tracking events" "HTTPS webhook" "Planned"
+
+        // Web component relationships: the web import check holds apps/shipping-web/src to them (WEB PROPERTIES above).
+        webShell -> webAuth "Shows the signed-in user, the sign-in route and Switch user from" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webShell -> webQuoteFeature "Routes /quotes/new and /quotes/:quoteId to (through features/quotes/index.ts)" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webShell -> webShipmentFeature "Routes /shipments and /shipments/:shipmentId to (through features/shipments/index.ts)" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webShell -> webUi "Renders the navigation and ThemeToggle with" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webShell -> webApi "May give the API adapter the token from auth through" "TypeScript import" "Permitted" {
+            properties {
+                "web.mode" "PERMITTED"
+            }
+        }
+        webAuth -> webApi "Signs in with getCurrentMembership through" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webAuth -> webUi "Renders the user picker and its problems with" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webQuoteFeature -> webApi "Creates and reads quotes through" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webQuoteFeature -> webUi "Renders the form, the offer cards and their states with" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webQuoteFeature -> webShipmentFeature "May show BookingForm under the chosen offer (through features/shipments/index.ts)" "TypeScript import" "Permitted" {
+            properties {
+                "web.mode" "PERMITTED"
+            }
+        }
+        webShipmentFeature -> webApi "Books, lists, reads and cancels shipments and downloads labels through" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webShipmentFeature -> webUi "Renders the table, the drawer and their states with" "TypeScript import" "Required import" {
+            properties {
+                "web.mode" "REQUIRED"
+            }
+        }
+        webShipmentFeature -> webAuth "May read the prototype flags of the current membership from" "TypeScript import" "Permitted" {
+            properties {
+                "web.mode" "PERMITTED"
+            }
+        }
+        webApi -> api "Calls the shipping API using handwritten request and response types" "JSON over HTTPS"
 
         // Component-to-component relationships: the checked contract.
         quotes -> tenants "Resolves the caller's tenant (tenants.api: CurrentTenant, TenantId)" "Java" "Required" {
@@ -233,7 +415,12 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
             autoLayout lr
         }
 
-        dynamic api "QuoteBookLabel" "Quote, book and download a simulated label. Steps and their tests: docs/flows/quote-book-label.md." {
+        component web "WebComponents" "The six parts of the web app and the imports allowed between them: REQUIRED, PERMITTED or planned. The web import check holds apps/shipping-web/src to these lines; every part is planned until its code exists." {
+            include *
+            autoLayout lr
+        }
+
+        dynamic api "QuoteBookLabel" "Quote, book and download a simulated label. The documentation overview of the whole flow: it is not executable, and the views whose keys start with Scenario are the ones run against the code. Steps and their tests: docs/flows/quote-book-label.md." {
             clerk -> web "Prices a parcel, books an offer and downloads its label"
             web -> tenants "Sends the demo bearer token; the tenant is derived from the user's membership"
             web -> quotes "POST /api/v1/quotes (createQuote)"
@@ -249,6 +436,31 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
             audit -> db "Appends one audit entry per event ID; the publication is marked complete"
             web -> shipments "GET the label of the shipment (getShipmentLabel)"
             shipments -> carrier "Renders the simulated SVG label"
+            autoLayout lr
+        }
+
+        // Executable scenarios. Each view whose key starts with Scenario has a sidecar, architecture/scenarios/<key in
+        // kebab case>.json, that gives every step machine-readable metadata (kind, operation, order, cardinality),
+        // and a test in apps/shipping-api runs the scenario and compares what the code did with those steps. Steps
+        // here are single interactions: a step that combines actions cannot be checked.
+
+        dynamic api "ScenarioQuote" "Executable scenario: quote a parcel. QuoteScenarioTest runs it on the code and checks its steps (architecture/scenarios/scenario-quote.json)." {
+            clerk -> web "Enters a parcel, its origin and its destination"
+            web -> quotes "POST /api/v1/quotes (createQuote), answered 201 with the quote"
+            quotes -> tenants "CurrentTenant.require(): the tenant bound for the request"
+            quotes -> carrier "Rates each service level with the synthetic tariff, simulated in-process"
+            quotes -> db "Inserts the quote and its offers in schema quotes"
+            quotes -> db "Publishes QuoteIssued in the quote's transaction; no module listens to it in v0.1"
+            autoLayout lr
+        }
+
+        dynamic api "ScenarioTenantDenial" "Executable scenario: another tenant's quote is not found. TenantDenialScenarioTest runs it on the code and checks its steps (architecture/scenarios/scenario-tenant-denial.json)." {
+            clerk -> web "A clerk of Tenant Beta books an offer of Tenant Alpha's quote"
+            web -> shipments "POST /api/v1/shipments (bookShipment), answered 404 quote-not-found, as for an unknown quote"
+            shipments -> tenants "CurrentTenant.require(): Tenant Beta"
+            shipments -> db "Looks up the Idempotency-Key for Tenant Beta: no earlier shipment"
+            shipments -> quotes "QuoteOffers.findOffer for Tenant Beta: QuoteNotFound"
+            quotes -> db "Selects the quote by Tenant Beta and its ID: no row"
             autoLayout lr
         }
 
@@ -301,6 +513,11 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
                 thickness 2
             }
             relationship "Required" {
+                style solid
+                thickness 4
+                color #0f766e
+            }
+            relationship "Required import" {
                 style solid
                 thickness 4
                 color #0f766e

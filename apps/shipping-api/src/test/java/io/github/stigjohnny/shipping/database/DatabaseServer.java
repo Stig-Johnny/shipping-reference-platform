@@ -8,7 +8,6 @@ import java.sql.Statement;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.regex.Pattern;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * The PostgreSQL server of one database test class, started by {@link ReviewedPostgres}: the reviewed image, on a
@@ -21,12 +20,12 @@ final class DatabaseServer implements AutoCloseable {
 
     private static final Pattern DATABASE_NAME = Pattern.compile("[a-z][a-z0-9_]{0,40}");
 
-    private final PostgreSQLContainer container;
+    private final ReviewedPostgres.Database postgres;
     private final Login owner = new Login(ShippingDatabase.OWNER, password());
     private final Login app = new Login(ShippingDatabase.APP, password());
 
-    private DatabaseServer(PostgreSQLContainer container) {
-        this.container = container;
+    private DatabaseServer(ReviewedPostgres.Database postgres) {
+        this.postgres = postgres;
     }
 
     static DatabaseServer start() {
@@ -41,7 +40,8 @@ final class DatabaseServer implements AutoCloseable {
         if (!DATABASE_NAME.matcher(name).matches()) {
             throw new IllegalArgumentException("a test database name is lower case: " + name);
         }
-        try (Connection connection = connect(container.getDatabaseName(), superuser());
+        try (Connection connection = DriverManager.getConnection(
+                postgres.jdbcUrl(), postgres.username(), postgres.password());
                 Statement statement = connection.createStatement()) {
             statement.execute("create database " + name);
         }
@@ -61,12 +61,22 @@ final class DatabaseServer implements AutoCloseable {
     }
 
     String jdbcUrl(String database) {
-        return "jdbc:postgresql://" + container.getHost() + ":"
-                + container.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT) + "/" + database;
+        return jdbcUrl(postgres.jdbcUrl(), database);
+    }
+
+    /** Selects a database on the harness endpoint, preserving the connection options it supplies. */
+    static String jdbcUrl(String initialUrl, String database) {
+        if (!DATABASE_NAME.matcher(database).matches()) {
+            throw new IllegalArgumentException("a test database name is lower case: " + database);
+        }
+        int query = initialUrl.indexOf('?');
+        int end = query < 0 ? initialUrl.length() : query;
+        int path = initialUrl.lastIndexOf('/', end - 1);
+        return initialUrl.substring(0, path + 1) + database + initialUrl.substring(end);
     }
 
     Login superuser() {
-        return new Login(container.getUsername(), container.getPassword());
+        return new Login(postgres.username(), postgres.password());
     }
 
     Login owner() {
@@ -79,7 +89,7 @@ final class DatabaseServer implements AutoCloseable {
 
     @Override
     public void close() {
-        container.stop();
+        postgres.close();
     }
 
     private static String password() {

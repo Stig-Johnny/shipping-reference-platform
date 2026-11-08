@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Stands in for grep in tools/ci/container-engine-test.sh: with FAKE_GREP_FAIL set it fails as grep fails on an error
+# (exit 2 and above, here 42), so that a case can show that the script does not read such a failure as a count of 0.
+if [[ -n "${FAKE_GREP_FAIL:-}" ]]; then
+  echo "fake grep: failing" >&2
+  exit 42
+fi
+exec /usr/bin/grep "$@"

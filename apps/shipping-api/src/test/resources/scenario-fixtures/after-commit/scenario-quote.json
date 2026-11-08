@@ -1,0 +1,70 @@
+{
+  "schema": "shipping-scenarios/sidecar/v1",
+  "view": "ScenarioQuote",
+  "steps": [
+    {
+      "order": 1,
+      "id": "clerk-enters-parcel",
+      "kind": "USER_ACTION",
+      "from": "clerk",
+      "to": "web",
+      "phase": "SYNCHRONOUS",
+      "cardinality": "1",
+      "after": []
+    },
+    {
+      "order": 2,
+      "id": "create-quote-request",
+      "kind": "HTTP_EXCHANGE",
+      "from": "web",
+      "to": "quotes",
+      "operation": {"method": "POST", "path": "/api/v1/quotes", "operationId": "createQuote", "status": 201},
+      "phase": "SYNCHRONOUS",
+      "cardinality": "1",
+      "after": ["clerk-enters-parcel"]
+    },
+    {
+      "order": 3,
+      "id": "resolve-tenant",
+      "kind": "MODULE_API_CALL",
+      "from": "quotes",
+      "to": "tenants",
+      "operation": {"interface": "io.github.stigjohnny.shipping.tenants.api.CurrentTenant", "method": "require"},
+      "phase": "SYNCHRONOUS",
+      "cardinality": "1",
+      "after": ["create-quote-request"]
+    },
+    {
+      "order": 4,
+      "id": "rate-offers",
+      "kind": "SIMULATED_EXTERNAL",
+      "from": "quotes",
+      "to": "carrier",
+      "phase": "SYNCHRONOUS",
+      "cardinality": "1",
+      "after": ["resolve-tenant"]
+    },
+    {
+      "order": 5,
+      "id": "insert-quote",
+      "kind": "DATABASE_WRITE",
+      "from": "quotes",
+      "to": "db",
+      "operation": {"statement": "INSERT", "schema": "quotes"},
+      "phase": "SYNCHRONOUS",
+      "cardinality": "1..*",
+      "after": ["rate-offers"]
+    },
+    {
+      "order": 6,
+      "id": "publish-quote-issued",
+      "kind": "EVENT_PUBLICATION",
+      "from": "quotes",
+      "to": "db",
+      "operation": {"event": "io.github.stigjohnny.shipping.quotes.api.QuoteIssued"},
+      "phase": "AFTER_COMMIT",
+      "cardinality": "1",
+      "after": ["insert-quote"]
+    }
+  ]
+}

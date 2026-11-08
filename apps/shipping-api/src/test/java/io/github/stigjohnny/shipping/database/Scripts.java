@@ -18,7 +18,7 @@ import java.util.stream.Stream;
 
 /**
  * The SQL that the database tests run: the role bootstrap, the migrations Flyway finds on the class path and the down
- * scripts beside them (ADR 0012).
+ * scripts beside them (ADR 0016).
  */
 final class Scripts {
 

@@ -2,7 +2,7 @@
 title: "The dependency allowlist"
 description: "How third-party code gets into this repository: a recorded security review per component, an allowlist the build enforces before anything runs, and the owner's acceptance."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 # The dependency allowlist
@@ -28,10 +28,11 @@ without a review record and an allowlist entry, and both of those files belong t
 
 | Layer | What fails | Where it runs |
 |---|---|---|
-| `tools/policy/PolicyCheck.java` | A locked Maven coordinate, npm package or Action that is not approved, expired, rejected or missing its review; a downloaded jar whose SHA-256 differs from its review; a Gradle wrapper or distribution that is not the reviewed one; an Action not pinned to an allowlisted commit; a file under a `vendor/` directory that is not byte-identical to an approved vendored artifact; an owner's acceptance that no longer matches the reviewed set. | The `preflight` workflow, a required status check. It runs the main branch's copy of the checker on the pull request's files as data, without running any build tool, so a pull request cannot weaken the check that judges it. The `java` job runs the same base-branch checker on the candidate before Gradle starts. |
+| `tools/policy/PolicyCheck.java` | A locked Maven coordinate, npm package or Action that is not approved, expired, rejected or missing its review; a downloaded jar whose SHA-256 differs from its review; a Gradle wrapper or distribution that is not the reviewed one; an Action not pinned to an allowlisted commit; a file under a `vendor/` directory that is not byte-identical to an approved vendored artifact; an owner's acceptance that no longer matches the reviewed set; a recognized container declaration that the reviews do not allow, in the shell, Java, Kotlin and YAML forms it decodes, and every form it cannot decode (heredocs, YAML scalars over lines, Groovy, backquoted Kotlin names, a command it cannot read, interpreters it does not read): an image that no approved entry names by digest, Testcontainers or docker-java outside the database harness, and the Testcontainers and docker uses the reviews forbid, in sources, resources, build scripts, workflows and scripts (check 8, which does not isolate arbitrary build code or see text assembled at run time). | The `preflight` workflow, a required status check. It runs the main branch's copy of the checker on the pull request's files as data, without running any build tool, so a pull request cannot weaken the check that judges it. The `java` job runs the same base-branch checker on the candidate before Gradle starts, and then the candidate's own copy, so that a rule a pull request adds applies to it too. |
+| `tools/ci/container-engine.sh` and the test harness `ReviewedPostgres` | A runner, Ubuntu, Docker Engine or runc version other than the reviewed ones (a prerelease of the runc floor included); a daemon that is not loopback-only; registry credentials, another Docker endpoint or a Testcontainers setting the reviews do not name; an image other than the reviewed PostgreSQL digest, staged or run; a privileged harness container, a host bind or a port published beyond 127.0.0.1; a copy into a container; an engine query that fails. | The `java` job and the `pages` workflow's `test` job, around the database tests (`:apps:shipping-api:databaseTest`): before any container runs, and after the tests whatever their outcome. The versions are recorded in the job summary. `tools/ci/container-engine-test.sh` fails each engine query in turn against a fake engine, in `java`. |
 | Gradle dependency locking (strict) | A resolved version that differs from the committed lockfile. | Every build. In CI, the `java` workflow, a required status check. |
 | Gradle dependency verification (strict) | A downloaded artifact whose SHA-256 is not in `gradle/verification-metadata.xml`. CI never writes that file. | Every build. In CI, the `java` workflow, a required status check. |
-| `tools/ci/stage-temurin.sh` | A JDK archive whose SHA-256 differs from its review. | Every CI job, before `actions/setup-java` installs it. |
+| `tools/ci/stage-temurin.sh` | An unavailable JDK after bounded attempts, or an archive whose size or SHA-256 differs from its review; integrity failure never falls back. | Every CI job, before `actions/setup-java` installs it. |
 | GitHub's allowed-actions setting (applied) | An Action that is not on the repository's list. The setting allows selected actions only, requires SHA pinning and lists six allowed patterns, with no wildcard for GitHub-owned or verified actions. It is set through OpenTofu in the operator's infrastructure repository. | GitHub, before the workflow starts. |
 | `.github/CODEOWNERS` (**not enforced yet**) | A change to `security/`, the lockfiles, the build logic or the workflows that the owner has not approved. | Pull request review, once GitHub can require code owner review (see below). |
 
@@ -79,6 +80,28 @@ that an acceptance must record (see [Acceptance](#acceptance)). Its regression t
 `java tools/policy/PolicyCheckTest.java`. The `java` job runs them on every pull request, after the checker has passed
 it.
 
+## CI bootstrap downloads
+
+The trusted JDK script's committed mirror base URL is empty. It uses the existing official HTTPS URL, with two
+attempts for transient failures, a 10-second connect timeout, a 90-second transfer timeout and a two-second backoff.
+The Pages build, like preflight and Java, pins the JDK review's `ubuntu-24.04` runner instead of `ubuntu-latest`.
+The dormant mirror path tries two 45-second transfers first, using `sha256/<digest>/<filename>` keys, and falls
+back only on unavailability. Mirror redirects are refused; official redirects are limited to five and HTTPS only.
+Every successful response must match the reviewed size and SHA-256. A mismatch or oversized response stops the
+job without trying another source. Only verified bytes are promoted from the private temporary file and announced
+to `setup-java`; failed transfers are discarded. Logs contain source labels and status codes, not response bodies.
+
+Gradle still downloads through the official wrapper URL with its pinned checksum and an empty CI home. Its network
+timeout is 60 seconds, with three retries and an initial one-second backoff. Neither these transport settings nor
+the empty mirror constant changes the accepted artifact identities or sources. The recorded first-use signatures
+in `verifications/2026-11-06-toolchain.md` remain unchanged; CI does not yet repeat offline signature verification.
+Before enabling any mirror, amend the source reviews and affected allowlist entries and obtain renewed acceptance
+of the exact reviewed set. The Gradle staging launcher, signature material and live mirror tests are later work.
+
+`tools/ci/stage-temurin-test.sh` exercises synthetic transport outcomes with real SHA-256 checks and no network.
+The `java` job runs it after base policy validation, like the existing build-output scan tests. `preflight` continues
+to execute only base-branch tooling, never these candidate tests.
+
 ## Adding a dependency
 
 1. Ask a subagent for a review of the exact version, written to `reviews/` in the house format (see any existing file).
@@ -96,6 +119,12 @@ it.
 A file that is committed rather than resolved, such as the docs site's Mermaid bundle, goes unmodified under a
 `vendor/<name>/<version>/` directory next to the code that uses it. Its entry records the file's SHA-256, and the checker
 compares the two on every pull request.
+
+Third-party code that arrives inside another reviewed artifact gets an entry of kind `bundled`. That covers code
+inlined into a bundle, copied into a package's sources, or shipped inside a runtime, such as the npm inside the Node.js
+archive or the 171 packages Playwright inlines. The entry names the file that carries the component and points at the
+review that inventoried it. The checker validates these entries like any other, but it matches lockfiles only against
+kind `npm`. So an entry for an inlined copy can never approve the standalone package of the same name and version.
 
 A version bump, including one Dependabot proposes, is a new review.
 
@@ -160,3 +189,17 @@ Structurizr's transitive Guava 33.6.0-jre has an advisory (GHSA-xxph-c9ww-hj94),
 Mermaid 11.17.2, the docs site's diagram renderer, embeds DOMPurify 3.4.12, lodash-es 4.17.23 and KaTeX 0.16.47, which
 have open advisories that only the 12.x line fixes. Its approval rests on the conditions that make them unreachable:
 the site renders only its own validated diagrams, in `strict` mode, under a restrictive Content Security Policy.
+
+The workbench's test tools, audited on 2026-11-07:
+
+- **Playwright 1.65.0 inlines 171 third-party packages**, two of them with medium advisories.
+  - **minimatch 10.2.5** needs a glob pattern from outside the repository, which the conditions rule out.
+  - **ip-address 10.7.2** needs a SOCKS proxy, which the conditions forbid at every level. It counts as open until the
+    end-to-end workflow demonstrates those checks.
+- **It also ships instructions for AI coding agents.** There are skill files that grant shell access, agent
+  definitions, and a workflow with tag-pinned Actions. Commands such as `init-agents` write them into a repository.
+  The conditions allow `playwright test` alone. The shipped skills and agent definitions are never activated or copied
+  into any agent's configuration.
+- **Playwright's browser CDN redirects to Google.** The pinned Chrome Headless Shell is Google's Chrome for Testing
+  Beta build, and the review now pins its SHA-256. Both download routes lead to Google, so the match shows identity,
+  not a second source.

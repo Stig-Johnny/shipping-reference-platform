@@ -14,8 +14,8 @@ import org.jspecify.annotations.Nullable;
 final class HtmlTable {
 
     /**
-     * The minimum width of a wide table: the stylesheet's {@code table-wide-model}, {@code table-wide-flow} and
-     * {@code table-wide-demos}.
+     * The minimum width of a wide table: the stylesheet's {@code table-wide-model}, {@code table-wide-flow},
+     * {@code table-wide-demos} and {@code table-wide-use-cases}.
      */
     enum Width {
         /** A model view's element or relationship table: 60rem. */
@@ -23,7 +23,9 @@ final class HtmlTable {
         /** A flow's three-column table: 48rem. */
         FLOW("flow"),
         /** The register of demonstrations: 40rem, and up to 600 px wide a fixed layout with a 16rem first column. */
-        DEMOS("demos");
+        DEMOS("demos"),
+        /** The use case overview's register: 60rem, laid out by its header's widths, so that no status word breaks. */
+        USE_CASES("use-cases");
 
         private final String cssName;
 

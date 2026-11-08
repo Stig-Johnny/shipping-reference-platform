@@ -13,27 +13,34 @@ class WorkspacesTest {
             Workspaces.read(Repository.file("architecture/workspace.dsl"), "architecture/workspace.dsl");
 
     @Test
-    void theFourViewsAreReadInZoomOrder() {
-        assertThat(WORKSPACE.model().views()).extracting(C4View::key)
-                .containsExactly("SystemContext", "Containers", "ApiComponents", "QuoteBookLabel");
+    void theViewsAreReadInZoomOrder() {
+        assertThat(WORKSPACE.model().views()).extracting(C4View::key).containsExactly("SystemContext", "Containers",
+                "ApiComponents", "WebComponents", "QuoteBookLabel", "ScenarioQuote", "ScenarioTenantDenial");
         assertThat(WORKSPACE.model().views()).extracting(C4View::kind).containsExactly(
-                C4View.Kind.SYSTEM_CONTEXT, C4View.Kind.CONTAINER, C4View.Kind.COMPONENT,
-                C4View.Kind.DYNAMIC);
-        assertThat(WORKSPACE.exports()).extracting(RawMermaid::viewKey)
-                .containsExactly("SystemContext", "Containers", "ApiComponents", "QuoteBookLabel");
+                C4View.Kind.SYSTEM_CONTEXT, C4View.Kind.CONTAINER, C4View.Kind.COMPONENT, C4View.Kind.COMPONENT,
+                C4View.Kind.DYNAMIC, C4View.Kind.DYNAMIC, C4View.Kind.DYNAMIC);
+        assertThat(WORKSPACE.exports()).extracting(RawMermaid::viewKey).containsExactly("SystemContext",
+                "Containers", "ApiComponents", "WebComponents", "QuoteBookLabel", "ScenarioQuote", "ScenarioTenantDenial");
     }
 
     @Test
     void theSevenModulesCarryTheirContractProperties() {
         List<ModelElement> modules = WORKSPACE.model().modules();
 
-        assertThat(modules).extracting(m -> m.contractId().orElseThrow())
-                .containsExactly("quotes", "shipments", "tenants", "audit", "orders", "tracking", "returns");
-        assertThat(modules).allSatisfy(m -> {
-            assertThat(m.contractStatus()).contains("planned");
-            assertThat(m.planned()).isTrue();
-            assertThat(m.contractPackages()).containsExactly("io.github.stigjohnny.shipping." + m.contractId().get());
-        });
+        assertThat(modules).extracting(m -> m.contractId().orElseThrow() + ": " + m.contractStatus().orElseThrow()
+                + (m.planned() ? ", tagged Planned" : "")).containsExactly("quotes: built",
+                "shipments: built", "tenants: built", "audit: planned, tagged Planned",
+                "orders: planned, tagged Planned", "tracking: planned, tagged Planned", "returns: planned, tagged Planned");
+        assertThat(modules).allSatisfy(m -> assertThat(m.contractPackages())
+                .containsExactly("io.github.stigjohnny.shipping." + m.contractId().get()));
+    }
+
+    @Test
+    void theWebAppIsPlannedAndTheApiAndFirstDatabaseSchemasAreBuilt() {
+        // Their planned label comes from the model, not from every capability being planned.
+        assertThat(WORKSPACE.model().elements()).filteredOn(e -> e.type().equals("Container"))
+                .extracting(e -> e.name() + (e.planned() ? ": planned" : ""))
+                .containsExactlyInAnyOrder("Web app: planned", "API", "Database");
     }
 
     @Test
@@ -59,7 +66,7 @@ class WorkspacesTest {
 
     @Test
     void theRawExportIsTheExportersFlowchart() {
-        assertThat(WORKSPACE.exports()).hasSize(4).allSatisfy(export ->
+        assertThat(WORKSPACE.exports()).hasSize(7).allSatisfy(export ->
                 assertThat(export.definition()).startsWith("graph LR"));
     }
 }

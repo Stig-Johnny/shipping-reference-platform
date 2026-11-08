@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
 /**
  * The Model section: an overview, one page per C4 view under the diagram template (purpose above, a white panel that
  * can be enlarged from the keyboard, the legend right below, then the element and relationship tables as the text
- * equivalent, and the view's limits), and the flows.
+ * equivalent, and the view's limits), the flows, and the use case overview ({@link UseCasePage}).
  */
 final class ModelPages {
 
@@ -43,6 +43,7 @@ final class ModelPages {
         for (DocFile flow : context.sources().docsUnder("docs/flows/")) {
             pages.add(flow(context, flow));
         }
+        pages.add(UseCasePage.of(context));
         return pages;
     }
 
@@ -166,22 +167,32 @@ final class ModelPages {
      * equivalent is, in the caption and in both notes.
      */
     static String figure(C4View view, MermaidDiagram diagram, String definition, C4Model model, String captionTail) {
-        String slug = ViewNames.slug(view);
+        return figure(ViewNames.slug(view), Sheets.code(viewPage(view)), ViewNames.title(view), definition,
+                String.join(" ", ViewText.legend(diagram, model)), captionTail, "Scrolls when enlarged.");
+    }
+
+    /**
+     * The diagram template for any validated definition: {@code code} is the sheet code in its title, {@code slug}
+     * names the figure and the drawing, {@code legend} is plain text, and {@code scrolling} completes the drawing
+     * region's accessible name with when and how it scrolls.
+     */
+    static String figure(String slug, String code, String title, String definition, String legend,
+            String captionTail, String scrolling) {
         String figure = "figure-" + slug;
         return "<figure class=\"diagram\" id=\"" + figure + "\">\n"
-                + "<div class=\"diagram-toolbar\"><p class=\"diagram-title\">" + Sheets.code(viewPage(view)) + " · "
-                + Html.escape(ViewNames.title(view)) + "</p><button type=\"button\" class=\"button\" data-enlarge=\""
+                + "<div class=\"diagram-toolbar\"><p class=\"diagram-title\">" + code + " · "
+                + Html.escape(title) + "</p><button type=\"button\" class=\"button\" data-enlarge=\""
                 + figure + "\" aria-pressed=\"false\" hidden>Enlarge diagram</button></div>\n"
                 + "<noscript><p class=\"diagram-note\">A script draws this diagram; without it you see its source. "
                 + captionTail + "</p></noscript>\n"
                 + "<p class=\"diagram-note diagram-failed\" hidden>The diagram could not be drawn here; its source is "
                 + "shown instead. " + captionTail + "</p>\n"
                 + "<div class=\"diagram-scroll\" role=\"region\" tabindex=\"0\" aria-label=\""
-                + Html.escape("Diagram: " + ViewNames.title(view) + ". Scrolls when enlarged.") + "\">\n"
+                + Html.escape("Diagram: " + title + ". " + scrolling) + "\">\n"
                 + "<pre class=\"diagram-source\" data-diagram=\"" + slug + "\">" + Html.escape(definition)
                 + "</pre>\n</div>\n"
                 + "<figcaption class=\"diagram-caption\">\n<p><strong>Legend.</strong> "
-                + Html.escape(String.join(" ", ViewText.legend(diagram, model))) + "</p>\n"
+                + Html.escape(legend) + "</p>\n"
                 + "<p>" + captionTail + "</p>\n</figcaption>\n</figure>\n";
     }
 
@@ -204,7 +215,11 @@ final class ModelPages {
                     flow.title())).append(": ").append(Html.escape(flow.description())).append("</li>\n");
         }
         boolean allPlanned = modules(sources).stream().allMatch(ModelElement::planned);
-        body.append("</ul>\n<h2 id=\"checking\">How the model is checked</h2>\n<p class=\"prose\">The model is the "
+        body.append("</ul>\n<h2 id=\"use-cases\">Use cases</h2>\n<p class=\"prose\">")
+                .append(SiteContext.link(INDEX, UseCasePage.PAGE, "The use case overview"))
+                .append(" draws every product capability with the people and systems that take part, and stamps it "
+                        + "with what the tests of the build that generated this site showed.</p>\n");
+        body.append("<h2 id=\"checking\">How the model is checked</h2>\n<p class=\"prose\">The model is the "
                 + "structural authority (ADR 0002). The checker in <code>libs/c4-contract-kit</code> is implemented "
                 + "and its own tests pass. It compares the direct static references in compiled classes with the model "
                 + "in both directions: a dependency between two modules that the model does not declare fails the "
@@ -218,6 +233,7 @@ final class ModelPages {
                 + "from the context to the API's modules and one flow through them. Each view has its own page with "
                 + "its text equivalent.", status(context, modules(sources)), List.of(
                         new SitePage.Contents("views", "The views"), new SitePage.Contents("flows", "Flows"),
+                        new SitePage.Contents("use-cases", "Use cases"),
                         new SitePage.Contents("checking", "How the model is checked")),
                 body.toString(), context.mentioned("ADR 0002", INDEX), Sources.WORKSPACE, false);
     }
@@ -253,7 +269,7 @@ final class ModelPages {
                     Html.escape(row.description()), Html.escape(row.technology()), Html.escape(row.line()));
         }
         body.append(relationships.html()).append("<h2 id=\"limits\">What this view cannot show</h2>\n<ul class=\"prose\">\n");
-        for (String limit : ViewText.limits(view)) {
+        for (String limit : ViewText.limits(view, model)) {
             body.append("<li>").append(Html.escape(limit)).append("</li>\n");
         }
         body.append("</ul>\n");
@@ -262,13 +278,17 @@ final class ModelPages {
         context.map().anchor(page, "limits");
         List<ModelElement> modules = view.elementIds().stream().map(model::element)
                 .filter(e -> e.contractId().isPresent()).toList();
-        List<SitePage.Related> related = new ArrayList<>(context.mentioned(view.description() + " ADR 0002", page));
+        List<ModelElement> webParts = view.elementIds().stream().map(model::element)
+                .filter(e -> e.webId().isPresent()).toList();
+        List<SitePage.Related> related = new ArrayList<>(context.mentioned(view.description() + " ADR 0002"
+                + (webParts.isEmpty() ? "" : " ADR 0012"), page));
         for (ModelElement module : modules) {
             context.map().site("docs/modules/" + module.contractId().orElseThrow() + ".md")
                     .ifPresent(p -> related.add(new SitePage.Related(p, context.titleOf(p))));
         }
-        return new SitePage(page, title, title, SiteSection.MODEL, view.description(),
-                status(context, modules.isEmpty() ? modules(sources) : modules), List.of(
+        StatusPanel status = !modules.isEmpty() ? status(context, modules)
+                : !webParts.isEmpty() ? webStatus(context, webParts) : status(context, modules(sources));
+        return new SitePage(page, title, title, SiteSection.MODEL, view.description(), status, List.of(
                         new SitePage.Contents("elements", "Elements"),
                         new SitePage.Contents("relationships", "Relationships"),
                         new SitePage.Contents("limits", "What this view cannot show")),
@@ -296,16 +316,58 @@ final class ModelPages {
                 checkerEvidence(conformance, context.sources().evidence(), allPlanned));
     }
 
+    /** The web import check's control: its tests are the evidence of a view of the web app's parts. */
+    static final String WEB_CONTROL = "control.web-import-boundaries";
+
     /**
-     * The model pages' evidence: the conformance controls' passing tests, by name, under a badge that says they are the
-     * checker's tests, since they verify the checker and not the shipping modules. Without a passing test it is the
-     * evidence of any page.
+     * A view of the web app's parts: their web status in the model, and the web import check's passing tests under a
+     * badge that says what they verify. While every part is planned, the check has evaluated no import of the web app,
+     * and the panel says so; the API's modules and their conformance tests are not this view's evidence.
+     */
+    private static StatusPanel webStatus(SiteContext context, List<ModelElement> parts) {
+        TreeMap<String, Long> byStatus = new TreeMap<>();
+        parts.forEach(p -> byStatus.merge(p.webStatus().orElse("unknown"), 1L, Long::sum));
+        boolean allPlanned = byStatus.keySet().equals(Set.of("planned"));
+        List<String> counts = new ArrayList<>();
+        byStatus.forEach((status, count) -> counts.add(count + " web " + (count == 1 ? "part" : "parts") + " "
+                + status));
+        String implementation = (allPlanned ? Badge.PLANNED.html("Planned") : Badge.PARTIAL.html("Partly built"))
+                + " " + Html.escape(String.join(", ", counts) + " in the model; a planned part has no code yet"
+                + (allPlanned ? ", so the web import check evaluates none of the web app's imports." : "."));
+        List<Capability> control = context.sources().capabilities().controls().stream()
+                .filter(c -> c.id().equals(WEB_CONTROL)).toList();
+        TestEvidence evidence = context.sources().evidence();
+        List<String> passing = control.stream().flatMap(c -> c.evidence().stream()).filter(evidence::passed)
+                .distinct().toList();
+        String verified = passing.isEmpty() ? Statuses.evidence(control, evidence)
+                : Badge.PARTIAL.html("Partly enforced") + " " + Statuses.passed(passing, allPlanned
+                        ? "These tests verify the web import check on synthetic web apps; no import of the web app has "
+                                + "been checked yet."
+                        : "These tests verify the web import check, and the built parts' imports against the model, "
+                                + "not their behaviour.");
+        return new StatusPanel(Statuses.design("accepted", "The structural authority (ADR 0002), in "
+                + Sources.WORKSPACE + "; the web app's parts and their import rules follow ADR 0012."),
+                implementation, verified);
+    }
+
+    /** The API's own check against the model (ADR 0002); the conformance controls' other tests are the checker's. */
+    static final String API_CONFORMANCE_TEST = "ArchitectureConformanceTest";
+
+    /**
+     * The model pages' evidence: the conformance controls' passing tests, by name, under a badge that says what they
+     * verify: the checker, and the built modules' static dependencies once the API's own check passes too, never the
+     * modules' behaviour. Without a passing test it is the evidence of any page.
      */
     static String checkerEvidence(List<Capability> conformance, TestEvidence evidence, boolean modulesPlanned) {
         List<String> passing = conformance.stream().flatMap(c -> c.evidence().stream()).filter(evidence::passed)
                 .distinct().toList();
         if (passing.isEmpty()) {
             return Statuses.evidence(conformance, evidence);
+        }
+        if (!modulesPlanned && passing.contains(API_CONFORMANCE_TEST)) {
+            return Badge.SHIPPED.html("Conformance tests passing") + " " + Statuses.passed(passing, "These tests "
+                    + "verify the checker and the built modules' static dependencies against the model, not their "
+                    + "behaviour.");
         }
         return Badge.SHIPPED.html("Checker tests passing") + " " + Statuses.passed(passing, modulesPlanned
                 ? "These tests verify the checker; the shipping modules remain planned."

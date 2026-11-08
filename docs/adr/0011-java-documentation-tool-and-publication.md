@@ -2,7 +2,7 @@
 title: "ADR 0011: A Java documentation tool, a static site and a scanned publication"
 description: "One Java tool generates the C4 view pages, the budgeted brain and a static documentation site, and fails on drift and on claims without evidence; the site is published on GitHub Pages from main after a fail-closed scan. Supersedes ADR 0010."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
@@ -87,6 +87,14 @@ SnakeYAML Engine 3.2.
   it; modules may otherwise share test class names.
 - `./gradlew :tools:docs:generate` rewrites the generated files. Both tasks run after the tests of every project with
   test sources and read all their reports; the tool's own are the evidence of its control, `control.brain-check`.
+  The shipping API's database tests run in a task of their own, `:apps:shipping-api:databaseTest`, which `check` does
+  not run, so that `check` needs only the reviewed JDK. Full-evidence mode, `-PdatabaseEvidence=true`, adds a
+  dependency from the docs tasks to `databaseTest` and requires its reports to show at least one test run and none
+  failed, errored or skipped (`--required-results`). CI's `java` check and the Pages test job run `databaseTest`
+  earlier, inside the reviewed engine window, then shut the engine down and prove CLI/socket denial. Their later
+  docs tasks use `-x databaseTest -PdatabaseEvidence=true` to prevent another database run after shutdown while
+  still requiring the reports produced in that job. Without full-evidence mode the docs tasks never read database
+  reports, so a report left over from an earlier run cannot count as evidence.
 - `:tools:docs:site`, also part of `check`, builds the documentation site into `tools/docs/build/site/` from the
   same sources, after the same checks. It is static HTML with one stylesheet and one script of the tool's own, and
   relative links, so it works under any base path. Its sections are Start, Demos, Model, Modules, Decisions, API,
@@ -139,13 +147,23 @@ SnakeYAML Engine 3.2.
 - The owner decided on 2026-11-06 to publish the site on GitHub Pages, at
   <https://stig-johnny.github.io/shipping-reference-platform/>. The documentation site is public. The repository
   itself is planned to become public (ADR 0008); repository links will be enabled after that change.
-- `.github/workflows/pages.yml` runs for `main` only, one run at a time. Its build job runs in the `github-pages`
-  environment, whose secret is the dictionary, and may only read the repository. On a commit that is already on
-  `main`, it stages the reviewed JDK and runs the allowlist check, its trusted bootstrap, then verifies the Gradle
-  wrapper, runs `:tools:docs:check` and `:tools:docs:site`, and then `:tools:docs:scanSite` in a step of its own, the
-  only one that receives the dictionary. It re-checks Mermaid's SHA-256 in the site, refuses symbolic links, hard
-  links and hidden files there, and only then uploads the site directory. The deploy job has one step,
-  `actions/deploy-pages`, and the workflow's only write permissions, `pages: write` and `id-token: write`. Every
+- `.github/workflows/pages.yml` runs for `main` only, one run at a time, in three jobs, so that the job that runs
+  the tests holds no publication privilege and the jobs that hold one run no test. Each stages the reviewed JDK and
+  runs the allowlist check, its trusted bootstrap, on a commit that is already on `main`, then verifies the Gradle
+  wrapper. The test job has no environment and no secret, may only read the repository, and runs on GitHub-hosted
+  ubuntu-24.04 under the container engine's review, because the database tests start PostgreSQL: it runs
+  `:apps:shipping-api:databaseTest` alone in the reviewed engine window, shuts the engine down and proves CLI/socket
+  denial, then runs `:tools:docs:check :tools:docs:site -x databaseTest -PdatabaseEvidence=true` with every project's
+  ordinary tests. The database reports remain mandatory. It then hands this run's JUnit reports and the
+  site's digest to the build job as job outputs. The build job runs in the `github-pages` environment, whose secret is
+  the dictionary, and may only read the repository. It unpacks those reports, refusing a wrong digest, a path outside
+  the report directories, anything but regular files and an overwrite, builds the site again from the same commit
+  with `:tools:docs:site -x test -x databaseTest -PdatabaseEvidence=true`, and fails unless the site is byte for byte
+  the one the test job built, so the evidence it publishes is this run's and never a stale report. It then runs
+  `:tools:docs:scanSite` in a step of its own, the only one that receives the dictionary, re-checks Mermaid's SHA-256
+  in the site, refuses symbolic links, hard links and hidden files there, and only then uploads the site directory.
+  Every job first stops/masks the engine and proves it unreachable, as specified in ADR 0007.
+  The deploy job then runs `actions/deploy-pages`, and the workflow's only write permissions, `pages: write` and `id-token: write`. Every
   action runs at the full SHA its review approved; `actions/configure-pages` is not used, because the site's links
   are relative.
 
@@ -205,9 +223,11 @@ SnakeYAML Engine 3.2.
   `ScannedNamesTest` (terms and token shapes in file and directory names, withheld from every output) and
   `DocsToolTest` (the scan command end to end, and exit codes for errors, `StackOverflowError` included, and for
   timeouts).
-- `PagesWorkflowTest`: who may run the publishing workflow, each job's permissions, the dictionary in the scan step
-  only, the build job's order (check before use, build, scan, re-check, guard, upload) and the four reviewed actions
-  by full SHA. After the first deployment, a person checks that its log shows the OIDC token masked, as the
+- `PagesWorkflowTest`: who may run the publishing workflow, each job's permissions, that the test job has no
+  environment and no secret and runs the tests under the runner review's conditions, that the build job runs no test
+  and takes its evidence from the test job of the same run, the dictionary in the scan step only, each job's order
+  (in the build job: check before use, take over the reports, build, compare, scan, re-check, guard, upload) and the
+  four reviewed actions by full SHA. After the first deployment, a person checks that its log shows the OIDC token masked, as the
   deploy-pages review requires.
 - The review conditions on the tool's libraries: `SafeYamlTest`, `RestrictedStructurizrTest`, `WorkspacesTest`,
   `MermaidValidatorTest`, `MermaidAdapterTest`, `MarkdownRendererTest`, `SiteUrlSanitizerTest` and

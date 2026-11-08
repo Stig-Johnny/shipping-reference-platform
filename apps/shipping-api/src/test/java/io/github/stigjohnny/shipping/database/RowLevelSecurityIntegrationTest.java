@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.Test;
  * <p>Not covered here, because the code does not exist yet: the binding by TenantBindingTransactionManager over the
  * application's pool, and listeners that write under an event's tenant.
  */
+@Tag("database")
 class RowLevelSecurityIntegrationTest {
 
     private static final String QUOTES = "select quote_id::text from quotes.quote order by 1";

@@ -29,6 +29,32 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
+      - name: Stop the container engine and prove it is unreachable
+        id: engine_off
+        run: |
+          # engine-guard: begin
+          set -euo pipefail
+          sudo systemctl stop docker.service docker.socket
+          sudo systemctl mask --runtime docker.service docker.socket
+          sudo rm -f /var/run/docker.sock
+          command -v nc >/dev/null
+          command -v timeout >/dev/null
+          if timeout 5 docker info >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          if nc -z -U -w 2 /var/run/docker.sock >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          # engine-guard: end
+
       - name: Refuse pull requests from forks
         if: github.event.pull_request.head.repo.full_name != github.repository
         run: |

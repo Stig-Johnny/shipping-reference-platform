@@ -44,10 +44,9 @@ class SitePagesTest {
     void theStartPageStatesThePurposeTheStateTheDataAndTwoReadingPaths() {
         String start = site.text("index.html");
 
-        // The state in words, from the sources: specification only while every product capability is planned.
-        String state = sources.capabilities().specificationOnly() ? "Specification only" : "Partly built";
         assertThat(start).contains("<h1>Shipping reference platform</h1>", "A reference monorepo",
-                state, "synthetic", "Reading path for a COO", "Reading path for a Java lead")
+                "<span class=\"badge badge-partial\">Partly built</span>", "synthetic", "Reading path for a COO",
+                "Reading path for a Java lead").doesNotContain("Specification only", "No application code exists yet")
                 .contains("href=\"model/flow-quote-book-label.html\"", "href=\"trust/risk-levels.html\"",
                         "href=\"trust/gaps.html\"", "href=\"model/api-components.html\"", "href=\"modules/index.html\"",
                         "href=\"api/index.html\"", "href=\"decisions/index.html\"", "href=\"trust/allowlist.html\"");
@@ -64,7 +63,17 @@ class SitePagesTest {
                     "Verified evidence");
         }
         assertThat(site.text("brain/index.html")).contains("BrainGeneratorTest", "BrainCheckTest");
-        assertThat(site.text("modules/quotes.html")).contains("5 capabilities planned").contains("None yet");
+        // quotes has passing tests for all five of its capabilities, shipments for two of its six and tenants for two
+        // of its six.
+        assertThat(site.text("modules/quotes.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
+                + "</span> 2 capabilities shipped, 3 capabilities partial.",
+                "<span class=\"badge badge-shipped\">Passing</span> 8 evidence test classes passed");
+        assertThat(site.text("modules/shipments.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
+                + "</span> 2 capabilities partial, 4 capabilities planned.",
+                "<span class=\"badge badge-shipped\">Passing</span> 3 evidence test classes passed");
+        assertThat(site.text("modules/tenants.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
+                + "</span> 2 capabilities partial, 4 capabilities planned.",
+                "<span class=\"badge badge-shipped\">Passing</span> 3 evidence test classes passed");
     }
 
     @Test
@@ -142,6 +151,43 @@ class SitePagesTest {
     }
 
     @Test
+    void theWebViewSaysItsPartsAreCheckedByTheWebImportCheckAndStillPlanned() {
+        String web = site.text("model/web-components.html");
+
+        assertThat(web).contains("<td>planned; checked by the web import check</td>",
+                "A thick line is a REQUIRED import between parts of the web app.",
+                "A REQUIRED arrow specifies an obligation; where both parts are built, a passing web import check "
+                        + "establishes a detected direct import, not complete boundary or cycle coverage or runtime "
+                        + "behaviour.",
+                "This is labelled partial lint over detected imports; spread-syntax bypasses remain open.",
+                "The API adapter&#39;s calls to the API are network calls, which no static check sees.")
+                .doesNotContain("compiled classes have no static reference");
+    }
+
+    @Test
+    void theWebViewsPanelGivesTheWebPartsAndTheWebImportControlNotTheApiModules() {
+        String panel = statusPanel(site.text("model/web-components.html"));
+
+        assertThat(panel).contains("6 web parts planned in the model; a planned part has no code yet, so the web "
+                        + "import check evaluates none of the web app&#39;s imports.",
+                "Partly enforced",
+                "These tests verify the web import check on synthetic web apps; no import of the web app has been "
+                        + "checked yet.", "<p>ImportScannerTest, SourceReaderTest, JsonTest, AppConfigurationTest, "
+                        + "WebModelValidationTest, WebConformanceTest, WebReportDeterminismTest, "
+                        + "WebArchitectureConformanceTest</p>")
+                .doesNotContain("module", "Checker tests passing");
+        assertThat(statusPanel(site.text("model/api-components.html"))).contains("modules built")
+                .doesNotContain("web part");
+    }
+
+    /** The page's status panel, from its opening tag to its end. */
+    private static String statusPanel(String page) {
+        int start = page.indexOf("<section class=\"status-panel\"");
+        assertThat(start).isNotNegative();
+        return page.substring(start, page.indexOf("</section>", start));
+    }
+
+    @Test
     void theViewsSpecifyAndDoNotClaimVerifiedImplementation() {
         String containers = site.text("model/containers.html");
         String components = site.text("model/api-components.html");
@@ -152,21 +198,25 @@ class SitePagesTest {
         assertThat(components).contains("Where both modules are built, the checker in libs/c4-contract-kit fails when "
                 + "the compiled classes have no static reference for it.", "The checker does not evaluate a line "
                 + "that touches a planned module until both modules are built.", "A REQUIRED arrow specifies an "
-                + "obligation; a future passing conformance check would establish a static reference, not runtime "
-                + "behaviour.");
+                + "obligation; where both modules are built, a passing conformance check establishes a static "
+                + "reference, not runtime behaviour.").doesNotContain("a future passing conformance check");
         for (String page : List.of(containers, components, site.text("model/system-context.html"),
                 site.text("model/quote-book-label.html"), flow)) {
             assertThat(page).doesNotContain("the build fails when it does not", "proves that a reference exists",
                     "no status: not a checked module", "Asserted by", "the tests that assert them");
         }
-        assertThat(flow).contains(">Steps and planned acceptance tests</", "<th>Planned acceptance test</th>");
+        assertThat(flow).contains(">Steps and acceptance tests</", "<th>Acceptance tests and status</th>");
     }
 
     @Test
     void plannedElementsAreLabelledNotFaded() {
         String page = site.text("model/api-components.html");
 
-        assertThat(page).contains("Quotes [Component] (planned)", "Planned");
+        assertThat(page).contains("Audit [Component] (planned)", "Shipments [Component] (built)",
+                "Quotes [Component] (built)", "Web app [Container] (planned)", "Database [Container]",
+                "Planned");
+        assertThat(site.text("model/containers.html")).contains("Web app [Container] (planned)",
+                "Database [Container]").doesNotContain("API [Container] (planned)", "Database [Container] (planned)");
         for (String path : site.pages()) {
             assertThat(site.text(path)).as(path).doesNotContainIgnoringCase("faded").doesNotContain("opacity");
         }
@@ -177,8 +227,10 @@ class SitePagesTest {
         String page = site.text("trust/allowlist.html");
         Allowlist allowlist = sources.allowlist();
 
-        assertThat(page).contains(allowlist.current().reviewedSetSha256(), "pull request #10",
-                "2026-11-06T20:03:16.131Z", "pull request #7", "pull request #3", "entriesSha256",
+        assertThat(page).contains(allowlist.current().reviewedSetSha256(), "pull request #54",
+                "2026-11-08T09:46:29.393Z", "pull request #73",
+                "2026-11-07T23:45:39.135Z", "pull request #10", "2026-11-06T20:03:16.131Z",
+                "pull request #7", "pull request #3", "entriesSha256",
                 "Recomputed by this build", "Matches");
         assertThat(page.indexOf(allowlist.current().reviewedSetSha256()))
                 .isLessThan(page.indexOf("<caption>All " + allowlist.entries().size() + " entries"));
@@ -257,7 +309,7 @@ class SitePagesTest {
         int heading = flow.indexOf("<h2 id=\"dynamic-view\">Dynamic view</h2>");
         int figure = flow.indexOf("<pre class=\"diagram-source\" data-diagram=\"quote-book-label\">flowchart LR");
         int source = flow.indexOf("<summary>Sequence source");
-        int steps = flow.indexOf("<h2 id=\"steps-and-planned-acceptance-tests\">");
+        int steps = flow.indexOf("<h2 id=\"steps-and-acceptance-tests\">");
         assertThat(List.of(heading, figure, source, steps)).doesNotContain(-1).isSorted();
         assertThat(flow).contains("The step numbers in the tables below follow the sequence source",
                 "<th>Step (sequence numbers)</th>", "its number in the view&#39;s relationships table");
@@ -281,12 +333,12 @@ class SitePagesTest {
     @Test
     void theBrainOverviewMatchesItsTables() {
         String brain = site.text("brain/index.html");
-        String capabilities = counted(sources.capabilities().capabilities(), "capability", "capabilities");
-        String controls = counted(sources.capabilities().controls(), "control", "controls");
-        assertThat(capabilities).as("the product capabilities, counted by status").isNotEmpty();
+        assertThat(sources.capabilities().specificationOnly()).as("some product capabilities have passing tests")
+                .isFalse();
 
-        assertThat(brain).contains("<span class=\"badge badge-partial\">Partly shipped</span> " + capabilities + "; "
-                + controls + ".");
+        assertThat(brain).contains("<span class=\"badge badge-partial\">Partly shipped</span> "
+                + counted(sources.capabilities().capabilities(), "capability", "capabilities") + "; "
+                + counted(sources.capabilities().controls(), "control", "controls") + ".");
         List<Capability> evidenced = sources.capabilities().all().stream()
                 .filter(c -> c.evidence().stream().anyMatch(sources.evidence()::passed)).toList();
         if (evidenced.stream().allMatch(c -> c.control() && c.where().startsWith("tools/docs"))) {
@@ -303,20 +355,30 @@ class SitePagesTest {
 
     @Test
     void trustKeepsTheEnforcedSubsetApartFromThePlannedControl() {
-        String planned = "Schema validation, policy tests and approval binding remain planned.";
-        String enforced = "Current enforcement covers preflight, dependency verification and acceptance-digest checks.";
+        String planned = "The PARTIAL lint and its warnings do not prove engine isolation. Static gaps include CR comment "
+                + "handling, reflective and Groovy launch APIs, implicit Gradle tasks, wrappers/aliases/mutations and "
+                + "indirect execution; trusted pin transitions, schema validation and approval binding remain open.";
+        String enforced = "Runtime CI guards enforce engine availability outside the reviewed harness window. Check 8 blocks "
+                + "recognized direct container-library use outside the harness, container CLI/socket access outside "
+                + "reviewed forms, Dockerfile/compose declarations, unpinned or unreviewed images and registered-file "
+                + "pin mismatches. Literal/data class names are not use; reflection, method handles and other launch "
+                + "APIs outside registered sites are non-blocking warnings under their own heading. Direct container "
+                + "findings stay blocking.";
         String allowlist = site.text("trust/allowlist.html");
         String trust = site.text("trust/index.html");
         String adr = site.text("decisions/0007-dependency-allowlist-and-pre-use-enforcement.html");
 
         for (String page : List.of(allowlist, trust)) {
             String status = page.substring(page.indexOf("status-grid"), page.indexOf("</dl>", page.indexOf("status-grid")));
-            assertThat(status).contains(planned, enforced, "Partly enforced").doesNotContain(">Shipped<");
+            assertThat(status).contains(planned, "Partly shipped", "Tooling tests passing",
+                    "ContainerEngineWorkflowTest", "These tests verify repository tooling, not shipping behaviour.")
+                    .doesNotContain(">Shipped<");
         }
         String adrStatus = adr.substring(adr.indexOf("status-grid"), adr.indexOf("</dl>", adr.indexOf("status-grid")));
         assertThat(adrStatus).contains("<a href=\"#implementation-status-2026-11-06\">" + planned + "</a>",
                 "<a href=\"#implementation-status-2026-11-06\">" + enforced + "</a>")
-                .doesNotContain("pull_request_target workflow on the pull request");
+                .contains("Partly enforced")
+                .doesNotContain(">Shipped<", "pull_request_target workflow on the pull request");
     }
 
     @Test
@@ -368,43 +430,44 @@ class SitePagesTest {
         String repository = site.text("start/repository.html");
 
         assertThat(repository).contains("<th>Implementation state</th>", "The planned v0.1 behaviour is: a shipping "
-                + "clerk", "<td>Planned for v0.1; no code yet</td>",
-                "<td>Minimal implementation planned for v0.1; no code yet</td>")
+                + "clerk", "<td>Minimal implementation planned for v0.1; no code yet</td>",
+                "<td>Built in part: booking from an offer, idempotent per tenant and key, without HTTP or a "
+                        + "database</td>",
+                "<td>Built in part: tariff, rating, quote creation and reading, and offer lookup, over HTTP in tests; "
+                        + "V2 schema exists, database execution evidence pending</td>",
+                "<td>Built in part: demo authentication over HTTP, <code>GET /api/v1/me</code> and the tenant bound "
+                        + "for each request; V1 schema exists, RLS execution evidence pending; database adapter and prototype flags planned"
+                        + "</td>")
                 .doesNotContain("<td>built</td>", "<td>built (minimal)</td>", "v0.1 target, not implemented");
     }
 
     @Test
     void theModelPagesQualifyTheCheckersEvidenceAndSayWhatItCovers() {
         // The count and what the tests do not prove stay in the ledger's line; the names are in the disclosure.
-        String evidence = "<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Checker tests "
-                + "passing</span> 2 evidence test classes passed in the build that generated this site. These tests "
-                + "verify the checker; the shipping modules remain planned.\n<details class=\"evidence-tests\"><summary>"
-                + "Evidence test classes (2)</summary><p>ConformanceDivergenceTest, ConformanceAbsenceTest</p></details>"
-                + "</dd>";
+        String evidence = "<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Conformance tests "
+                + "passing</span> 3 evidence test classes passed in the build that generated this site. These tests "
+                + "verify the checker and the built modules&#39; static dependencies against the model, not their "
+                + "behaviour.\n<details class=\"evidence-tests\"><summary>Evidence test classes (3)</summary><p>"
+                + "ConformanceDivergenceTest, ArchitectureConformanceTest, ConformanceAbsenceTest</p></details></dd>";
         for (String page : List.of("model/index.html", "model/system-context.html", "model/containers.html",
                 "model/api-components.html", "model/quote-book-label.html")) {
             assertThat(site.text(page)).as(page).contains(evidence).doesNotContain(">Passing</span>",
                     "It is not implemented yet", "The planned conformance check", "the planned check");
         }
-        // The flow page keeps its own evidence, never the checker's: the passing tests of its modules' capabilities.
-        List<String> modules = sources.doc("docs/flows/quote-book-label.md").orElseThrow().frontmatter()
-                .strings("modules");
-        List<String> passing = sources.capabilities().capabilities().stream().filter(c -> modules.contains(c.module()))
-                .flatMap(c -> c.evidence().stream()).filter(sources.evidence()::passed).distinct().toList();
-        String flow = site.text("model/flow-quote-book-label.html");
-        assertThat(flow).doesNotContain("Checker tests passing").contains(passing.isEmpty()
-                ? "<dt>Verified evidence</dt><dd><span class=\"badge badge-none\">None yet</span>"
-                : "<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> " + passing.size()
-                        + (passing.size() == 1 ? " evidence test class " : " evidence test classes "));
-        passing.forEach(test -> assertThat(flow).contains(test));
+        // The flow page keeps its own evidence: the quotes, shipments and tenants modules' tests that pass.
+        assertThat(site.text("model/flow-quote-book-label.html"))
+                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> 14 "
+                        + "evidence test classes passed")
+                .doesNotContain("Checker tests passing", "Conformance tests passing");
         String index = site.text("model/index.html");
         assertThat(index).contains("The checker in <code>libs/c4-contract-kit</code> is implemented and its own "
                 + "tests pass. It compares the direct static references in compiled classes with the model in both "
                 + "directions: a dependency between two modules that the model does not declare fails the check, and "
                 + "so does a REQUIRED relationship without any static reference; a PERMITTED relationship without one "
                 + "is reported as \"no static evidence\". It does not evaluate a relationship that touches a planned "
-                + "module. Every module of the API is planned and has no code yet, so these views are the accepted "
-                + "design, not verified structure.").doesNotContain("That check is planned", "is to compare");
+                + "module. Where a relationship touches a planned module, the views show the accepted design, not "
+                + "verified structure.").doesNotContain("That check is planned", "is to compare",
+                        "Every module of the API is planned");
     }
 
     @Test
@@ -422,7 +485,8 @@ class SitePagesTest {
             }
         });
         assertThat(targets).containsExactlyInAnyOrder("model/api-components.html", "model/containers.html",
-                "model/quote-book-label.html", "model/system-context.html");
+                "model/quote-book-label.html", "model/scenario-quote.html", "model/scenario-tenant-denial.html",
+                "model/system-context.html", "model/web-components.html");
     }
 
     @Test
@@ -431,8 +495,16 @@ class SitePagesTest {
                 .filter(c -> c.id().startsWith("control.c4-")).toList();
 
         assertThat(ModelPages.checkerEvidence(conformance, sources.evidence(), false))
-                .contains("passed in the build that generated this site. These tests verify the checker, not the "
-                        + "shipping modules.\n<details class=\"evidence-tests\">");
+                .contains("passed in the build that generated this site. These tests verify the checker and the built "
+                        + "modules&#39; static dependencies against the model, not their behaviour.\n<details "
+                        + "class=\"evidence-tests\">");
+        // Without the API's own check among them, the same tests verify the checker only.
+        TestEvidence checkerOnly = new TestEvidence(Set.of("ConformanceDivergenceTest", "ConformanceAbsenceTest"),
+                Map.of("ConformanceDivergenceTest", passed("ConformanceDivergenceTest"), "ConformanceAbsenceTest",
+                        passed("ConformanceAbsenceTest")));
+        assertThat(ModelPages.checkerEvidence(conformance, checkerOnly, false)).startsWith("<span class=\"badge "
+                + "badge-shipped\">Checker tests passing</span> ").contains("These tests verify the checker, not the "
+                + "shipping modules.");
         assertThat(ModelPages.checkerEvidence(conformance, new TestEvidence(Set.of(), Map.of()), true))
                 .contains(">None yet</span>");
     }
@@ -449,7 +521,7 @@ class SitePagesTest {
         }
         String flow = site.text("model/flow-quote-book-label.html");
         String flowRegion = "<div class=\"table-scroll table-wide-flow\" role=\"region\" tabindex=\"0\" aria-label=\"";
-        String steps = "Table 1 in Steps and planned acceptance tests, scrolls sideways";
+        String steps = "Table 1 in Steps and acceptance tests, scrolls sideways";
         assertThat(count(flow, flowRegion + steps + "\">\n" + hint)).isEqualTo(1);
         assertThat(count(flow, flowRegion + "Table 2 in Alternatives and failures, scrolls sideways\">\n" + hint))
                 .isEqualTo(1);
@@ -481,20 +553,101 @@ class SitePagesTest {
                         + "current head.</li>");
         assertThat(repository.indexOf("<li>An issue states the change.</li>"))
                 .isGreaterThan(repository.indexOf("Workflow source"));
-        assertThat(site.text("trust/third-party-notices.html")).contains("six diagram pages");
+        assertThat(site.text("trust/third-party-notices.html")).contains("ten diagram pages");
     }
 
-    /** Entries counted by status, as the overview words them: "1 capability partial and 2 capabilities planned". */
-    private static String counted(List<Capability> entries, String one, String many) {
-        List<String> parts = new ArrayList<>();
-        for (Capability.Status status : Capability.Status.values()) {
-            long count = entries.stream().filter(c -> c.status() == status).count();
-            if (count > 0) {
-                parts.add(count + " " + (count == 1 ? one : many) + " " + status.value());
-            }
+    @Test
+    void theModulesIndexSaysTheWebAppCallsTheApiThroughItsHandWrittenAdapter() {
+        // ADR 0012: the first runnable slice generates no client.
+        String row = "<tr><th scope=\"row\">Web app</th><td>a container, not an API module; partial web import lint "
+                + "compares detected imports with the model</td><td></td>"
+                + "<td>the API, through its hand-written typed HTTP adapter</td>";
+
+        assertThat(site.text("modules/index.html")).contains(row).doesNotContain("generated client");
+    }
+
+    @Test
+    void theFirstSliceRecordSupersedesFourRecordsAndThePagesCiteIt() {
+        String successor = "0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.html";
+        List<String> superseded = List.of("0003-modular-monolith-with-spring-modulith-and-hexagonal-modules",
+                "0004-contract-first-openapi-with-rfc-9457-problems",
+                "0005-postgresql-spring-data-jdbc-flyway-and-forced-rls",
+                "0009-react-workbench-with-a-generated-client");
+        String record = site.text("decisions/" + successor);
+
+        for (String old : superseded) {
+            String number = old.substring(0, 4);
+            assertThat(record).contains("Supersedes <a href=\"" + old + ".html\">ADR " + number + "</a>.");
+            assertThat(site.text("decisions/" + old + ".html")).as(old).contains("<span class=\"badge "
+                    + "badge-neutral\">Superseded</span> Superseded by <a href=\"" + successor + "\">ADR 0012</a>.");
         }
-        return parts.size() <= 1 ? String.join("", parts)
-                : String.join(", ", parts.subList(0, parts.size() - 1)) + " and " + parts.getLast();
+        // Scope the combined HTTP and web claims to the panel, not mentions in the record's body.
+        String panel = record.substring(record.indexOf("<section class=\"status-panel\""));
+        panel = panel.substring(0, panel.indexOf("</section>"));
+        assertThat(panel).contains("<span class=\"badge badge-shipped\">Passing</span> 7 evidence test classes passed "
+                + "in the build that generated this site. This verifies the structure of the built modules, their "
+                + "exercised HTTP responses and the web import gate on synthetic fixtures; persistence and runtime "
+                + "behaviour beyond those HTTP tests remain unverified, and no real web imports are checked yet.")
+                .doesNotContain(Statuses.TOOLING);
+        assertThat(panel).contains("<span class=\"badge badge-partial\">Partly enforced</span> Every response that "
+                + "the HTTP tests exercise", "on the application with test doubles for its database adapters.",
+                "Each rule fails its synthetic negative fixture, and WebArchitectureConformanceTest runs the check "
+                + "on apps/shipping-web in every build, where a file under src in no part or in a planned part fails "
+                + "it; e2e tests are scanned and need declared and approved imports.",
+                "The shipments operations (ShipmentsHttpContractTest)", "PostgreSQL-backed application remain.",
+                "All six web parts are planned, so no import of the web app is evaluated yet; the rules apply to "
+                + "its real imports once the parts are built.",
+                "RowLevelSecurityCatalogTest", "RowLevelSecurityIntegrationTest", "CrossTenantAccessTest",
+                "MigrationsIntegrationTest", "TableOwnershipTest", "web: type check and emit", "node --test",
+                "contract-e2e: Playwright and axe-core");
+        List<String> implemented = List.of("ModularityTest", "HexagonalLayeringTest", "ArchitectureConformanceTest",
+                "WebArchitectureConformanceTest", "QuotesHttpContractTest", "TenantsHttpContractTest",
+                "ProblemDetailsHttpContractTest");
+        String evidence = panel.substring(panel.indexOf("<details class=\"evidence-tests\""));
+        evidence = evidence.substring(0, evidence.indexOf("</details>"));
+        assertThat(evidence).contains("Evidence test classes (7)");
+        assertThat(evidence.substring(evidence.indexOf("<p>") + 3, evidence.indexOf("</p>")).split(", "))
+                .containsExactlyInAnyOrderElementsOf(implemented);
+        String confirmation = record.substring(record.indexOf("<h3 id=\"confirmation\">Confirmation</h3>"));
+        confirmation = confirmation.substring(0, confirmation.indexOf("<h2 id=\"more-information\""));
+        var adr = sources.docsUnder("docs/adr/").stream().filter(doc -> doc.path().contains("/0012-"))
+                .findFirst().orElseThrow();
+        for (String test : implemented) {
+            assertThat(confirmation).contains("<code>" + test + "</code>");
+            assertThat(adr.frontmatter().strings("enforcedBy"))
+                    .anySatisfy(entry -> assertThat(entry).contains(test));
+            assertThat(adr.frontmatter().strings("plannedEnforcement"))
+                    .noneSatisfy(entry -> assertThat(entry).contains(test));
+        }
+        assertThat(site.text("api/index.html")).contains("The contract is the authority for the HTTP interface "
+                + "(ADR 0012).", "Contract-first (ADR 0012): OpenAPI 3.1.2").doesNotContain("ADR 0004");
+        assertThat(site.text("modules/index.html")).contains("<a href=\"../decisions/" + successor + "\">ADR 0012: "
+                + "First runnable slice with a plain TypeScript workbench and Spring JDBC</a>")
+                .doesNotContain("0003-modular");
+    }
+
+    @Test
+    void theWebGateIsImplementedPartialLintWhileAuthoritativeControlsStayPlanned() {
+        var adr = sources.docsUnder("docs/adr/").stream().filter(doc -> doc.path().contains("/0012-"))
+                .findFirst().orElseThrow();
+
+        assertThat(adr.frontmatter().strings("enforcedBy")).anySatisfy(entry -> assertThat(entry)
+                .contains("WebArchitectureConformanceTest", "partial JDK lint", "all six parts planned",
+                        "evaluates no import yet"));
+        assertThat(adr.frontmatter().strings("plannedEnforcement"))
+                .noneSatisfy(entry -> assertThat(entry).contains("WebArchitectureConformanceTest"));
+        assertThat(adr.frontmatter().strings("plannedEnforcement"))
+                .anySatisfy(entry -> assertThat(entry).contains("tsc import graph", "web app pull request"))
+                .anySatisfy(entry -> assertThat(entry).contains("strict Content-Security-Policy",
+                        "enforced by the browser", "web app pull request"));
+        assertThat(adr.body()).contains("- `java`: `WebArchitectureConformanceTest`")
+                .doesNotContain("Planned, `java`: `WebArchitectureConformanceTest`");
+        assertThat(adr.body()).contains("pull request #72", "labelled partial", "`import(\"unlisted\")`",
+                "`import(name)`", "`require(\"unlisted\")`", "`import.meta.glob(\"./*.ts\")`",
+                "object, array, call and nested-template spreads");
+        assertThat(sources.capabilities().documentedIn(adr.path()))
+                .filteredOn(capability -> capability.id().equals("control.web-import-boundaries"))
+                .extracting(Capability::status).containsExactly(Capability.Status.PARTIAL);
     }
 
     private static int count(String text, String part) {
@@ -503,5 +656,22 @@ class SitePagesTest {
             count++;
         }
         return count;
+    }
+
+    /** The brain's count of entries by status, as its overview words it: "2 capabilities shipped and 3 planned". */
+    private static String counted(List<Capability> entries, String one, String many) {
+        List<String> parts = new ArrayList<>();
+        for (Capability.Status status : Capability.Status.values()) {
+            long count = entries.stream().filter(c -> c.status() == status).count();
+            if (count > 0) {
+                parts.add(count + " " + (count == 1 ? one : many) + " " + status.value());
+            }
+        }
+        return parts.size() == 1 ? parts.getFirst()
+                : String.join(", ", parts.subList(0, parts.size() - 1)) + " and " + parts.getLast();
+    }
+
+    private static TestEvidence.Result passed(String test) {
+        return new TestEvidence.Result("fx." + test, 1, 0, 0, 0);
     }
 }

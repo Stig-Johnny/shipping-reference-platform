@@ -22,6 +22,7 @@ import org.flywaydb.core.api.output.MigrateResult;
 import org.flywaydb.core.api.output.ValidateResult;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.io.TempDir;
  * control.migrations (ADR 0005): the migrations apply cleanly to an empty database as the owner role, Flyway refuses an
  * applied migration that was edited afterwards, and the runtime role cannot run DDL.
  */
+@Tag("database")
 class MigrationsIntegrationTest {
 
     /** The migrations this commit ships, by version and description: a missing or an extra one fails. */

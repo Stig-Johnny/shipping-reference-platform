@@ -12,6 +12,7 @@ import java.util.Objects;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.Test;
  * with a fixed search path, for the runtime role only. The inventories below are explicit, so that a new table that
  * nobody classified fails here.
  */
+@Tag("database")
 class RowLevelSecurityCatalogTest {
 
     private static final List<String> TENANT_TABLES = List.of("quotes.quote", "quotes.quote_offer",

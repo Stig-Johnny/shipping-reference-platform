@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# The engine of tools/ci/container-engine-test.sh, never a real one: it answers the queries that
+# tools/ci/container-engine.sh makes with fixed text, and fails the query whose text contains FAKE_FAIL. Its state, what
+# was pulled and swept, is files in FAKE_STATE.
+args="$*"
+if [[ -n "${FAKE_FAIL:-}" && "$args" == *"$FAKE_FAIL"* ]]; then
+  echo "fake engine: failing $args" >&2
+  exit 42
+fi
+digest="sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583"
+case "$args" in
+  "image ls --all --digests --no-trunc --format "*)
+    echo "sha256:0000000000000000000000000000000000000000000000000000000000000001 ghcr.io/example/tool latest sha256:1111"
+    if [[ -e "$FAKE_STATE/pulled" ]]; then echo "sha256:8bca postgres <none> $digest"; fi
+    if [[ -n "${FAKE_EXTRA_IMAGE:-}" ]]; then echo "$FAKE_EXTRA_IMAGE"; fi
+    ;;
+  "pull --quiet postgres@$digest") touch "$FAKE_STATE/pulled"; echo "docker.io/library/postgres@$digest" ;;
+  "image inspect --format {{json .RepoDigests}} postgres@$digest") echo "[\"postgres@$digest\"]" ;;
+  "image inspect --format {{.Os}}/{{.Architecture}} postgres@$digest") echo "linux/amd64" ;;
+  "image inspect --format {{.Id}} postgres@$digest") echo "sha256:8bca" ;;
+  "events --since "*) printf '%s\n' "${FAKE_EVENTS-container create 1a2b postgres@$digest}" ;;
+  "ps -aq --filter label=org.testcontainers=true") if [[ -n "${FAKE_LEFTOVER:-}" && ! -e "$FAKE_STATE/swept" ]]; then echo "$FAKE_LEFTOVER"; fi ;;
+  "rm -f -v "*) touch "$FAKE_STATE/swept" ;;
+  "network ls -q --filter label=org.testcontainers=true") ;;
+  "network rm "*) ;;
+  *) echo "fake engine: unexpected query: $args" >&2; exit 99 ;;
+esac

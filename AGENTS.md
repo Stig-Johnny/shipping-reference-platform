@@ -4,7 +4,7 @@ This file applies to the whole repository. Scoped files add rules for their dire
 stricter: `apps/shipping-api/AGENTS.md`, `apps/shipping-web/AGENTS.md`, `libs/c4-contract-kit/AGENTS.md`,
 `security/AGENTS.md`. Changing any `AGENTS.md` is a risk level 3 change.
 
-The repository is a public reference monorepo: a Java modular monolith and a React workbench for webshop parcel
+The repository is a public reference monorepo: a Java modular monolith and a TypeScript workbench for webshop parcel
 shipping, built model first and documentation first, with synthetic data only. The controls are the product as much
 as the code. An agent that makes a check pass by weakening it has failed the task.
 
@@ -23,8 +23,8 @@ as the code. An agent that makes a check pass by weakening it has failed the tas
 2. **Model first.** If the change adds, removes or redirects a dependency between modules, or changes a module's
    status, change `architecture/workspace.dsl` first, in the same pull request. Never add a relationship, widen a
    package mapping or switch `REQUIRED` to `PERMITTED` just to make a failing check pass; stop and report instead.
-3. **Contract first.** If the change touches the HTTP interface, change `contracts/shipping.openapi.yaml` first and
-   regenerate the client.
+3. **Contract first.** If the change touches the HTTP interface, change `contracts/shipping.openapi.yaml` first. No
+   client is generated in the first runnable slice; the web app's hand-written types follow the contract (ADR 0012).
 4. **Tests first.** Write the failing test, run it, keep the failing output, then make it pass. Behaviour changes
    need acceptance criteria in domain language and this red-green evidence in the pull request body. Test class
    names in `docs/capabilities/capabilities.yaml` are binding: use exactly those names.
@@ -76,6 +76,11 @@ Unknown paths are level 3. Details: `docs/risk-levels.md`, `policy/risk.json`.
 - Install npm packages only with `npm ci --ignore-scripts`. Never run `npm install`, `npx <package>` or a package's
   scripts unless the allowlist entry's conditions name that command.
 - Never use remote `!include`, scripts or plugins in DSL files, or remote Gradle scripts.
+- CI JDK staging uses bounded retries and verifies the pinned size and SHA-256 before use. The mirror base URL in
+  `tools/ci/stage-temurin.sh` stays empty until a source-review amendment and renewed owner acceptance permit it.
+  Never introduce runtime URL/hash overrides or fall back after an integrity failure. Preserve the first-use
+  signature evidence. Gradle keeps its reviewed official URL/checksum and empty CI home; its wrapper retries are
+  transport settings, not permission to change the source. Run `bash tools/ci/stage-temurin-test.sh` for staging edits.
 - Never run pull request code in a `pull_request_target` workflow: such a workflow runs in the base repository's
   context, which can expose secrets and a write-capable token. It may check out the pull request only as data,
   into a directory of its own and without persisted credentials, for the base branch's tools to read; nothing from
@@ -114,8 +119,11 @@ The commands that exist today. The others arrive with their code; until then, sa
 | Purpose | Command |
 |---|---|
 | Dependency allowlist (the JDK alone) | `java tools/policy/PolicyCheck.java .` |
-| All Java checks | `./gradlew check` |
-| Web checks | not built yet |
+| CI JDK download fixtures (no network) | `bash tools/ci/stage-temurin-test.sh` |
+| All Java checks (the reviewed JDK alone) | `./gradlew check` |
+| Database tests (mandatory in Java CI and Pages testing; they fail without the reviewed container engine, never skip) | `./gradlew :apps:shipping-api:databaseTest` |
+| Web import check (the JDK alone, part of `./gradlew check`) | `./gradlew :libs:c4-contract-kit:test --tests '*WebArchitectureConformanceTest'` |
+| Web type check and tests | not built yet |
 | Contract and end-to-end tests | not built yet |
 | Mutation tests (CI only: the `mutation` job; never run `pitest` on a machine whose firewall lets inbound connections reach `java`) | `./gradlew :libs:c4-contract-kit:pitest` |
 | Brain and docs check; regenerate them | `./gradlew :tools:docs:check`; `./gradlew :tools:docs:generate` |

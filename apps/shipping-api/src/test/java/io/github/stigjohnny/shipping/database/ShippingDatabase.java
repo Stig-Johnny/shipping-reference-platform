@@ -11,7 +11,7 @@ import org.flywaydb.core.Flyway;
 
 /**
  * One database of a {@link DatabaseServer}, bootstrapped with postgres/init-roles.sql, with a connection for each of
- * its three logins and Flyway configured as ADR 0005 and ADR 0012 say: the owner role applies classpath:db/migration
+ * its three logins and Flyway configured as ADR 0012 and ADR 0016 say: the owner role applies classpath:db/migration
  * and Flyway keeps its history in a schema of its own, flyway, which no migration touches.
  */
 final class ShippingDatabase {
@@ -91,7 +91,7 @@ final class ShippingDatabase {
     }
 
     /**
-     * Reverts the latest applied migration, as ADR 0012 prescribes: its down script and the deletion of its row in
+     * Reverts the latest applied migration, as ADR 0016 prescribes: its down script and the deletion of its row in
      * Flyway's history, in one transaction of the owner role.
      */
     void revert(Migration migration) throws SQLException {

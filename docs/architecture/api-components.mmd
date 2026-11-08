@@ -8,46 +8,46 @@ flowchart LR
     style 4 fill:#64748b,stroke:#475569,color:#ffffff
     subgraph 5 ["Shipping reference platform"]
         style 5 fill:#ffffff,stroke:#475569,color:#475569
-        subgraph 7 ["API"]
-            style 7 fill:#ffffff,stroke:#64748b,color:#64748b
-            10["Tenants [Component] (planned)"]
-            style 10 fill:#f1f5f9,stroke:#64748b,color:#334155
-            11["Audit [Component] (planned)"]
-            style 11 fill:#f1f5f9,stroke:#64748b,color:#334155
-            12["Orders [Component] (planned)"]
-            style 12 fill:#f1f5f9,stroke:#64748b,color:#334155
-            13["Tracking [Component] (planned)"]
-            style 13 fill:#f1f5f9,stroke:#64748b,color:#334155
-            14["Returns [Component] (planned)"]
-            style 14 fill:#f1f5f9,stroke:#64748b,color:#334155
-            8["Quotes [Component] (planned)"]
-            style 8 fill:#f1f5f9,stroke:#64748b,color:#334155
-            9["Shipments [Component] (planned)"]
-            style 9 fill:#f1f5f9,stroke:#64748b,color:#334155
+        subgraph 13 ["API"]
+            style 13 fill:#ffffff,stroke:#475569,color:#475569
+            14["Quotes [Component] (built)"]
+            style 14 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            15["Shipments [Component] (built)"]
+            style 15 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            16["Tenants [Component] (built)"]
+            style 16 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            17["Audit [Component] (planned)"]
+            style 17 fill:#f1f5f9,stroke:#64748b,color:#334155
+            18["Orders [Component] (planned)"]
+            style 18 fill:#f1f5f9,stroke:#64748b,color:#334155
+            19["Tracking [Component] (planned)"]
+            style 19 fill:#f1f5f9,stroke:#64748b,color:#334155
+            20["Returns [Component] (planned)"]
+            style 20 fill:#f1f5f9,stroke:#64748b,color:#334155
         end
-        15[("Database [Container]")]
-        style 15 fill:#115e59,stroke:#475569,color:#ffffff
+        21[("Database [Container]")]
+        style 21 fill:#115e59,stroke:#475569,color:#ffffff
         6["Web app [Container] (planned)"]
         style 6 fill:#f1f5f9,stroke:#64748b,color:#334155
     end
-    6 -->|"1"| 10
-    6 -->|"2"| 8
-    6 -->|"3"| 9
-    3 -.->|"4 — planned"| 12
-    8 -->|"5"| 15
-    9 -->|"6"| 15
-    10 -->|"7"| 15
-    11 -->|"8"| 15
-    8 -->|"9"| 4
-    9 -->|"10"| 4
-    13 -.->|"11 — planned"| 4
-    8 ==>|"12 REQUIRED"| 10
-    9 ==>|"13 REQUIRED"| 10
-    9 ==>|"14 REQUIRED"| 8
-    11 ==>|"15 REQUIRED"| 9
-    11 ==>|"16 REQUIRED"| 10
-    11 -.->|"17 PERMITTED"| 8
-    12 -.->|"18 PERMITTED — planned"| 8
-    12 -.->|"19 PERMITTED — planned"| 9
-    13 -.->|"20 PERMITTED — planned"| 9
-    14 -.->|"21 PERMITTED — planned"| 9
+    6 -->|"1"| 16
+    6 -->|"2"| 14
+    6 -->|"3"| 15
+    3 -.->|"4 — planned"| 18
+    14 -->|"5"| 21
+    15 -->|"6"| 21
+    16 -->|"7"| 21
+    17 -->|"8"| 21
+    14 -->|"9"| 4
+    15 -->|"10"| 4
+    19 -.->|"11 — planned"| 4
+    14 ==>|"12 REQUIRED"| 16
+    15 ==>|"13 REQUIRED"| 16
+    15 ==>|"14 REQUIRED"| 14
+    17 ==>|"15 REQUIRED"| 15
+    17 ==>|"16 REQUIRED"| 16
+    17 -.->|"17 PERMITTED"| 14
+    18 -.->|"18 PERMITTED — planned"| 14
+    18 -.->|"19 PERMITTED — planned"| 15
+    19 -.->|"20 PERMITTED — planned"| 15
+    20 -.->|"21 PERMITTED — planned"| 15

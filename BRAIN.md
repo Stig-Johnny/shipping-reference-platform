@@ -2,7 +2,7 @@
 title: "Brain: shipping-reference-platform"
 description: "The generated entry point for agents: what the repository is, what is built and what is only planned, and where each module, decision, control and limit is written down."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 > Generated—do not hand-edit. Sources: `README.md`, `architecture/workspace.dsl`, `docs/`, `contracts/`, `policy/risk.json` and `security/allowlist.json`.
@@ -10,9 +10,9 @@ updated: 2026-11-07
 
 # Brain: shipping-reference-platform
 
-A reference monorepo that shows how a Java and React product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. Application code is not written yet, apart from the database migrations of two modules. What exists is the tooling that will judge it: a checker that holds compiled Java classes to the C4 model in both directions, a dependency allowlist check and a documentation tool.
+A reference monorepo that shows how a Java and TypeScript product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. The application's first code exists: the API's pricing and quotes and its demo authentication, served over HTTP in tests, and booking in its shipments module, without HTTP yet. The tenants and quotes schemas have paired migrations; application persistence and most of the application are still planned. The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions, a labelled partial check of detected TypeScript imports in the web app, a dependency allowlist check and a documentation tool.
 
-**State at this commit.** 27 capabilities: 1 partial, 26 planned; 17 controls: 7 shipped, 2 partial, 8 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
+**State at this commit.** 27 capabilities: 2 shipped, 7 partial, 18 planned; 19 controls: 10 shipped, 6 partial, 3 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
 
 ## Read first
 
@@ -27,15 +27,15 @@ From `architecture/workspace.dsl`. Arrows in the model point from the module who
 
 | Module | Status | Risk | Depends on | Brain | Specification |
 |---|---|---|---|---|---|
-| `quotes` | planned | 3 | tenants (REQUIRED) | [quotes](docs/brain/quotes.md) | [docs/modules/quotes.md](docs/modules/quotes.md) |
-| `shipments` | planned | 3 | tenants (REQUIRED), quotes (REQUIRED) | [shipments](docs/brain/shipments.md) | [docs/modules/shipments.md](docs/modules/shipments.md) |
-| `tenants` | planned | 3 | nothing | [tenants](docs/brain/tenants.md) | [docs/modules/tenants.md](docs/modules/tenants.md) |
+| `quotes` | built | 3 | tenants (REQUIRED) | [quotes](docs/brain/quotes.md) | [docs/modules/quotes.md](docs/modules/quotes.md) |
+| `shipments` | built | 3 | tenants (REQUIRED), quotes (REQUIRED) | [shipments](docs/brain/shipments.md) | [docs/modules/shipments.md](docs/modules/shipments.md) |
+| `tenants` | built | 3 | nothing | [tenants](docs/brain/tenants.md) | [docs/modules/tenants.md](docs/modules/tenants.md) |
 | `audit` | planned | 2 | shipments (REQUIRED), tenants (REQUIRED), quotes (PERMITTED) | [audit](docs/brain/audit.md) | [docs/modules/audit.md](docs/modules/audit.md) |
 | `orders` | planned | 3 | quotes (PERMITTED, planned), shipments (PERMITTED, planned) | [orders](docs/brain/orders.md) | [docs/modules/orders.md](docs/modules/orders.md) |
 | `tracking` | planned | 3 | shipments (PERMITTED, planned) | [tracking](docs/brain/tracking.md) | [docs/modules/tracking.md](docs/modules/tracking.md) |
 | `returns` | planned | 3 | shipments (PERMITTED, planned) | [returns](docs/brain/returns.md) | [docs/modules/returns.md](docs/modules/returns.md) |
 
-The web app is a container, not a checked module: 4 capabilities, specified in [docs/ui/workbench.md](docs/ui/workbench.md).
+The web app is a container, not an API module: 4 capabilities, specified in [docs/ui/workbench.md](docs/ui/workbench.md). Its 6 parts are in the model (6 planned), and the partial web import check compares only detected TypeScript imports with them (ADR 0015).
 
 ## Controls
 
@@ -43,19 +43,21 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 
 | Control | Status | Check | Evidence |
 |---|---|---|---|
-| `control.c4-divergence` | partial | `java` | ConformanceDivergenceTest |
-| `control.c4-absence` | partial | `java` | ConformanceAbsenceTest |
+| `control.c4-divergence` | shipped | `java` | ConformanceDivergenceTest, ArchitectureConformanceTest |
+| `control.c4-absence` | shipped | `java` | ConformanceAbsenceTest, ArchitectureConformanceTest |
 | `control.no-static-evidence-report` | shipped | `java` | ReportNoStaticEvidenceTest |
 | `control.model-validation` | shipped | `java` | RestrictedDslParserTest, MappingValidationTest |
 | `control.bytecode-evidence` | shipped | `java` | BytecodeEvidenceTest |
 | `control.deterministic-reports` | shipped | `java` | ReportDeterminismTest, ConformanceAssertionsTest, SelfConformanceTest |
-| `control.modulith-verification` | planned | `java` | none yet |
-| `control.hexagonal-layering` | planned | `java` | none yet |
+| `control.modulith-verification` | shipped | `java` | ModularityTest |
+| `control.hexagonal-layering` | shipped | `java` | HexagonalLayeringTest |
+| `control.scenario-conformance` | partial | `java` | QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, ReachabilityTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest, CoverageLedgerTest |
+| `control.external-imports` | partial | `java` | ExternalImportPolicyTest |
 | `control.table-ownership` | planned | `java` | none yet |
-| `control.migrations` | shipped | `java` | MigrationsIntegrationTest, MigrationRoundTripTest |
-| `control.http-contract` | planned | `java` | none yet |
-| `control.web-import-boundaries` | planned | `web` | none yet |
-| `control.dependency-allowlist` | planned | `preflight` | none yet |
+| `control.migrations` | partial | `java` | MigrationFilesTest |
+| `control.http-contract` | partial | `java` | QuotesHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest |
+| `control.web-import-boundaries` | partial | `java` | ImportScannerTest, SourceReaderTest, JsonTest, AppConfigurationTest, WebModelValidationTest, WebConformanceTest, WebReportDeterminismTest, WebArchitectureConformanceTest |
+| `control.dependency-allowlist` | partial | `java` | ContainerEngineWorkflowTest |
 | `control.risk-classification` | planned | `risk-approval` | none yet |
 | `control.mutation-testing` | planned | `mutation` | none yet |
 | `control.brain-check` | shipped | `java` | BrainGeneratorTest, BrainCheckTest |
@@ -67,20 +69,24 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 |---|---|---|
 | [ADR 0001: Record architecture decisions as MADR files](docs/adr/0001-record-architecture-decisions.md) | accepted | java |
 | [ADR 0002: Diagrams first: the C4 model is the structural authority](docs/adr/0002-c4-model-is-the-structural-authority.md) | accepted | java |
-| [ADR 0003: Modular monolith with Spring Modulith and hexagonal modules](docs/adr/0003-modular-monolith-with-spring-modulith-and-hexagonal-modules.md) | accepted | not enforced yet |
-| [ADR 0004: Contract-first OpenAPI 3.1.2 with RFC 9457 problem details](docs/adr/0004-contract-first-openapi-with-rfc-9457-problems.md) | accepted | not enforced yet |
-| [ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security](docs/adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md) | accepted | java |
+| [ADR 0003: Modular monolith with Spring Modulith and hexagonal modules](docs/adr/0003-modular-monolith-with-spring-modulith-and-hexagonal-modules.md) | superseded by ADR 0012 | java |
+| [ADR 0004: Contract-first OpenAPI 3.1.2 with RFC 9457 problem details](docs/adr/0004-contract-first-openapi-with-rfc-9457-problems.md) | superseded by ADR 0012 | not enforced yet |
+| [ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security](docs/adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md) | superseded by ADR 0012 | not enforced yet |
 | [ADR 0006: Module events through the publication registry, with idempotent consumers](docs/adr/0006-module-events-through-the-publication-registry.md) | accepted | not enforced yet |
-| [ADR 0007: Dependency allowlist with pre-use enforcement](docs/adr/0007-dependency-allowlist-and-pre-use-enforcement.md) | accepted | preflight (required check), java (required check), tools/ci/stage-temurin.sh, GitHub Actions setting, acceptance |
+| [ADR 0007: Dependency allowlist with pre-use enforcement](docs/adr/0007-dependency-allowlist-and-pre-use-enforcement.md) | accepted | preflight (required check), java (required check), tools/ci/stage-temurin.sh, GitHub Actions setting, acceptance, preflight and java (required checks), workflow runtime guards, tools/ci/container-engine.sh |
 | [ADR 0008: Risk levels 0 to 3 decide who must approve a change](docs/adr/0008-risk-levels-0-to-3.md) | accepted | branch protection on main, GitHub Actions setting |
-| [ADR 0009: React workbench with a generated API client](docs/adr/0009-react-workbench-with-a-generated-client.md) | accepted | not enforced yet |
+| [ADR 0009: React workbench with a generated API client](docs/adr/0009-react-workbench-with-a-generated-client.md) | superseded by ADR 0012 | not enforced yet |
 | [ADR 0010: Documentation as code with a generated brain](docs/adr/0010-documentation-as-code-with-a-generated-brain.md) | superseded by ADR 0011 | not enforced yet |
 | [ADR 0011: A Java documentation tool, a static site and a scanned publication](docs/adr/0011-java-documentation-tool-and-publication.md) | accepted | java, pages |
-| [ADR 0012: Every migration has a down script, proven in CI; production rolls forward](docs/adr/0012-down-scripts-proven-in-ci-production-rolls-forward.md) | accepted | java |
+| [ADR 0012: First runnable slice with a plain TypeScript workbench and Spring JDBC](docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md) | accepted | java |
+| [ADR 0013: Scenario views are checked against recorded interactions](docs/adr/0013-scenario-views-are-checked-against-recorded-interactions.md) | accepted | java |
+| [ADR 0014: Partial web import lint and planned authoritative controls](docs/adr/0014-partial-web-import-lint-and-authoritative-controls.md) | accepted | not enforced yet |
+| [ADR 0015: Partial web import lint and planned authoritative controls](docs/adr/0015-partial-web-import-lint-and-authoritative-controls.md) | accepted | not enforced yet |
+| [ADR 0016: Every migration has a down script, proven in CI; production rolls forward](docs/adr/0016-down-scripts-proven-in-ci-production-rolls-forward.md) | accepted | java |
 
 ## Third-party components
 
-308 entries in `security/allowlist.json` (293 approved, 15 rejected), each with its review record in `security/reviews/`. The owner accepted this reviewed set for pull request #10: `reviewedSetSha256 8c90c58c8ad9eabca89fd577a3bb3d3b74807f60b2f93ac19ed4f0f8f6dde857`. How it works and what it cannot stop: [security/README.md](security/README.md).
+519 entries in `security/allowlist.json` (504 approved, 15 rejected), each with its review record in `security/reviews/`. The owner accepted this reviewed set for pull request #54: `reviewedSetSha256 03d8223632a17e66bf31d5b2d0c0bdbc7d5f3837a7f3a032080343bb46517e8d`. How it works and what it cannot stop: [security/README.md](security/README.md).
 
 ## Flows
 

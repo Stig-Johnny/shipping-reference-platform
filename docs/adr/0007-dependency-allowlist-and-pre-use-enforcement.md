@@ -2,7 +2,7 @@
 title: "ADR 0007: Dependency allowlist with pre-use enforcement"
 description: "Every third-party component is reviewed and listed in security/allowlist.json before any build can download or run it; a base-branch preflight enforces this."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
@@ -11,6 +11,9 @@ enforcedBy:
   - "tools/ci/stage-temurin.sh: SHA-256 check of the reviewed JDK archive before actions/setup-java installs it"
   - "GitHub Actions setting: selected actions only, SHA pinning required, six allowed patterns"
   - "acceptance: PolicyCheck recomputes acceptance.reviewedSetSha256 on every run"
+  - "preflight and java (required checks): check 8 is a PARTIAL static lint: recognized direct container use and pin mismatches block; unregistered launch capabilities warn; runtime guards enforce engine access"
+  - "workflow runtime guards: stop and mask the engine, remove its socket and prove it unreachable before checkout and after the reviewed database harness window"
+  - "tools/ci/container-engine.sh: the runner review's conditions around the database tests in java and pages, with the test harness's own checks"
 plannedEnforcement:
   - "allowlist schema: security/allowlist.schema.json with the fields named in the decision"
   - "web: npm ci --ignore-scripts against the single root lockfile"
@@ -106,8 +109,8 @@ What is built, and where it differs from the decision above. The decision stands
 - **The allowlist fields.** `security/allowlist.json` has `schemaVersion` 1 and entries with `kind`, `coordinate`,
   `version`, `artifact`, `sha256`, `project`, `configuration`, `verdict`, `conditions`, `reviewRecord`, `reviewer`,
   `reviewedAt` and `expiresAt`, plus `alsoReviewedIn` on some entries. Kinds in use: `maven`, `gradle-distribution`,
-  `jdk`, `github-action`, `container-image`, `homebrew`, `npm`, `vendored-js`, `browser-binary`, `runtime` and
-  `runner-image`. Verdicts: `APPROVE`, `APPROVE-WITH-CONDITIONS`, `REJECT`. There is no
+  `jdk`, `github-action`, `container-image`, `homebrew`, `npm`, `vendored-js`, `browser-binary`, `runtime`,
+  `runner-image` and `bundled` (third-party code inside another reviewed artifact, which no lockfile entry can match). Verdicts: `APPROVE`, `APPROVE-WITH-CONDITIONS`, `REJECT`. There is no
   `security/allowlist.schema.json`, and the names `ecosystem`, `sourceHost`, `purpose`, `licence`, `reviewRef` and
   `decision` are not used. `project` and `configuration` record the scope; the checker does not enforce it.
 - **The checker is one file, with JDK-only regression tests.** `tools/policy/PolicyCheck.java` runs with the JDK's
@@ -135,6 +138,13 @@ What is built, and where it differs from the decision above. The decision stands
   `java base/tools/policy/PolicyCheck.java pr`. Nothing from `pr/` is executed. The JDK comes from the base branch's
   `tools/ci/stage-temurin.sh`, which checks its SHA-256. Pull requests from forks fail the job. Exit 1 (findings)
   and exit 2 (could not complete) fail it too.
+- **Bootstrap transport (2026-11-08).** JDK staging uses two bounded official HTTPS attempts, verifies the reviewed
+  size and SHA-256 before publishing its output, and fails immediately on wrong bytes. A mirror-first path exists
+  with an empty committed base URL; enabling a source requires amended reviews and renewed acceptance. URLs and
+  expected identities cannot be overridden at runtime. Gradle retains the reviewed official wrapper URL/checksum
+  and empty CI home, with a 60-second network timeout, three retries and initial one-second backoff. First-use
+  signature evidence is unchanged. Repeated offline signatures and a staged Gradle launcher remain later work.
+  Local download fixtures run in `java` after base policy validation, never under `pull_request_target`.
 - **An acceptance digest, not an approval bound to a head SHA.** The owner's acceptance is recorded in
   `security/allowlist.json` as `acceptance.reviewedSetSha256`: a SHA-256 over every entry in canonical JSON and every
   review record's bytes. The checker recomputes it on every run, so an entry or review that changes after acceptance
@@ -142,6 +152,41 @@ What is built, and where it differs from the decision above. The decision stands
   a human accepted it: the owner and the AI agents use the same GitHub account, and the agent that records the
   acceptance also computes the digest. The record quotes the owner's words and their timestamp from the chat
   transcript. Nothing binds an approval to a head SHA.
+- **Container declarations: PARTIAL static lint (check 8).** Under the owner's 2026-11-08 decision at about
+  19:35 UTC, the blocking subset remains recognized direct container use: Testcontainers/docker-java imports and
+  code references outside `ReviewedPostgres`, container CLI commands outside the reviewed forms, direct engine
+  socket access (including a Docker socket path passed to a source launcher), Dockerfile/compose declarations and
+  images without an approved digest. Registered launch-site whole-file hash mismatches also remain findings.
+  Findings exit 1. Class names appearing only in string literals, text blocks, comments or resource data are not
+  use; whitelist data and its tests may name those classes. Kotlin template expressions are code, not inert text.
+  Recognized reflection, method handles, ProcessBuilder/Runtime and other launch-capable APIs outside registered
+  sites are listed under `Warnings (check 8, non-blocking)` and never fail the run. Direct container checks still
+  run independently: a source can have both a capability warning and a blocking container finding. A clean check 8
+  does not establish that code cannot reach an engine; the runtime guard below enforces engine availability.
+- **Runtime engine access is the enforcing control (owner decision, 2026-11-08).** Every job's first step, before
+  checkout or any action, stops `docker.service` and `docker.socket`, masks both units for the runner's lifetime and
+  removes `/var/run/docker.sock`. Any failure stops the job. The same step requires `docker info` to fail and a
+  direct Unix-socket connection with `nc` to fail; success of either refuses the job. Missing probe tools, timeouts
+  and unexpected probe exit codes fail too. Inline guards need no candidate checkout or additional action.
+
+  Only `java` and Pages `test` open a reviewed harness window: compile test classes with the engine off, unmask in
+  the preparation step, then prepare, stage the reviewed image, run only `:apps:shipping-api:databaseTest`, and verify
+  and sweep the engine. An `always()` step immediately afterwards stops, masks, unlinks and probes again, including
+  after harness failure or cancellation. Later checks, report uploads and the Pages handover require successful
+  shutdown. Ordinary tests and documentation run after shutdown with `-PdatabaseEvidence=true -x databaseTest`:
+  the database task has already run in this job, and its passing, unskipped reports remain required. `preflight`,
+  `mutation`, Pages `build` and `deploy` never open a window. No dependency or Action pin changes.
+
+  `tools/ci/engine-guard-test.sh` runs the actual inline blocks with fake commands in the Java CI job. Reachable
+  CLI/socket fixtures and stop/mask/unlink/probe failures, including a timeout, must fail, while the stopped fixture
+  passes. The regression checks call order and immediate termination after a failed operation. No real engine
+  is used by this regression. `ContainerEngineWorkflowTest` checks ordering and the window, and `PagesWorkflowTest`
+  retains the publication separation and evidence-handover checks. Hosted service behaviour still needs a CI run.
+
+  This enforces the workflow's engine availability windows. It is not a hostile-code sandbox: a privileged process
+  on a hosted runner could unmask/restart the daemon, install another engine or contact a remote endpoint. Arbitrary
+  Gradle configuration still runs within the database invocation. The harness validates its own PostgreSQL container;
+  `container-engine.sh` audits images/events afterwards, not every other container's privileges or configuration.
 - **No base-dispatched verification workflow.** `preflight` dispatches nothing, and no trusted job publishes check
   results. `java` is an ordinary `pull_request` workflow. It checks out the base branch next to the candidate, stages
   the JDK with the base branch's script and runs the base branch's checker on the candidate before any candidate code
@@ -153,7 +198,99 @@ What is built, and where it differs from the decision above. The decision stands
   for them, so their pull requests have the same author as the owner's.
 - **Repository settings.** The Actions setting is applied: selected actions only, SHA pinning required, six allowed
   patterns and no GitHub-owned or verified wildcard. `preflight` and `java` are required status checks on `main`.
-- **npm.** No `package.json`, `package-lock.json` or `web` job exists yet, so the npm rules have nothing to apply to.
+- **Reviewed web command forms (check 8, PARTIAL static lint).** Interpreter refusal remains the default. One predicate checks the literal
+  executable, every argument, the working directory and the effective reviewed entries. It requires the accepted
+  reviewed-set digest, approved and unexpired entries with existing review files, Node 26.13.0 and its bundled npm
+  11.20.0 for the same platform, and the command conditions. Workflows require the Linux CI pair; scripts and source
+  launches can also use the local macOS pair under its review conditions. TypeScript needs its separate 5.9.3 review
+  for `apps/shipping-web`. This does not attest which executable is installed: archive verification, version assertions
+  and the other toolchain conditions still apply before use.
+
+  The exact command forms and their working directories are listed [below](#reviewed-web-command-forms).
+
+  The same predicate applies to workflow run steps, shell scripts and recognized command vectors inside registered
+  Java/Kotlin launch sites: `ProcessBuilder`, `Runtime.exec` and Gradle `commandLine`/`setCommandLine`. A matching
+  command in an unregistered source file still produces a capability warning. Inside registered sites, complete
+  literal vectors are read; recognized computed vectors, unsupported setters and constructor references are refused.
+  Outside registered sites these generic process APIs warn, while direct container use still blocks. Missed execution
+  sites are outside this predicate. Root execution is the repository
+  script/JVM convention; Gradle's default is its project directory. A workflow can state its directory on the step,
+  a shell can start with a single literal `cd apps/shipping-web &&` followed by one command, a process builder can
+  chain a literal `directory(new File(...))`, and an Exec block can state a literal `workingDir`. Inherited workflow
+  defaults and unresolved directory changes earn no exception.
+
+  Root and explicitly declared workspace manifests are inspected even without a script invocation. Every script
+  must have its exact name, body and invocation in the checker's registry above; lifecycle hooks are refused.
+  Repository npm configuration files and npm configuration environment overrides are refused. Arbitrary `npm run`,
+  `exec`, `npx`, inline Node programs, loaders and additional options remain refused. `--ignore-scripts` stays on both
+  installation and registered script invocations. The separate maintenance approval authorizes no `npm install` in CI.
+  There are still no npm manifests, lockfile or web job in this tree; these rules are exercised by inert fixtures.
+
+- **Launch-site warnings and pin enforcement (check 8, PARTIAL, 2026-11-08).** The checker reports recognized
+  launch capabilities in Java, Kotlin and Gradle source as warnings unless the exact path is registered in
+  `PolicyCheck.LAUNCH_SITES`. This scan includes tests, `tools/policy/`, source packages named `build`, generated
+  source directories and caches; only Git's own metadata is outside it. It reads code after Java Unicode decoding
+  and removal of identifier-ignorable characters, comments and inert literals. Opaque Kotlin expression templates
+  and backquoted identifiers warn outside registered sites too.
+
+  The finite token list includes process-builder, Runtime, process-handle, Exec/JavaExec, setter/provider,
+  reflection and method-handle spellings. It neither reconstructs commands after arbitrary setters nor resolves
+  inferred receivers. Benign uses such as servlet `getMethod()` may produce warnings. Warnings are sorted under
+  their own report heading and do not affect the exit status. Direct container rules are a separate blocking path.
+
+  All seven existing registered files retain whole-file pin enforcement: `ReviewedPostgres.java`, the API and docs
+  build scripts, `MutationTestingPlugin.java`, `PolicyCheckTest.java`, `FixtureCompiler.java` and
+  `RestrictedStructurizrTest.java`. Every present registered file is hash-checked even if an edit removes all its
+  capability text. Copying one to a different path earns a capability warning, not its registered permissions.
+  This change updates only the checker-test pin for the changed fixtures; the harness and other pins are unchanged.
+  Registered command vectors retain their blocking exact-form checks. The registry grants no permission to run
+  PIT outside its reviewed CI conditions.
+
+  The registry belongs to the running checker; preflight uses the base branch's version, not the candidate's.
+  There is still no trusted transition protocol for an existing pin: updating a source and candidate pin fails the
+  base checker, while a registry-only replacement fails the candidate checker against unchanged source. Owner
+  approval alone does not resolve that sequencing problem. A current/successor-digest protocol remains open work.
+  Hashes freeze reviewed launchers, including their dynamic JavaExec arguments; they do not prove their logic safe
+  or isolate repository code, approved libraries or tools those launchers execute.
+
+### Reviewed web command forms
+
+These forms are subject to the predicate and limits in the implementation status above.
+
+| Exact command | Working directory |
+|---|---|
+| `node --version`, `npm --version` | Repository root or `apps/shipping-web` |
+| `npm ci --ignore-scripts` | Repository root |
+| `tsc -p apps/shipping-web` | Repository root |
+| `node --test` | Declared workspace `apps/shipping-web`; Node's default discovery rooted there, for repository-owned logic tests |
+| `npm run build:web --ignore-scripts` | Repository root; root script `build:web` must be exactly `tsc -p apps/shipping-web` |
+| `npm run test:unit --ignore-scripts` | `apps/shipping-web`; workspace script `test:unit` must be exactly `node --test` |
+
+### Known static-lint gaps from the two PR #54 reviews
+
+The 2026-11-08 owner decision retains these as documented gaps rather than claiming complete static enforcement:
+
+- Gradle can mutate an initially approved vector through `args`, `setArgs`, `setExecutable`, property assignments
+  or argument providers. Process wrappers such as `env`, executable-path variants, and qualified or statically
+  imported inferred `Runtime` aliases are additional launch routes. Existing registry fixtures exercise several
+  examples from the earlier review; these now warn outside registered sites; neither warnings nor pins prove complete
+  execution-site coverage.
+- Raw CR line endings in Java/Kotlin and Java Unicode-escaped CR can end a line comment for the compiler while the
+  scanner continues treating executable text as a comment. CR/LF/CRLF lexical handling is incomplete.
+- `java.beans.Expression` and `java.beans.Statement.execute()` provide reflection outside the token list.
+  `org.codehaus.groovy.runtime.ProcessGroovyMethods.execute` is a direct process API callable from Java or Kotlin
+  even though `.groovy` source is refused. Imports and aliases broaden these routes.
+- Gradle's Application plugin supplies an implicit `run` JavaExec task; `dependsOn(tasks.run)` can invoke it without
+  spelling a registered process API. Other plugin-provided tasks are not exhaustively modeled.
+- Commands assembled at runtime, dynamic arguments within pinned launchers, code imported by the reviewed Node test
+  runner, libraries, and commands launched indirectly by allowed tools (`find`, `sed`, git configuration) are outside
+  the complete-command predicate. An accepted command vector does not isolate any code it executes.
+- Existing single-digest pins have the base/candidate transition deadlock described above. The owner's narrowed
+  scope removes inert Testcontainers class-name metadata from use findings; servlet `getMethod()` may still trigger
+  a non-blocking reflection warning. Ordinary helpers need no new pin merely to silence a warning.
+
+The runtime guard is the enforcing control for local engine availability in CI. Broader isolation and a trusted
+pin-transition design remain open work; the static lint stays PARTIAL.
 
 ## More Information
 

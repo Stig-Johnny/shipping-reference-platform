@@ -85,6 +85,8 @@ public final class ViewText {
         boolean plannedModules = diagram.edges().stream().map(e -> model.relationship(e.relationshipId()))
                 .anyMatch(r -> r.mode().isPresent() && (model.element(r.sourceId()).planned()
                         || model.element(r.destinationId()).planned()));
+        boolean web = diagram.edges().stream()
+                .anyMatch(e -> model.relationship(e.relationshipId()).webMode().isPresent());
         List<String> legend = new ArrayList<>();
         legend.add("Each box is an element of the model: its name, its C4 type in brackets and, in parentheses, its "
                 + "implementation status.");
@@ -93,16 +95,27 @@ public final class ViewText {
         }
         legend.add("Each line is labelled with its number in the view's relationships table and, where it has one, its "
                 + "mode.");
-        if (arrows.contains(Arrow.REQUIRED)) {
+        if (arrows.contains(Arrow.REQUIRED) && web) {
+            legend.add("A thick line is a REQUIRED import between parts of the web app. Where both parts are built, "
+                    + "the partial web import check in libs/c4-contract-kit fails without a detected direct import "
+                    + "from one to the other.");
+        } else if (arrows.contains(Arrow.REQUIRED)) {
             legend.add("A thick line is a REQUIRED dependency between modules. Where both modules are built, the "
                     + "checker in libs/c4-contract-kit fails when the compiled classes have no static reference for "
                     + "it.");
         }
-        if (permitted) {
+        if (permitted && web) {
+            legend.add("A dotted line labelled PERMITTED is an import between parts of the web app that the sources "
+                    + "may have; the check requires none for it and reports one without a detected import as \"no static "
+                    + "evidence\".");
+        } else if (permitted) {
             legend.add("A dotted line labelled PERMITTED is a dependency between modules that the code may have; the "
                     + "checker requires no reference for it and reports one without any as \"no static evidence\".");
         }
-        if (plannedModules) {
+        if (plannedModules && web) {
+            legend.add("The check does not evaluate a line that touches a planned part until both parts are built; a "
+                    + "file in a planned part fails it.");
+        } else if (plannedModules) {
             legend.add("The checker does not evaluate a line that touches a planned module until both modules are "
                     + "built.");
         }
@@ -118,10 +131,24 @@ public final class ViewText {
     }
 
     /** What a view of this kind cannot show. */
-    public static List<String> limits(C4View view) {
+    public static List<String> limits(C4View view, C4Model model) {
         List<String> limits = new ArrayList<>();
-        limits.add("A diagram shows the model, not the code. Only the API's modules are checked against the code "
+        limits.add("A diagram shows the model, not the code. The API's modules are checked against its compiled "
+                + "classes and the web app's parts against detected TypeScript imports using partial lint "
                 + "(docs/gaps.md, section 1).");
+        boolean web = view.elementIds().stream().anyMatch(id -> model.element(id).webId().isPresent());
+        if (view.kind() == C4View.Kind.COMPONENT && web) {
+            limits.add("Arrows between the web app's parts are static imports of TypeScript files, read from "
+                    + "apps/shipping-web/src with a restricted import grammar, not runtime calls.");
+            limits.add("A REQUIRED arrow specifies an obligation; where both parts are built, a passing web import "
+                    + "check establishes a detected direct import, not complete boundary or cycle coverage or runtime "
+                    + "behaviour. The API adapter's calls to the API are "
+                    + "network calls, which no static check sees.");
+            limits.add("This is labelled partial lint over detected imports; spread-syntax bypasses remain open. "
+                    + "The authoritative tsc import graph and browser-enforced strict Content-Security-Policy "
+                    + "are planned in the web app pull request (ADR 0015).");
+            return List.copyOf(limits);
+        }
         switch (view.kind()) {
             case SYSTEM_CONTEXT, CONTAINER -> limits.add("Relationships of people, software systems and containers are "
                     + "documentation: they carry no contract mode, and module conformance does not cover them. The "
@@ -129,8 +156,8 @@ public final class ViewText {
             case COMPONENT -> {
                 limits.add("Arrows between modules are static code dependencies, not runtime data flow: an event "
                         + "listener's arrow points to the module whose event type it uses.");
-                limits.add("A REQUIRED arrow specifies an obligation; a future passing conformance check would "
-                        + "establish a static reference, not runtime behaviour.");
+                limits.add("A REQUIRED arrow specifies an obligation; where both modules are built, a passing "
+                        + "conformance check establishes a static reference, not runtime behaviour.");
             }
             case DYNAMIC -> limits.add("Each numbered step is a relationship of the model, in the order of the flow. "
                     + "Where a listener handles another module's event, its arrow shows the code dependency, not the "

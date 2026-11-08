@@ -4,7 +4,7 @@ kind: npm
 version: "1.65.0"
 verdict: APPROVE-WITH-CONDITIONS
 scope: "devDependency of apps/shipping-web: E2E and accessibility tests in the contract-e2e job on GitHub-hosted ubuntu-24.04, against the locally started application only; installed by npm ci --ignore-scripts from the reviewed lockfile"
-conditions: ["Lockfile pins @playwright/test, playwright and playwright-core 1.65.0 with the integrity values in section 3", "No `playwright install`, `install-deps`, `--with-deps` or branded channels (chrome, msedge) in CI; PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1; the browser comes only via browser-binary--chrome-headless-shell--158.0.8127.18 and launchOptions.executablePath", "No PLAYWRIGHT_DOWNLOAD_HOST or PLAYWRIGHT_*_DOWNLOAD_HOST overrides", "Tests navigate only to the application started by webServer on 127.0.0.1; webServer.command is a CODEOWNERS-protected repository command", "No --ui, show-report or trace-viewer servers in CI (reports are uploaded as artifacts); no video recording (it needs the unreviewed ffmpeg download)"]
+conditions: ["Lockfile pins @playwright/test, playwright and playwright-core 1.65.0 with the integrity values in section 3", "No `playwright install`, `install-deps`, `--with-deps` or branded channels (chrome, msedge) in CI; PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1; the browser comes only via browser-binary--chrome-headless-shell--158.0.8127.18 and launchOptions.executablePath", "No PLAYWRIGHT_DOWNLOAD_HOST or PLAYWRIGHT_*_DOWNLOAD_HOST overrides", "Tests navigate only to the application started by webServer on 127.0.0.1; webServer.command is a command committed in the repository and reviewed in its pull request (CODEOWNERS review is not enforced, so it is not counted as approval)", "No --ui, show-report or trace-viewer servers in CI (results are kept as text and screenshots, condition 7); no video recording (it needs the unreviewed ffmpeg download)", "Only the playwright test command runs: never init-agents, init-skills, install-skill, mcp, run-test-mcp-server, test-server, cli, run-server, launch-server, run-driver, show-trace, open, show-report, install, install-deps, uninstall or mark-docker-image. The skills and agent definitions shipped in the packages (playwright-core/lib/tools/skills/, playwright/lib/agents/) are never activated, loaded, installed or copied into any agent's configuration, in this repository or on any machine that works on it; nothing those commands write (.claude/, .github/agents/, .github/workflows/copilot-setup-steps.yml, .vscode/mcp.json, SKILL.md files) is committed", "The HTML reporter, if configured, sets open: 'never'. Neither the HTML report folder nor any trace is uploaded, published or attached anywhere, CI artifacts included. The report folder holds Playwright's report app, and when the run kept traces the reporter also copies the trace viewer into it. CI keeps test results as text (JUnit XML, the list or dot output) and screenshots only, so the inlined third-party code is never distributed (condition 11)", "No proxy at any level. The job's environment has no variable whose name ends in _proxy, in any case: http_proxy, https_proxy, all_proxy, no_proxy and their upper-case forms, which the inlined proxy-from-env reads lower case first (utilsBundle.js:48518). No proxy option is set in use.proxy, use.launchOptions.proxy or use.contextOptions.proxy, nor passed to browserType.launch, launchPersistentContext, launchServer, browser.newContext, browser.newPage or request.newContext. The contract-e2e workflow demonstrates both checks (a step that fails on any such variable, and a check of the resolved config and the test sources), recorded as an amendment; until then ip-address 10.7.2 (GHSA-rxp7-6hxx-x8q5) counts as open, not unreachable", "Every pattern that reaches minimatch 10.2.5 (GHSA-g3hv-75wg-m249) comes from files committed in the repository and reviewed in their pull request: testMatch, testIgnore and build.external (the transform's externals) in the Playwright config, and the .gitignore files Playwright reads under the test directory. None is built from environment variables, workflow inputs or event data: no ${{ inputs.* }}, ${{ github.event.* }} or similar interpolation into the test command or the config. CODEOWNERS review is not enforced and is not counted as approval", "The third-party code inlined in the three packages (section B of the 2026-11-07 amendment, one allowlist entry of kind bundled each) is approved only as inlined there; none of it is installed, resolved or required on its own", "Licences outside the list accepted without conditions, inlined and never distributed: ISC (12 components), BlueOak-1.0.0 (minimatch) and CC-BY-4.0 (caniuse-lite data); the owner's explicit decision (security/AGENTS.md)"]
 reviewer: "AI subagent (Claude Opus 5.5), under the repository owner's delegation of 2026-11-06"
 reviewedAt: "2026-11-06"
 expiresAt: "2027-05-06"
@@ -23,8 +23,10 @@ Nothing was downloaded or run.
 
 ## 1. Verdict
 
-**APPROVE-WITH-CONDITIONS.** All three packages were built from the same commit through trusted publishing, with
-verified provenance, and none has install scripts. The risks are in what the runner **does**:
+**APPROVE-WITH-CONDITIONS.** All three packages were built from the same commit through trusted publishing, and none
+has install scripts. On 2026-11-07 three things were checked of that provenance: the registry signatures, the DSSE
+signatures of both attestations, and the provenance certificate's chain to Sigstore's Fulcio root. Rekor inclusion was
+not checked (amendment A). The risks are in what the runner **does**:
 
 - **Browser downloads.** They are not hash-checked, and the downloader follows redirects to any host, including
   https→http.
@@ -119,7 +121,232 @@ Playwright is the blueprint's choice, and axe integrates with it.
 
 ## 11. Not verified
 
-- **Tarball contents.** The tarballs and the vendored module list were not read.
+- **Tarball contents.** The tarballs and the vendored module list were not read. *Closed by the 2026-11-07 amendment.*
 - **TLS for downloads.** No `rejectUnauthorized` is set in the download files read, so Node's default certificate
-  verification applies. The remaining TLS code paths were not read.
+  verification applies. The remaining TLS code paths were not read. *Still open; unreachable while `install` is
+  excluded.*
 - **Runtime libraries.** Whether the runner image already has every library Chromium needs without `install-deps`.
+  *Moved to condition 6 of the Chrome Headless Shell review.*
+
+## Amendment, 2026-11-07: the tarball audit and the bundled code
+
+**Method.** The security-review agent did this on 2026-11-07, in new empty directories on the owner's MacBook, with
+`/usr/bin/curl --proto '=https'`, `/usr/bin/openssl`, `/usr/bin/tar` and `/usr/bin/python3`:
+
+- **Downloaded** the three tarballs, after reading their version documents.
+- **Checked** each against `dist.integrity` and `dist.shasum`, and verified the registry signatures.
+- **Verified the attestations.** The DSSE signatures of both attestations of each package were checked. The provenance
+  certificate chain was checked against Sigstore's public-good Fulcio root, from `trusted_root.json` of
+  sigstore/root-signing `main` (SHA-256 `6494e21e…0b66`).
+- **Listed** every entry (no absolute path, `..` segment or link) before extracting the packages as data.
+- **Read** the notices, the `.LICENSE` and `.txt` sidecars, the entry points, the CLI and the agent files.
+- **Fetched** the release commit's `package.json`, `package-lock.json` and copied third-party sources from
+  `raw.githubusercontent.com`.
+- **Queried advisories** in OSV (`POST /v1/query` per package, `POST /v1/querybatch` for the 171 inlined components),
+  deps.dev and GitHub's advisory database.
+
+Nothing was installed or run.
+
+### A. The three packages
+
+| Package | Tarball | Entries | SHA-256 | Integrity (equal to `dist.integrity`) |
+|---|---|---|---|---|
+| `@playwright/test` | 8,750 B | 11 | `2f8c414b270504d18743ff7aab16ad686c0e6eedfe55697c8e9c98b3dc093523` | `sha512-iGURLGuK…MpbQ==` (section 3) |
+| `playwright` | 909,712 B | 60 | `5c535e6d0b00411c7b926f2f39aeaa80b9daa9ccfa2dd5c21db718cd8808aa42` | `sha512-F3AMWcR4…VoeA==` (section 3) |
+| `playwright-core` | 3,232,467 B | 116 | `315247c55a793ca760b2f05bdcee0e6a53fd65b1f22d1d3de8323c8c9395add3` | `sha512-vNSKgH6Y…+lA==` (section 3) |
+
+- **Registry signatures: verified.** Two ECDSA signatures per package, keyid
+  `SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U`, each "Verified OK" against npm's published key.
+- **npm's publish attestations: verified.** Their DSSE envelopes are signed with the same npm key, and each subject's
+  SHA-512 equals the downloaded tarball.
+- **SLSA provenance: verified as far as the certificate.**
+  - The DSSE signature checks against the Fulcio leaf certificate.
+  - The leaf certificate chains to the Fulcio root (`3B:A7:B6:CC…80:C1`) through `sigstore-intermediate`, checked at a
+    time inside its ten-minute window. The same check at today's date fails ("certificate has expired"), so it can
+    fail.
+  - The certificate binds `https://github.com/microsoft/playwright/.github/workflows/publish_release.yml@refs/tags/v1.65.0`,
+    issuer `https://token.actions.githubusercontent.com`, trigger `release`, commit
+    `a1f35e1955976e84411f9c10358228a80b763ebe` and run `42084133661`, attempt 1.
+  - The predicate names the same workflow, ref and commit, on a GitHub-hosted runner, and its subject's SHA-512 equals
+    the tarball.
+  - Not verified: the Rekor inclusion proofs. The bundles' `integratedTime` values fall inside each certificate's
+    window.
+- **A publication gap, explained.** `playwright` was published at 18:28:14Z on 2026-11-05 and `@playwright/test` at
+  18:30, but `playwright-core` only at 20:17:40Z. Its provenance was signed at 18:27:01Z in the same workflow run, and
+  the registry's publish attestation is from 20:17:52Z. The published bytes equal the provenance subject, so they are
+  the bytes that release run built. Only the upload was late.
+- **Install scripts: none** (section 3 confirmed from the tarballs' `package.json`).
+- **Native code: none.** There is no `.node` file. `playwright-core/lib/webp_codec.wasm` (565,369 bytes, SHA-256
+  `164cd9583a3e4d081f767d3b41ff0a730443dc7535fcc5caff83561463384b79`) is WebAssembly.
+  - It is byte-identical to `packages/utils/webp/webp_codec.wasm` at the release commit.
+  - It is built from libwebp commit `3757b8afeb54e305eaef18502812a9a88b7ed662` with Emscripten "latest" (tested emcc
+    6.0.2), by `utils/libwebp-wasm/build.sh` at that commit. So it is reproducible only approximately.
+  - It runs inside V8 and is used only for WebP screenshots and WebP screenshot comparisons.
+- **Shell scripts.**
+  - `playwright-core/bin/reinstall_*` are 15 scripts: ten shell scripts for Linux and macOS and five PowerShell
+    scripts for Windows. They download branded Chrome or Edge from `dl.google.com` or `packages.microsoft.com` and
+    install it; the three macOS Edge scripts call `sudo`.
+  - `install_media_pack.ps1` and `install_webkit_wsl.ps1` are for Windows.
+  - All of them are reachable only through `playwright install`, which is not approved.
+  - `lib/xdg-open` (32,416 bytes, from xdg-utils, MIT) is byte-identical to `package/xdg-open` of `open` 11.0.0
+    (SHA-256 `7d759d54…98cf`; that tarball checked against its registry integrity). The inlined `open` uses it to open a
+    browser. In CI, the HTML reporter never opens one: it returns early when `CI` is set (`lib/runner/index.js:3788`),
+    and it also requires a TTY.
+- **What `playwright test` contacts.** Its own code names no telemetry host. The download hosts in `coreBundle.js`
+  (`cdn.playwright.dev`, `playwright.download.prss.microsoft.com`, `edgeupdates.microsoft.com`) serve only `install`
+  commands. With `executablePath` and no install, the test run talks only to the browser it starts and to the
+  `webServer` URL.
+- **1.65.0 adds CLI commands that the conditions now exclude.** Besides `test`, `show-report` and `merge-reports`,
+  there are `mcp`, `cli`, `run-test-mcp-server`, `test-server`, `run-server`, `launch-server`, `run-driver`,
+  `show-trace`, `open`, the trace subcommands, `init-agents`, `init-skills` and `install-skill`. The inlined servers
+  are started by these commands:
+  - the MCP SDK's HTTP transport, through `tools.start` (`tools/utils/mcp/http.ts`), from `mcp` and the hidden
+    `run-test-mcp-server`;
+  - Playwright's WebSocket server on `ws` (`remote/playwrightWebSocketServer.ts`), from `run-server` and
+    `launch-server`.
+
+  The test runner's path was not seen to start either, and condition 6 excludes the commands that do.
+- **Text addressed to AI agents (untrusted data, not followed).** It is reported here as a finding:
+  - `playwright-core/lib/tools/skills/` holds three `SKILL.md` files. Two declare `allowed-tools` that grant shell
+    access (`Bash(npx playwright:*)`, `Bash(playwright-cli:*)`).
+  - `playwright/lib/agents/` holds three agent definitions, prompts and a `copilot-setup-steps.yml` workflow. That
+    workflow uses tag-pinned `actions/checkout@v6` and `actions/setup-node@v6` and runs
+    `npx playwright install --with-deps`.
+  - `init-agents` (`lib/agents/generateAgents.js`) writes such files into `.claude/agents`, `.github/agents`,
+    `.github/workflows/copilot-setup-steps.yml`, `.vscode/mcp.json` and similar.
+  - `@playwright/test`'s `README.md` tells coding agents to run `npm i -g @playwright/cli@latest` and
+    `npx @playwright/mcp@latest`: unpinned, unreviewed packages.
+  - Condition 6 forbids the commands. It also requires that the shipped skills and agent definitions are never
+    activated, loaded, installed or copied into any agent's configuration: not in this repository, not on any
+    machine that works on it.
+  - Not committing them alone is not enough: an agent that loads a skill takes its `allowed-tools` with it.
+
+### B. The bundled third-party code
+
+The three packages declare no third-party dependency. Each bundle that inlines npm packages ships a `.LICENSE` sidecar
+naming every inlined `package@version`. The bundles in `playwright` also ship a `.txt` build manifest naming every
+inlined source file. The inventory below was checked three ways:
+
+- **Sidecars against contents.** For `babelBundle.js`, `expect.js` and `esmLoader.js` the manifests' `node_modules/…`
+  paths name the same packages as the sidecars. For `utilsBundle.js` and `serverRegistry.js`, esbuild's `// …node_modules/…` path markers
+  do the same. The only difference is the two `react-is` copies, which the manifest calls `react-is-18` and
+  `react-is-19`.
+- **Bundles without third-party code.** `coreBundle.js` (3,627,040 bytes) has no `node_modules` marker, and the
+  manifests of `lib/runner`, `lib/common`, `lib/worker`, `lib/loader` and `isomorphic.js` name no third-party file.
+- **Versions.** Every listed version is present at exactly that version in the release commit's `package-lock.json`.
+
+**The limit of this inventory.** It is evidence, not a proven complete closure:
+
+- B1 to B5 rest on the sidecars, checked against the build manifests and path markers.
+- B6 is partly inferred, from fingerprints in minified code.
+- B7 was found by path names in the release tree.
+- No bundle was rebuilt from source.
+
+**B1. `playwright-core/lib/utilsBundle.js`** (3,349,180 bytes; sidecar `utilsBundle.js.LICENSE`), 80 packages:
+@hono/node-server 2.1.5, @modelcontextprotocol/sdk 1.32.0, @sec-ant/readable-stream 0.4.1, agent-base 9.0.0, ajv-formats 3.0.1, ajv 8.20.0, ansi-colors 4.1.3, ansi-regex 5.0.1, balanced-match 4.0.4, brace-expansion 5.0.12, buffer-crc32 1.0.0, buffer-from 1.1.2, bundle-name 4.1.0, bytes 3.1.2, chokidar 4.0.3, colors 1.4.0, commander 15.0.0, content-type 1.0.5, cross-spawn 7.0.6, debug 4.4.3, default-browser-id 5.0.1, default-browser 5.5.0, define-lazy-prop 3.0.0, diff 9.0.0, dotenv 17.4.2, enquirer 2.4.1, eventsource-parser 3.1.0, eventsource 3.0.7, fast-deep-equal 3.1.3, fast-uri 3.1.9, get-east-asian-width 1.6.0, get-stream 9.0.1, graceful-fs 4.2.11, has-flag 4.0.0, hono 4.13.12, https-proxy-agent 9.1.0, ini 7.0.0, ip-address 10.7.2, is-docker 3.0.0, is-in-ssh 1.0.0, is-inside-container 1.0.0, is-stream 4.0.1, is-wsl 3.1.1, isexe 2.0.0, jpeg-js 0.4.4, json-schema-traverse 1.0.0, json5 2.2.3, mime 4.1.0, minimatch 10.2.5, ms 2.1.3, open 11.0.0, path-key 3.1.1, pend 1.2.0, pkce-challenge 5.0.1, pngjs 7.0.0, powershell-utils 0.1.0, progress 2.0.3, proxy-agent-negotiate 1.1.0, proxy-from-env 2.1.0, readdirp 4.1.2, retry 0.13.1, run-applescript 7.1.0, shebang-command 2.0.0, shebang-regex 3.0.0, signal-exit 4.1.0, smart-buffer 4.2.0, socks-proxy-agent 10.1.0, socks 2.8.9, source-map-support 0.5.21, source-map 0.6.1, strip-ansi 6.0.1, supports-color 7.2.0, which 2.0.2, ws 8.21.0, wsl-utils 0.3.1, yaml 2.9.0, yauzl 3.4.0, yazl 3.3.1, zod-to-json-schema 3.25.2, zod 4.6.7.
+
+**B2. `playwright-core/lib/serverRegistry.js`** (57,039 bytes): chokidar 4.0.3, readdirp 4.1.2 (also in B1).
+
+**B3. `playwright/lib/matchers/expect.js`** (548,290 bytes), 27 packages: @babel/code-frame 7.29.7, @babel/helper-validator-identifier 7.29.7, @jest/diff-sequences 30.4.0, @jest/expect-utils 30.4.1, @jest/get-type 30.1.0, ansi-styles 4.3.0, ansi-styles 5.2.0, chalk 4.1.2, ci-info 4.4.0, color-convert 2.0.1, color-name 1.1.4, escape-string-regexp 2.0.0, graceful-fs 4.2.11, has-flag 4.0.0, jest-diff 30.4.1, jest-matcher-utils 30.4.1, jest-message-util 30.4.1, jest-util 30.4.1, js-tokens 4.0.0, picocolors 1.1.1, picomatch 4.0.7, pretty-format 30.4.1, react-is 18.3.1, react-is 19.2.7, slash 3.0.0, stack-utils 2.0.6, supports-color 7.2.0.
+
+**B4. `playwright/lib/transform/babelBundle.js`** (2,826,376 bytes), 69 packages, Playwright's TypeScript and JSX
+transform of the test files: @babel/code-frame 7.29.7, @babel/compat-data 7.29.7, @babel/core 7.29.7, @babel/generator 7.29.7, @babel/helper-annotate-as-pure 7.29.7, @babel/helper-compilation-targets 7.29.7, @babel/helper-create-class-features-plugin 7.29.7, @babel/helper-globals 7.29.7, @babel/helper-member-expression-to-functions 7.29.7, @babel/helper-module-imports 7.29.7, @babel/helper-module-transforms 7.29.7, @babel/helper-optimise-call-expression 7.29.7, @babel/helper-plugin-utils 7.29.7, @babel/helper-replace-supers 7.29.7, @babel/helper-skip-transparent-expression-wrappers 7.29.7, @babel/helper-string-parser 7.29.7, @babel/helper-validator-identifier 7.29.7, @babel/helper-validator-option 7.29.7, @babel/helpers 7.29.7, @babel/parser 7.29.7, @babel/plugin-proposal-decorators 7.29.7, @babel/plugin-syntax-async-generators 7.8.4, @babel/plugin-syntax-decorators 7.29.7, @babel/plugin-syntax-import-attributes 7.29.7, @babel/plugin-syntax-json-strings 7.8.3, @babel/plugin-syntax-jsx 7.29.7, @babel/plugin-syntax-object-rest-spread 7.8.3, @babel/plugin-syntax-optional-catch-binding 7.8.3, @babel/plugin-syntax-typescript 7.29.7, @babel/plugin-transform-class-properties 7.29.7, @babel/plugin-transform-class-static-block 7.29.7, @babel/plugin-transform-destructuring 7.29.7, @babel/plugin-transform-explicit-resource-management 7.29.7, @babel/plugin-transform-export-namespace-from 7.29.7, @babel/plugin-transform-logical-assignment-operators 7.29.7, @babel/plugin-transform-modules-commonjs 7.29.7, @babel/plugin-transform-nullish-coalescing-operator 7.29.7, @babel/plugin-transform-numeric-separator 7.29.7, @babel/plugin-transform-optional-chaining 7.29.7, @babel/plugin-transform-private-methods 7.29.7, @babel/plugin-transform-react-jsx 7.29.7, @babel/plugin-transform-typescript 7.29.7, @babel/preset-typescript 7.29.7, @babel/template 7.29.7, @babel/traverse 7.29.7, @babel/types 7.29.7, @jridgewell/gen-mapping 0.3.13, @jridgewell/remapping 2.3.5, @jridgewell/resolve-uri 3.1.2, @jridgewell/sourcemap-codec 1.5.5, @jridgewell/trace-mapping 0.3.31, baseline-browser-mapping 2.11.20, browserslist 4.28.8, caniuse-lite 1.0.30001810, convert-source-map 2.0.0, debug 4.4.3, electron-to-chromium 1.5.418, gensync 1.0.0-beta.2, has-flag 4.0.0, js-tokens 4.0.0, jsesc 3.1.0, json5 2.2.3, lru-cache 5.1.1, ms 2.1.3, node-releases 2.0.54, picocolors 1.1.1, semver 6.3.1, supports-color 7.2.0, yallist 3.1.1.
+
+**B5. `playwright/lib/transform/esmLoader.js`** (296,727 bytes), 12 packages: balanced-match 4.0.4, brace-expansion 5.0.12, buffer-from 1.1.2, debug 4.4.3, has-flag 4.0.0, json5 2.2.3, mime 4.1.0, minimatch 10.2.5, ms 2.1.3, source-map-support 0.5.21, source-map 0.6.1, supports-color 7.2.0.
+
+**B6. The web apps in `playwright-core/lib/vite/`** (`htmlReport`, `traceViewer`, `recorder` and `dashboard`). They are
+minified builds without a sidecar or licence comments.
+
+- **Inlined code** (the version from the release lockfile; its presence by fingerprint in the bundles):
+  - React 19.2.7, React DOM 19.2.7 and scheduler 0.27.0: the React 19 element symbol, in `htmlReport/report.js`, the
+    dashboard and recorder indexes, and the trace viewer's `defaultSettingsView` chunk.
+  - CodeMirror 5.65.18: the version string, in the `codeMirrorModule` chunks.
+  - `@xterm/xterm` 5.5.0 and `@xterm/addon-fit` 0.10.0: the `xterm-` classes, trace viewer only.
+  - yaml 2.9.0 (also in B1): recorder and trace viewer.
+  - `@zip.js/zip.js` 2.7.73: the HTML report, the trace viewer's service worker and the dashboard.
+  - The `@browser-logos/*` images (dashboard only) are pictures, not code.
+- **Where they run.** Only in a browser that opens the report or a viewer; none runs in CI under the conditions.
+- **Licences.** The release lockfile gives React, scheduler, CodeMirror and xterm as MIT, and zip.js as BSD-3-Clause.
+  None of these notices ships in the npm package. When the run kept traces, the HTML reporter also copies the trace
+  viewer, with the ISC-licensed yaml, into its report folder (`lib/runner/index.js:3967`). Condition 7 therefore
+  forbids uploading the report folder or traces, so this code is never distributed.
+
+**B7. Third-party source copied into Playwright's own tree** (compiled into `coreBundle.js` or the web apps; no npm
+version applies):
+
+| Copied code | Licence (file header at the release commit) | Where |
+|---|---|---|
+| pixelmatch (Mapbox) | ISC | `packages/utils/third_party/pixelmatch.js` → `coreBundle.js` (screenshot comparison) |
+| extract-zip | BSD-2-Clause | `packages/utils/third_party/extractZip.ts` → `coreBundle.js` (browser downloads only) |
+| proper-lockfile (MOXY), modified | MIT | `packages/utils/third_party/lockfile.ts` → `coreBundle.js` |
+| minimist, modified | MIT | `packages/playwright-core/src/tools/cli-client/minimist.ts` → `lib/tools/cli-client/minimist.js` (`cli` only) |
+| Puppeteer BiDi helpers (Google) | Apache-2.0 | `packages/playwright-core/src/server/bidi/third_party/*` → `coreBundle.js` (BiDi browsers only) |
+| Chromium DevTools snippet (The Chromium Authors) | BSD-3-Clause | `packages/trace-viewer/src/third_party/devtools.ts` → trace viewer |
+| VS Code codicons (Microsoft) | MIT | `packages/web/src/third_party/vscode/*` → the web apps' fonts and CSS |
+| libwebp `3757b8a` with the Emscripten runtime | libwebp: BSD-3-Clause, with Google's additional patent grant for WebM; Emscripten: MIT, elected (see below) | `lib/webp_codec.wasm` (A) |
+
+**Advisories.**
+
+- **The packages: none.** OSV, deps.dev and GitHub's advisory database return nothing for `@playwright/test`,
+  `playwright` or `playwright-core` 1.65.0 on 2026-11-07. A control query for `playwright@1.55.0` returns
+  GHSA-7mvr-c777-76hp from all three, so the queries can return a hit.
+- **The 171 inlined components: two medium-severity advisories** (OSV `querybatch`):
+  - **ip-address 10.7.2, GHSA-rxp7-6hxx-x8q5** (CVE-2026-111997, fixed in 10.7.4). Parsing an attacker-supplied IPv6
+    string with many `%` characters takes quadratic time.
+    - In `utilsBundle.js` only the inlined `socks` client (`socksclient.js`, `helpers.js`) calls it. So it is reached
+      only through a SOCKS proxy.
+    - A proxy comes from the environment or from an option. The inlined proxy-from-env reads `<scheme>_proxy` and
+      `all_proxy`, lower case first and then upper case (`getEnv`, `utilsBundle.js:48518`), for Playwright's own HTTP
+      requests (`packages/utils/network.ts`) and its client-certificate proxy. The options are `proxy` at launch, at
+      browser-context level and on an API request context.
+    - Condition 8 forbids all of them. **Until the contract-e2e workflow demonstrates its checks, this advisory counts
+      as open, not unreachable.**
+  - **minimatch 10.2.5, GHSA-g3hv-75wg-m249** (CVE-2026-118764, affects 7.0.0 to before 11.0.1). An attacker-supplied
+    glob pattern can grow without bound in preprocessing.
+    - It receives `testMatch`, `testIgnore` and `build.external` (the transform's externals) from the Playwright config
+      (`lib/util.js` and `lib/common/index.js`).
+    - It also receives every line of each `.gitignore` file that Playwright reads while it scans for test files
+      (`projectUtils.ts`, `lib/runner/index.js:2370`).
+    - Command-line file filters become regular expressions instead (`lib/common/index.js:2179`).
+    - Condition 9 keeps every pattern in committed files reviewed in their pull request. Workflow inputs and event data
+      are never interpolated, and CODEOWNERS is not counted as approval.
+  - Both are denial of service. Neither can be upgraded apart from Playwright.
+- **The copied sources in B7** were not queried by version, because they carry none.
+
+**Licences.** The inlined components are 150 MIT, 12 ISC (electron-to-chromium, graceful-fs, ini, isexe, lru-cache,
+picocolors, semver, signal-exit, which, yallist, yaml, zod-to-json-schema), 5 BSD-3-Clause, 1 BSD-2-Clause,
+1 Apache-2.0, 1 BlueOak-1.0.0 (minimatch) and 1 CC-BY-4.0 (caniuse-lite, browser-usage data), per the release lockfile.
+ISC, BlueOak-1.0.0 and CC-BY-4.0 need the owner's decision (condition 11).
+
+**Emscripten.** `webp_codec.LICENSE` offers its runtime under two licences: "the MIT license and the University of
+Illinois/NCSA Open Source License". This review elects MIT, which is on the list accepted without conditions, so no
+decision is needed. libwebp's BSD-3-Clause comes with Google's "Additional IP Rights Grant (Patents)", which adds
+patent rights. Those rights end for anyone who files patent litigation alleging that these WebM implementations
+infringe.
+
+**Allowlist entries: one per inlined component.** This follows `security/AGENTS.md` ("bundled or shaded third-party
+code (each needs its own entry)") and the shape of the only precedent, npm 11.20.0 inside the Node.js archive:
+
+- `artifact` names the file that carries the component, and `sha256` is null.
+- `reviewRecord` is this record.
+- **What is new is the kind: `bundled`, not `npm`.** `PolicyCheck` approves a `package-lock.json` entry by kind `npm`,
+  coordinate and version. A kind-`npm` entry for an inlined copy would therefore approve the standalone registry
+  package of the same name and version, such as `ws` 8.21.0 or `debug` 4.4.3, which nobody reviewed as an install.
+- With kind `bundled` the checker still validates the entries (verdict, review record, expiry and the acceptance
+  digest), but no lockfile entry can match them.
+- The npm 11.20.0 entry moves to the same kind.
+- This is a proposal, made in this record, that the owner accepts or rejects with the set.
+
+**The entries.**
+
+- **171 for B1 to B6:** one per package and version, counted once where several bundles carry it. That is 164 from the
+  sidecars and seven from the web apps only. `open`'s entry also covers `lib/xdg-open`.
+- **8 for the copied sources of B7.**
+
+**Closed and still open** (section 11):
+
+- **Closed:** the tarball contents and the bundled-module list (above).
+- **Not re-read:** TLS on the download path. It is unreachable while `install` is excluded.
+- **Moved:** the runner libraries, to condition 6 of the Chrome Headless Shell review.
+- **Still not verified:** the Rekor inclusion proofs; whether the minified web apps contain only the components named
+  in B6, which needs their build manifests and Playwright does not ship them; and a rebuild of any bundle from source.

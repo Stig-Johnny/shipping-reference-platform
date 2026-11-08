@@ -2,16 +2,42 @@
 title: "Module: shipments"
 description: "Books shipments from quote offers with tenant-scoped idempotency, cancels them, renders simulated SVG labels and publishes shipment events."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-08
 module: shipments
-moduleStatus: planned
+moduleStatus: built
 riskLevel: 3
 ---
 
 # Module: shipments
 
-Package `io.github.stigjohnny.shipping.shipments`. C4 component `shipments` (`contract.status planned`). Risk level 3:
+Package `io.github.stigjohnny.shipping.shipments`. C4 component `shipments` (`contract.status built`). Risk level 3:
 bookings and personal data (recipient names and addresses, synthetic only).
+
+## Implementation state
+
+Built: booking. The public API's `ShipmentId` and `ShipmentBooked`; in the domain, `Shipment` with `book`, the values
+`Recipient`, `ShipmentReference`, `TrackingNumber`, `IdempotencyKey` and `RequestFingerprint`, and `BookingCommand`,
+`BookingOutcome` and `BookingRejection`; in the application, `BookShipment` with the booking rules below, in their
+order, and its two ports, `ShipmentStore` (insert, find by key, find by quote) and `TrackingNumbers`. Their tests book
+against real quotes of the quotes module through `QuoteOffers`, with stores in memory, a fixed clock and deterministic
+IDs. `shipments.book-from-offer` and `shipments.idempotent-booking` are partial, since `ShipmentsHttpContractTest` and
+`BookingIdempotencyIntegrationTest` are planned; the other four capabilities are planned. `ShipmentTest` covers what
+booking produces, not cancellation.
+
+Until cancellation exists, `ShipmentStatus` has `BOOKED` only, and `Shipment` has no `cancelledAt`, no `version` and
+no `cancel`: the domain model below names them, and they arrive with their first use.
+
+Planned: `ShipmentCancelled` and cancellation, `GetShipment`, `ListShipments`, `RenderLabel` with `SvgLabelRenderer`,
+the store's other operations, both adapters, the migration, and the wiring into a running application. Until then no
+class of the module is a Spring bean: `BookShipment`'s `@Transactional` has no effect yet, nothing yet shows that
+`ShipmentBooked` is published inside the booking's transaction, and requests with the same key are not serialized.
+The advisory lock, the recheck under it and the handling of unique-key failures (the concurrency paragraph under
+Booking rules) belong to the planned JDBC adapter, and so does the tracking number sequence; the tests count in memory.
+
+`TenantDenialScenarioTest` separately asserts Beta's booking rejection, no stored shipment for Beta, and Alpha's
+still-bookable offer. Two declared API calls are evaluated, but the full-main census retains 77 known coverage gaps
+from the HTTP edge and quotes factories. Its verdict is `COVERAGE_INCOMPLETE`; exact ledger matching is build
+acceptance with known debt, not proof of conformance. Closing the classified gaps is phase 3 / option 2 (ADR 0013).
 
 ## Responsibilities
 
@@ -96,7 +122,11 @@ quote, and expiry while waiting.
 `offerId`, `recipient.name`, `recipient.addressLine1`, `recipient.addressLine2`, `recipient.postcode`,
 `recipient.city`, `recipient.countryCode`, `reference`. Each field is written as its UTF-8 byte length in decimal,
 a colon, and the value; an absent optional field is written as `0:`. No separators. Values are used exactly as
-received after validation; there is no trimming or case folding.
+received after validation; there is no trimming or case folding. Validation accepts well-formed Unicode only: a
+recipient text field with a lone surrogate (a code unit from U+D800 to U+DFFF without its pair, which only a JSON
+escape can carry) is rejected, since UTF-8 cannot encode it. A lenient encoder would write `?` in its place, so two
+different requests would share a fingerprint, and a changed body would be replayed instead of refused. The
+fingerprint's encoder refuses such text as well; it never replaces a character.
 
 **Tracking numbers:** `SIM` followed by the next value of the database sequence `shipments.tracking_number_seq`,
 left-padded with zeros to 10 digits (the first is `SIM0000000001`). Unique across tenants.
@@ -171,8 +201,8 @@ identical input.
 
 - `internal.adapter.in.web`: `ShipmentsController` (all five operations), request and response records, mapping of
   outcomes to problems. Recipient data is never logged; request logging excludes bodies.
-- `internal.adapter.out.jdbc`: `JdbcShipmentStore` (Spring Data JDBC, `@Version` for optimistic locking),
-  `JdbcTrackingNumbers` (sequence).
+- `internal.adapter.out.jdbc`: `JdbcShipmentStore` (Spring JDBC's `JdbcClient`, ADR 0012; optimistic locking by a
+  check of the `version` column in each update), `JdbcTrackingNumbers` (sequence).
 
 ## Data: schema `shipments` (migration `V3__shipments.sql`)
 

@@ -1,16 +1,15 @@
 ---
 title: "ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security"
 description: "PostgreSQL 18.6, one schema per module, Spring Data JDBC, Flyway migrations under a separate role, and forced row-level security for tenant isolation."
-status: accepted
-updated: 2026-11-07
+status: superseded
+supersededBy: "0012"
+updated: 2026-11-06
 date: 2026-11-06
 decision-makers: repository owner
-enforcedBy:
-  - "java: MigrationsIntegrationTest, RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, against PostgreSQL 18.6 in CI, for the schemas tenants and quotes"
+enforcedBy: [not enforced yet]
 plannedEnforcement:
-  - "java: CrossTenantAccessTest, TableOwnershipTest"
-  - "java: the application's half of RowLevelSecurityIntegrationTest: TenantBindingTransactionManager over the application's pool, and listeners that write under an event's tenant"
-  - "java: the same database tests for the schemas shipments and audit and the event publication registry (V3 to V5)"
+  - "java: RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, CrossTenantAccessTest"
+  - "java: MigrationsIntegrationTest, TableOwnershipTest"
 ---
 
 # ADR 0005: PostgreSQL with Spring Data JDBC, Flyway and forced row-level security
@@ -88,24 +87,6 @@ Chosen option 1.
 - `MigrationsIntegrationTest` migrates an empty database as `shipping_owner` and asserts that `shipping_app` cannot
   run DDL.
 - `TableOwnershipTest` asserts that every Spring Data JDBC `@Table` in module `m` uses schema `m`.
-
-## Implementation status (2026-11-07)
-
-- Built: `V1__tenants.sql` and `V2__quotes.sql` in `apps/shipping-api/src/main/resources/db/migration`, each with a
-  down script (ADR 0012), and the role bootstrap `apps/shipping-api/postgres/init-roles.sql`. A module's schema can
-  exist before its code: the components `tenants` and `quotes` stay planned in the C4 model until their Java classes
-  exist.
-- The bootstrap runs as a superuser, through JDBC, in each database before its first migration; nothing is mounted as
-  an initialisation script. Both roles are also `NOINHERIT`, PUBLIC loses `CONNECT` and `TEMPORARY` on the database,
-  and only `shipping_owner` may create schemas in it.
-- Flyway runs as `shipping_owner` from `classpath:db/migration` and keeps its history in schema `flyway`, which
-  `shipping_app` cannot use.
-- Proven in the `java` check against the reviewed PostgreSQL 18.6 image, with plain JDBC: `MigrationsIntegrationTest`,
-  `RowLevelSecurityCatalogTest` and the database's half of `RowLevelSecurityIntegrationTest`. Forced row-level security
-  restricts what the owner role's queries read and write; it does not stop the owner from changing or dropping a
-  policy, which is why only Flyway uses that role and every migration is level 3.
-- Not built yet: V3 to V5, the demo seed in `classpath:db/demo`, `compose.yaml`, the Spring configuration that runs
-  Flyway at start, `TenantBindingTransactionManager`, `CrossTenantAccessTest` and `TableOwnershipTest`.
 
 ## More Information
 

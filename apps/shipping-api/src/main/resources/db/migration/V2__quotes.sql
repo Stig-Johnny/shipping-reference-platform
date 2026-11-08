@@ -1,6 +1,6 @@
 -- V2: schema quotes (docs/modules/quotes.md, ADR 0005). Flyway applies it as shipping_owner. Never edit it once it is
 -- merged; change the schema with a new migration. db/down/V2__quotes.down.sql reverts it in development and CI only
--- (ADR 0012).
+-- (ADR 0016).
 --
 -- Quotes never change after they are issued, so shipping_app may read and insert them, nothing else. Both tables are
 -- tenant-owned: their keys start with tenant_id, the offer's foreign key includes it, so that an offer can only belong

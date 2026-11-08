@@ -2,7 +2,7 @@
 title: "Milestone: from slides to code"
 description: "The milestone deck: what is built and checked, what is still planned, one change the gate rejects, who approves what, and a proposed first 30 days with a new team."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 kind: deck
 lang: en
 milestone: 2026-11-10
@@ -28,18 +28,18 @@ The aim is to deliver more useful changes, with clear responsibility for each ch
 
 ## The promises, and what you can check today
 
-The checker and the dependency gate run; the shipping app is planned.
+The checker and the dependency gate run; the shipping app has its first code, and most of it is planned.
 
 | Promise | Today |
 |---|---|
 | The model governs the structure | Built and tested: the checker |
 | The gate stops unreviewed dependencies | Declared dependencies are checked in the approved CI run |
-| The shipping app itself | Planned: 26 of 27 capabilities |
+| The shipping app itself | Planned: 18 of 27 capabilities |
 
 ### Notes
 
-- Say it early: the application is not written yet
-- What exists are the controls that will judge it
+- Say it early: most of the application is not written yet, and none of it runs outside its tests
+- What exists are the controls that judge it, and its first code, which they now check
 - This proves part of the method; delivering product is the next evidence I owe
 
 ## One change the gate rejects
@@ -118,7 +118,7 @@ I own the delivery and the technical decisions; the Java lead challenges the tec
 
 - I learned Java at university and have 17 years of experience with C# and .NET
 - I make uncertainty explicit.
-- This repository specifies Spring Data JDBC; application code is still planned. We will make any JPA decisions together.
+- This repository specifies Spring JDBC (JdbcClient); its persistence code is still planned. We will make any JPA decisions together.
 
 ### Notes
 
@@ -210,4 +210,4 @@ Java 25, strict builds and static analysis.
 
 ### Notes
 
-- The Spring Boot dependencies are declared; a running app is planned. The first database migrations are tested in CI against PostgreSQL 18.6
+- The API runs in tests. Paired migrations for tenants and quotes exist; their merged-tree PostgreSQL evidence awaits CI

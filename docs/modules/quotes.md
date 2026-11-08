@@ -2,16 +2,47 @@
 title: "Module: quotes"
 description: "Prices parcels with the synthetic tariff and issues tenant-scoped quotes whose offers expire after 30 minutes."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 module: quotes
-moduleStatus: planned
+moduleStatus: built
 riskLevel: 3
 ---
 
 # Module: quotes
 
-Package `io.github.stigjohnny.shipping.quotes`. C4 component `quotes` (`contract.status planned`). Risk level 3:
+Package `io.github.stigjohnny.shipping.quotes`. C4 component `quotes` (`contract.status built`). Risk level 3:
 all of its code is pricing.
+
+## Implementation state
+
+Built: the public API below, the domain model, the application layer (`CreateQuote`, `GetQuote`,
+`QuoteOffersService` and the port `QuoteStore`), and the web adapter with both operations. `QuotesConfiguration`
+makes the use cases Spring beans. `QuotesHttpContractTest` starts the whole application and validates every response
+it exercises against the contract, problems included.
+
+The application tests use a store in memory, a fixed clock and deterministic IDs: the `QuoteStore` port has no JDBC
+adapter yet. So `QuotesHttpContractTest` proves the HTTP edge, not persistence. `quotes.synthetic-tariff` and
+`quotes.quote-expiry` are shipped. `quotes.create-quote` stays partial although its three tests pass, since no quote
+is stored in PostgreSQL yet. `quotes.get-quote` and `quotes.offer-lookup` are partial too: `QuotesModuleIntegrationTest`
+is planned.
+
+Built: migration `V2__quotes.sql` and its down script (ADR 0016); their database verification is pending CI.
+
+Planned: the JDBC adapter and the demo fixture, and the `demo` profile that runs the application
+against PostgreSQL; until then the application starts in tests only. No transaction manager exists yet, so the
+`@Transactional` of `CreateQuote` and `GetQuote` has no effect, and nothing yet shows that `QuoteIssued` is published
+inside the quote's transaction.
+
+Scenario tests wire these classes explicitly with `@TestConfiguration`, so application component scanning in the
+HTTP tests does not discover the scenario fixtures. `CoverageBypassTest` keeps three quote outcome assertions for
+each altered quote implementation, including value behaviour and work held on virtual threads or pre-existing
+executor workers until after close. The latter fixtures are refused by their dispatch sites in the census.
+`ReachabilityTest` checks shared raw tenant references and containers in both owning-module traversal orders.
+The scenario reports retain 77 known gaps as `COVERAGE_INCOMPLETE`, including two unwitnessed
+`QuotesConfiguration` factory parameters and the Spring HTTP accesses. The exact classified ledger, tagged
+"phase 3 / option 2", rejects additions, changes and stale entries (`CoverageLedgerTest`); `CoverageBypassTest`
+also rejects a new Spring access with a previously ledgered owner/member. Passing this gate proves no framework
+coverage. These are bounded coverage checks, not proof of every receiver or task lifetime; see [known gaps](../gaps.md#6-tests-and-quality-gates).
 
 ## Responsibilities
 
@@ -141,7 +172,8 @@ Worked example (the contract's example): `NO 0150` to `SE 11122`, 1200 g, 300 x 
 - `QuoteRequest(Parcel parcel, Place origin, Place destination, @Nullable ServiceLevel serviceLevel)`.
 - `Offer(OfferId id, ServiceLevel level, Money price, TransitDays transitDays)`.
 - `Quote` (aggregate): `QuoteId`, `TenantId`, request values, `Zone`, billable weight, `issuedAt`, `expiresAt` and
-  `List<Offer>` in `ServiceLevel` order. Immutable. `status(Instant now)` returns `OPEN` or `EXPIRED`.
+  `List<Offer>` in `ServiceLevel` order. Immutable. `status(Instant now)` returns `QuoteStatus.OPEN` or
+  `QuoteStatus.EXPIRED`.
 - `QuoteResult`: `sealed interface QuoteResult permits Offered, Unavailable`; `Offered(Quote quote)`,
   `Unavailable(UnavailableReason reason)`.
 - `UnavailableReason`: `ROUTE_NOT_SERVED`, `BILLABLE_WEIGHT_ABOVE_LIMIT`, `SERVICE_LEVEL_NOT_AVAILABLE`.
@@ -153,7 +185,8 @@ Worked example (the contract's example): `NO 0150` to `SE 11122`, 1200 g, 300 x 
 - `CreateQuote.handle(QuoteRequest) -> QuoteResult`, `@Transactional`: tenant from `CurrentTenant.require()`;
   `rating.quote(tenant, request, clock.instant())`; on `Offered` insert through the `QuoteStore` port and publish
   `QuoteIssued`; on `Unavailable` store and publish nothing.
-- `GetQuote.handle(QuoteId) -> Optional<Quote>`, read-only, tenant from `CurrentTenant`.
+- `GetQuote.handle(QuoteId) -> Optional<Quote>`, `@Transactional(readOnly = true)`, tenant from `CurrentTenant`; the
+  caller computes the status at the clock's instant.
 - `QuoteOffersService implements QuoteOffers`: loads the quote by tenant and ID and returns the `OfferLookup`.
 - `QuoteStore` port: `void insert(Quote)`, `Optional<Quote> find(TenantId, QuoteId)`.
 - Collaborators are constructor-injected: `Clock`, `IdGenerator`, `CurrentTenant`, `ApplicationEventPublisher`,
@@ -161,23 +194,32 @@ Worked example (the contract's example): `NO 0150` to `SE 11122`, 1200 g, 300 x 
 
 ## Adapters
 
-- `internal.adapter.in.web`: `QuotesController` (both operations), request and response records that mirror the
-  contract, mapping of `QuoteResult` and validation failures to problems (`validation-failed`,
-  `no-offer-available`, `quote-not-found`).
-- `internal.adapter.out.jdbc`: `JdbcQuoteStore` with Spring Data JDBC; `Quote` maps to one aggregate (quote plus
-  offers).
+- `internal.adapter.in.web`, built: `QuotesController` (both operations), `QuoteRequestBody` and `QuoteBody`, the
+  records that mirror the contract, and `QuoteProblems`, which maps `QuoteResult.Unavailable` to
+  `422 no-offer-available` with its reason and a missing quote to `404 quote-not-found`, with the same detail for
+  another tenant's quote as for an unknown one. Bean Validation on the request records checks the contract's bounds;
+  the HTTP edge's `FallbackProblemHandler` turns their failures, and unknown members and wrong JSON types, into
+  `400 validation-failed` with each invalid value named. An unknown member is named only when its escaped JSON
+  Pointer fits 200 Unicode code points; otherwise it is `400 malformed-request` without `errors`
+  (`ProblemDetailsHttpContractTest`, including supplementary characters at 200 and 201 code points).
+  The optional `serviceLevel` may be absent but never `null`,
+  as the contract's conventions say: `OptionalMember` reads it, and an explicit `null` is `400 validation-failed`
+  naming `/serviceLevel`. Every optional member of a request body is read that way. `QuotesConfiguration` wires the
+  use cases with the application's clock and random UUIDs as the module's IDs.
+- `internal.adapter.out.jdbc`, planned: `JdbcQuoteStore` with Spring JDBC's `JdbcClient` (ADR 0012); it writes and
+  reads a `Quote` as one aggregate (quote plus offers).
 
 ## Data: schema `quotes` (migration `V2__quotes.sql`)
 
 `V2__quotes.sql` exists in `apps/shipping-api/src/main/resources/db/migration`, with its down script
-`db/down/V2__quotes.down.sql` (ADR 0012).
+`db/down/V2__quotes.down.sql` (ADR 0016).
 
 | Table | Columns | Keys and checks |
 |---|---|---|
 | `quotes.quote` | `tenant_id uuid`, `quote_id uuid`, `issued_at timestamptz`, `expires_at timestamptz`, `weight_grams int`, `length_mm int`, `width_mm int`, `height_mm int`, `billable_weight_grams int`, `zone text`, `origin_country char(2)`, `origin_postcode varchar(10)`, `destination_country char(2)`, `destination_postcode varchar(10)`; all `not null` | PK `(tenant_id, quote_id)`; checks on every bound in the contract; `expires_at = issued_at + interval '30 minutes'`; `billable_weight_grams = max(weight_grams, ceil(length_mm x width_mm x height_mm / 5000))`; `zone` is `DOMESTIC` exactly when the two countries are equal |
 | `quotes.quote_offer` | `tenant_id uuid`, `quote_id uuid`, `offer_id uuid`, `service_level text`, `amount numeric(11,2)`, `currency char(3)`, `transit_min_days smallint`, `transit_max_days smallint`; all `not null` | PK `(tenant_id, offer_id)`; unique `(tenant_id, quote_id, service_level)`; FK `(tenant_id, quote_id)` to `quotes.quote`; `amount >= 0`; `currency = 'EUR'` |
 
-Both tables: row-level security enabled and forced, policy `tenant_isolation` (ADR 0005). Grants to
+Both tables: row-level security enabled and forced, policy `tenant_isolation` (ADR 0012). Grants to
 `shipping_app`: `USAGE` on the schema, `SELECT, INSERT` on both tables (quotes are immutable). No foreign keys to
 other modules' schemas.
 
@@ -207,7 +249,8 @@ quote for Tenant Alpha, used by `expired-quote.spec.ts`. The script binds Tenant
 | Q9 | Quotes of another tenant are not found, through the repository and through `QuoteOffers`. | `QuotesModuleIntegrationTest`, `CrossTenantAccessTest` |
 | Q10 | HTTP responses match the contract, including problem bodies. | `QuotesHttpContractTest` |
 
-Mutation testing: at least 90 % killed mutants on changed lines in this module (pricing logic).
+Mutation testing: at least 90 % killed mutants on changed lines in this module (pricing logic). Not run yet: PIT runs
+for `libs/c4-contract-kit` only (`docs/gaps.md`, section 6).
 
 ## Risk levels of its paths (`policy/risk.json`)
 

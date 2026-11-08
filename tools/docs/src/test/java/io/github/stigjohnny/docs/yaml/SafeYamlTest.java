@@ -65,7 +65,7 @@ class SafeYamlTest {
 
     @Test
     void aMergeKeyFails() {
-        assertThatThrownBy(() -> SafeYaml.yaml("a:\n  <<: {x: 1}\n  y: 2\n", "merge.yaml"))
+        assertThatThrownBy(() -> SafeYaml.yaml("a: {<<: {x: 1}, y: 2}\n", "merge.yaml"))
                 .isInstanceOf(YamlInputException.class).hasMessageContaining("<<");
     }
 

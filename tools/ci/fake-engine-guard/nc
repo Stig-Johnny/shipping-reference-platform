@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$*" == '-z -U -w 2 /var/run/docker.sock' ]] || exit 99
+echo socket-probe >> "$FAKE_GUARD_LOG"
+[[ "$FAKE_GUARD_SCENARIO" != socket-error ]] || exit 2
+[[ "$FAKE_GUARD_SCENARIO" == socket-reachable ]]

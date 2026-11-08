@@ -9,7 +9,7 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * What a database's catalog holds, as sorted lines of text that two states can be compared by (ADR 0012): for every
+ * What a database's catalog holds, as sorted lines of text that two states can be compared by (ADR 0016): for every
  * schema except PostgreSQL's own and Flyway's history schema, its schemas, relations, columns, constraints, indexes,
  * policies, functions, types, sequences, views, triggers, extended statistics and comments, each with its owner,
  * row-level security flags and effective privileges; the database's own privileges, default privileges and

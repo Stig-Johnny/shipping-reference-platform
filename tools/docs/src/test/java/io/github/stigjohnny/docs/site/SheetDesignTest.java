@@ -164,19 +164,17 @@ class SheetDesignTest {
     void passingEvidenceIsACountWithWhatItDoesNotProveAndTheNamesInADisclosure() {
         String start = ledgerRow(site.text("index.html"), "Verified evidence");
         String line = start.substring(0, start.indexOf("\n<details"));
-        // While only controls contribute passing evidence, the badge and the line say that it is the tooling's.
-        boolean tooling = sources.capabilities().all().stream()
-                .filter(c -> c.evidence().stream().anyMatch(sources.evidence()::passed)).allMatch(Capability::control);
-        assertThat(line).contains(tooling ? "<span class=\"badge badge-shipped\">Tooling tests passing</span> "
-                        : "<span class=\"badge badge-shipped\">Passing</span> ")
-                .endsWith(" evidence test classes passed in the build that generated this site." + (tooling
-                        ? " These tests verify repository tooling, not shipping behaviour." : ""))
-                .doesNotContain("ConformanceDivergenceTest");
+        // Product capabilities contribute passing evidence now, so the badge no longer says it is the tooling's.
+        assertThat(line).contains("<span class=\"badge badge-shipped\">Passing</span> ")
+                .endsWith(" evidence test classes passed in the build that generated this site.")
+                .doesNotContain("ConformanceDivergenceTest", "SyntheticTariffTest", "repository tooling");
         assertThat(start.substring(start.indexOf("\n<details"))).startsWith(
-                "\n<details class=\"evidence-tests\"><summary>Evidence test classes (").contains("ConformanceDivergenceTest");
+                "\n<details class=\"evidence-tests\"><summary>Evidence test classes (").contains("ConformanceDivergenceTest",
+                "SyntheticTariffTest");
         String model = ledgerRow(site.text("model/api-components.html"), "Verified evidence");
-        assertThat(model.substring(0, model.indexOf("\n<details")))
-                .endsWith("These tests verify the checker; the shipping modules remain planned.");
+        assertThat(model.substring(0, model.indexOf("\n<details"))).startsWith("<span class=\"badge badge-shipped\">"
+                + "Conformance tests passing</span> ").endsWith("These tests verify the checker and the built modules&#39; "
+                + "static dependencies against the model, not their behaviour.");
     }
 
     @Test

@@ -2,7 +2,7 @@
 title: "C4 view: Containers"
 description: "Container view of the Shipping reference platform. The web app, the API (one deployable modular monolith) and the database."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 > Generated—do not hand-edit. Source: `architecture/workspace.dsl`, view `Containers`. Regenerate with
@@ -28,21 +28,21 @@ flowchart LR
     style 4 fill:#64748b,stroke:#475569,color:#ffffff
     subgraph 5 ["Shipping reference platform"]
         style 5 fill:#ffffff,stroke:#475569,color:#475569
-        15[("Database [Container]")]
-        style 15 fill:#115e59,stroke:#475569,color:#ffffff
+        13["API [Container]"]
+        style 13 fill:#115e59,stroke:#475569,color:#ffffff
+        21[("Database [Container]")]
+        style 21 fill:#115e59,stroke:#475569,color:#ffffff
         6["Web app [Container] (planned)"]
         style 6 fill:#f1f5f9,stroke:#64748b,color:#334155
-        7["API [Container] (planned)"]
-        style 7 fill:#f1f5f9,stroke:#64748b,color:#334155
     end
     1 -->|"1"| 3
     1 -->|"2"| 6
     2 -.->|"3 — planned"| 6
-    2 -->|"4"| 15
-    6 -->|"5"| 7
-    3 -.->|"6 — planned"| 7
-    7 -->|"7"| 15
-    7 -->|"8"| 4
+    2 -->|"4"| 21
+    6 -->|"5"| 13
+    3 -.->|"6 — planned"| 13
+    13 -->|"7"| 21
+    13 -->|"8"| 4
 ```
 
 The same definition is in [containers.mmd](containers.mmd).
@@ -64,9 +64,9 @@ The same definition is in [containers.mmd](containers.mmd).
 | 2 | Platform administrator | Person |  | Role; implementation status not applicable | Provisions tenants and memberships for webshops. |
 | 3 | Webshop | Software System |  | external | A merchant's online shop (simulated). Source of the orders that need shipping. |
 | 4 | Carrier (simulated) | Software System |  | external, simulated | A fictional parcel carrier. v0.1 simulates its tariff, tracking numbers and labels inside the API; no network calls. |
-| 6 | Web app | Container | React 19 SPA, TypeScript 7, Vite 8, generated OpenAPI client | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
-| 7 | API | Container | Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring Data JDBC | Planned; not covered by module conformance | Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. |
-| 15 | Database | Container | PostgreSQL 18.6 | Not covered by module conformance | One schema per v0.1 module plus the event publication registry, with forced row-level security on tenant data. Built: the schemas tenants and quotes (migrations V1 and V2, tested in CI). Planned: shipments, audit and the registry. |
+| 6 | Web app | Container | Plain TypeScript SPA (no framework), TypeScript 5.9.3 | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
+| 13 | API | Container | Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient) | Not covered by module conformance | Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. |
+| 21 | Database | Container | PostgreSQL 18.6 | Not covered by module conformance | One schema per v0.1 module plus the event publication registry, with forced row-level security on tenant data. Built: the schemas tenants and quotes (migrations V1 and V2; CI verification pending). Planned: shipments, audit and the registry. |
 
 ## Relationships
 
@@ -76,12 +76,12 @@ The same definition is in [containers.mmd](containers.mmd).
 | 2 | Shipping clerk | Web app | Prices parcels, books shipments and downloads labels in | HTTPS, browser | solid: not covered by module conformance |
 | 3 | Platform administrator | Web app | Will manage tenants and memberships in (planned; no admin screens in v0.1) | HTTPS, browser | dotted: planned |
 | 4 | Platform administrator | Database | Provisions synthetic tenants and memberships through reviewed seed migrations run as the migration role | Flyway | solid: not covered by module conformance |
-| 5 | Web app | API | Calls the shipping API through the generated client | JSON over HTTPS | solid: not covered by module conformance |
+| 5 | Web app | API | Calls the shipping API through its hand-written typed HTTP adapter | JSON over HTTPS | solid: not covered by module conformance |
 | 6 | Webshop | API | Will submit orders to ship (planned) | JSON over HTTPS | dotted: planned |
 | 7 | API | Database | Reads and writes tenant-scoped data as the application role, which lacks BYPASSRLS | JDBC | solid: not covered by module conformance |
 | 8 | API | Carrier (simulated) | Obtains rates, tracking numbers and labels (simulated in-process; no network call in v0.1) | In-process simulation | solid: not covered by module conformance |
 
 ## What this view cannot show
 
-- A diagram shows the model, not the code. Only the API's modules are checked against the code (docs/gaps.md, section 1).
+- A diagram shows the model, not the code. The API's modules are checked against its compiled classes and the web app's parts against detected TypeScript imports using partial lint (docs/gaps.md, section 1).
 - Relationships of people, software systems and containers are documentation: they carry no contract mode, and module conformance does not cover them. The planned contract and end-to-end tests are to cover the web app's calls.

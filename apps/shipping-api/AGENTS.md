@@ -1,6 +1,7 @@
 # AGENTS.md: apps/shipping-api (Gradle project `:apps:shipping-api`)
 
-Adds to the root `AGENTS.md`. Decisions: ADR 0003 (modules), 0004 (contract), 0005 (database), 0006 (events).
+Adds to the root `AGENTS.md`. Decisions: ADR 0012 (modules, contract and database; it supersedes ADRs 0003, 0004 and
+0005) and ADR 0006 (events).
 
 ## Structure
 
@@ -17,7 +18,9 @@ Adds to the root `AGENTS.md`. Decisions: ADR 0003 (modules), 0004 (contract), 00
 ## Java
 
 - Use `spring-boot-starter-webmvc` for HTTP; `spring-boot-starter-web` was rejected by dependency review.
-- Java 25 (`--release 25`), Spring Boot 4.1.2, Spring Modulith 2.1.2, Spring Data JDBC, Flyway 12.4.0.
+- Java 25 (`--release 25`), Spring Boot 4.1.2, Spring Modulith 2.1.2, Spring JDBC (`JdbcClient`, through
+  `spring-boot-starter-jdbc`), Flyway 12.4.0. Spring Data JDBC is not in the build and v0.1 does not use it (ADR 0012):
+  adapters write their SQL by hand, every value a bound parameter.
 - Records for values, commands, events and responses. Validate in canonical constructors.
 - Sealed interfaces for expected business outcomes (`QuoteResult`, `OfferLookup`, `BookingOutcome`,
   `CancellationOutcome`, `LabelOutcome`). Controllers switch over them exhaustively. Exceptions are for exceptional
@@ -56,7 +59,7 @@ Adds to the root `AGENTS.md`. Decisions: ADR 0003 (modules), 0004 (contract), 00
   lives in `src/main/resources/db/demo` (profile `demo` and tests only) and binds the tenant with
   `set_config('app.tenant_id', ..., true)` before inserting tenant-owned rows.
 - Every migration has a down script, `src/main/resources/db/down/V<n>__<description>.down.sql`, that drops what it
-  created; `MigrationFilesTest` and `MigrationRoundTripTest` fail without it (ADR 0012). Down scripts are for
+  created; `MigrationFilesTest` and `MigrationRoundTripTest` fail without it (ADR 0016). Down scripts are for
   development databases and CI: a deployed database only rolls forward.
 - The runtime uses `shipping_app` only. `shipping_owner` is for Flyway only.
 
@@ -71,15 +74,26 @@ Adds to the root `AGENTS.md`. Decisions: ADR 0003 (modules), 0004 (contract), 00
 
 ## Tests
 
-- Set `TESTCONTAINERS_RYUK_DISABLED=true` for local and CI Testcontainers runs. Ryuk is rejected; the test harness and runner own container cleanup.
+- Set `TESTCONTAINERS_RYUK_DISABLED=true` and `TESTCONTAINERS_CHECKS_DISABLE=true` for local and CI Testcontainers
+  runs (every `Test` task here sets both). Ryuk is rejected; the test harness and runner own container cleanup.
+- `./gradlew check` runs checks requiring only the reviewed JDK. Database tests run through
+  `:apps:shipping-api:databaseTest` and are mandatory in Java CI and Pages testing. Missing engine prerequisites fail
+  that task; tests are never conditionally skipped.
+- A database test class carries `@Tag("database")`, which moves it from `test` to `databaseTest`, and starts PostgreSQL
+  only through `ReviewedPostgres.start()` (test package `io.github.stigjohnny.shipping.database`). It uses the reviewed
+  image by digest, refuses to start on an engine that no review approves, and returns a `Database` handle: the JDBC
+  URL, the user, the password and `close()`, never the container. Only `ReviewedPostgres` may use Testcontainers or
+  docker-java; never construct a container, name another image or add Testcontainers configuration. The checker
+  rejects recognized container declarations. The harness validates its PostgreSQL instance, and CI checks subsequent
+  engine activity. These controls do not isolate arbitrary build code.
 - Mockito's inline mock maker runs as an explicit `-javaagent` on every Gradle `Test` task, which is Mockito's recipe
   for Java 21 and later. Never set `-XX:+EnableDynamicAgentLoading` or `jdk.attach.allowAttachSelf`
   (`security/reviews/maven--test-libraries--mockito-5.23.0-byte-buddy-1.18.15-and-assertion-libs.md`).
 
 | Suffix | Kind | Runs in |
 |---|---|---|
-| `*Test` | Unit or slice by default; RowLevelSecurityCatalogTest, CrossTenantAccessTest and TableOwnershipTest use PostgreSQL where their assertions require it | `java` |
-| `*IntegrationTest` | Testcontainers PostgreSQL 18.6 (pinned digest); never H2 | `java` |
+| `*Test` | Unit or slice by default; RowLevelSecurityCatalogTest, CrossTenantAccessTest and TableOwnershipTest use PostgreSQL where their assertions require it, and are then tagged `database` | `java` |
+| `*IntegrationTest` | Testcontainers PostgreSQL 18.6 (pinned digest), through `ReviewedPostgres`, tagged `database`; never H2 | `java` (`databaseTest`) |
 | `*HttpContractTest` | HTTP tests that validate responses against the contract | `java` |
 | `*PropertiesTest` | Parameterized property tests (JUnit Jupiter `@ParameterizedTest` with a `@MethodSource` of boundary cases and a fixed-seed `java.util.random.RandomGenerator` sample), in the normal `java` check | `java` |
 
@@ -96,8 +110,8 @@ Adds to the root `AGENTS.md`. Decisions: ADR 0003 (modules), 0004 (contract), 00
 
 ## Common tasks
 
-- **New endpoint:** contract, regenerate client, failing `*HttpContractTest`, controller, module document, flow if
-  affected.
+- **New endpoint:** contract, failing `*HttpContractTest`, controller, module document, flow if affected. The first
+  runnable slice generates no client (ADR 0012); the web app's hand-written types change with its own code.
 - **New dependency between modules:** model change (level 3) with the reason in the relationship description, then
   the code. Use `REQUIRED` when the collaboration is mandatory for correctness.
 - **New table:** migration with policy and grants, `RowLevelSecurityCatalogTest` passes, module document's data

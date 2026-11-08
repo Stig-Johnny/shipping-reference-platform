@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
  * The migration files themselves, without a database. Flyway 12.4.0 also runs shell, Python and other script
  * migrations it finds in a location, so its review allows nothing but versioned SQL migrations there
  * (security/reviews/maven--flyway--12.4.0.md, condition 3). Every migration has a down script where Flyway does not
- * look (ADR 0012).
+ * look (ADR 0016).
  */
 class MigrationFilesTest {
 

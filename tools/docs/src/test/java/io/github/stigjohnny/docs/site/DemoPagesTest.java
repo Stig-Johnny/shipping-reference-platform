@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.markdown.SlideOutline;
-import io.github.stigjohnny.docs.repo.Capabilities;
 import io.github.stigjohnny.docs.repo.Capability;
 import io.github.stigjohnny.docs.repo.DeckRecord;
 import io.github.stigjohnny.docs.repo.DemoRecord;
@@ -421,40 +420,15 @@ class DemoPagesTest {
         assertThat(ledgerRow(second, "Planned implementation")).endsWith(" Manual today: the author of a change states "
                 + "its risk level, and the owner records the approval of a level 3 change; the risk-approval check that "
                 + "is to enforce this (control.risk-classification) is planned.");
-        // The double rule only beside passing evidence with a named scope: the tooling's, while only controls have
-        // passing tests (whileOnlyControlsHaveEvidenceTheLedgerSaysTheyAreTheToolingsTests).
+        // The double rule only beside passing evidence. Product capabilities contribute tests now, so the line no longer
+        // says that they all verify tooling.
         String evidence = ledgerRow(second, "Verified evidence");
-        Sources sources = Sources.read(fixture.root(), List.of(fixture.reports()));
-        boolean tooling = sources.capabilities().all().stream()
-                .filter(c -> c.evidence().stream().anyMatch(sources.evidence()::passed)).allMatch(Capability::control);
-        assertThat(evidence).startsWith(tooling ? "<span class=\"badge badge-shipped\">Tooling tests passing</span> "
-                : "<span class=\"badge badge-shipped\">Passing</span> ");
-        assertThat(evidence.contains("These tests verify repository tooling, not shipping behaviour."))
-                .isEqualTo(tooling);
+        assertThat(evidence).startsWith("<span class=\"badge badge-shipped\">Passing</span> ")
+                .contains("SyntheticTariffTest", "ArchitectureConformanceTest")
+                .doesNotContain("These tests verify repository tooling, not shipping behaviour.");
         assertThat(count(site.text(DECK), "badge-shipped")).isEqualTo(1);
         assertThat(slide(site.text(DECK), "one-change-the-gate-rejects")).doesNotContain("badge-shipped")
                 .contains("<p>Recorded output — not rerun by this site build. Full record in the notes.</p>");
-    }
-
-    @Test
-    void whileOnlyControlsHaveEvidenceTheLedgerSaysTheyAreTheToolingsTests() {
-        // Every product capability back to planned, without evidence: the state before the first one had any.
-        String yaml = fixture.read(Capabilities.PATH);
-        int controls = yaml.indexOf("\ncontrols:");
-        fixture.write(Decks.PATH, Decks.SAMPLE).write(Capabilities.PATH, yaml.substring(0, controls)
-                .replaceAll("status: (shipped|partial)", "status: planned")
-                .replaceAll("evidence: \\[[^\\]]*\\]", "evidence: none yet")
-                .replaceAll("\n +evidenceLabel: [^\n]*", "") + yaml.substring(controls));
-
-        BuiltSite site = build();
-        String start = site.text("index.html");
-
-        assertThat(start).contains("Specification only", "No application code exists yet.");
-        for (String page : List.of(start, slide(site.text(DECK), "state-today"))) {
-            assertThat(ledgerRow(page, "Verified evidence"))
-                    .startsWith("<span class=\"badge badge-shipped\">Tooling tests passing</span> ")
-                    .contains("These tests verify repository tooling, not shipping behaviour.");
-        }
     }
 
     @Test

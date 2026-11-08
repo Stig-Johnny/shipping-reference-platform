@@ -11,6 +11,8 @@ public enum Badge {
     APPROVED("approved"),
     CONDITIONS("conditions"),
     REJECTED("rejected"),
+    /** A test that failed in the build that generated the site: the failure colour, like a rejection. */
+    FAILING("failing"),
     MATCHES("matches"),
     NONE("none"),
     NEUTRAL("neutral");
