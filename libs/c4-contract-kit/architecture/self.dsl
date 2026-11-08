@@ -1,10 +1,10 @@
 // c4-contract-kit: the library's own structure, in Structurizr DSL, checked with the library itself.
 //
 // libs/c4-contract-kit/AGENTS.md ("Boundaries") allows exactly these internal dependencies:
-// api -> model, bytecode, rules, report; rules -> model, bytecode; report -> rules, model. sources depends on no
-// other package, and no package uses it yet. Every allowed edge is used, so each is REQUIRED: deleting one fails
-// SelfConformanceTest with an absence, and any other edge, for example report -> api, model -> bytecode or
-// sources -> model, fails it with a divergence. The component relationship graph has no cycle.
+// api -> model, bytecode, sources, rules, report; rules -> model, bytecode, sources; report -> rules, model. Every
+// allowed edge is used, so each is REQUIRED: deleting one fails SelfConformanceTest with an absence, and any other
+// edge, for example report -> api, model -> bytecode or sources -> model, fails it with a divergence. The component
+// relationship graph has no cycle.
 //
 // The contract properties are those of architecture/workspace.dsl (see its header), and so are the restrictions:
 // no !include, !script, !plugin, !docs or !adrs, no environment variables and no themes; no constants or variables,
@@ -17,7 +17,7 @@ workspace "c4-contract-kit" "The internal structure of the library that checks c
     !impliedRelationships false
 
     model {
-        kit = softwareSystem "c4-contract-kit" "Compares a Structurizr DSL model with compiled Java classes, in both directions." {
+        kit = softwareSystem "c4-contract-kit" "Compares a Structurizr DSL model with compiled Java classes and with a web app's TypeScript imports, in both directions." {
 
             library = container "Library" "A plain Java library, used from tests." "Java 25" {
                 properties {
@@ -56,7 +56,7 @@ workspace "c4-contract-kit" "The internal structure of the library that checks c
                     }
                 }
 
-                rulesPackage = component "rules" "The comparison in both directions and the violation rules." "Java package" {
+                rulesPackage = component "rules" "The comparisons in both directions, of classes and of web imports, and the violation rules." "Java package" {
                     properties {
                         "contract.id" "rules"
                         "contract.packages" "io.github.stigjohnny.c4contractkit.rules"
@@ -84,6 +84,11 @@ workspace "c4-contract-kit" "The internal structure of the library that checks c
                 "contract.mode" "REQUIRED"
             }
         }
+        apiPackage -> sourcesPackage "Reads the web root with" "Java" "Required" {
+            properties {
+                "contract.mode" "REQUIRED"
+            }
+        }
         apiPackage -> rulesPackage "Compares the model with the classes with" "Java" "Required" {
             properties {
                 "contract.mode" "REQUIRED"
@@ -100,6 +105,11 @@ workspace "c4-contract-kit" "The internal structure of the library that checks c
             }
         }
         rulesPackage -> bytecodePackage "Reads classes and their references from" "Java" "Required" {
+            properties {
+                "contract.mode" "REQUIRED"
+            }
+        }
+        rulesPackage -> sourcesPackage "Reads web files, imports and refusals from" "Java" "Required" {
             properties {
                 "contract.mode" "REQUIRED"
             }

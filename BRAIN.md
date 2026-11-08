@@ -81,6 +81,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | [ADR 0012: First runnable slice with a plain TypeScript workbench and Spring JDBC](docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md) | accepted | java |
 | [ADR 0013: Scenario views are checked against recorded interactions](docs/adr/0013-scenario-views-are-checked-against-recorded-interactions.md) | accepted | java |
 | [ADR 0014: Partial web import lint and planned authoritative controls](docs/adr/0014-partial-web-import-lint-and-authoritative-controls.md) | accepted | not enforced yet |
+| [ADR 0015: Partial web import lint and planned authoritative controls](docs/adr/0015-partial-web-import-lint-and-authoritative-controls.md) | accepted | not enforced yet |
 
 ## Third-party components
 

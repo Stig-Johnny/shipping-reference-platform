@@ -50,7 +50,7 @@ public final class MarkdownReport {
         return String.join("\n\n", blocks) + "\n";
     }
 
-    private static String count(int violations) {
+    static String count(int violations) {
         return switch (violations) {
             case 0 -> "no violations";
             case 1 -> "1 violation";
@@ -96,7 +96,7 @@ public final class MarkdownReport {
                         .toList());
     }
 
-    private static String table(List<String> header, List<List<String>> rows) {
+    static String table(List<String> header, List<List<String>> rows) {
         List<String> lines = new ArrayList<>();
         lines.add(row(header));
         lines.add("|" + "---|".repeat(header.size()));
@@ -104,22 +104,22 @@ public final class MarkdownReport {
         return String.join("\n", lines);
     }
 
-    private static String row(List<String> cells) {
+    static String row(List<String> cells) {
         return "| " + String.join(" | ", cells) + " |";
     }
 
     /** NO_STATIC_EVIDENCE as "no static evidence". */
-    private static String words(String constant) {
+    static String words(String constant) {
         return constant.toLowerCase(Locale.ROOT).replace('_', ' ');
     }
 
     /** Text on one line that cannot end a paragraph or a table cell. */
-    private static String text(String value) {
+    static String text(String value) {
         return value.replace("\r", " ").replace("\n", " ").replace("|", "\\|");
     }
 
     /** A code span whose fence is longer than any run of backticks inside. */
-    private static String code(String value) {
+    static String code(String value) {
         String fence = "`";
         while (value.contains(fence)) {
             fence = fence + "`";

@@ -3,13 +3,13 @@ package io.github.stigjohnny.c4contractkit.sources;
 import java.util.List;
 import java.util.stream.Stream;
 
-/** Synthetic text only: these sources are scanned, never executed. */
-final class LexicalBoundaryFixtures {
+/** Shared scanner, reader and public-gate regressions: synthetic text only, never executed. */
+public final class LexicalBoundaryFixtures {
     static final String NUMBER = "a numeric literal or its continuation is outside the supported grammar";
     static final String FLAGS = "regular expression flags must be distinct letters from dgimsuy; "
             + "Unicode sets (v) and escaped or unknown flags are not supported";
 
-    record Fixture(String name, String source, int line, List<String> reasons) {
+    public record Fixture(String name, String source, int line, List<String> reasons) {
         @Override
         public String toString() {
             return name;
@@ -19,7 +19,7 @@ final class LexicalBoundaryFixtures {
     private LexicalBoundaryFixtures() {
     }
 
-    static Stream<Fixture> cases() {
+    public static Stream<Fixture> cases() {
         Stream<Fixture> numbers = Stream.of("1.", "1.0", "1n", "0x1", "0XFF", "0b1", "0B10", "0o7", "0O7",
                 "1e3", "1E3", "1e+3", "1e-3", "1_000.", "1_000.0", "1_000n", "0xA_B", "0b1_0n",
                 "0o7_0n", "0x1n", ".5", ".5e2", "0.5_0", "1e1_0")

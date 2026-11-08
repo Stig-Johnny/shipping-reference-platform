@@ -262,13 +262,21 @@ closes it.
 - axe-core finds a subset of accessibility problems; manual keyboard and screen reader checks are required and
   recorded by hand.
 - The planned web conformance gate uses a **partial static lint** for import boundaries and cycles, and a direct
-  detected import for each REQUIRED relationship whose endpoints are built (ADR 0014). Relationships touching
-  planned parts are not evaluated, a direct import proves a reference and not behaviour, and a part that no REQUIRED
-  relationship reaches can be unused without a report. dependency-cruiser is deferred.
-- **The web source reader is a partial static lint, not authoritative enforcement.** The owner accepted this scope
-  on 2026-11-08 (ADR 0014). It is implemented and tested on synthetic fixtures; the web conformance gate is still
-  planned on this reader-only slice. It can miss imports and unsupported constructs without a refusal. Its grammar
-  is deliberately restricted; the following are recognized forms covered by fixtures, not universal guarantees:
+  detected import for each REQUIRED relationship whose endpoints are built (ADRs 0012 and 0015). Relationships
+  touching planned parts are not evaluated, a direct import proves a reference and not behaviour, and a part that no
+  REQUIRED relationship reaches can be unused without a report. dependency-cruiser is deferred.
+- **The web reader and conformance rules ship as a labelled partial static check, not authoritative enforcement.**
+  The owner accepted this scope for pull requests #70 and #71 on 2026-11-08 (ADR 0015). The reader and conformance
+  library are implemented and tested on synthetic fixtures;
+  the repository's web conformance gate is still planned. The reader can miss imports and unsupported constructs
+  without a refusal. `WebConformanceTest` proves that the tested reader refusals fail the model comparison,
+  and that Node.js built-ins in tests need runtime approval for project `ci` in configuration `web`, at the version
+  named by `engines.node`. `WebReaderRefusalConformanceTest` checks the quoted/escaped loader keys, computed keys,
+  indirect timers and ambiguous script/link URLs through the same public gate. It also checks all 66 numeric-boundary
+  and regex-flag refusal fixtures independently in six TS/TSX source/test placements, asserting the failing verdict
+  and exact file, line and reason, including multiple findings on one line and findings after continued strings.
+  This is fixture evidence, not a check of real web imports. The reader's grammar is deliberately restricted;
+  the following are recognized forms covered by fixtures, not universal guarantees:
   ambiguous slashes after closing type arguments, loader references (including quoted keys, aliases and indirect
   calls), escaped property keys, non-literal computed access/binding keys (including templates and const-derived
   keys), duplicate HTML attributes, encoded URL/type
@@ -279,8 +287,8 @@ closes it.
   Every scanned URL attribute is validated before origin classification against a conservative ASCII subset:
   controls, spaces, backslashes, malformed escapes and uncertain schemes/authorities are refused. This is no full
   TypeScript or WHATWG URL parser and no proof about reflective calls or general runtime behaviour. Conservative
-  refusals reject harmless names, computed indexing, callback aliases and valid URLs outside that subset too. The
-  reader does not execute a web app or inspect installed packages.
+  refusals reject harmless names, computed indexing, array destructuring, callback aliases and valid URLs outside
+  that subset too. The reader does not execute a web app or inspect installed packages.
 - **Known open web-reader bypass: spread syntax.** The review of pull request #70 found that
   `const p = { ...import("unlisted") };`, `const p = { ...import(name) };`,
   `const p = { ...require("unlisted") };` and `const p = { ...import.meta.glob("./*.ts") };` produce
@@ -289,10 +297,13 @@ closes it.
   the scanner treats the next keyword as a property name. Parenthesizing the operand restores detection in the
   reviewed control; that does not close the bypass. The review reported the numeric-token defect fixed and no other
   open bypass class in its probe set; that set was not exhaustive. A green lint result cannot prove the absence of
-  undeclared imports or hidden runtime loaders.
+  undeclared imports or hidden runtime loaders. The conformance rules only compare detected imports and propagate
+  reported refusals; they do not recover dependencies the reader misses. Their passing verdict cannot establish
+  complete boundary or cycle coverage. The partial label does not promote `control.web-import-boundaries`, which
+  remains planned until `WebArchitectureConformanceTest` exists and passes against the repository's web app.
 - **Authoritative web controls are planned, not delivered by the reader.** The reviewed TypeScript compiler's
   import graph is to supply import dependencies, and a strict Content-Security-Policy in the web app is to be
-  enforced by the browser for runtime loading and execution (ADR 0014). The compiler graph is not a proof of general
+  enforced by the browser for runtime loading and execution (ADR 0015). The compiler graph is not a proof of general
   runtime behaviour, and CSP does not enforce module boundaries. Neither control is implemented in this slice;
   reader fixtures are not evidence of either one.
 - The first runnable slice defers the generated client and the component tests (ADR 0012). So there is no

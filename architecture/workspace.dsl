@@ -1,7 +1,8 @@
 // shipping-reference-platform: C4 model in Structurizr DSL (parsed with com.structurizr:structurizr-dsl 6.2.4).
 //
 // This file is the structural authority for the shipping product (ADR 0002). People read the rendered views;
-// c4-contract-kit reads this same file and compares it with the API's compiled classes in both directions.
+// c4-contract-kit reads this same file and compares it with the API's compiled classes. Its partial web check
+// compares detected TypeScript imports in both directions; integration with the repository's web app is planned.
 // Changing this file is a risk level 3 change and needs the owner's approval (policy/risk.json, .github/CODEOWNERS).
 //
 // Restrictions, enforced by c4-contract-kit's restricted parser: no !include, !script, !plugin, !docs, !adrs or
@@ -50,8 +51,63 @@
 // software systems or containers are documentation: they must not carry contract.mode and are not checked by Java
 // static analysis (the web app's calls are checked by contract and end-to-end tests instead).
 //
+// WEB PROPERTIES
+//
+// WebConformance implements a labelled partial static check, tested on synthetic repositories (ADR 0015).
+// It compares only detected imports and propagates reported refusals; spread-syntax loaders can pass unseen.
+// The repository's web-app gate, compiler import graph and browser-enforced web-app CSP remain planned.
+// The web vocabulary is separate: the contract properties above belong to the API alone, and the web container,
+// its components and their relationships must not carry them. The import rules below apply to detected imports.
+//
+// On the one container whose TypeScript sources are checked (exactly one container may carry web.root):
+//   web.root      Directory of the container's source files, relative to the repository root. Every file under it
+//                 must belong to exactly one component by directory. Names that start with a dot are not part of it.
+//                 The directory above it is the app's: its package.json, tsconfig*.json and *.html are read too.
+//   web.testRoots     Optional. Comma-separated directories of tests only, inside the app's directory. Every .ts and
+//                     .tsx file in them is a test. No root may equal or lie inside another, web.root included.
+//   web.publicRoots   Optional. Comma-separated directories of files served as they are (style sheets, images and
+//                     fonts only), inside the app's directory.
+//   web.testBuiltins  Optional. Comma-separated built-in modules of Node.js that tests may import, each written with
+//                     node: (node:test). Browser code may import none, and a test none without node:.
+//   web.testPackages  Optional. Comma-separated npm package names that tests may import with a bare specifier.
+//
+// On every component of that container:
+//   web.id        Stable identifier matching [a-z][a-z0-9-]*, unique among the web components. Used in reports.
+//   web.paths     Comma-separated directories relative to web.root. A file belongs to the component whose directory
+//                 is above it. No directory may equal or lie inside another, in one component or across components.
+//   web.status    built | planned, with the tag "Planned" exactly when planned.
+//                 built    the directories must hold at least one .ts or .tsx file (test files do not count).
+//                 planned  the directories must hold no file at all; the component's edges are not evaluated.
+//   web.entry     Optional. A .ts or .tsx file inside the component's directories, relative to web.root, and not a
+//                 test. Other components, and their tests, may import the component through that file only.
+//   web.packages  Optional. Comma-separated npm package names that the component's files may import with a bare
+//                 specifier (react also covers react/jsx-runtime). Any other bare specifier fails the check.
+//
+// Every package and built-in an import names is whitelisted twice: here, and in security/allowlist.json. A package
+// of browser code must be pinned in package.json "dependencies" and approved there for the app (project
+// apps/shipping-web, configuration dependencies); a test's package in "devDependencies" or "dependencies". A test's
+// built-ins need the approval of the Node.js that package.json "engines" names, for project ci, configuration web.
+//
+// On relationships between two components of that container, and nowhere else:
+//   web.mode      REQUIRED | PERMITTED, as contract.mode above with an import in place of a reference: "a -> b"
+//                 means files of a may import files of b. Absent means PERMITTED; this file states it on every such
+//                 relationship. The tag "Required import" must be present exactly when the mode is REQUIRED. At most
+//                 one relationship per ordered pair of components; the graph must be acyclic.
+//
+// A detected import from one web component to another without a relationship fails the check (a divergence), as does
+// a REQUIRED relationship between built components without any detected import (an absence). Type-only imports, re-exports and
+// import() of a string literal count; imports inside one component do not, but no files may import each other in a
+// cycle. Test files (*.test.ts, *.test.tsx) are held to the relationships and entries of their component, and the files
+// of a test root, which belong to no component, may import only files of that root; but tests are never evidence: a
+// test never satisfies a REQUIRED relationship, and no production file may import a test. The sources are read as data
+// with a deliberately restricted import grammar, never executed: recognized unsupported forms (require, import() of
+// anything but a string literal, import.meta other than import.meta.env, absolute, aliased or URL specifiers, .js and
+// .json files, CSS @import, and settings such as tsconfig paths, baseUrl or an import map that would resolve a
+// specifier otherwise) fail the check. This is not a general fail-closed guarantee: silent misses can hide imports
+// and unsupported constructs. The rules are in libs/c4-contract-kit/AGENTS.md ("Web imports").
+//
 // What this model cannot prove is listed in docs/gaps.md. In short: a REQUIRED edge proves that a static reference
-// exists, not that the behaviour behind it runs.
+// or import exists, not that the behaviour behind it runs.
 
 workspace "Shipping reference platform" "Reference monorepo: webshop parcel shipping with synthetic data, checked against this model." {
 

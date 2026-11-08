@@ -444,7 +444,7 @@ controls:
     plannedRemainder: The shipments operations (ShipmentsHttpContractTest) and the same responses from the PostgreSQL-backed application remain.
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.web-import-boundaries
-    title: Partial lint of detected web app imports for boundaries, cycles and a direct import for each REQUIRED relationship whose endpoints are built (ADR 0014).
+    title: Partial lint of detected web app imports for boundaries, cycles and a direct import for each REQUIRED relationship whose endpoints are built (ADR 0015).
     where: libs/c4-contract-kit, apps/shipping-web
     check: java
     status: planned
