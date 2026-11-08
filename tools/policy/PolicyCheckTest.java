@@ -84,6 +84,8 @@ public final class PolicyCheckTest {
             imageBypasses();
             imageNormalisation();
             imageFailClosed();
+            imageFailClosedForms();
+            imageOwnEvasionsRound3();
             tree();
             commandLine();
         } finally {
@@ -976,8 +978,8 @@ public final class PolicyCheckTest {
                     "echo \"the engine runs\"", "docker version --format \"$(printf '%s' '{{.Server.Version}}')\"")) {
                 expectClean(withImages().write(STAGING, staging(command)).findings());
             }
-            expectClean(withImages().write(OTHER_TEST, "class OtherTest {\n    String socket = \"unix:///var/run/docker.sock\";"
-                    + "\n    // A comment may say that a docker run is refused.\n}\n").findings());
+            expectClean(withImages().write(OTHER_TEST, "class OtherTest {\n    // A comment may say that a docker run is "
+                    + "refused.\n}\n").findings());
         });
     }
 
@@ -1038,6 +1040,119 @@ public final class PolicyCheckTest {
                     + "        run: |\n          echo \"3b8a  x.jar\" | sha256sum --check --strict\n"
                     + "          if [[ -n \"$links\" ]]; then\n            exit 1\n          fi\n").findings());
         });
+    }
+
+    /** A workflow whose seventh line is the first of the given step lines. */
+    static String steps(String lines) {
+        return "name: ci\non: push\njobs:\n  x:\n    runs-on: ubuntu-24.04\n    steps:\n" + lines + "\n";
+    }
+
+    /** Each form the check now refuses because it cannot decode it, one fixture each, and the forms it still reads. */
+    static void imageFailClosedForms() {
+        for (String[] form : new String[][] {
+                {"cat <<-EOF\n\tx\n\tEOF", "heredoc"}, {"x=$(( 1 << 2 ))", "heredoc"},
+                {"/usr/bin/d?cker run alpine:3.17", "a glob in the place of a command"},
+                {"c=dock; ${c}er run alpine:3.17", "the command is an expansion"},
+                {"d{o,}cker run alpine:3.17", "brace expansion"},
+                {"$\"docker\" run alpine:3.17", "docker run is not an allowed use"},
+                {"python3 -c 'print(1)'", "an interpreter whose programs this check does not read"},
+                {"bash docs/notes.md", "a file this check does not read as a script"}}) {
+            test("forms: a script that holds this form is refused: " + show(form[0]), () -> expectFinding(withImages()
+                    .write("docs/notes.md", "Notes.\n").write(STAGING, staging(form[0])).findings(), "images",
+                    STAGING + ":4: ", form[1]));
+        }
+        for (String[] form : new String[][] {
+                {"      - run: >\n          echo x", "a folded block"},
+                {"      - run: |2\n          echo x", "an indentation indicator"},
+                {"      - run: &cmd echo x", "anchor"}, {"      - run: *cmd", "alias"},
+                {"      - run: !!str echo x", "tag"},
+                {"      - run: echo one\n          two", "continued over lines", "8"},
+                {"      - run: 'echo\n          x'", "single-quoted YAML scalar continued over lines"},
+                {"      - {name: x, run: echo x}", "inside a YAML flow collection"},
+                {"      - run: echo ${{ github.sha }}", "a GitHub expression in a run step"},
+                {"      - run: echo x\n        shell: python {0}", "a shell other than bash or sh", "8"},
+                {"      <<: {run: echo x}", "merge key"}}) {
+            test("forms: a workflow that holds this form is refused: " + show(form[0]), () -> expectFinding(withImages()
+                    .write(WORKFLOW, steps(form[0])).findings(), "images", WORKFLOW + ":" + (form.length > 2 ? form[2]
+                    : "7") + ": ", form[1]));
+        }
+        test("forms: a tab in a workflow's indentation is refused", () -> expectFinding(withImages().write(WORKFLOW,
+                steps("      - run: echo x\n\t  name: y")).findings(), "images", WORKFLOW + ":8: ", "a tab"));
+        test("forms: an action that is not composite is refused", () -> expectFinding(withImages().write(
+                ".github/actions/probe/action.yml", "runs:\n  using: node20\n  main: index.js\n").findings(), "images",
+                ".github/actions/probe/action.yml:2: ", "not composite"));
+        test("forms: a #! line for another interpreter is refused", () -> expectFinding(withImages().write(
+                "tools/run/probe", "#!/usr/bin/python3\nprint(1)\n").findings(), "images", "tools/run/probe:1: a #! line"));
+        test("forms: a Groovy file is refused, whatever it holds", () -> expectFinding(withImages().write(
+                "apps/demo/build.gradle", "// nothing\n").findings(), "images", "apps/demo/build.gradle:1: a Groovy"));
+        test("forms: a backquoted Kotlin name is refused", () -> expectFinding(withImages().write(
+                "apps/demo/src/test/kotlin/demo/Probe.kt", "package demo\n\nfun `a test`() { }\n").findings(), "images",
+                "apps/demo/src/test/kotlin/demo/Probe.kt:3: a backquoted Kotlin identifier"));
+        test("forms: a binary file under src/ is refused", () -> expectFinding(withImages().write(
+                "apps/demo/src/test/resources/image.png", new byte[] {(byte) 0x89, 'P', 'N', 'G', (byte) 0xff, 0}).findings(),
+                "images", "apps/demo/src/test/resources/image.png: not UTF-8 text"));
+        test("forms: an executable anywhere in the tree is refused", () -> expectFinding(withImages().write(
+                "tools/bin/probe", new byte[] {0x7f, 'E', 'L', 'F', 2, 1, 1, 0}).findings(), "images",
+                "tools/bin/probe: an executable or an archive (an ELF executable)"));
+        test("forms: a container build file is refused", () -> expectFinding(withImages().write("tools/Dockerfile",
+                "FROM alpine:3.17\n").findings(), "images", "tools/Dockerfile: a container build or compose file"));
+        test("forms: a string literal that names an interpreter is refused", () -> expectFinding(withImages().write(
+                OTHER_TEST, "class OtherTest {\n    ProcessBuilder p = new ProcessBuilder(\"python3\", \"x.py\");\n}\n")
+                .findings(), "images", OTHER_TEST + ":2: runs python3"));
+        test("forms: $'...' quoting in a string literal is refused", () -> expectFinding(withImages().write(OTHER_TEST,
+                "class OtherTest {\n    ProcessBuilder p = new ProcessBuilder(\"bash\", \"-c\", \"$'\\\\x64ocker' run "
+                        + "alpine\");\n}\n").findings(), "images", OTHER_TEST + ":2: $'...' quoting"));
+        test("forms: functions, arrays, traps, loops, process substitution and case in a substitution are read", () ->
+                expectClean(withImages().write(STAGING, staging("f() { local -a names=(\"$1\" \"$2\"); printf '%s\\n' "
+                        + "\"${names[@]}\"; }\ntrap 'rm -f \"$tmp\"' EXIT\nwhile read -r x; do echo \"$x\"; done < <(printf "
+                        + "'a\\n')\nfor x in a b; do f \"$x\" y; done\ny=$(case \"$x\" in a) echo 1 ;; *) echo 2 ;; esac)\n"
+                        + "echo \"$x is set\" 2>&1 | tee out")).findings()));
+    }
+
+    /**
+     * Ten evasions this pull request tried against the fail-closed version itself. The first seven got through it and
+     * are refused since; the last three were refused at the first try.
+     */
+    static void imageOwnEvasionsRound3() {
+        test("own evasion 14: a pipe into bash runs text that printf assembles", () -> expectFinding(withImages()
+                .write(STAGING, staging("printf '%s%s run alpine:3.17\\n' d ocker | bash")).findings(), "images",
+                STAGING + ":4: ", "reads its commands from its input"));
+        test("own evasion 15: BASH_ENV makes every bash step source a file this check does not read", () ->
+                expectFinding(withImages().write("tools/ci/steps.txt", "docker run alpine:3.17\n").write(WORKFLOW,
+                        "name: ci\non: push\njobs:\n  x:\n    runs-on: ubuntu-24.04\n    env:\n      BASH_ENV: "
+                                + "tools/ci/steps.txt\n    steps:\n      - run: echo x\n").findings(), "images",
+                        WORKFLOW + ":7: ", "BASH_ENV"));
+        test("own evasion 16: an awk program runs the command", () -> expectFinding(withImages().write(STAGING,
+                staging("awk 'BEGIN { system(\"d\" \"ocker run alpine:3.17\") }'")).findings(), "images", STAGING + ":4: ",
+                "an awk program that runs commands"));
+        test("own evasion 17: an executable without #! or extension, run by its name on PATH", () -> {
+            Repo repo = withImages().write("tools/bin/probe", "docker run alpine:3.17\n")
+                    .write(STAGING, staging("PATH=\"$PWD/tools/bin:$PATH\" probe"));
+            Files.setPosixFilePermissions(repo.root.resolve("tools/bin/probe"), PosixFilePermissions.fromString("rwxr-xr-x"));
+            expectFinding(repo.findings(), "images", "tools/bin/probe:1: docker run");
+        });
+        test("own evasion 18: make runs a Makefile's recipe", () -> expectFinding(withImages().write("tools/ci/probe.mk",
+                "x:\n\tdocker run alpine:3.17\n").write(STAGING, staging("make -f tools/ci/probe.mk")).findings(), "images",
+                STAGING + ":4: runs make"));
+        test("own evasion 19: a test talks to the engine's socket, naming no runtime", () -> expectFinding(withImages()
+                .write(OTHER_TEST, "class OtherTest {\n    Object engine() throws Exception {\n        return java.nio.channels"
+                        + ".SocketChannel.open(java.net.UnixDomainSocketAddress.of(\"/var/run/docker.sock\"));\n    }\n}\n")
+                .findings(), "images", OTHER_TEST + ":3: ", "socket"));
+        test("own evasion 20: a JVM option in gradle.properties runs the command", () -> expectFinding(withImages()
+                .write("gradle.properties", "org.gradle.jvmargs=-XX:OnError=d''ocker run alpine:3.17\n").findings(),
+                "images", "gradle.properties:1: "));
+        test("own evasion 21: a char array spells docker", () -> expectFinding(withImages().write(OTHER_TEST,
+                "class OtherTest {\n    ProcessBuilder p = new ProcessBuilder(new String(new char[] {'d', 'o', 'c', 'k', "
+                        + "'e', 'r'}), \"run\", \"alpine:3.17\");\n}\n").findings(), "images", OTHER_TEST + ":2: ",
+                "split across string literals"));
+        test("own evasion 22: a Kotlin template joins a variable to the rest of the name", () -> expectFinding(withImages()
+                .write("apps/demo/src/test/kotlin/demo/Probe.kt", "package demo\n\nval d = \"do\"\nval p = ProcessBuilder("
+                        + "\"${d}cker\", \"run\", \"alpine:3.17\")\n").findings(), "images",
+                "apps/demo/src/test/kotlin/demo/Probe.kt:3: ", "split across string literals"));
+        test("own evasion 23: a local composite action runs the step", () -> expectFinding(withImages().write(
+                ".github/actions/probe/action.yml", "runs:\n  using: composite\n  steps:\n    - run: docker run alpine:3.17\n"
+                        + "      shell: bash\n").write(WORKFLOW, steps("      - uses: ./.github/actions/probe")).findings(),
+                "images", ".github/actions/probe/action.yml:4: docker run"));
     }
 
     // ---- the checked tree: no symbolic link in it, nothing read from outside it ----
