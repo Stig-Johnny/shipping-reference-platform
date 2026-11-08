@@ -430,7 +430,7 @@ controls:
     evidence: none yet
     acceptanceTests: [AllowlistCheckTest, GradleVerificationCheckTest, NpmLockCheckTest, WorkflowPinCheckTest, ApprovalBindingTest, StrictJsonParserTest]
     negativeFixture: Demo pull request adding an unreviewed dependency; it is stopped before the build.
-    enforcedSubset: Current enforcement covers preflight, dependency verification, acceptance-digest checks and container image digests.
+    enforcedSubset: Current enforcement covers preflight, dependency verification, acceptance-digest checks, container image digests and SHA-256-pinned source launch sites.
     plannedRemainder: Schema validation, policy tests and approval binding remain planned.
     docs: docs/adr/0007-dependency-allowlist-and-pre-use-enforcement.md
   - id: control.risk-classification

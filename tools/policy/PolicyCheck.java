@@ -107,6 +107,7 @@ public final class PolicyCheck {
 
     private final Path repo;
     private final LocalDate today;
+    private final Map<String, String> launchSites;
     private final List<Json.JObject> rawEntries;
     private final List<Entry> entries;
     private final Json.JObject allowlist;
@@ -115,6 +116,12 @@ public final class PolicyCheck {
     private final Set<Finding> findings = new TreeSet<>();
 
     PolicyCheck(Path repo, LocalDate today) throws IOException {
+        this(repo, today, LAUNCH_SITES);
+    }
+
+    /** In-memory fixture registry for tests; no CLI, environment or candidate file can select this overload. */
+    PolicyCheck(Path repo, LocalDate today, Map<String, String> launchSites) throws IOException {
+        this.launchSites = Map.copyOf(launchSites);
         this.repo = withoutLinks(repo);
         this.today = today;
         Path file = this.repo.resolve(ALLOWLIST);
@@ -433,8 +440,8 @@ public final class PolicyCheck {
      * action file; every shell script, by its .sh extension or its #! line; root and declared workspace package.json
      * scripts and repository .npmrc files. In the whole tree it also looks for
      * executables and archives (ELF, Mach-O, PE, Java class, ZIP or JAR, gzip, WebAssembly), which it cannot read.
-     * Documents outside src/, the review records and this checker with its tests are not read: naming an image there
-     * uses nothing. The Gradle wrapper script is not read either, as long as it is byte for byte the one Gradle generates
+     * Documents outside src/, review records and this checker's fixtures are not read for image strings: naming an
+     * image there uses nothing. The Gradle wrapper script is not read either, as long as it is byte for byte the one Gradle generates
      * (WRAPPER_SCRIPT_SHA256); edited, it is read like any other script.
      *
      * What it decodes: Java after its Unicode escapes; Java and Kotlin without their comments, with their string
@@ -469,8 +476,11 @@ public final class PolicyCheck {
      *     reaches the engine without naming a runtime;
      *   - in Kotlin: a backquoted identifier. Groovy sources and build scripts altogether, whose slashy and dollar-slashy
      *     strings and GString templates it does not decode;
-     *   - at recognized Java/Kotlin process-launch APIs: unresolved executable/argument vectors or working directories;
-     *     only complete literal vectors can earn the same reviewedCommand exception as a workflow or shell script;
+     *   - process-launch capabilities in any Java/Kotlin/Gradle source, including tools/policy and build directories,
+     *     unless its exact path and whole-file SHA-256 are in LAUNCH_SITES. Reflection lookup/invocation and method
+     *     handles require the same pin; aliases cannot hide the original capability name. Opaque Kotlin expression
+     *     templates and backquoted names also require a pin. Within registered sources, the existing command-vector
+     *     decision remains in force: a pin is no interpreter exception;
      *   - in string literals: a container runtime's name in a literal with shell metacharacters, once its quotes,
      *     escapes and expansions are removed, and one split across consecutive literals, whatever joins them (+, a call,
      *     a template); a Kotlin or Groovy template that holds a string literal;
@@ -499,13 +509,11 @@ public final class PolicyCheck {
      *     command (a value, an expansion), other container runtimes, a runtime's name around an expansion, and job or
      *     service containers as plain, quoted, flow, escaped or explicit YAML keys.
      * What stays outside it: repository code run by the reviewed node --test command (matching is not isolation), and
-     * what is decided at run time outside recognized launch APIs (a command or a name assembled from variables, from a file's
-     * contents or by a program's output, a string built by a method call such as format), reflection, the programs that
-     * a command it allows runs in turn (sed, git's configuration, find -exec), and a library that starts a container
+     * commands assembled by the reviewed, hash-pinned launchers, and the programs an allowed command runs in turn (sed, git's configuration, find -exec), and a library that starts a container
      * of its own. For those the static check is no guarantee: the runner's checks of the engine's images and
      * events after the tests (tools/ci/container-engine.sh) are what find a container started that way. The checker's
-     * own directory (CHECKER_DIRECTORY) is not read: its tests hold every refused spelling as data, and a change there is
-     * reviewed as a change to the checker.
+     * own directory (CHECKER_DIRECTORY) is excluded from image/string inspection because its tests hold refused
+     * spellings as data. The structural capability gate DOES read it; the test launcher itself is hash-pinned.
      */
 
     /** This checker and its tests, whose fixtures hold every refused spelling as data: reviewed as the checker. */
@@ -515,6 +523,82 @@ public final class PolicyCheck {
     /** The harness's own test, which may name the engine's socket as the harness does. */
     static final String HARNESS_TEST =
             "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/ReviewedPostgresTest.java";
+    /**
+     * Capability registry, held by the running (base-branch in preflight) checker, never loaded from the candidate.
+     * Exact paths and whole-file bytes: no directory, receiver, command or test-source exemption. Update a pin only
+     * with review of the whole file in a risk-3 PR. Absence grants nothing; any present registered file must match,
+     * even if an edit removes its capability. These are the existing sites on this branch and main, not examples.
+     */
+    static final Map<String, String> LAUNCH_SITES = Map.ofEntries(
+            // The reviewed database harness and its engine queries.
+            Map.entry("apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/ReviewedPostgres.java",
+                    "a5a04eeb3ed92b691ac8e6444b5ce392caedab4ea8a3e587a9361767aec97e66"),
+            // The API test JVM's argument provider, carrying the reviewed architecture-test input.
+            Map.entry("apps/shipping-api/build.gradle.kts",
+                    "9ada331fb9eaa3b00f3dacfd3b96ffddda854c0c7a20a854e8a2959cbebf2d39"),
+            // The docs JavaExec tasks and literal git revision read.
+            Map.entry("tools/docs/build.gradle.kts",
+                    "593953cc08fb15c25a3666d63a64cb5a4e0bc1532ed12c6bca7012b8f013e564"),
+            // The existing reviewed PIT JavaExec task (CI only; never part of check).
+            Map.entry("build-logic/src/main/java/io/github/stigjohnny/build/MutationTestingPlugin.java",
+                    "1da58928c02952dfdc89c77731202f8e3a2e97cb66d48c448a0b938a23a05ba3"),
+            // The JDK-only checker launcher, timeout and process cleanup tests.
+            Map.entry("tools/policy/PolicyCheckTest.java",
+                    "196a9ad3eb5f1950873ab4e7610e8a353109c3a67e0049dc6d82eae1b9461de5"),
+            // Runtime access solely for the fixture-directory cleanup shutdown hook.
+            Map.entry("libs/c4-contract-kit/src/test/java/io/github/stigjohnny/c4contractkit/testing/FixtureCompiler.java",
+                    "954f4b9152ee3e786aea9d8b374bd8863f5771a947dc6b58952634738172fd8b"),
+            // Reflection solely to assert parser features and HTTP restrictions.
+            Map.entry("tools/docs/src/test/java/io/github/stigjohnny/docs/model/RestrictedStructurizrTest.java",
+                    "b035ef03dc230ced0136ec246a3dd4c45c20e22688b871af6922ff928f3bc5c4")
+    );
+    /** Names capabilities before aliases can hide their receivers. No attempt to infer the final command here. */
+    static final Pattern LAUNCH_CAPABILITY = Pattern.compile(
+            "\\b(?:ProcessBuilder|ProcessHandle|Runtime|getRuntime|Exec|JavaExec|ExecSpec|JavaExecSpec|ExecOperations|"
+            + "ExecAction|JavaExecAction|exec|javaexec|commandLine|setCommandLine|setArgs|getArgs|setExecutable|getExecutable|jvmArgs|setJvmArgs|"
+            + "argumentProviders|getArgumentProviders|jvmArgumentProviders|getJvmArgumentProviders|CommandLineArgumentProvider|"
+            + "MethodHandles?|MethodType|VarHandle|KClass|KCallable|KFunction|"
+            + "forName|loadClass|findClass|defineClass|defineHiddenClass|"
+            + "get(?:Declared)?(?:Method|Constructor)s?|getDeclaredFields?|setAccessible|trySetAccessible|"
+            + "invoke|invokeExact|invokeWithArguments)\\b"
+            + "|\\b(?:args|executable)\\s*(?:[=(]|::)|::\\s*(?:args|executable)\\b"
+            + "|\\b(?:java\\s*\\.\\s*lang\\s*\\.\\s*(?:reflect|invoke)|kotlin\\s*\\.\\s*reflect)\\b");
+    static final Pattern KOTLIN_CAPABILITY = Pattern.compile(
+            "\\b(?:members|declaredMembers|memberFunctions|declaredMemberFunctions|functions|constructors|"
+            + "javaMethod|javaConstructor|javaField|kotlinFunction|callBy|args|executable)\\b");
+
+    void checkLaunchSites() throws IOException {
+        for (Path file : files(p -> Language.of(p.getFileName().toString()).isPresent(), true)) {
+            String rel = repo.relativize(file).toString();
+            byte[] bytes = read(file);
+            String pinned = launchSites.get(rel);
+            if (pinned != null) {
+                if (!sha256(bytes).equals(pinned)) add("images", relative(file)
+                        + ": launch-site SHA-256 mismatch; any edit requires review and a registry update");
+                continue; // Existing image/command-form checks still run; a pin never grants a web command exception.
+            }
+            Language language = Language.of(file.getFileName().toString()).orElseThrow();
+            Optional<String> decoded = utf8(bytes);
+            if (decoded.isEmpty() || language == Language.GROOVY) {
+                add("images", relative(file) + ": unregistered launch capability; source syntax cannot be inspected");
+                continue;
+            }
+            String text = language == Language.JAVA ? unicodeEscapesDecoded(decoded.get()) : decoded.get();
+            // Java ignores these characters inside identifiers. Retaining them would disguise a capability's name.
+            if (language == Language.JAVA) {
+                StringBuilder normalized = new StringBuilder();
+                text.codePoints().filter(c -> !Character.isIdentifierIgnorable(c)).forEach(normalized::appendCodePoint);
+                text = normalized.toString();
+            }
+            String bare = SourceViews.of(text, language).bare();
+            boolean opaqueKotlin = language == Language.KOTLIN && (text.contains("${") || bare.contains("`"));
+            if (LAUNCH_CAPABILITY.matcher(bare).find() || opaqueKotlin
+                    || language == Language.KOTLIN && KOTLIN_CAPABILITY.matcher(bare).find()) {
+                add("images", relative(file) + ": unregistered launch capability; requires a reviewed path and SHA-256 pin");
+            }
+        }
+    }
+
     /** The Gradle wrapper script, not read while it is byte for byte the one Gradle 9.2.0 generates: it starts java. */
     static final String WRAPPER_SCRIPT = "gradlew";
     static final String WRAPPER_SCRIPT_SHA256 = "a5a5c199ba02189ae8c46a334223371a20599d9c298ef65e7540ede4a3f72d59";
@@ -752,12 +836,12 @@ public final class PolicyCheck {
             add("images", where + ": unresolved process command vector; write the complete literal executable and arguments");
             return;
         }
-        String executable = command.argv().getFirst();
-        if (!executable.matches("[A-Za-z0-9_./-]+")) {
+        String program = command.argv().getFirst();
+        if (!program.matches("[A-Za-z0-9_./-]+")) {
             add("images", where + ": unresolved process executable");
             return;
         }
-        String name = executable.substring(executable.lastIndexOf('/') + 1);
+        String name = program.substring(program.lastIndexOf('/') + 1);
         if (INTERPRETERS.contains(name) && !reviewedCommand(command, true)) {
             add("images", where + ": runs " + safe(name) + ", an interpreter whose programs this check does not read; "
                     + "no effective review for this complete command form and working directory");
@@ -869,6 +953,7 @@ public final class PolicyCheck {
     }
 
     void checkContainerImages() throws IOException {
+        checkLaunchSites();
         prepareWebCommands();
         for (Path file : files(p -> !repo.relativize(p).toString().startsWith(CHECKER_DIRECTORY)
                 && !repo.relativize(p).toString().equals(WRAPPER_JAR))) {
@@ -2347,8 +2432,17 @@ public final class PolicyCheck {
                     blank(bare, i, end);
                     i = end;
                 } else if (text.startsWith("/*", i)) {
-                    int end = text.indexOf("*/", i + 2);
-                    end = end < 0 ? n : end + 2;
+                    int end = i + 2;
+                    int depth = 1;
+                    while (end < n && depth > 0) {
+                        if (language == Language.KOTLIN && text.startsWith("/*", end)) {
+                            depth++;
+                            end += 2;
+                        } else if (text.startsWith("*/", end)) {
+                            depth--;
+                            end += 2;
+                        } else end++;
+                    }
                     blank(code, i, end);
                     blank(bare, i, end);
                     i = end;
@@ -2528,10 +2622,20 @@ public final class PolicyCheck {
     void add(String area, String message) { findings.add(new Finding(area, message)); }
 
     List<Path> files(java.util.function.Predicate<Path> wanted) throws IOException {
+        return files(wanted, false);
+    }
+
+    List<Path> files(java.util.function.Predicate<Path> wanted, boolean launchSources) throws IOException {
         try (Stream<Path> walk = Files.walk(repo)) {
             return walk.filter(p -> Files.isRegularFile(p, LinkOption.NOFOLLOW_LINKS))
-                    .filter(p -> Stream.of(".git", "build", "node_modules", ".gradle").noneMatch(skip ->
-                            repo.relativize(p).toString().startsWith(skip + "/") || repo.relativize(p).toString().contains("/" + skip + "/")))
+                    .filter(p -> {
+                        String rel = repo.relativize(p).toString();
+                        // The structural gate reads every source, including tools/policy, caches and build outputs.
+                        if (launchSources) return !rel.startsWith(".git/");
+                        return Stream.of(".git", "node_modules", ".gradle").noneMatch(skip ->
+                                rel.startsWith(skip + "/") || rel.contains("/" + skip + "/"))
+                                && !rel.startsWith("build/") && !rel.contains("/build/");
+                    })
                     .filter(wanted).sorted().toList();
         } catch (IOException | UncheckedIOException e) {
             throw new Stop("the checked tree changed while it was read");

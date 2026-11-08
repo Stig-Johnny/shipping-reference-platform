@@ -179,12 +179,14 @@ closes it.
   expansion, a shell that reads its input, awk programs that run commands, interpreters and build tools it does not
   read (apart from ADR 0007's exact reviewed web commands), backquoted Kotlin names, Groovy, binaries under `src/`, executables, container
   files, the variables that make a shell or the JVM run other code, and Unix sockets opened from code outside the
-  harness. Recognized process-launch APIs refuse unresolved command vectors. Elsewhere, text assembled at run time is
-  outside it: a command or a name built from variables, a file's contents,
-  `printf` output, a method call or another program (sed, git's configuration, `find -exec`), a call through
-  reflection or a method handle, a library that starts a container of its own, and a file it does not read (documents
-  outside `src/`, review records, and its own directory, `tools/policy/`, whose tests hold every refused spelling as
-  data; a change there is reviewed as the checker). At run time CI sees which images appeared and which images
+  harness. Java/Kotlin/Gradle launch capabilities, reflection lookup/invocation and method handles require an exact
+  file path and whole-file SHA-256 in the checker's launch-site registry (ADR 0007). The structural scan includes
+  `tools/policy/`, tests, build outputs and caches; image-string scanning still treats the checker's fixtures as data.
+  A changed registered file, a new launch site, an alias, an `env` wrapper or subsequent argument mutation fails
+  without a matching pin. Registered sites still undergo the existing command-vector checks. Hashes freeze reviewed
+  launchers; their dynamic JavaExec arguments and the behaviour of libraries and commands they execute still need
+  review. A library that starts a container of its own, or a program invoked in turn (sed, git's configuration,
+  `find -exec`), stays outside this source gate. Documents outside `src/` and review records are not executable code. At run time CI sees which images appeared and which images
   containers were made from, and whether anything was copied into one; it does not see how another container was
   configured, its privileges, mounts or networks. Only the harness's own container is checked for those. The exact
   `node --test` exception runs repository-owned logic tests with discovery rooted in `apps/shipping-web`. It does not

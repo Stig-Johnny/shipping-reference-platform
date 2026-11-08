@@ -21,8 +21,10 @@ publishing workflow run; `./gradlew check` needs only the reviewed JDK. The publ
 job with no publication privilege.
 
 Check 8 also distinguishes the reviewed web commands from arbitrary interpreter execution. It applies the same
-complete-command and working-directory decision to workflows, scripts and recognized Java/Kotlin process launches,
-and checks root and declared workspace npm scripts. A process invoking an npm script whose body starts another
+complete-command and working-directory decision to workflows, scripts and command vectors in registered Java/Kotlin
+launch sites, and checks root and declared workspace npm scripts. Source launch capabilities now require both an
+explicit reviewed path and a whole-file SHA-256 pin; any edit to a registered file fails until its pin is reviewed.
+Aliases, wrappers and later argument mutations in an unregistered file cannot earn an exception by command spelling. A process invoking an npm script whose body starts another
 container is refused. Compose remains refused; ADR 0012 now specifies the planned harness-based demo route.
 
 ## See it
@@ -109,13 +111,40 @@ reviewed set; the documentation build also refused that stale acceptance. These 
 web execution, database evidence or a successful publishing build. The JDK-only fixtures produce no JUnit evidence
 for the page's current-build test ledger.
 
+Structural-gate supplement recorded 2026-11-08 with the same reviewed JDK. The round-five fixtures first failed
+on the review's subsequent argument mutations, process wrapper and inferred Runtime aliases, and on a registered
+file edit. Examples from the captured red run:
+
+```text
+FAIL launch registry: Gradle args after commandLine
+FAIL launch registry: ProcessBuilder env wrapper
+FAIL launch registry: qualified inferred Runtime
+FAIL launch registry: any registered edit fails its hash
+```
+
+The corresponding green fixture excerpts:
+
+```text
+ok   launch registry: Gradle args after commandLine
+ok   launch registry: ProcessBuilder env wrapper
+ok   launch registry: qualified inferred Runtime
+ok   launch registry: any registered edit fails its hash
+```
+
+All 61 new in-process cases and all 611 earlier in-process cases passed. The complete run still exited 1:
+13 existing child-process cases hit the sandbox's `sysctl` restriction, with no assertion skipped. The real-tree
+checker still reported only the pending acceptance-digest mismatch. The requested Java and generated-docs build
+also exited 1: all 62 documentation-test failures were caused by that same mismatch; the generated-docs task and
+rendered-demo review remain blocked behind it. These are recorded local results, not a passing publishing build.
+
 ## Limits
 
 - The checker rejects recognized container declarations in the shell, Java, Kotlin and YAML forms it decodes, and
   refuses every form it cannot decode: heredocs, YAML scalars over lines, Groovy, backquoted Kotlin names, a command
   it cannot read, and interpreters except ADR 0007's exact reviewed web forms. Recognized process-launch APIs fail
-  closed on unresolved vectors. An image that a library names itself, a call made through reflection or a command
-  assembled outside recognized execution sites is outside it. The permitted Node tests discover logic tests in the
+  closed on unresolved vectors inside hash-pinned launch sites. Reflection lookup/invocation and method-handle
+  capabilities also require a pin. An image that an approved library names itself and the behaviour of the reviewed
+  launchers' dynamic arguments remain outside the source gate. The permitted Node tests discover logic tests in the
   web workspace and execute repository code; matching their command does not isolate them from engine endpoints.
   These controls do not isolate arbitrary build code.
 - At run time CI sees which images appeared, which images containers were made from and whether anything was copied

@@ -87,6 +87,7 @@ public final class PolicyCheckTest {
             imageFailClosedForms();
             imageOwnEvasionsRound3();
             reviewedWebCommands();
+            structuralLaunchSites();
             tree();
             commandLine();
         } finally {
@@ -581,6 +582,7 @@ public final class PolicyCheckTest {
      */
     static Repo withImages() throws IOException {
         Repo repo = Repo.clean();
+        repo.reviewedFixtureSources.add(HARNESS);
         repo.entry("container-image", "docker.io/library/postgres", "18.6", "OCI image index", POSTGRES);
         repo.entry("container-image", "docker.io/testcontainers/ryuk", "0.14.0", "manifest list", RYUK)
                 .put("verdict", "REJECT");
@@ -775,9 +777,11 @@ public final class PolicyCheckTest {
             }
         });
         test("images: a build script or a test that runs a container runtime as a command fails", () -> {
-            expectOnly(withImages().write("apps/demo/build.gradle.kts",
-                    "tasks.register<Exec>(\"pull\") { commandLine(\"docker\", \"pull\", \"alpine\") }\n").findings(),
-                    "images", "apps/demo/build.gradle.kts:1: runs a container runtime as a command");
+            Repo script = withImages().write("apps/demo/build.gradle.kts",
+                    "tasks.register<Exec>(\"pull\") { commandLine(\"docker\", \"pull\", \"alpine\") }\n");
+            expectFinding(script.findings(), "images", "unregistered launch capability");
+            script.reviewedFixtureSources.add("apps/demo/build.gradle.kts");
+            expectOnly(script.findings(), "images", "apps/demo/build.gradle.kts:1: runs a container runtime as a command");
             expectOnly(withImages().edit(DATABASE_TEST, "    final PostgreSQLContainer postgres",
                     "    final ProcessBuilder pull = new ProcessBuilder(\"podman\", \"pull\");\n    final PostgreSQLContainer postgres")
                     .findings(), "images", DATABASE_TEST + ":8: runs a container runtime as a command");
@@ -1501,7 +1505,7 @@ public final class PolicyCheckTest {
                 "npm run test:unit --ignore-scripts")) {
             for (String site : List.of("shell", "workflow", "java", "kotlin")) {
                 test("web forms: accepts " + site + " " + command, () ->
-                        expectClean(webCommand(webRepo(), site, command, webCwd(command)).findings()));
+                        expectClean(webCommand(webRepo(), site, command, webCwd(command)).webFindings(site)));
             }
         }
         for (String command : List.of("node --test --watch", "node --test ../outside.test.ts", "node -e code",
@@ -1511,12 +1515,12 @@ public final class PolicyCheckTest {
                 "tsc -p apps/shipping-web --watch", "tsc -p packages/shipping-client")) {
             for (String site : List.of("shell", "workflow", "java", "kotlin")) {
                 test("web forms: refuses " + site + " " + command, () -> expectFinding(
-                        webCommand(webRepo(), site, command, webCwd(command)).findings(), "images"));
+                        webCommand(webRepo(), site, command, webCwd(command)).webFindings(site), "images"));
             }
         }
         for (String site : List.of("shell", "workflow", "java", "kotlin")) {
             test("web forms: refuses wrong cwd in " + site, () -> expectFinding(
-                    webCommand(webRepo(), site, "node --test", ".").findings(), "images"));
+                    webCommand(webRepo(), site, "node --test", ".").webFindings(site), "images"));
             for (String field : List.of("missing node", "missing npm", "expired", "rejected", "missing review",
                     "wrong node", "wrong npm", "wrong typescript", "wrong scope", "missing conditions", "pending", "stale")) {
                 test("web forms: refuses " + field + " in " + site, () -> {
@@ -1542,7 +1546,7 @@ public final class PolicyCheckTest {
                     if (!field.equals("stale")) r.accept();
                     String cmd = field.equals("wrong typescript") || field.equals("wrong scope")
                             ? "tsc -p apps/shipping-web" : "npm ci --ignore-scripts";
-                    expectFinding(webCommand(r, site, cmd, ".").findings(), "images");
+                    expectFinding(webCommand(r, site, cmd, ".").webFindings(site), "images");
                 });
             }
         }
@@ -1619,7 +1623,7 @@ public final class PolicyCheckTest {
         }
         test("web adversarial: Runtime literal argv gets the same positive decision", () -> expectClean(webRepo()
                 .write("tools/run/Probe.java", "class Probe { Object p = Runtime.getRuntime().exec(new String[] "
-                        + "{\"npm\", \"ci\", \"--ignore-scripts\"}); }").findings()));
+                        + "{\"npm\", \"ci\", \"--ignore-scripts\"}); }").webFindings("java")));
         for (String source : List.of("new ProcessBuilder(\"/bin/bash\", \"-c\", \"node -e code\")",
                 "getRuntime().exec(\"npm run launch\")")) {
             test("web adversarial: alternate API spelling " + source, () -> expectFinding(webRepo()
@@ -1643,6 +1647,74 @@ public final class PolicyCheckTest {
             test("web adversarial: conditional or overridden cwd " + body, () -> expectFinding(webRepo()
                     .write("build.gradle.kts", "tasks.register<Exec>(\"probe\") { " + body + " }").findings(), "images", "build.gradle.kts"));
         }
+    }
+
+    /** Round 5: capability possession, not command spelling, requires a reviewed file and exact bytes. */
+    static void structuralLaunchSites() {
+        Map<String, String> bypasses = Map.ofEntries(
+                Map.entry("Gradle args after commandLine", "workingDir(\"apps/shipping-web\"); "
+                        + "commandLine(\"node\", \"--test\"); args(\"--import\", \"./startup.mjs\")"),
+                Map.entry("Gradle setArgs after commandLine", "commandLine(\"node\", \"--version\"); "
+                        + "setArgs(listOf(\"-e\", \"code\"))"),
+                Map.entry("Gradle setExecutable after commandLine", "commandLine(\"echo\", \"-e\", \"code\"); "
+                        + "setExecutable(\"node\")"),
+                Map.entry("ProcessBuilder env wrapper", "new ProcessBuilder(\"env\", \"node\", \"-e\", \"code\").start();"),
+                Map.entry("qualified inferred Runtime", "var rt = java.lang.Runtime.getRuntime(); rt.exec(\"node -e code\");"),
+                Map.entry("static import inferred Runtime", "import static java.lang.Runtime.getRuntime; "
+                        + "var rt = getRuntime(); rt.exec(\"node -e code\");"),
+                Map.entry("earlier ProcessBuilder npm run", "new ProcessBuilder(\"npm\", \"run\", \"launch\").start();"));
+        bypasses.forEach((name, source) -> test("launch registry: " + name, () -> expectFinding(webRepo()
+                .write(name.startsWith("Gradle") ? "build.gradle.kts" : "tools/run/Probe.java", source)
+                .findings(), "images", "unregistered launch capability")));
+        for (String source : List.of(
+                "new ProcessBuilder(\"true\").start();", "ProcessHandle.current();", "Runtime.getRuntime();",
+                "import java.lang.ProcessBuilder as PB; val p = PB(\"true\")", "val p = ::ProcessBuilder",
+                "import static java.lang.Runtime.*;", "tasks.register<JavaExec>(\"probe\") {}",
+                "tasks.register<Exec>(\"probe\") {}", "providers.exec {}", "args(\"anything\")",
+                "setArgs(values)", "setExecutable(value)", "executable = value", "commandLine = values",
+                "argumentProviders.add(provider)", "getArgumentProviders().add(provider)",
+                "getArgs().add(value)", "getExecutable()", "jvmArgs(values)", "setJvmArgs(values)",
+                "Class.forName(name)", "import static java.lang.Class.forName;", "type.getDeclaredMethods()",
+                "type.getConstructor().newInstance()", "loader.loadClass(name)", "Class::getMethod",
+                "import java.lang.invoke.MethodHandles as MH", "import java.lang.reflect.*;",
+                "import kotlin.reflect.full.*", "type.getDeclaredFields()",
+                "new Pro" + "\\u0063" + "essBuilder(\"true\")")) {
+            test("launch registry: refuses capability " + source, () -> expectFinding(Repo.clean()
+                    .write("tools/run/Probe.java", source).findings(), "images", "unregistered launch capability"));
+        }
+        for (String path : List.of("tools/run/New.java", "tools/policy/New.java", "tools/build/New.java",
+                "build-logic/src/main/java/example/build/New.java", "build/Probe.java", "tools/docs/build/Probe.kt",
+                ".gradle/Probe.kts", "node_modules/probe/Probe.java", "security/Probe.kt", "docs/Probe.kts")) {
+            test("launch registry: no directory exemption " + path, () -> expectFinding(Repo.clean()
+                    .write(path, "new ProcessBuilder(\"true\").start();").findings(), "images",
+                    "unregistered launch capability"));
+        }
+        for (String source : List.of(
+                "val text = \"${ProcessBuilder(command).start()}\"",
+                "val text = \"${run { ProcessBuilder(command).start() }}\"",
+                "type.members.first().call()", "type.constructors.first().call()",
+                "args += values", "executable += suffix",
+                "/* outer /* inner */ \" */ ProcessBuilder(command)",
+                "val p = `ProcessBuilder`(command)")) {
+            test("launch registry: Kotlin indirect capability " + source, () -> expectFinding(Repo.clean()
+                    .write("tools/run/Probe.kt", source).findings(), "images", "unregistered launch capability"));
+        }
+        String registered = "tools/docs/build.gradle.kts";
+        test("launch registry: unchanged registered file passes", () -> expectClean(Repo.clean()
+                .write(registered, Files.readAllBytes(checker().getParent().getParent().getParent().resolve(registered)))
+                .findings()));
+        test("launch registry: any registered edit fails its hash", () -> expectFinding(Repo.clean()
+                .write(registered, Files.readString(checker().getParent().getParent().getParent().resolve(registered))
+                        + "\n// inert edit still requires review\n").findings(), "images", "launch-site SHA-256 mismatch"));
+        test("launch registry: removing all capability text still fails its hash", () -> expectFinding(Repo.clean()
+                .write(registered, "// replaced\n").findings(), "images", "launch-site SHA-256 mismatch"));
+        test("launch registry: copying a reviewed file to another path fails", () -> expectFinding(Repo.clean()
+                .write("tools/copy/build.gradle.kts", Files.readAllBytes(checker().getParent().getParent().getParent()
+                        .resolve(registered))).findings(), "images", "unregistered launch capability"));
+        test("launch registry: metadata and comments remain data", () -> expectClean(Repo.clean()
+                .write("tools/run/Probe.java", "// ProcessBuilder Runtime exec reflection\n"
+                        + "class Probe { String node = \"node\"; String npm = \"npm\"; "
+                        + "String api = \"ProcessBuilder\"; }").findings()));
     }
 
     static String webCwd(String command) {
@@ -1691,6 +1763,8 @@ public final class PolicyCheckTest {
     static final class Repo {
         final Path root;
         final List<Map<String, Object>> entries = new ArrayList<>();
+        // Synthetic reviewed files for existing image/vector tests, never added to the production registry.
+        final Set<String> reviewedFixtureSources = new java.util.HashSet<>();
         /** The acceptance record, or null for none. Without a digest, save() records the digest of the set as it is. */
         Map<String, Object> acceptance = map("status", "accepted");
         boolean pretty;
@@ -1762,11 +1836,27 @@ public final class PolicyCheckTest {
 
         PolicyCheck check() throws IOException {
             save();
-            return new PolicyCheck(root, TODAY);
+            Map<String, String> pins = new LinkedHashMap<>(PolicyCheck.LAUNCH_SITES);
+            for (String path : reviewedFixtureSources) {
+                pins.put(path, PolicyCheck.sha256(Files.readAllBytes(root.resolve(path))));
+            }
+            return new PolicyCheck(root, TODAY, pins);
         }
 
         List<String> findings() throws IOException {
             return check().run().stream().map(f -> f.area() + ": " + f.message()).toList();
+        }
+
+        /**
+         * A synthetic reviewed source lets the original vector assertions exercise the checks INSIDE a pinned site.
+         * Assert the production registry refuses it first. Shell/workflow tests use only the production registry.
+         */
+        List<String> webFindings(String site) throws IOException {
+            if (site.equals("java") || site.equals("kotlin")) {
+                expectFinding(findings(), "images", "unregistered launch capability");
+                reviewedFixtureSources.add(site.equals("java") ? "tools/run/Probe.java" : "build.gradle.kts");
+            }
+            return findings();
         }
 
         Repo write(String path, String text) throws IOException {

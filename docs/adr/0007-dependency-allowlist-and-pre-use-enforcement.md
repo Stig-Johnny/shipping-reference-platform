@@ -172,7 +172,7 @@ What is built, and where it differs from the decision above. The decision stands
   workflows and scripts docker as a command word with anything but a pull by digest, reads and removals, docker in a
   word it cannot read as a command, and job and service containers written as plain, quoted, flow, escaped or explicit
   YAML keys. What it cannot see stays outside it: text assembled at run time (from variables, a file's contents, a
-  program's output or a method call such as `format`), reflection, the programs that a command it allows runs in turn
+  program's output or a method call such as `format`) inside a reviewed launch site, the programs that a command it allows runs in turn
   (sed, git's configuration, `find -exec`), and a library that starts a container of its own; for those, the engine
   checks after the tests are what find a container. Matching a Node command does not inspect or isolate the repository
   code its test runner executes. The `java` job runs the candidate's copy of the checker as well, after the base branch's and before any other
@@ -210,8 +210,9 @@ What is built, and where it differs from the decision above. The decision stands
   | `npm run build:web --ignore-scripts` | Repository root; root script `build:web` must be exactly `tsc -p apps/shipping-web` |
   | `npm run test:unit --ignore-scripts` | `apps/shipping-web`; workspace script `test:unit` must be exactly `node --test` |
 
-  The same predicate applies to workflow run steps, shell scripts, Java/Kotlin `ProcessBuilder`, `Runtime.exec`
-  (including declared Runtime aliases) and Gradle `commandLine`/`setCommandLine`. Complete literal vectors are read;
+  The same predicate applies to workflow run steps, shell scripts and recognized command vectors inside registered
+  Java/Kotlin launch sites: `ProcessBuilder`, `Runtime.exec` and Gradle `commandLine`/`setCommandLine`. A matching
+  command alone never authorizes an unregistered source file. Complete literal vectors are read;
   computed vectors, unsupported setters and constructor references fail closed. Root execution is the repository
   script/JVM convention; Gradle's default is its project directory. A workflow can state its directory on the step,
   a shell can start with a single literal `cd apps/shipping-web &&` followed by one command, a process builder can
@@ -224,6 +225,35 @@ What is built, and where it differs from the decision above. The decision stands
   `exec`, `npx`, inline Node programs, loaders and additional options remain refused. `--ignore-scripts` stays on both
   installation and registered script invocations. The separate maintenance approval authorizes no `npm install` in CI.
   There are still no npm manifests, lockfile or web job in this tree; these rules are exercised by inert fixtures.
+
+- **Structural launch-site gate (check 8, 2026-11-08).** Before inspecting commands, the checker refuses launch
+  capabilities in every Java, Kotlin and Gradle source unless its exact path and whole-file SHA-256 appear in
+  `PolicyCheck.LAUNCH_SITES`. This scan includes tests, `tools/policy/`, source packages named `build`, generated
+  source directories and caches; only Git's own metadata is outside it. It reads code after Java Unicode decoding
+  and removal of identifier-ignorable characters, comments and inert literals. Kotlin expression templates and
+  backquoted identifiers are refused without a pin; nested Kotlin comments retain their lexical boundaries.
+
+  The gate covers process builders, Runtime access, process handles, Exec/JavaExec types and operations, command
+  and argument setters/providers, reflection lookup/invocation and method-handle APIs. A qualified name, alias or
+  static import still exposes the capability before the alias is used. It does not try to reconstruct a command
+  after arbitrary setters or resolve an inferred receiver. An `env` wrapper, a later argument mutation and an
+  inferred Runtime alias in a new file therefore all fail for the same reason. Every present registered file is
+  hash-checked even if an edit removes all its launch code; copying it to another path grants nothing.
+
+  Seven existing files are pinned: `ReviewedPostgres.java` (the DB harness), the API build script (its test JVM
+  argument provider), the docs build script (the docs JVMs and git revision read), `MutationTestingPlugin.java`
+  (the reviewed CI-only PIT task), `PolicyCheckTest.java` (the child-JVM test launcher and cleanup),
+  `FixtureCompiler.java` (its Runtime shutdown hook), and `RestrictedStructurizrTest.java` (reflection that checks
+  parser restrictions). There are no directory permissions or synthetic launch entries. The latter two files
+  need pins because they hold Runtime/reflection capabilities even though their present code launches no process.
+  The registry grants no permission to run PIT outside its existing reviewed CI conditions.
+
+  The registry belongs to the running checker; preflight uses the base branch's version, not a registry supplied
+  by the candidate. A launch-site edit therefore needs a trusted, reviewed registry update as well as review of
+  the file. Merely updating a candidate's pin cannot override an older base-branch pin. The existing workflow/shell
+  web predicate is unchanged, and registered source command vectors still receive its exact-form decision.
+  Hashes freeze the reviewed launchers, including their dynamic JavaExec arguments; they do not prove their logic
+  safe or isolate the repository code, approved libraries or tools those launchers execute.
 
 ## More Information
 
