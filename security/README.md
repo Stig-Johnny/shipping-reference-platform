@@ -97,6 +97,12 @@ A file that is committed rather than resolved, such as the docs site's Mermaid b
 `vendor/<name>/<version>/` directory next to the code that uses it. Its entry records the file's SHA-256, and the checker
 compares the two on every pull request.
 
+Third-party code that arrives inside another reviewed artifact gets an entry of kind `bundled`. That covers code
+inlined into a bundle, copied into a package's sources, or shipped inside a runtime, such as the npm inside the Node.js
+archive or the 171 packages Playwright inlines. The entry names the file that carries the component and points at the
+review that inventoried it. The checker validates these entries like any other, but it matches lockfiles only against
+kind `npm`. So an entry for an inlined copy can never approve the standalone package of the same name and version.
+
 A version bump, including one Dependabot proposes, is a new review.
 
 ## Acceptance
@@ -160,3 +166,17 @@ Structurizr's transitive Guava 33.6.0-jre has an advisory (GHSA-xxph-c9ww-hj94),
 Mermaid 11.17.2, the docs site's diagram renderer, embeds DOMPurify 3.4.12, lodash-es 4.17.23 and KaTeX 0.16.47, which
 have open advisories that only the 12.x line fixes. Its approval rests on the conditions that make them unreachable:
 the site renders only its own validated diagrams, in `strict` mode, under a restrictive Content Security Policy.
+
+The workbench's test tools, audited on 2026-11-07:
+
+- **Playwright 1.65.0 inlines 171 third-party packages**, two of them with medium advisories.
+  - **minimatch 10.2.5** needs a glob pattern from outside the repository, which the conditions rule out.
+  - **ip-address 10.7.2** needs a SOCKS proxy, which the conditions forbid at every level. It counts as open until the
+    end-to-end workflow demonstrates those checks.
+- **It also ships instructions for AI coding agents.** There are skill files that grant shell access, agent
+  definitions, and a workflow with tag-pinned Actions. Commands such as `init-agents` write them into a repository.
+  The conditions allow `playwright test` alone. The shipped skills and agent definitions are never activated or copied
+  into any agent's configuration.
+- **Playwright's browser CDN redirects to Google.** The pinned Chrome Headless Shell is Google's Chrome for Testing
+  Beta build, and the review now pins its SHA-256. Both download routes lead to Google, so the match shows identity,
+  not a second source.

@@ -78,8 +78,8 @@ one.
   records this slice's scope: cancellation and the prototype-flag preview are deferred.
 - **Compiler.** TypeScript 5.9.3 instead of 7.0.2, emitting browser ES modules, without a bundler. It is one package
   without runtime dependencies, whereas the review of 7.0.2 approves only its Linux x64 native binary and the slice is
-  also built on macOS. Its review is pending (issue #59); until 5.9.3 has an approved allowlist entry, nothing
-  installs it.
+  also built on macOS. The owner accepted its review and allowlist entry with the reviewed set on 2026-11-07 in
+  pull request #73 (issue #59); its review conditions still apply.
 - **Erasable syntax only**, so that Node 26's built-in type stripping runs the logic tests from the sources, without a
   build step. `tsc` rejects most departures (`erasableSyntaxOnly`, `verbatimModuleSyntax`), and relative imports name
   their `.ts` file, which `tsc` rewrites to `.js` (`rewriteRelativeImportExtensions`). The rules are listed in

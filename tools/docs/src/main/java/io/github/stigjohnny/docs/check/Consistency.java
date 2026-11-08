@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
  *       class an {@code enforcedBy} entry names exists; every "ADR NNNN" mentioned in a document exists;
  *   <li>a capability or control claims {@code shipped} or {@code partial} only with evidence, every evidence test
  *       exists and passed in this build, {@code planned} names no evidence, and a non-planned control's check is a
- *       workflow job;
+ *       workflow job; a capability's actors are people or external systems that the model relates to its module;
  *   <li>every link resolves: relative links to existing files and their anchors, no private or unsafe destination;
  *   <li>every demonstration under {@code docs/demos/} has its metadata, its sections, approved commands only and text
  *       only ({@link DemoCheck}), and every milestone deck there its slides, its notes apart, counts that the sources
@@ -243,6 +243,7 @@ public final class Consistency {
             if (!capability.control() && !modules.contains(capability.module())) {
                 problems.add(where + ": module '" + capability.module() + "' is not a module of the model or web");
             }
+            actors(capability, sources.workspace().model(), where, problems);
             if (!Files.isRegularFile(sources.repo().resolve(capability.docs()))) {
                 problems.add(where + ": docs '" + capability.docs() + "' does not exist");
             }
@@ -283,6 +284,26 @@ public final class Consistency {
                         problems.add(where + ": check '" + capability.check() + "' is not a job of any workflow");
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * A capability's actors: each is a person or external system of the model, named by its identifier there, that the
+     * model relates to the capability's module, directly or through an element it uses.
+     */
+    private static void actors(Capability capability, C4Model model, String where, Problems problems) {
+        Optional<ModelElement> part = model.part(capability.module());
+        for (String identifier : capability.actors()) {
+            Optional<ModelElement> actor = model.actor(identifier);
+            if (actor.isEmpty()) {
+                List<String> known = model.actors().stream().map(a -> a.identifier().orElse(a.name())).toList();
+                problems.add(where + ": actor '" + identifier + "' is not a person or external system of "
+                        + Sources.WORKSPACE + "; those are " + (known.size() < 2 ? String.join("", known)
+                                : String.join(", ", known.subList(0, known.size() - 1)) + " and " + known.getLast()));
+            } else if (part.isPresent() && model.participation(actor.get(), part.get()).isEmpty()) {
+                problems.add(where + ": actor '" + identifier + "' (" + actor.get().name() + ") has no relationship in "
+                        + "the model with " + part.get().name() + ", directly or through an element it uses");
             }
         }
     }

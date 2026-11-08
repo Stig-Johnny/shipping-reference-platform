@@ -32,20 +32,28 @@ class AllowlistTest {
     @Test
     void theCurrentAndThePreviousAcceptancesAreRead() {
         assertThat(ALLOWLIST.accepted()).isTrue();
-        assertThat(ALLOWLIST.current().record()).isEqualTo("pull request #10");
-        assertThat(ALLOWLIST.current().at()).isEqualTo("2026-11-06T20:03:16.131Z");
-        assertThat(ALLOWLIST.current().notes()).singleElement().asString().startsWith("Project path confirmed: ");
+        assertThat(ALLOWLIST.current().record()).isEqualTo("pull request #73");
+        assertThat(ALLOWLIST.current().at()).isEqualTo("2026-11-07T23:45:39.135Z");
+        assertThat(ALLOWLIST.current().reviewedSetSha256())
+                .isEqualTo("2f2f841a4832531d5ebfc114b623a36eb2dde366b969bb5407dad0ec67cfec22");
+        assertThat(ALLOWLIST.current().notes()).isEmpty();
         assertThat(ALLOWLIST.previous()).extracting(Acceptance::record)
-                .containsExactly("pull request #7", "pull request #3");
-        assertThat(ALLOWLIST.previous().get(0).reviewedSetSha256()).matches("[0-9a-f]{64}");
-        assertThat(ALLOWLIST.previous().get(0).entriesSha256()).matches("[0-9a-f]{64}");
-        assertThat(ALLOWLIST.previous().get(1).reviewedSetSha256()).isEmpty();
+                .containsExactly("pull request #10", "pull request #7", "pull request #3");
+        Acceptance predecessor = ALLOWLIST.previous().get(0);
+        assertThat(predecessor.at()).isEqualTo("2026-11-06T20:03:16.131Z");
+        assertThat(predecessor.reviewedSetSha256())
+                .isEqualTo("8c90c58c8ad9eabca89fd577a3bb3d3b74807f60b2f93ac19ed4f0f8f6dde857");
+        assertThat(predecessor.notes()).containsExactly("Project path confirmed: apps/shipping-api "
+                + "(Gradle :apps:shipping-api) is the project that the reviews' first design called :example-app.");
+        assertThat(ALLOWLIST.previous().get(1).reviewedSetSha256()).matches("[0-9a-f]{64}");
+        assertThat(ALLOWLIST.previous().get(1).entriesSha256()).matches("[0-9a-f]{64}");
+        assertThat(ALLOWLIST.previous().get(2).reviewedSetSha256()).isEmpty();
     }
 
     @Test
     void entriesKeepTheirVerdictScopeAndConditions() {
-        assertThat(ALLOWLIST.entries()).hasSize(308);
-        assertThat(ALLOWLIST.approved()).isEqualTo(293);
+        assertThat(ALLOWLIST.entries()).hasSize(519);
+        assertThat(ALLOWLIST.approved()).isEqualTo(504);
         assertThat(ALLOWLIST.rejected()).isEqualTo(15);
         AllowlistEntry snakeyaml = ALLOWLIST.entries().stream()
                 .filter(e -> e.coordinate().equals("org.snakeyaml:snakeyaml-engine") && e.version().equals("3.2"))

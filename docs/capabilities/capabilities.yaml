@@ -24,6 +24,11 @@
 #   plannedRemainder Optional, for a control that is not shipped: the part still planned, in one sentence.
 #   evidenceLabel    Optional, for a capability or control with evidence: what its tests are called in a sentence
 #                    ("the documentation-tool tests"), so that a decision's page can name them in a few words.
+#   actors           For a capability, required: the people and external systems of the model that take part in it,
+#                    by their identifiers in architecture/workspace.dsl (clerk, admin, webshop, carrier), or [] to
+#                    declare none; an empty list does not establish how the capability is triggered. tools/docs fails
+#                    unless the model relates each actor to the capability's module, directly or through an element
+#                    it uses. The site's use case overview draws them. Controls name none.
 #
 # A pull request that adds passing acceptance tests moves their names into `evidence` and changes the status in the
 # same commit; `:tools:docs:checkGenerated` rejects a shipped or partial status whose evidence does not exist or did
@@ -52,6 +57,7 @@ capabilities:
     evidence: [SyntheticTariffTest, SyntheticTariffPropertiesTest, MoneyTest, ParcelTest]
     acceptanceTests: [SyntheticTariffTest, SyntheticTariffPropertiesTest, MoneyTest, ParcelTest]
     docs: docs/modules/quotes.md
+    actors: [carrier]
   - id: quotes.create-quote
     module: quotes
     title: Issue a tenant-scoped quote with one offer per available service level, or a reasoned refusal.
@@ -60,6 +66,7 @@ capabilities:
     evidence: [RatingTest, CreateQuoteTest, QuotesHttpContractTest]
     acceptanceTests: [RatingTest, CreateQuoteTest, QuotesHttpContractTest]
     docs: docs/modules/quotes.md
+    actors: [clerk]
   - id: quotes.get-quote
     module: quotes
     title: Read a quote of the caller's tenant with its computed OPEN or EXPIRED status.
@@ -68,6 +75,7 @@ capabilities:
     evidence: [QuotesHttpContractTest]
     acceptanceTests: [QuotesModuleIntegrationTest, QuotesHttpContractTest]
     docs: docs/modules/quotes.md
+    actors: [clerk]
   - id: quotes.quote-expiry
     module: quotes
     title: Offers expire 30 minutes after issue, decided by the injected clock.
@@ -76,6 +84,7 @@ capabilities:
     evidence: [QuoteExpiryTest]
     acceptanceTests: [QuoteExpiryTest]
     docs: docs/modules/quotes.md
+    actors: []
   - id: quotes.offer-lookup
     module: quotes
     title: Tell shipments whether an offer exists for a tenant and is bookable at an instant (QuoteOffers).
@@ -84,6 +93,7 @@ capabilities:
     evidence: [QuoteExpiryTest]
     acceptanceTests: [QuotesModuleIntegrationTest, QuoteExpiryTest]
     docs: docs/modules/quotes.md
+    actors: []
 
   # shipments
   - id: shipments.book-from-offer
@@ -94,6 +104,7 @@ capabilities:
     evidence: [BookShipmentTest, RecipientTest]
     acceptanceTests: [BookShipmentTest, RecipientTest, ShipmentsHttpContractTest]
     docs: docs/modules/shipments.md
+    actors: [clerk]
   - id: shipments.idempotent-booking
     module: shipments
     title: The same tenant, Idempotency-Key and body return the same shipment; a reused key with another body is refused.
@@ -102,6 +113,7 @@ capabilities:
     evidence: [RequestFingerprintTest]
     acceptanceTests: [BookingIdempotencyIntegrationTest, RequestFingerprintTest]
     docs: docs/modules/shipments.md
+    actors: [clerk]
   - id: shipments.cancel-shipment
     module: shipments
     title: Cancel a booked shipment idempotently (BOOKED to CANCELLED).
@@ -110,6 +122,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: [ShipmentTest, CancelShipmentTest]
     docs: docs/modules/shipments.md
+    actors: [clerk]
   - id: shipments.list-and-read
     module: shipments
     title: List the tenant's shipments newest first with cursor pagination and a status filter; read one shipment.
@@ -118,6 +131,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: [ShipmentListingIntegrationTest, ShipmentsHttpContractTest]
     docs: docs/modules/shipments.md
+    actors: [clerk]
   - id: shipments.simulated-label
     module: shipments
     title: Download a deterministic, clearly marked simulated SVG label for a booked shipment.
@@ -126,6 +140,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: [SvgLabelRendererTest, ShipmentsHttpContractTest]
     docs: docs/modules/shipments.md
+    actors: [clerk, carrier]
   - id: shipments.publish-events
     module: shipments
     title: Publish ShipmentBooked and ShipmentCancelled once on commit, never on rollback.
@@ -134,6 +149,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: [ShipmentEventsIntegrationTest]
     docs: docs/modules/shipments.md
+    actors: []
 
   # tenants
   - id: tenants.demo-authentication
@@ -144,6 +160,7 @@ capabilities:
     evidence: [DemoTokenTest, DemoTokenAuthenticationTest]
     acceptanceTests: [DemoTokenTest, DemoTokenAuthenticationTest]
     docs: docs/modules/tenants.md
+    actors: [clerk]
   - id: tenants.current-membership
     module: tenants
     title: Return the caller's membership and enabled prototype flags (GET /api/v1/me).
@@ -152,6 +169,7 @@ capabilities:
     evidence: [TenantsHttpContractTest]
     acceptanceTests: [TenantsHttpContractTest]
     docs: docs/modules/tenants.md
+    actors: [clerk]
   - id: tenants.row-level-security
     module: tenants
     title: Forced PostgreSQL row-level security on every tenant-owned table, with a runtime role that cannot bypass it.
@@ -160,6 +178,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: [RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest]
     docs: docs/modules/tenants.md
+    actors: []
   - id: tenants.cross-tenant-denial
     module: tenants
     title: Another tenant's quote or shipment IDs behave exactly like unknown IDs over HTTP and in the UI.
@@ -168,6 +187,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: [CrossTenantAccessTest, tenant-denial.spec.ts]
     docs: docs/modules/tenants.md
+    actors: [clerk]
   - id: tenants.tenant-scope-for-events
     module: tenants
     title: Asynchronous listeners write only under the event's tenant (TenantScope).
@@ -176,6 +196,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: [TenantScopeTest, RowLevelSecurityIntegrationTest]
     docs: docs/modules/tenants.md
+    actors: []
   - id: tenants.prototype-flags
     module: tenants
     title: Server-evaluated, tenant-scoped prototype flags, default off, with owner and expiry.
@@ -184,6 +205,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: [PrototypeFlagsTest, PrototypeFlagExpiryTest, prototype-flag.spec.ts]
     docs: docs/modules/tenants.md
+    actors: []
 
   # audit
   - id: audit.record-shipment-events
@@ -194,6 +216,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: [ShipmentAuditIntegrationTest]
     docs: docs/modules/audit.md
+    actors: []
   - id: audit.idempotent-consumer
     module: audit
     title: A redelivered event has no second effect (deduplication by event ID).
@@ -202,6 +225,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: [AuditDeduplicationTest]
     docs: docs/modules/audit.md
+    actors: []
   - id: audit.replay-after-failure
     module: audit
     title: A failed audit write is replayed from the publication registry after restart, with exactly one effect.
@@ -210,6 +234,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: [AuditReplayIntegrationTest]
     docs: docs/modules/audit.md
+    actors: []
 
   # web app
   - id: web.quote-workbench
@@ -220,6 +245,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: [ParcelForm.test.tsx, QuoteCardList.test.tsx, quote-book-label.spec.ts]
     docs: docs/ui/workbench.md
+    actors: [clerk]
   - id: web.booking-and-label
     module: web
     title: Book an offer twice safely, open the shipment drawer and download the label.
@@ -228,6 +254,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: [BookingForm.test.tsx, ShipmentDrawer.test.tsx, quote-book-label.spec.ts]
     docs: docs/ui/workbench.md
+    actors: [clerk]
   - id: web.explicit-states
     module: web
     title: Explicit loading, empty, expired and failed states with labelled problem messages.
@@ -236,6 +263,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: [ProblemAlert.test.tsx, expired-quote.spec.ts]
     docs: docs/ui/workbench.md
+    actors: [clerk]
   - id: web.accessibility
     module: web
     title: Keyboard operation, visible focus, AA contrast, reduced motion and system dark mode with override.
@@ -244,6 +272,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: [ThemeToggle.test.tsx, accessibility.spec.ts]
     docs: docs/ui/workbench.md
+    actors: [clerk]
 
   # planned modules
   - id: orders.import-webshop-orders
@@ -254,6 +283,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: []
     docs: docs/modules/orders.md
+    actors: [webshop]
   - id: tracking.carrier-tracking-events
     module: tracking
     title: Receive carrier tracking events and move shipments through transit states.
@@ -262,6 +292,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: []
     docs: docs/modules/tracking.md
+    actors: [carrier]
   - id: returns.return-shipments
     module: returns
     title: Create return shipments for delivered shipments.
@@ -270,6 +301,7 @@ capabilities:
     evidence: none yet
     acceptanceTests: []
     docs: docs/modules/returns.md
+    actors: []
 
 controls:
   # Each control lists the deliberate failure (negative fixture) that proves it catches what it advertises.
