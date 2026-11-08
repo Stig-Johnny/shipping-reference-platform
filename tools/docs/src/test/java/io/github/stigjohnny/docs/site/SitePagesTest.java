@@ -355,11 +355,15 @@ class SitePagesTest {
 
     @Test
     void trustKeepsTheEnforcedSubsetApartFromThePlannedControl() {
-        String planned = "Static gaps include CR comment handling, reflective and Groovy launch APIs, implicit Gradle "
-                + "tasks, wrappers/aliases/mutations and indirect execution; trusted pin transitions, schema validation "
-                + "and approval binding remain open.";
-        String enforced = "Runtime CI guards enforce engine availability outside the reviewed harness window; check 8 "
-                + "remains a PARTIAL static lint of recognized declarations and pinned launch sites.";
+        String planned = "The PARTIAL lint and its warnings do not prove engine isolation. Static gaps include CR comment "
+                + "handling, reflective and Groovy launch APIs, implicit Gradle tasks, wrappers/aliases/mutations and "
+                + "indirect execution; trusted pin transitions, schema validation and approval binding remain open.";
+        String enforced = "Runtime CI guards enforce engine availability outside the reviewed harness window. Check 8 blocks "
+                + "recognized direct container-library use outside the harness, container CLI/socket access outside "
+                + "reviewed forms, Dockerfile/compose declarations, unpinned or unreviewed images and registered-file "
+                + "pin mismatches. Literal/data class names are not use; reflection, method handles and other launch "
+                + "APIs outside registered sites are non-blocking warnings under their own heading. Direct container "
+                + "findings stay blocking.";
         String allowlist = site.text("trust/allowlist.html");
         String trust = site.text("trust/index.html");
         String adr = site.text("decisions/0007-dependency-allowlist-and-pre-use-enforcement.html");

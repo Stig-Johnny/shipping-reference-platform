@@ -1,6 +1,6 @@
 ---
 title: "CI closes engine access outside the reviewed database-test window"
-description: "Runtime guards stop the engine and prove CLI/socket denial; check 8 remains a PARTIAL static lint with documented bypasses."
+description: "Runtime guards enforce CI engine access; PARTIAL check 8 blocks direct container use and pin mismatches, while unregistered launch APIs warn."
 status: accepted
 updated: 2026-11-08
 pr: 54
@@ -18,8 +18,13 @@ Only preparation, image staging, the database task and engine verification have 
 step runs immediately afterwards even on failure, and later work requires successful shutdown. The database tests
 remain mandatory in Java CI and Pages testing; the other tests and documentation run after the engine is stopped.
 
-The runtime guard is the enforcing control for engine availability. Check 8 remains unchanged and is labelled a
-PARTIAL static lint. [ADR 0007](../adr/0007-dependency-allowlist-and-pre-use-enforcement.md) and
+The runtime guard is the enforcing control for engine availability. The owner's scope decision at about 19:35 UTC
+on 2026-11-08 makes check 8 a PARTIAL lint with a blocking subset and non-blocking warnings. Direct container-library
+imports/use outside the harness, container CLI/socket access outside reviewed forms, Dockerfile/compose declarations,
+unpinned or unreviewed images and registered-file pin mismatches remain findings (exit 1). Class names only in
+literals, text blocks or data are not use. Reflection, method handles and ProcessBuilder/Runtime or other launch
+APIs outside registered sites appear under their own warnings heading without failing the run. A warning never
+downgrades a direct container finding. Registered sites retain their pins and command-form checks. [ADR 0007](../adr/0007-dependency-allowlist-and-pre-use-enforcement.md) and
 [the gaps](../gaps.md#5-supply-chain-and-approvals) list the known bypasses and the unsolved pin-update sequence.
 The reviewed harness still checks its PostgreSQL instance and CI audits engine activity. This is not a sandbox
 against code that deliberately uses the hosted runner's privileges to re-enable an engine.
@@ -189,13 +194,45 @@ All 519 entries and all 81 tracked review files were unchanged. `AllowlistTest`,
 renderer supplies the labelled, keyboard-reachable scroll region required by the unchanged accessibility test.
 These are local acceptance and presentation checks, not database or hosted CI evidence.
 
+Lint-scope supplement recorded 2026-11-08 with Temurin 25.0.5+8 on macOS. The owner's later decision separates
+blocking direct container use from non-blocking launch-capability warnings. The baseline real-tree checker exited 1
+with 24 findings: 14 literal class-name mentions and 10 capability matches. New expectations first failed (exit 1):
+
+```text
+FAIL lint scope: literal-only class name passes org.testcontainers.containers.GenericContainer
+FAIL lint scope: capability only warns Runtime.getRuntime().exec(command)
+FAIL lint scope: warnings have their own stable report section
+```
+
+After the change, the corresponding fixtures and blocking controls included:
+
+```text
+ok   lint scope: literal-only class name passes org.testcontainers.containers.GenericContainer
+ok   lint scope: capability only warns Runtime.getRuntime().exec(command)
+ok   lint scope: warnings have their own stable report section
+ok   lint scope: real import still fails org.testcontainers.containers.GenericContainer
+ok   launch registry: any registered edit fails its hash
+```
+
+The full JDK-only suite recorded `699 passed, 15 failed` and exit 1: all 15 failures were the sandbox's
+`Operation not permitted (sysctl failed)` during child-process inspection, including the two new CLI cases.
+No assertion was skipped. Separate shell-launched synthetic fixtures verified exit 0 for literal-only names and
+capability warnings, and exit 1 for real imports, Docker commands alongside warnings, socket access through a
+launcher, pin mismatches, Dockerfile/compose declarations and unpinned image references. Kotlin fixtures also
+keep container calls inside template expressions blocking while escaped templates remain data.
+
+The real-tree checker then exited 0 with no findings and 10 entries under `Warnings (check 8, non-blocking)`.
+The 14 class-name data mentions disappeared; the 10 capability matches became warnings. The accepted security
+set and digest stayed unchanged. These are local lint results, not database or hosted engine-guard evidence;
+PolicyCheckTest writes no JUnit evidence for this page's current-build ledger.
+
 ## Limits
 
 - Check 8 is a PARTIAL static lint. Known bypass classes include Gradle argument/executable mutation, wrappers and
   inferred Runtime aliases; raw or Unicode-escaped CR comment boundaries; JavaBeans reflection and Groovy process
   APIs called from Java/Kotlin; implicit plugin-provided Gradle launch tasks; and indirect/dynamically assembled
-  commands or code imported by the reviewed Node test runner. Existing examples caught by pins do not establish
-  complete coverage. Single-digest launch pins also have no working trusted base/candidate update sequence.
+  commands or code imported by the reviewed Node test runner. Non-blocking capability warnings and existing pins
+  do not establish complete coverage. Single-digest launch pins also have no working trusted base/candidate update sequence.
 - Runtime guards enforce the workflow's engine window, but privileged code can undo them or use another/remote
   engine. Gradle configuration runs during the database task. Local fixtures test failure handling; a hosted CI run
   must verify service shutdown on the actual runner. The source scanner is not the enforcing control.

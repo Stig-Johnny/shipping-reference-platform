@@ -264,17 +264,20 @@ closes it.
   parsing assembles for an empty group (for example with a `$` group separator) stays in the parser's own table:
   no element carries it, so it is not checked and cannot reach a report.
 
-- **Check 8 is a PARTIAL static lint, not the engine-access enforcing control.** The owner decision of 2026-11-08
-  leaves its code and rejections intact. Known bypass classes from the two PR #54 reviews are Gradle argument and
-  executable mutations (including providers/properties), process wrappers such as `env` and inferred Runtime
-  aliases; raw or Java Unicode-escaped CR hiding executable code after a comment; reflection through
-  `java.beans.Expression`/`Statement`; `ProcessGroovyMethods.execute` called from Java/Kotlin; and plugin-supplied
-  Gradle JavaExec tasks such as Application's implicit `run`. Several earlier mutation/wrapper/alias examples are
-  caught by existing pins, but that does not close the classes. Dynamic strings, indirect commands, approved
-  libraries and code imported by Node tests remain outside full analysis. Single-digest launch pins also have no
-  working base/candidate update sequence. Inert Testcontainers metadata and servlet `getMethod()` can be false
-  positives. [ADR 0007](adr/0007-dependency-allowlist-and-pre-use-enforcement.md#known-static-lint-gaps-from-the-two-pr-54-reviews)
-  records the complete limits; none is a claim of universal static refusal.
+- **Check 8 is a PARTIAL static lint; runtime CI guards enforce engine availability.** The owner's 2026-11-08
+  decision at about 19:35 UTC separates a blocking subset from warnings. Recognized direct Testcontainers/docker-java
+  imports or use outside the harness, container CLI commands outside reviewed forms, direct Docker socket access,
+  Dockerfile/compose files, unpinned or unreviewed image references and registered-file pin mismatches remain
+  findings (exit 1). Class names only in literals, text blocks or data are not use. Reflection, method handles,
+  ProcessBuilder/Runtime and other recognized launch APIs outside registered sites appear under a separate
+  non-blocking warning heading. Direct container findings are never downgraded by a capability warning.
+  Benign servlet `getMethod()` can still warn. Registered sites retain their pins and command-form checks.
+  Known gaps include Gradle argument/executable mutation, wrappers and inferred Runtime aliases; CR comment
+  boundaries; JavaBeans reflection and Groovy process APIs; implicit Gradle launch tasks; dynamic strings, indirect
+  commands, approved libraries and code imported by Node tests. Warnings do not close these gaps, and single-digest
+  launch pins still have no trusted base/candidate update sequence.
+  [ADR 0007](adr/0007-dependency-allowlist-and-pre-use-enforcement.md#known-static-lint-gaps-from-the-two-pr-54-reviews)
+  records the limits. A clean lint result is not proof that code cannot access an engine.
 - **CI enforces engine availability at runtime, within the workflow's privilege boundary.** Every job stops and
   masks the engine units, unlinks the socket and probes CLI and direct socket access before checkout. Only the
   reviewed harness steps in Java CI and Pages testing re-enable it; shutdown and both probes run immediately

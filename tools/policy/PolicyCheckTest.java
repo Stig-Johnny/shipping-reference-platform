@@ -88,6 +88,7 @@ public final class PolicyCheckTest {
             imageOwnEvasionsRound3();
             reviewedWebCommands();
             structuralLaunchSites();
+            lintScope();
             tree();
             commandLine();
         } finally {
@@ -779,7 +780,7 @@ public final class PolicyCheckTest {
         test("images: a build script or a test that runs a container runtime as a command fails", () -> {
             Repo script = withImages().write("apps/demo/build.gradle.kts",
                     "tasks.register<Exec>(\"pull\") { commandLine(\"docker\", \"pull\", \"alpine\") }\n");
-            expectFinding(script.findings(), "images", "unregistered launch capability");
+            expectFinding(script.findings(), "images", "runs a container runtime as a command");
             script.reviewedFixtureSources.add("apps/demo/build.gradle.kts");
             expectOnly(script.findings(), "images", "apps/demo/build.gradle.kts:1: runs a container runtime as a command");
             expectOnly(withImages().edit(DATABASE_TEST, "    final PostgreSQLContainer postgres",
@@ -1090,9 +1091,8 @@ public final class PolicyCheckTest {
                 "tools/run/probe", "#!/usr/bin/python3\nprint(1)\n").findings(), "images", "tools/run/probe:1: a #! line"));
         test("forms: a Groovy file is refused, whatever it holds", () -> expectFinding(withImages().write(
                 "apps/demo/build.gradle", "// nothing\n").findings(), "images", "apps/demo/build.gradle:1: a Groovy"));
-        test("forms: a backquoted Kotlin name is refused", () -> expectFinding(withImages().write(
-                "apps/demo/src/test/kotlin/demo/Probe.kt", "package demo\n\nfun `a test`() { }\n").findings(), "images",
-                "apps/demo/src/test/kotlin/demo/Probe.kt:3: a backquoted Kotlin identifier"));
+        test("forms: a backquoted Kotlin name warns", () -> expectLaunchWarning(withImages().write(
+                "apps/demo/src/test/kotlin/demo/Probe.kt", "package demo\n\nfun `a test`() { }\n")));
         test("forms: a binary file under src/ is refused", () -> expectFinding(withImages().write(
                 "apps/demo/src/test/resources/image.png", new byte[] {(byte) 0x89, 'P', 'N', 'G', (byte) 0xff, 0}).findings(),
                 "images", "apps/demo/src/test/resources/image.png: not UTF-8 text"));
@@ -1101,7 +1101,7 @@ public final class PolicyCheckTest {
                 "tools/bin/probe: an executable or an archive (an ELF executable)"));
         test("forms: a container build file is refused", () -> expectFinding(withImages().write("tools/Dockerfile",
                 "FROM alpine:3.17\n").findings(), "images", "tools/Dockerfile: a container build or compose file"));
-        test("forms: a string literal that names an interpreter is refused", () -> expectFinding(withImages().write(
+        test("forms: a registered interpreter launch is refused", () -> expectFinding(withImages().reviewedSource(
                 OTHER_TEST, "class OtherTest {\n    ProcessBuilder p = new ProcessBuilder(\"python3\", \"x.py\");\n}\n")
                 .findings(), "images", OTHER_TEST + ":2: runs python3"));
         test("forms: $'...' quoting in a string literal is refused", () -> expectFinding(withImages().write(OTHER_TEST,
@@ -1553,7 +1553,8 @@ public final class PolicyCheckTest {
         test("web forms: ProcessBuilder npm run plus manifest docker is refused at both sites", () -> {
             Repo r = webCommand(webRepo(), "java", "npm run launch", ".")
                     .write("package.json", "{\"scripts\":{\"launch\":\"docker run alpine:3.17\"}}");
-            expectFinding(r.findings(), "images", "Probe.java");
+            expectWarning(r, "unregistered launch capability");
+            expectFinding(r.webFindings("java"), "images", "Probe.java");
             expectFinding(r.findings(), "images", "package.json");
         });
         for (String manifest : List.of("package.json", "apps/shipping-web/package.json")) {
@@ -1571,12 +1572,12 @@ public final class PolicyCheckTest {
                 "new ProcessBuilder().command(command)", "Runtime.getRuntime().exec(command)",
                 "Runtime.getRuntime().exec(\"node -e code\")", "new ProcessBuilder(\"npm\", \"run\", \"launch\")")) {
             test("web forms: unresolved or unreviewed process " + source, () -> expectFinding(webRepo()
-                    .write("tools/run/Probe.java", "class Probe { Object p = " + source + "; }").findings(), "images"));
+                    .write("tools/run/Probe.java", "class Probe { Object p = " + source + "; }").webFindings("java"), "images"));
         }
         for (String source : List.of("commandLine(command)", "commandLine(\"node\", flags)",
                 "commandLine(listOf(\"node\", \"--version\"))", "executable = \"node\"; args(\"--version\")")) {
             test("web forms: unresolved Kotlin process " + source, () -> expectFinding(webRepo()
-                    .write("build.gradle.kts", "tasks.register<Exec>(\"probe\") { " + source + " }").findings(), "images"));
+                    .write("build.gradle.kts", "tasks.register<Exec>(\"probe\") { " + source + " }").webFindings("kotlin"), "images"));
         }
         for (String script : List.of("node --version $EXTRA", "node --version \"$EXTRA\"", "node --version *.ts",
                 "cd apps/shipping-web; node --test", "cd \"$TARGET\" && node --test", "NODE_OPTIONS=--import=x node --version",
@@ -1596,10 +1597,10 @@ public final class PolicyCheckTest {
                 "Object p = new ProcessBuilder(\"node\", \"--test\").directory(new java.io.File(\"apps/shipping-web\")); "
                         + "void change() { p.directory(other); }")) {
             test("web adversarial: source " + source, () -> expectFinding(webRepo()
-                    .write("tools/run/Probe.java", "class Probe { " + source + " }").findings(), "images", "Probe.java"));
+                    .write("tools/run/Probe.java", "class Probe { " + source + " }").webFindings("java"), "images", "Probe.java"));
         }
         test("web adversarial: Gradle workingDir is relative to the project", () -> expectFinding(webRepo()
-                .write("apps/demo/build.gradle.kts", "tasks.register<Exec>(\"probe\") { workingDir(\"apps/shipping-web\"); "
+                .reviewedSource("apps/demo/build.gradle.kts", "tasks.register<Exec>(\"probe\") { workingDir(\"apps/shipping-web\"); "
                         + "commandLine(\"node\", \"--test\") }").findings(), "images", "build.gradle.kts"));
         for (String script : List.of("cd apps/shipping-web && true\nnode --test", "env -Snode -e code",
                 "trap node EXIT", "bash -c 'node -e code'")) {
@@ -1628,12 +1629,12 @@ public final class PolicyCheckTest {
                 "getRuntime().exec(\"npm run launch\")")) {
             test("web adversarial: alternate API spelling " + source, () -> expectFinding(webRepo()
                     .write("tools/run/Probe.java", "import static java.lang.Runtime.getRuntime; class Probe { Object p = "
-                            + source + "; }").findings(), "images", "Probe.java"));
+                            + source + "; }").webFindings("java"), "images", "Probe.java"));
         }
         for (String source : List.of("commandLine = listOf(\"npm\", \"run\", \"launch\")",
                 "setCommandLine(\"npm\", \"run\", \"launch\")", "val start = ::ProcessBuilder")) {
             test("web adversarial: alternate Kotlin API " + source, () -> expectFinding(webRepo()
-                    .write("build.gradle.kts", "tasks.register<Exec>(\"probe\") { " + source + " }").findings(), "images"));
+                    .write("build.gradle.kts", "tasks.register<Exec>(\"probe\") { " + source + " }").webFindings("kotlin"), "images"));
         }
         test("web adversarial: local review permits local script", () -> expectClean(
                 webCommand(webRepo("local"), "shell", "npm ci --ignore-scripts", ".").findings()));
@@ -1645,11 +1646,11 @@ public final class PolicyCheckTest {
                 "workingDir(\"apps/shipping-web\"); workingDir = file(other); commandLine(\"node\", \"--test\")",
                 "setWorkingDir(other); commandLine(\"npm\", \"ci\", \"--ignore-scripts\")")) {
             test("web adversarial: conditional or overridden cwd " + body, () -> expectFinding(webRepo()
-                    .write("build.gradle.kts", "tasks.register<Exec>(\"probe\") { " + body + " }").findings(), "images", "build.gradle.kts"));
+                    .write("build.gradle.kts", "tasks.register<Exec>(\"probe\") { " + body + " }").webFindings("kotlin"), "images", "build.gradle.kts"));
         }
     }
 
-    /** Round 5: capability possession, not command spelling, requires a reviewed file and exact bytes. */
+    /** Partial lint: unregistered capabilities warn; registered files still require exact bytes. */
     static void structuralLaunchSites() {
         Map<String, String> bypasses = Map.ofEntries(
                 Map.entry("Gradle args after commandLine", "workingDir(\"apps/shipping-web\"); "
@@ -1663,9 +1664,8 @@ public final class PolicyCheckTest {
                 Map.entry("static import inferred Runtime", "import static java.lang.Runtime.getRuntime; "
                         + "var rt = getRuntime(); rt.exec(\"node -e code\");"),
                 Map.entry("earlier ProcessBuilder npm run", "new ProcessBuilder(\"npm\", \"run\", \"launch\").start();"));
-        bypasses.forEach((name, source) -> test("launch registry: " + name, () -> expectFinding(webRepo()
-                .write(name.startsWith("Gradle") ? "build.gradle.kts" : "tools/run/Probe.java", source)
-                .findings(), "images", "unregistered launch capability")));
+        bypasses.forEach((name, source) -> test("launch registry: " + name, () -> expectLaunchWarning(webRepo()
+                .write(name.startsWith("Gradle") ? "build.gradle.kts" : "tools/run/Probe.java", source))));
         for (String source : List.of(
                 "new ProcessBuilder(\"true\").start();", "ProcessHandle.current();", "Runtime.getRuntime();",
                 "import java.lang.ProcessBuilder as PB; val p = PB(\"true\")", "val p = ::ProcessBuilder",
@@ -1679,15 +1679,14 @@ public final class PolicyCheckTest {
                 "import java.lang.invoke.MethodHandles as MH", "import java.lang.reflect.*;",
                 "import kotlin.reflect.full.*", "type.getDeclaredFields()",
                 "new Pro" + "\\u0063" + "essBuilder(\"true\")")) {
-            test("launch registry: refuses capability " + source, () -> expectFinding(Repo.clean()
-                    .write("tools/run/Probe.java", source).findings(), "images", "unregistered launch capability"));
+            test("launch registry: warns on capability " + source, () -> expectLaunchWarning(Repo.clean()
+                    .write("tools/run/Probe.java", source)));
         }
         for (String path : List.of("tools/run/New.java", "tools/policy/New.java", "tools/build/New.java",
                 "build-logic/src/main/java/example/build/New.java", "build/Probe.java", "tools/docs/build/Probe.kt",
                 ".gradle/Probe.kts", "node_modules/probe/Probe.java", "security/Probe.kt", "docs/Probe.kts")) {
-            test("launch registry: no directory exemption " + path, () -> expectFinding(Repo.clean()
-                    .write(path, "new ProcessBuilder(\"true\").start();").findings(), "images",
-                    "unregistered launch capability"));
+            test("launch registry: no directory exemption " + path, () -> expectLaunchWarning(Repo.clean()
+                    .write(path, "new ProcessBuilder(\"true\").start();")));
         }
         for (String source : List.of(
                 "val text = \"${ProcessBuilder(command).start()}\"",
@@ -1696,8 +1695,8 @@ public final class PolicyCheckTest {
                 "args += values", "executable += suffix",
                 "/* outer /* inner */ \" */ ProcessBuilder(command)",
                 "val p = `ProcessBuilder`(command)")) {
-            test("launch registry: Kotlin indirect capability " + source, () -> expectFinding(Repo.clean()
-                    .write("tools/run/Probe.kt", source).findings(), "images", "unregistered launch capability"));
+            test("launch registry: Kotlin indirect capability " + source, () -> expectLaunchWarning(Repo.clean()
+                    .write("tools/run/Probe.kt", source)));
         }
         String registered = "tools/docs/build.gradle.kts";
         test("launch registry: unchanged registered file passes", () -> expectClean(Repo.clean()
@@ -1708,13 +1707,91 @@ public final class PolicyCheckTest {
                         + "\n// inert edit still requires review\n").findings(), "images", "launch-site SHA-256 mismatch"));
         test("launch registry: removing all capability text still fails its hash", () -> expectFinding(Repo.clean()
                 .write(registered, "// replaced\n").findings(), "images", "launch-site SHA-256 mismatch"));
-        test("launch registry: copying a reviewed file to another path fails", () -> expectFinding(Repo.clean()
+        test("launch registry: copying a reviewed file to another path warns", () -> expectLaunchWarning(Repo.clean()
                 .write("tools/copy/build.gradle.kts", Files.readAllBytes(checker().getParent().getParent().getParent()
-                        .resolve(registered))).findings(), "images", "unregistered launch capability"));
+                        .resolve(registered)))));
         test("launch registry: metadata and comments remain data", () -> expectClean(Repo.clean()
                 .write("tools/run/Probe.java", "// ProcessBuilder Runtime exec reflection\n"
                         + "class Probe { String node = \"node\"; String npm = \"npm\"; "
                         + "String api = \"ProcessBuilder\"; }").findings()));
+    }
+
+    /** Owner decision 2026-11-08: data is not use; capabilities warn; direct container use still blocks. */
+    static void lintScope() {
+        for (String name : List.of("org.testcontainers.containers.GenericContainer",
+                "com.github.dockerjava.api.DockerClient", "org.testcontainers.containers.PostgreSQLContainer")) {
+            test("lint scope: literal-only class name passes " + name, () -> expectClean(Repo.clean()
+                    .write(OTHER_TEST, "class Names { String value = \"" + name + "\"; }").findings()));
+            test("lint scope: text-block class name passes " + name, () -> expectClean(Repo.clean()
+                    .write(OTHER_TEST, "class Names { String value = \"\"\"\n" + name + "\n\"\"\"; }").findings()));
+            test("lint scope: class name in resource data passes " + name, () -> expectClean(Repo.clean()
+                    .write("apps/demo/src/test/resources/names.txt", name).findings()));
+            test("lint scope: real import still fails " + name, () -> expectFinding(Repo.clean()
+                    .write(OTHER_TEST, "import " + name + ";").findings(), "images", "uses Testcontainers or docker-java"));
+        }
+        for (String source : List.of("Class.forName(\"org.testcontainers.containers.GenericContainer\")",
+                "new ProcessBuilder(command).start()", "Runtime.getRuntime().exec(command)",
+                "import java.lang.invoke.MethodHandles;", "request.getMethod()")) {
+            test("lint scope: capability only warns " + source, () -> expectLaunchWarning(Repo.clean()
+                    .write(OTHER_TEST, source)));
+        }
+        for (String runtime : List.of("docker", "podman", "nerdctl")) {
+            test("lint scope: warning never downgrades " + runtime, () -> {
+                Repo repo = Repo.clean().write(OTHER_TEST, "new ProcessBuilder(\"" + runtime + "\", \"run\", \"alpine\")");
+                expectWarning(repo, "unregistered launch capability");
+                expectFinding(repo.findings(), "images", "runs a container runtime as a command");
+            });
+        }
+        test("lint scope: unregistered interpreter launch only warns", () -> expectLaunchWarning(Repo.clean()
+                .write(OTHER_TEST, "new ProcessBuilder(\"python3\", \"x.py\")")));
+        test("lint scope: Kotlin literal-only class name passes", () -> expectClean(Repo.clean()
+                .write("tools/run/Probe.kt", "val name = \"org.testcontainers.containers.GenericContainer\"").findings()));
+        test("lint scope: Kotlin template container use stays blocking", () -> expectFinding(Repo.clean()
+                .write("tools/run/Probe.kt", "val value = \"${org.testcontainers.containers.GenericContainer(image)}\"")
+                .findings(), "images", "uses Testcontainers or docker-java"));
+        test("lint scope: Kotlin template container with quoted argument stays blocking", () -> expectFinding(Repo.clean()
+                .write("tools/run/Probe.kt", "val value = \"${org.testcontainers.containers.GenericContainer(\"image\")}\"")
+                .findings(), "images", "uses Testcontainers or docker-java"));
+        test("lint scope: escaped Kotlin template is literal data", () -> expectClean(Repo.clean()
+                .write("tools/run/Probe.kt", "val value = \"\\${org.testcontainers.containers.GenericContainer(image)}\"")
+                .findings()));
+        test("lint scope: Docker socket path blocks outside the harness", () -> expectFinding(Repo.clean()
+                .write(OTHER_TEST, "new ProcessBuilder(\"curl\", \"--unix-socket\", \"/var/run/docker.sock\")").findings(), "images", "Docker socket path"));
+        test("lint scope: warnings have their own stable report section", () -> {
+            PolicyCheck check = Repo.clean().write("z/Probe.java", "Class.forName(name)")
+                    .write("a/Probe.java", "Runtime.getRuntime()").check();
+            Set<PolicyCheck.Finding> findings = check.run();
+            expect(findings.isEmpty(), findings.toString());
+            String report = check.report(findings, false);
+            expect(report.startsWith("## Dependency allowlist: clean\n"), report);
+            expect(report.contains("### Warnings (check 8, non-blocking)"), report);
+            expect(report.indexOf("a/Probe.java") < report.indexOf("z/Probe.java"), report);
+            expectEquals(report, check.report(check.run(), false));
+        });
+        test("cli: capability warnings exit 0", () -> {
+            Repo repo = Repo.clean().write(OTHER_TEST, "Class.forName(name)").save();
+            Run run = launch(repo.root.toString());
+            expect(run.exit() == 0 && run.output().contains("### Warnings (check 8, non-blocking)"), run.toString());
+        });
+        test("cli: literal-only mention passes but real import exits 1", () -> {
+            Repo repo = Repo.clean().write(OTHER_TEST, "String name = \"org.testcontainers.containers.GenericContainer\";").save();
+            expect(launch(repo.root.toString()).exit() == 0, "literal-only mention failed");
+            repo.write(OTHER_TEST, "import org.testcontainers.containers.GenericContainer;");
+            Run run = launch(repo.root.toString());
+            expect(run.exit() == 1 && run.output().contains("uses Testcontainers or docker-java"), run.toString());
+        });
+    }
+
+    static void expectWarning(Repo repo, String message) throws IOException {
+        PolicyCheck check = repo.check();
+        String report = check.report(check.run(), false);
+        int heading = report.indexOf("### Warnings (check 8, non-blocking)");
+        expect(heading >= 0 && report.substring(heading).contains(message), report);
+    }
+
+    static void expectLaunchWarning(Repo repo) throws IOException {
+        expectClean(repo.findings());
+        expectWarning(repo, "unregistered launch capability");
     }
 
     static String webCwd(String command) {
@@ -1849,14 +1926,19 @@ public final class PolicyCheckTest {
 
         /**
          * A synthetic reviewed source lets the original vector assertions exercise the checks INSIDE a pinned site.
-         * Assert the production registry refuses it first. Shell/workflow tests use only the production registry.
+         * Assert the production registry warns about it first. Shell/workflow tests use only the production registry.
          */
         List<String> webFindings(String site) throws IOException {
             if (site.equals("java") || site.equals("kotlin")) {
-                expectFinding(findings(), "images", "unregistered launch capability");
+                expectWarning(this, "unregistered launch capability");
                 reviewedFixtureSources.add(site.equals("java") ? "tools/run/Probe.java" : "build.gradle.kts");
             }
             return findings();
+        }
+
+        Repo reviewedSource(String path, String text) throws IOException {
+            reviewedFixtureSources.add(path);
+            return write(path, text);
         }
 
         Repo write(String path, String text) throws IOException {

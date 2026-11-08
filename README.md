@@ -59,7 +59,8 @@ Built and running:
 - **The database harness** of the shipping API's tests. It starts the reviewed PostgreSQL image, by digest, only on
   a container engine that a review approves. CI stops and masks the engine and probes CLI/socket denial before
   checkout in every job and after the reviewed harness window. This runtime guard enforces engine availability;
-  check 8 is a PARTIAL static lint with known bypasses (ADR 0007). The harness validates its PostgreSQL instance,
+  check 8 is a PARTIAL static lint: direct container findings and registered-file pin mismatches block, while
+  unregistered launch/reflection capabilities warn. Literal/data class names are not use (ADR 0007). The harness validates its PostgreSQL instance,
   and CI checks subsequent engine activity. Privileged code could undo the guard; it is not a hostile-code sandbox.
   No schema exists yet.
 - **The documentation tool**, `tools/docs`, with its tests. It generates the C4 view pages, `BRAIN.md` and a static

@@ -19,10 +19,9 @@
 //   6. every file under a vendor/ directory is byte-identical (SHA-256) to an approved, reviewed artifact;
 //   7. the owner has accepted exactly this reviewed set: every entry, field by field, and every review record, byte
 //      for byte;
-//   8. every container image that Testcontainers code, its configuration, a workflow or a script names is an approved
-//      container-image entry, by its digest alone, in the only forms the reviews allow; a form it cannot decode is
-//      refused. It reads files as data, so what is assembled at run time stays outside it: the engine checks after the
-//      tests (tools/ci/container-engine.sh) are what see a container started that way. See checkContainerImages.
+//   8. PARTIAL lint: recognized direct container use, image forms and registered-file pin mismatches block;
+//      class names in literal/data text are not use. Unregistered launch/reflection capabilities are warnings only.
+//      Runtime CI Docker guards enforce the engine availability window. See checkContainerImages and ADR 0007.
 // Exit codes: 0 = clean, 1 = findings, 2 = the check could not complete (a broken check never reads as a pass).
 // With --report-only, findings are printed and the exit code is 0 (new checks start report-only, then block).
 
@@ -114,6 +113,7 @@ public final class PolicyCheck {
     /** Every review record as the allowlist writes it, and its normalized path inside the tree. */
     private final Map<String, Path> reviews = new HashMap<>();
     private final Set<Finding> findings = new TreeSet<>();
+    private final Set<String> warnings = new TreeSet<>();
 
     PolicyCheck(Path repo, LocalDate today) throws IOException {
         this(repo, today, LAUNCH_SITES);
@@ -431,9 +431,9 @@ public final class PolicyCheck {
     // ---- 8. container images ----
 
     /*
-     * Fail closed: an image may be named only by an approved digest, and only in forms this check decodes completely.
-     * A form it cannot decode is refused, whatever it holds; what it decodes, it normalises before it matches, as the
-     * reader of each file would.
+     * PARTIAL static lint, not engine-access enforcement. Recognized container declarations and unsupported
+     * container/shell forms block; source launch/reflection capabilities outside the registry warn only.
+     * Image references require an approved digest. Runtime CI guards enforce the engine availability window.
      *
      * What it reads: every file under a project's src/ directory, whatever its extension (sources, resources, scripts);
      * every Java, Kotlin and Groovy file (the Gradle build scripts included); gradle.properties; the workflows and every
@@ -474,13 +474,8 @@ public final class PolicyCheck {
      *     literal, and a JVM option that runs a command (JVM_COMMAND);
      *   - in Java and Kotlin outside the harness and its test: opening a Unix socket (ENGINE_SOCKET), which is how code
      *     reaches the engine without naming a runtime;
-     *   - in Kotlin: a backquoted identifier. Groovy sources and build scripts altogether, whose slashy and dollar-slashy
-     *     strings and GString templates it does not decode;
-     *   - process-launch capabilities in any Java/Kotlin/Gradle source, including tools/policy and build directories,
-     *     unless its exact path and whole-file SHA-256 are in LAUNCH_SITES. Reflection lookup/invocation and method
-     *     handles require the same pin; aliases cannot hide the original capability name. Opaque Kotlin expression
-     *     templates and backquoted names also require a pin. Within registered sources, the existing command-vector
-     *     decision remains in force: a pin is no interpreter exception;
+     *   - Groovy sources and build scripts, whose slashy and dollar-slashy strings and GString templates it does not
+     *     decode. Generic launch capability diagnostics are separate warnings, described below;
      *   - in string literals: a container runtime's name in a literal with shell metacharacters, once its quotes,
      *     escapes and expansions are removed, and one split across consecutive literals, whatever joins them (+, a call,
      *     a template); a Kotlin or Groovy template that holds a string literal;
@@ -490,8 +485,8 @@ public final class PolicyCheck {
      *   - a digest reference ([registry/]name@sha256:<digest>) that no approved container-image entry has, a tag next
      *     to the digest, and a digest that is not 64 lowercase hexadecimal digits;
      *   - in sources and build scripts: any reference to Testcontainers or docker-java (an import, a star import or a
-     *     fully qualified name) outside the database harness (HARNESS), so that every container is made there, from
-     *     the reviewed image, and checked there; DockerImageName.parse of anything but one string literal that holds a
+     *     fully qualified name in code, not literal/data text) outside the database harness (HARNESS);
+     *     DockerImageName.parse of anything but one string literal that holds a
      *     digest, as a method reference or by a static import; a Testcontainers JDBC URL (jdbc:tc:), which names an
      *     image by tag; every API that derives, builds or resolves an image name, pulls or builds an image, runs
      *     another container, copies into one, binds the host, reaches the host, or changes how a container is created
@@ -508,12 +503,17 @@ public final class PolicyCheck {
      *     pull of anything but one image by digest, docker's global options, docker in a word it cannot read as a
      *     command (a value, an expansion), other container runtimes, a runtime's name around an expansion, and job or
      *     service containers as plain, quoted, flow, escaped or explicit YAML keys.
+     * What warns without failing: recognized process-launch, reflection and method-handle capabilities in source
+     * outside LAUNCH_SITES, including tools/policy and build directories. Opaque Kotlin expression templates and
+     * backquoted identifiers warn too. Present registered files still require their exact SHA-256 even after their
+     * capability is removed, and their command vectors still receive the existing blocking checks. Direct container
+     * checks run separately everywhere they did before; no capability warning downgrades one of their findings.
      * What stays outside it: repository code run by the reviewed node --test command (matching is not isolation), and
      * commands assembled by the reviewed, hash-pinned launchers, and the programs an allowed command runs in turn (sed, git's configuration, find -exec), and a library that starts a container
      * of its own. For those the static check is no guarantee: the runner's checks of the engine's images and
      * events after the tests (tools/ci/container-engine.sh) are what find a container started that way. The checker's
      * own directory (CHECKER_DIRECTORY) is excluded from image/string inspection because its tests hold refused
-     * spellings as data. The structural capability gate DOES read it; the test launcher itself is hash-pinned.
+     * spellings as data. The capability warning scan DOES read it; the test launcher itself is hash-pinned.
      */
 
     /** This checker and its tests, whose fixtures hold every refused spelling as data: reviewed as the checker. */
@@ -526,8 +526,8 @@ public final class PolicyCheck {
     /**
      * Capability registry, held by the running (base-branch in preflight) checker, never loaded from the candidate.
      * Exact paths and whole-file bytes: no directory, receiver, command or test-source exemption. Update a pin only
-     * with review of the whole file in a risk-3 PR. Absence grants nothing; any present registered file must match,
-     * even if an edit removes its capability. These are the existing sites on this branch and main, not examples.
+     * with review of the whole file in a risk-3 PR. An unregistered capability only warns; any present registered file
+     * must match, even if an edit removes its capability. These are the existing sites on this branch and main, not examples.
      */
     static final Map<String, String> LAUNCH_SITES = Map.ofEntries(
             // The reviewed database harness and its engine queries.
@@ -544,7 +544,7 @@ public final class PolicyCheck {
                     "1da58928c02952dfdc89c77731202f8e3a2e97cb66d48c448a0b938a23a05ba3"),
             // The JDK-only checker launcher, timeout and process cleanup tests.
             Map.entry("tools/policy/PolicyCheckTest.java",
-                    "196a9ad3eb5f1950873ab4e7610e8a353109c3a67e0049dc6d82eae1b9461de5"),
+                    "52e0b8c10978733b735a1d36ccba194e6f72b88f40acb4118e3de7c0120b5a8a"),
             // Runtime access solely for the fixture-directory cleanup shutdown hook.
             Map.entry("libs/c4-contract-kit/src/test/java/io/github/stigjohnny/c4contractkit/testing/FixtureCompiler.java",
                     "954f4b9152ee3e786aea9d8b374bd8863f5771a947dc6b58952634738172fd8b"),
@@ -580,7 +580,7 @@ public final class PolicyCheck {
             Language language = Language.of(file.getFileName().toString()).orElseThrow();
             Optional<String> decoded = utf8(bytes);
             if (decoded.isEmpty() || language == Language.GROOVY) {
-                add("images", relative(file) + ": unregistered launch capability; source syntax cannot be inspected");
+                warnings.add(relative(file) + ": unregistered launch capability; source syntax cannot be inspected");
                 continue;
             }
             String text = language == Language.JAVA ? unicodeEscapesDecoded(decoded.get()) : decoded.get();
@@ -594,7 +594,7 @@ public final class PolicyCheck {
             boolean opaqueKotlin = language == Language.KOTLIN && (text.contains("${") || bare.contains("`"));
             if (LAUNCH_CAPABILITY.matcher(bare).find() || opaqueKotlin
                     || language == Language.KOTLIN && KOTLIN_CAPABILITY.matcher(bare).find()) {
-                add("images", relative(file) + ": unregistered launch capability; requires a reviewed path and SHA-256 pin");
+                warnings.add(relative(file) + ": unregistered launch capability; PARTIAL lint only, CI runtime engine guard enforces access");
             }
         }
     }
@@ -872,6 +872,7 @@ public final class PolicyCheck {
     }
 
     Set<Integer> checkProcessCommands(Path file, String text, SourceViews views, Language language) {
+        if (!launchSites.containsKey(repo.relativize(file).toString())) return Set.of();
         Set<Integer> approvedLiterals = new TreeSet<>();
         Set<Integer> resolvedDirectories = new TreeSet<>();
         String bare = views.bare();
@@ -1156,25 +1157,27 @@ public final class PolicyCheck {
     }
 
     /**
-     * A source or build script, in its text and its code without comments: image names, the forbidden APIs and
-     * container runtimes in all of it, Testcontainers and docker-java nowhere but in the harness, and in the harness the
+     * A source or build script: container-library identifiers outside comments and literals, image arguments and
+     * container-runtime strings, Testcontainers and docker-java nowhere but in the harness, and in the harness the
      * container it makes. Its string literals, decoded, are read as shell text, alone and with their neighbours.
      */
     void checkImageCode(Path file, String text, SourceViews views, Language language, boolean harness) {
         Set<Integer> processLiterals = checkProcessCommands(file, text, views, language);
-        for (String view : List.of(text, views.code())) {
-            codeRules(file, text, view, harness);
-        }
+        codeRules(file, text, views.code(), views.bare(), harness);
         String rel = repo.relativize(file).toString();
         if (!harness && !rel.equals(HARNESS_TEST)) {
+            if (PROCESS_CALL.matcher(views.bare()).find()) {
+                find(file, text, views.code(), Pattern.compile("/(?:var/)?run/(?:user/[0-9]+/)?docker\\.sock\\b"),
+                        "a Docker socket path passed to a source launcher; only the harness talks to the engine");
+            }
             find(file, text, views.code(), ENGINE_SOCKET, "opens a Unix socket, which is how code reaches the engine "
                     + "without naming a runtime; only the harness talks to the engine");
         }
         if (language == Language.KOTLIN) {
-            find(file, text, views.bare(), Pattern.compile("`"), "a backquoted Kotlin identifier; this check reads names "
-                    + "as they are written, so write the name plainly");
+            if (views.bare().contains("`")) launchProblem(file, relative(file)
+                    + ": a backquoted Kotlin identifier; this PARTIAL lint cannot resolve the name");
             // The names the backquotes held, read as Kotlin reads them: a backquote is no part of the name.
-            codeRules(file, text, views.code().replace('`', ' '), harness);
+            codeRules(file, text, views.code().replace('`', ' '), views.bare().replace('`', ' '), harness);
         }
         if (language == Language.GROOVY) {
             add("images", relative(file) + ":1: a Groovy source or build script; this check does not decode Groovy's "
@@ -1209,7 +1212,7 @@ public final class PolicyCheck {
                 startupVariable(file, line, startup.group(1));
             }
             if (LITERAL_INTERPRETERS.contains(interpreter) && !processLiterals.contains(literal.offset())) {
-                add("images", "%s:%d: runs %s, an interpreter whose programs this check does not read"
+                launchProblem(file, "%s:%d: runs %s, an interpreter whose programs this check does not read"
                         .formatted(relative(file), line, interpreter));
             }
         }
@@ -1250,9 +1253,9 @@ public final class PolicyCheck {
         add("images", "%s:%d: runs a container runtime as a command (%s)".formatted(relative(file), line, runtime));
     }
 
-    /** The rules on code, applied to the text and to the code without comments alike. */
-    void codeRules(Path file, String text, String view, boolean harness) {
-        for (Matcher m = PARSE_CALL.matcher(view); m.find(); ) {
+    /** Identifiers are inspected outside comments/literals; image arguments retain their literal values. */
+    void codeRules(Path file, String text, String view, String bare, boolean harness) {
+        for (Matcher m = PARSE_CALL.matcher(bare); m.find(); ) {
             Matcher literal = ONE_LITERAL.matcher(view).region(m.end(), view.length());
             if (!literal.lookingAt()) {
                 add("images", "%s: DockerImageName.parse takes something other than one string literal"
@@ -1261,19 +1264,19 @@ public final class PolicyCheck {
                 add("images", "%s: %s is not pinned by digest".formatted(at(file, text, m.start()), safe(literal.group(1))));
             }
         }
-        find(file, text, view, PARSE_REFERENCE, "DockerImageName::parse makes image names from values this check cannot read");
-        find(file, text, view, PARSE_IMPORT, "a static import of DockerImageName hides the calls this check reads");
-        find(file, text, view, NEW_IMAGE_NAME, "new DockerImageName builds an image name that this check cannot read");
-        find(file, text, view, DEPRECATED_CONTAINER, "org.testcontainers.containers.PostgreSQLContainer is the deprecated "
+        find(file, text, bare, PARSE_REFERENCE, "DockerImageName::parse makes image names from values this check cannot read");
+        find(file, text, bare, PARSE_IMPORT, "a static import of DockerImageName hides the calls this check reads");
+        find(file, text, bare, NEW_IMAGE_NAME, "new DockerImageName builds an image name that this check cannot read");
+        find(file, text, bare, DEPRECATED_CONTAINER, "org.testcontainers.containers.PostgreSQLContainer is the deprecated "
                 + "container; the review approves org.testcontainers.postgresql.PostgreSQLContainer");
-        for (Matcher m = FORBIDDEN_API.matcher(view); m.find(); ) {
+        for (Matcher m = FORBIDDEN_API.matcher(bare); m.find(); ) {
             add("images", "%s: %s is forbidden by the Testcontainers and runner reviews".formatted(
                     at(file, text, m.start()), m.group(1)));
         }
         if (!harness) {
-            find(file, text, view, CONTAINER_LIBRARY, "uses Testcontainers or docker-java; only ReviewedPostgres may ("
+            find(file, text, bare, CONTAINER_LIBRARY, "uses Testcontainers or docker-java; only ReviewedPostgres may ("
                     + HARNESS + "), so that every container is made and checked there");
-            for (Matcher m = NEW_CONTAINER.matcher(view); m.find(); ) {
+            for (Matcher m = NEW_CONTAINER.matcher(bare); m.find(); ) {
                 if (REVIEWED_CONTAINER.equals(m.group(1))) {
                     add("images", "%s: only ReviewedPostgres makes the PostgreSQLContainer".formatted(
                             at(file, text, m.start())));
@@ -1282,8 +1285,8 @@ public final class PolicyCheck {
             return;
         }
         Set<String> parsedHere = new TreeSet<>();
-        for (Matcher m = IMAGE_DECLARATION.matcher(view); m.find(); ) parsedHere.add(m.group(1));
-        for (Matcher m = NEW_CONTAINER.matcher(view); m.find(); ) {
+        for (Matcher m = IMAGE_DECLARATION.matcher(bare); m.find(); ) parsedHere.add(m.group(1));
+        for (Matcher m = NEW_CONTAINER.matcher(bare); m.find(); ) {
             String where = at(file, text, m.start());
             if (!REVIEWED_CONTAINER.equals(m.group(1))) {
                 add("images", "%s: %s is not the reviewed org.testcontainers.postgresql.PostgreSQLContainer"
@@ -1302,11 +1305,11 @@ public final class PolicyCheck {
                 add("images", "%s: an anonymous subclass of PostgreSQLContainer".formatted(where));
             }
         }
-        for (Matcher m = CONTAINER_REFERENCE.matcher(view); m.find(); ) {
+        for (Matcher m = CONTAINER_REFERENCE.matcher(bare); m.find(); ) {
             add("images", "%s: %s::new makes containers from values this check cannot read"
                     .formatted(at(file, text, m.start()), safe(m.group(1))));
         }
-        for (Matcher m = EXTENDS_CONTAINER.matcher(view); m.find(); ) {
+        for (Matcher m = EXTENDS_CONTAINER.matcher(bare); m.find(); ) {
             add("images", "%s: extends %s; a test may not subclass a container".formatted(at(file, text, m.start()),
                     safe(m.group(1))));
         }
@@ -2414,7 +2417,7 @@ public final class PolicyCheck {
      * A source without its comments (code: blanked, its lines kept, so that offsets and lines stay), without its string
      * literals too (bare), and its string literals: plain and character literals, Java text blocks (incidental
      * indentation removed before the escapes, as javac does), Kotlin raw strings (no escapes) and Groovy single, double
-     * and triple quotes. Groovy slashy strings are not parsed: a Groovy file is refused whatever it holds.
+     * and triple quotes. Recognized Kotlin template expressions remain code in bare. Groovy slashy strings are not parsed: a Groovy file is refused whatever it holds.
      */
     record SourceViews(String code, String bare, List<Literal> literals) {
 
@@ -2450,24 +2453,48 @@ public final class PolicyCheck {
                     String delimiter = text.substring(i, i + 3);
                     boolean escapes = language != Language.KOTLIN;
                     int j = i + 3;
-                    while (j < n && !text.startsWith(delimiter, j)) j += escapes && text.charAt(j) == '\\' ? 2 : 1;
+                    while (j < n && !text.startsWith(delimiter, j)) {
+                        int close = language == Language.KOTLIN && text.startsWith("${", j)
+                                ? closing(text, j + 1, '{', '}') : -1;
+                        j = close >= 0 ? close + 1 : j + (escapes && text.charAt(j) == '\\' ? 2 : 1);
+                    }
                     String content = text.substring(i + 3, Math.min(j, n));
                     if (language == Language.JAVA) content = withoutIncidentalIndentation(content);
                     literals.add(new Literal(escapes ? decoded(content, language) : content, i + 3));
                     blank(bare, i, Math.min(n, j + 3));
+                    if (language == Language.KOTLIN) kotlinExpressions(text, bare, i + 3, Math.min(j, n), false);
                     i = Math.min(n, j + 3);
                 } else if (text.charAt(i) == '"' || text.charAt(i) == '\'') {
                     char quote = text.charAt(i);
                     int j = i + 1;
-                    while (j < n && text.charAt(j) != quote && text.charAt(j) != '\n') j += text.charAt(j) == '\\' ? 2 : 1;
+                    while (j < n && text.charAt(j) != quote && text.charAt(j) != '\n') {
+                        int close = language == Language.KOTLIN && quote == '"' && text.startsWith("${", j)
+                                ? closing(text, j + 1, '{', '}') : -1;
+                        j = close >= 0 ? close + 1 : j + (text.charAt(j) == '\\' ? 2 : 1);
+                    }
                     literals.add(new Literal(decoded(text.substring(i + 1, Math.min(j, n)), language), i + 1));
                     blank(bare, i, Math.min(n, j + 1));
+                    if (language == Language.KOTLIN && quote == '"') kotlinExpressions(text, bare, i + 1, Math.min(j, n), true);
                     i = Math.min(n, j + 1);
                 } else {
                     i++;
                 }
             }
             return new SourceViews(code.toString(), bare.toString(), List.copyOf(literals));
+        }
+
+        private static void kotlinExpressions(String text, StringBuilder bare, int from, int to, boolean escapes) {
+            for (int i = from; i < to; i++) {
+                if (escapes && text.charAt(i) == '\\') {
+                    i++;
+                } else if (text.startsWith("${", i)) {
+                    int close = closing(text, i + 1, '{', '}');
+                    if (close < 0 || close >= to) return; // Opaque templates still receive the capability warning.
+                    String expression = of(text.substring(i + 2, close), Language.KOTLIN).bare();
+                    bare.replace(i + 2, close, expression);
+                    i = close;
+                }
+            }
         }
 
         private static void blank(StringBuilder code, int from, int to) {
@@ -2621,6 +2648,12 @@ public final class PolicyCheck {
 
     void add(String area, String message) { findings.add(new Finding(area, message)); }
 
+    /** Generic source capabilities warn outside the registry; direct container rules never use this path. */
+    void launchProblem(Path file, String message) {
+        if (launchSites.containsKey(repo.relativize(file).toString())) add("images", message);
+        else warnings.add(message);
+    }
+
     List<Path> files(java.util.function.Predicate<Path> wanted) throws IOException {
         return files(wanted, false);
     }
@@ -2630,7 +2663,7 @@ public final class PolicyCheck {
             return walk.filter(p -> Files.isRegularFile(p, LinkOption.NOFOLLOW_LINKS))
                     .filter(p -> {
                         String rel = repo.relativize(p).toString();
-                        // The structural gate reads every source, including tools/policy, caches and build outputs.
+                        // The capability warning scan reads every source, including tools/policy, caches and build outputs.
                         if (launchSources) return !rel.startsWith(".git/");
                         return Stream.of(".git", "node_modules", ".gradle").noneMatch(skip ->
                                 rel.startsWith(skip + "/") || rel.contains("/" + skip + "/"))
@@ -2787,6 +2820,10 @@ public final class PolicyCheck {
                 out.append("\n### ").append(area).append("\n\n");
             }
             out.append("- ").append(f.message()).append('\n');
+        }
+        if (!warnings.isEmpty()) {
+            out.append("\n### Warnings (check 8, non-blocking)\n\n");
+            for (String warning : warnings) out.append("- ").append(warning).append('\n');
         }
         return out.toString();
     }

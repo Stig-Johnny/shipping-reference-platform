@@ -11,7 +11,7 @@ enforcedBy:
   - "tools/ci/stage-temurin.sh: SHA-256 check of the reviewed JDK archive before actions/setup-java installs it"
   - "GitHub Actions setting: selected actions only, SHA pinning required, six allowed patterns"
   - "acceptance: PolicyCheck recomputes acceptance.reviewedSetSha256 on every run"
-  - "preflight and java (required checks): check 8 is a PARTIAL static lint of recognized container declarations and launch sites, with known bypasses; it is not the engine-access enforcing control"
+  - "preflight and java (required checks): check 8 is a PARTIAL static lint: recognized direct container use and pin mismatches block; unregistered launch capabilities warn; runtime guards enforce engine access"
   - "workflow runtime guards: stop and mask the engine, remove its socket and prove it unreachable before checkout and after the reviewed database harness window"
   - "tools/ci/container-engine.sh: the runner review's conditions around the database tests in java and pages, with the test harness's own checks"
 plannedEnforcement:
@@ -152,13 +152,17 @@ What is built, and where it differs from the decision above. The decision stands
   a human accepted it: the owner and the AI agents use the same GitHub account, and the agent that records the
   acceptance also computes the digest. The record quotes the owner's words and their timestamp from the chat
   transcript. Nothing binds an approval to a head SHA.
-- **Container declarations: PARTIAL static lint (check 8).** The existing code remains unchanged under the owner's
-  2026-11-08 decision. It rejects recognized declarations, unsupported syntax it recognizes, non-reviewed image
-  digests and recognized launch sites without an exact path and whole-file hash. It scans source, build scripts,
-  workflow/action YAML, shell scripts and selected resources. This is a finite lexical scan, not a proof that every
-  executable route has been found. Its exact web-command predicate and launch registry are described below; the
-  known bypass classes are listed under the runtime decision. Its existing rejections and regression assertions
-  remain in place. A clean check 8 is not evidence that code cannot reach an engine.
+- **Container declarations: PARTIAL static lint (check 8).** Under the owner's 2026-11-08 decision at about
+  19:35 UTC, the blocking subset remains recognized direct container use: Testcontainers/docker-java imports and
+  code references outside `ReviewedPostgres`, container CLI commands outside the reviewed forms, direct engine
+  socket access (including a Docker socket path passed to a source launcher), Dockerfile/compose declarations and
+  images without an approved digest. Registered launch-site whole-file hash mismatches also remain findings.
+  Findings exit 1. Class names appearing only in string literals, text blocks, comments or resource data are not
+  use; whitelist data and its tests may name those classes. Kotlin template expressions are code, not inert text.
+  Recognized reflection, method handles, ProcessBuilder/Runtime and other launch-capable APIs outside registered
+  sites are listed under `Warnings (check 8, non-blocking)` and never fail the run. Direct container checks still
+  run independently: a source can have both a capability warning and a blocking container finding. A clean check 8
+  does not establish that code cannot reach an engine; the runtime guard below enforces engine availability.
 - **Runtime engine access is the enforcing control (owner decision, 2026-11-08).** Every job's first step, before
   checkout or any action, stops `docker.service` and `docker.socket`, masks both units for the runner's lifetime and
   removes `/var/run/docker.sock`. Any failure stops the job. The same step requires `docker info` to fail and a
@@ -206,9 +210,10 @@ What is built, and where it differs from the decision above. The decision stands
 
   The same predicate applies to workflow run steps, shell scripts and recognized command vectors inside registered
   Java/Kotlin launch sites: `ProcessBuilder`, `Runtime.exec` and Gradle `commandLine`/`setCommandLine`. A matching
-  command alone does not authorize a recognized launch site in an unregistered source file. Complete literal vectors are read;
-  recognized computed vectors, unsupported setters and constructor references are refused; missed execution sites
-  are outside this predicate. Root execution is the repository
+  command in an unregistered source file still produces a capability warning. Inside registered sites, complete
+  literal vectors are read; recognized computed vectors, unsupported setters and constructor references are refused.
+  Outside registered sites these generic process APIs warn, while direct container use still blocks. Missed execution
+  sites are outside this predicate. Root execution is the repository
   script/JVM convention; Gradle's default is its project directory. A workflow can state its directory on the step,
   a shell can start with a single literal `cd apps/shipping-web &&` followed by one command, a process builder can
   chain a literal `directory(new File(...))`, and an Exec block can state a literal `workingDir`. Inherited workflow
@@ -221,36 +226,32 @@ What is built, and where it differs from the decision above. The decision stands
   installation and registered script invocations. The separate maintenance approval authorizes no `npm install` in CI.
   There are still no npm manifests, lockfile or web job in this tree; these rules are exercised by inert fixtures.
 
-- **Structural launch-site lint (check 8, PARTIAL, 2026-11-08).** Before inspecting commands, the checker refuses
-  recognized launch capabilities in Java, Kotlin and Gradle source unless its exact path and whole-file SHA-256 appear in
+- **Launch-site warnings and pin enforcement (check 8, PARTIAL, 2026-11-08).** The checker reports recognized
+  launch capabilities in Java, Kotlin and Gradle source as warnings unless the exact path is registered in
   `PolicyCheck.LAUNCH_SITES`. This scan includes tests, `tools/policy/`, source packages named `build`, generated
   source directories and caches; only Git's own metadata is outside it. It reads code after Java Unicode decoding
-  and removal of identifier-ignorable characters, comments and inert literals. Kotlin expression templates and
-  backquoted identifiers are refused without a pin; nested Kotlin comments retain their lexical boundaries.
+  and removal of identifier-ignorable characters, comments and inert literals. Opaque Kotlin expression templates
+  and backquoted identifiers warn outside registered sites too.
 
-  The lint recognizes a finite list of process-builder, Runtime, process-handle, Exec/JavaExec, setter/provider,
-  reflection and method-handle spellings. Some qualified names, aliases and static imports expose those tokens;
-  the bypasses below show that the list and lexical model are incomplete. It does not try to reconstruct a command
-  after arbitrary setters or resolve an inferred receiver. Existing regression examples of `env` wrappers, later
-  argument mutations and inferred Runtime aliases in new files are rejected; this is not complete coverage. Every present registered file is
-  hash-checked even if an edit removes all its launch code; copying it to another path grants nothing.
+  The finite token list includes process-builder, Runtime, process-handle, Exec/JavaExec, setter/provider,
+  reflection and method-handle spellings. It neither reconstructs commands after arbitrary setters nor resolves
+  inferred receivers. Benign uses such as servlet `getMethod()` may produce warnings. Warnings are sorted under
+  their own report heading and do not affect the exit status. Direct container rules are a separate blocking path.
 
-  Seven existing files are pinned: `ReviewedPostgres.java` (the DB harness), the API build script (its test JVM
-  argument provider), the docs build script (the docs JVMs and git revision read), `MutationTestingPlugin.java`
-  (the reviewed CI-only PIT task), `PolicyCheckTest.java` (the child-JVM test launcher and cleanup),
-  `FixtureCompiler.java` (its Runtime shutdown hook), and `RestrictedStructurizrTest.java` (reflection that checks
-  parser restrictions). There are no directory permissions or synthetic launch entries. The latter two files
-  need pins because they hold Runtime/reflection capabilities even though their present code launches no process.
-  The registry grants no permission to run PIT outside its existing reviewed CI conditions.
+  All seven existing registered files retain whole-file pin enforcement: `ReviewedPostgres.java`, the API and docs
+  build scripts, `MutationTestingPlugin.java`, `PolicyCheckTest.java`, `FixtureCompiler.java` and
+  `RestrictedStructurizrTest.java`. Every present registered file is hash-checked even if an edit removes all its
+  capability text. Copying one to a different path earns a capability warning, not its registered permissions.
+  This change updates only the checker-test pin for the changed fixtures; the harness and other pins are unchanged.
+  Registered command vectors retain their blocking exact-form checks. The registry grants no permission to run
+  PIT outside its reviewed CI conditions.
 
-  The registry belongs to the running checker; preflight uses the base branch's version, not a registry supplied
-  by the candidate. There is currently no working transition protocol for updating an existing pin: a source plus
-  candidate-pin edit fails the base checker, while a registry-only replacement fails the candidate checker against
-  unchanged source. Owner approval alone does not resolve this. A trusted current/successor-digest protocol remains
-  open work; this change neither implements one nor changes any pin. The existing workflow/shell
-  web predicate is unchanged, and registered source command vectors still receive its exact-form decision.
-  Hashes freeze the reviewed launchers, including their dynamic JavaExec arguments; they do not prove their logic
-  safe or isolate the repository code, approved libraries or tools those launchers execute.
+  The registry belongs to the running checker; preflight uses the base branch's version, not the candidate's.
+  There is still no trusted transition protocol for an existing pin: updating a source and candidate pin fails the
+  base checker, while a registry-only replacement fails the candidate checker against unchanged source. Owner
+  approval alone does not resolve that sequencing problem. A current/successor-digest protocol remains open work.
+  Hashes freeze reviewed launchers, including their dynamic JavaExec arguments; they do not prove their logic safe
+  or isolate repository code, approved libraries or tools those launchers execute.
 
 ### Reviewed web command forms
 
@@ -271,8 +272,9 @@ The 2026-11-08 owner decision retains these as documented gaps rather than claim
 
 - Gradle can mutate an initially approved vector through `args`, `setArgs`, `setExecutable`, property assignments
   or argument providers. Process wrappers such as `env`, executable-path variants, and qualified or statically
-  imported inferred `Runtime` aliases are additional launch routes. Existing registry fixtures reject several
-  examples from the earlier review; they do not prove complete execution-site coverage.
+  imported inferred `Runtime` aliases are additional launch routes. Existing registry fixtures exercise several
+  examples from the earlier review; these now warn outside registered sites; neither warnings nor pins prove complete
+  execution-site coverage.
 - Raw CR line endings in Java/Kotlin and Java Unicode-escaped CR can end a line comment for the compiler while the
   scanner continues treating executable text as a comment. CR/LF/CRLF lexical handling is incomplete.
 - `java.beans.Expression` and `java.beans.Statement.execute()` provide reflection outside the token list.
@@ -283,9 +285,9 @@ The 2026-11-08 owner decision retains these as documented gaps rather than claim
 - Commands assembled at runtime, dynamic arguments within pinned launchers, code imported by the reviewed Node test
   runner, libraries, and commands launched indirectly by allowed tools (`find`, `sed`, git configuration) are outside
   the complete-command predicate. An accepted command vector does not isolate any code it executes.
-- Existing single-digest pins have the base/candidate transition deadlock described above. Static false positives
-  also remain, including inert Testcontainers metadata and servlet `getMethod()` confused with reflection. These
-  limitations must not be worked around by relaxing a check or silently pinning ordinary helpers.
+- Existing single-digest pins have the base/candidate transition deadlock described above. The owner's narrowed
+  scope removes inert Testcontainers class-name metadata from use findings; servlet `getMethod()` may still trigger
+  a non-blocking reflection warning. Ordinary helpers need no new pin merely to silence a warning.
 
 The runtime guard is the enforcing control for local engine availability in CI. Broader isolation and a trusted
 pin-transition design remain open work; the static lint stays PARTIAL.

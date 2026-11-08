@@ -461,7 +461,7 @@ controls:
     plannedRemainder: All six web parts are planned, so no import of the web app is evaluated yet; the rules apply to its real imports once the parts are built. The source and test roots are empty; future comparisons remain limited to detected imports. Known spread-syntax bypasses remain open for literal and computed imports, require and unsupported import.meta. The authoritative tsc import graph and browser-enforced strict Content-Security-Policy are planned in the web app pull request (ADRs 0012 and 0015).
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.dependency-allowlist
-    title: Reviewed dependencies, runtime CI engine guards and check 8 as a PARTIAL static lint.
+    title: Reviewed dependencies and runtime CI engine guards; check 8 is PARTIAL lint with blocking container findings and non-blocking launch warnings.
     where: tools/policy, tools/ci, .github/workflows, security/
     check: java
     status: partial
@@ -470,8 +470,8 @@ controls:
     evidenceLabel: CI workflow
     acceptanceTests: [ContainerEngineWorkflowTest, AllowlistCheckTest, GradleVerificationCheckTest, NpmLockCheckTest, WorkflowPinCheckTest, ApprovalBindingTest, StrictJsonParserTest]
     negativeFixture: The CI shell fixtures reject reachable CLI/socket and failed stop/mask/unlink/probe operations; ContainerEngineWorkflowTest rejects missing guards and an engine window extended beyond the harness.
-    enforcedSubset: Runtime CI guards enforce engine availability outside the reviewed harness window; check 8 remains a PARTIAL static lint of recognized declarations and pinned launch sites.
-    plannedRemainder: Static gaps include CR comment handling, reflective and Groovy launch APIs, implicit Gradle tasks, wrappers/aliases/mutations and indirect execution; trusted pin transitions, schema validation and approval binding remain open.
+    enforcedSubset: Runtime CI guards enforce engine availability outside the reviewed harness window. Check 8 blocks recognized direct container-library use outside the harness, container CLI/socket access outside reviewed forms, Dockerfile/compose declarations, unpinned or unreviewed images and registered-file pin mismatches. Literal/data class names are not use; reflection, method handles and other launch APIs outside registered sites are non-blocking warnings under their own heading. Direct container findings stay blocking.
+    plannedRemainder: The PARTIAL lint and its warnings do not prove engine isolation. Static gaps include CR comment handling, reflective and Groovy launch APIs, implicit Gradle tasks, wrappers/aliases/mutations and indirect execution; trusted pin transitions, schema validation and approval binding remain open.
     docs: docs/adr/0007-dependency-allowlist-and-pre-use-enforcement.md
   - id: control.risk-classification
     title: Risk level from base-branch policy; level 3 waits for the owner's approval of the current head.
