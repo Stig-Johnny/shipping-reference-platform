@@ -14,7 +14,7 @@ plannedEnforcement:
   - "java: QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest"
   - "java: RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, CrossTenantAccessTest"
   - "java: MigrationsIntegrationTest, and TableOwnershipTest on the SQL of each module's adapters"
-  - "java: WebArchitectureConformanceTest, the JDK import checker over apps/shipping-web/src: import boundaries, cycles, and a direct import for each REQUIRED relationship whose endpoints are built"
+  - "java: WebArchitectureConformanceTest, partial lint over detected imports in apps/shipping-web/src: boundaries, cycles, and a direct import for each REQUIRED relationship whose endpoints are built (ADR 0013)"
   - "web: type check and emit with TypeScript 5.9.3, and the logic tests under node --test"
   - "contract-e2e: Playwright and axe-core against the API started with the demo profile on PostgreSQL"
 ---
@@ -98,15 +98,17 @@ one.
   runs the end-to-end and accessibility specs in the `contract-e2e` CI job, against the API started with the `demo`
   profile on PostgreSQL. Their reviews approve them for that job only, so browser automation does not run on developer
   machines.
-- **Import rules.** The JDK import checker in `libs/c4-contract-kit` (issues #62 to #64) enforces them, not
-  `tools/web-imports/check-imports.mjs`, which is not built. The model declares the web app's six parts, `app`,
-  `auth`, `api`, `quote-feature`, `shipment-feature` and `ui`, and `WebArchitectureConformanceTest` checks
-  `apps/shipping-web/src` against them in the `java` check. The rules are listed in `apps/shipping-web/AGENTS.md`.
-- **Scope of the import check.** The checker enforces import boundaries and cycles, and requires a direct import for
-  each REQUIRED relationship whose endpoints are built. Relationships touching planned parts are not evaluated. The
+- **Import rules.** The JDK import checker in `libs/c4-contract-kit` (issues #62 to #64) supplies partial lint over
+  detected imports (ADR 0013); `tools/web-imports/check-imports.mjs` is not built. The model is to declare the web
+  app's six parts, `app`, `auth`, `api`, `quote-feature`, `shipment-feature` and `ui`, and the planned
+  `WebArchitectureConformanceTest` is to check `apps/shipping-web/src` against them in the `java` check. The rules
+  are listed in `apps/shipping-web/AGENTS.md`.
+- **Scope of the import check.** The checker compares detected imports for boundaries and cycles, and requires a
+  detected direct import for each REQUIRED relationship whose endpoints are built. Silent misses prevent complete
+  boundary or cycle coverage. Relationships touching planned parts are not evaluated. The
   HTTP relationship from the web app to the API stays outside the check; the end-to-end tests are its evidence, for
   the operations they run. This changes ADR 0009, which claimed import boundaries and cycles only and deferred
-  required frontend edges: the frontend gets both failure directions, as the backend has.
+  required frontend edges: the frontend gets both failure directions over the detected imports.
 
 ### Persistence through Spring JDBC
 
@@ -271,9 +273,9 @@ one.
   run DDL.
 - Planned, `java`: `TableOwnershipTest` asserts that every statement of each module's adapters touches only that
   module's schema, and fails on the fixture above.
-- Planned, `java`: `WebArchitectureConformanceTest` runs the JDK import checker over `apps/shipping-web/src`
-  (issue #64). An import the model does not allow, an import cycle, and a REQUIRED relationship between built parts
-  without a direct import each fail it.
+- Planned, `java`: `WebArchitectureConformanceTest` runs the partial JDK import check over `apps/shipping-web/src`
+  (issue #64). A detected import the model does not allow, a cycle of detected imports, and a REQUIRED relationship
+  between built parts without a detected direct import each fail it. This is not a complete graph (ADR 0013).
 - Planned, `web`: `npm ci --ignore-scripts` from the reviewed lockfile; `tsc` type-checks and emits; `node --test`
   runs the logic tests.
 - Planned, `contract-e2e`: `quote-book-label.spec.ts`, `expired-quote.spec.ts`, `tenant-denial.spec.ts` and

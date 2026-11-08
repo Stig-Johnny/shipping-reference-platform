@@ -22,10 +22,10 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The web app's configuration, read as data from its directory: the dependencies and the Node.js version that
- * {@code package.json} declares, and every setting of {@code package.json}, the {@code tsconfig*.json} files and the
- * {@code *.html} pages that would change what a specifier names or add an import that no source file shows. The check
- * resolves specifiers itself, by the rules of {@link Specifiers}; a setting that could make TypeScript, Node.js or the
- * browser resolve them otherwise is refused, as is a file that is not plain JSON or a page the reader cannot read.
+ * {@code package.json} declares, and recognized settings of {@code package.json}, the {@code tsconfig*.json} files
+ * and the {@code *.html} pages that change resolution or add imports. This is partial lint, not a full compiler or
+ * browser parser (ADR 0013). It resolves detected specifiers by {@link Specifiers} and refuses the settings below,
+ * malformed JSON and recognized page ambiguities; the list is not complete coverage of runtime loading.
  *
  * <p>Refused in {@code tsconfig*.json}: {@code extends} and {@code references} (settings from elsewhere), and in
  * {@code compilerOptions} {@code paths}, {@code baseUrl}, {@code rootDirs}, {@code typeRoots}, {@code moduleSuffixes},
