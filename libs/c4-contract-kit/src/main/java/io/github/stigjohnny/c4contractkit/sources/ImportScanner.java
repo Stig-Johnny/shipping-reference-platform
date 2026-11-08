@@ -19,10 +19,12 @@ import org.jspecify.annotations.Nullable;
  * {@code export { a } from}, their type-only forms) and {@code import('x')} with one plain string literal, anywhere,
  * types included. Refused: {@code import()} with anything else, {@code require}, {@code import.meta} other than
  * {@code import.meta.env}, import-equals declarations, import attributes, a module declaration with a module name
- * ({@code module 'x'}, with or without {@code declare}), references to {@code eval}, {@code Function} and calls of a
+ * ({@code module 'x'}, with or without {@code declare}), references to {@code eval}, {@code Function} and a
  * {@code constructor} property, workers ({@code Worker}, {@code SharedWorker}, {@code importScripts},
- * {@code serviceWorker}), {@code setTimeout} and {@code setInterval} with a string, triple-slash directives and JSX
- * pragmas, a backslash escape in a specifier, and whatever the lexer cannot read with certainty.
+ * {@code serviceWorker}), {@code setTimeout} and {@code setInterval} unless directly passed a function literal,
+ * triple-slash directives and JSX pragmas, a backslash escape in a specifier or property key, and whatever the lexer
+ * cannot read with certainty. Loader names are checked equally as identifiers and quoted keys. Computed keys other
+ * than a plain string or number are refused, including templates and keys held in constant bindings.
  * Words inside strings, comments, templates, regular expressions and JSX text are never read as code, and neither are
  * property names ({@code a.import}, <code>{ require: 1 }</code>).
  */
@@ -46,6 +48,13 @@ final class ImportScanner {
             + "can reach the Function constructor";
     static final String STRING_TIMER = "setTimeout and setInterval with a string are not supported: the string is "
             + "code the check never reads";
+    static final String TIMER_REFERENCE = "a timer reference is not supported unless directly called with a "
+            + "function literal";
+    static final String CONSTRUCTOR_REFERENCE = "a constructor property reference is not supported: it can reach "
+            + "Function";
+    static final String PROPERTY_ESCAPE = "a property key with a backslash escape is not supported";
+    static final String COMPUTED_PROPERTY = "a computed property key must be one plain string or number literal: "
+            + "the reader does not evaluate keys or follow constant bindings";
 
     /** Names that load a script from a URL at run time, refused wherever they appear. */
     private static final Set<String> WORKERS = Set.of("Worker", "SharedWorker", "importScripts",
@@ -146,9 +155,17 @@ final class ImportScanner {
     private void read() {
         for (int i = 0; i < tokens.size(); i++) {
             Token token = tokens.get(i);
-            // Literal computed properties can alias a loader too: globalThis['Function'] or window['Worker'].
-            boolean property = token.type() == TokenType.STRING && punctuator(i - 1, "[") && punctuator(i + 1, "]");
+            if (punctuator(i, "[")) {
+                computedProperty(i);
+            }
+            // Quoted bindings, object keys and bracket keys share exactly the same capability checks as names.
+            boolean property = token.type() == TokenType.STRING && (punctuator(i + 1, ":")
+                    || punctuator(i + 1, "(") || (punctuator(i - 1, "[") && punctuator(i + 1, "]")));
             if (token.type() != TokenType.IDENTIFIER && !property) {
+                continue;
+            }
+            if (property && token.special()) {
+                refuse(token, PROPERTY_ESCAPE);
                 continue;
             }
             // Refused even as properties (globalThis.eval, window.Function(...)): what they run is never read.
@@ -165,19 +182,20 @@ final class ImportScanner {
                 refuse(token, WORKER);
                 continue;
             }
-            if (property) {
+            if (token.text().equals("constructor") && (property || !methodDeclaration(i))) {
+                refuse(token, punctuator(i - 1, ".") && punctuator(i + 1, "(")
+                        ? CONSTRUCTOR_CALL : CONSTRUCTOR_REFERENCE);
                 continue;
             }
-            if (token.text().equals("constructor") && punctuator(i - 1, ".") && punctuator(i + 1, "(")) {
-                refuse(token, CONSTRUCTOR_CALL);
+            if (token.text().equals("setTimeout") || token.text().equals("setInterval")) {
+                if (punctuator(i + 1, "(") && (type(i + 2, TokenType.STRING) || type(i + 2, TokenType.TEMPLATE))) {
+                    refuse(token, STRING_TIMER);
+                } else if (property || !punctuator(i + 1, "(") || !functionLiteral(i + 2)) {
+                    refuse(token, TIMER_REFERENCE);
+                }
                 continue;
             }
-            if ((token.text().equals("setTimeout") || token.text().equals("setInterval")) && punctuator(i + 1, "(")
-                    && (type(i + 2, TokenType.STRING) || type(i + 2, TokenType.TEMPLATE))) {
-                refuse(token, STRING_TIMER);
-                continue;
-            }
-            if (isPropertyName(i)) {
+            if (property || isPropertyName(i)) {
                 continue;
             }
             switch (token.text()) {
@@ -194,6 +212,61 @@ final class ImportScanner {
                 }
             }
         }
+    }
+
+    /** Unknown computed access/binding keys fail closed, including const aliases and template literals. */
+    private void computedProperty(int open) {
+        int close = closing(open, "[", "]");
+        boolean binding = punctuator(close + 1, ":") || punctuator(close + 1, "(");
+        if (!tokens.get(open).special() && !binding) {
+            return; // An array expression: its elements still get scanned as ordinary code.
+        }
+        if (close == open + 1) {
+            return; // TypeScript's T[]; an empty access expression is not valid code.
+        }
+        if (close != open + 2 || !(type(open + 1, TokenType.STRING) || type(open + 1, TokenType.NUMBER))) {
+            refuse(tokens.get(open), COMPUTED_PROPERTY);
+        }
+    }
+
+    private boolean methodDeclaration(int name) {
+        return !punctuator(name - 1, ".") && punctuator(name + 1, "(")
+                && punctuator(closing(name + 1, "(", ")") + 1, "{");
+    }
+
+    /** A visible function expression cannot be a timer's string argument; aliases are deliberately unsupported. */
+    private boolean functionLiteral(int start) {
+        int first = identifier(start, "async") ? start + 1 : start;
+        if (identifier(first, "function")) {
+            int parameters = punctuator(first + 1, "*") ? first + 2 : first + 1;
+            if (type(parameters, TokenType.IDENTIFIER)) {
+                parameters++;
+            }
+            if (!punctuator(parameters, "(")) {
+                return false;
+            }
+            int body = closing(parameters, "(", ")") + 1;
+            if (!punctuator(body, "{")) {
+                return false;
+            }
+            int after = closing(body, "{", "}") + 1;
+            return punctuator(after, ",") || punctuator(after, ")");
+        }
+        return (type(first, TokenType.IDENTIFIER) && punctuator(first + 1, "=>"))
+                || (punctuator(first, "(") && punctuator(closing(first, "(", ")") + 1, "=>"));
+    }
+
+    /** Matching delimiters only; the contents are never evaluated. */
+    private int closing(int open, String left, String right) {
+        int depth = 0;
+        for (int i = open; i < tokens.size(); i++) {
+            if (punctuator(i, left)) {
+                depth++;
+            } else if (punctuator(i, right) && --depth == 0) {
+                return i;
+            }
+        }
+        return -2;
     }
 
     /** {@code a.import}, {@code a?.require} and <code>{ import: 1 }</code> name a property, not a module. */

@@ -51,6 +51,73 @@ class ImportScannerTest {
                 .containsExactly(tuple(2, reason));
     }
 
+    @ParameterizedTest(name = "static key: {0}")
+    @MethodSource("io.github.stigjohnny.c4contractkit.sources.LoaderKeyFixtures#keys")
+    void everyStaticLoaderKeyIsRefused(String description, String source, String reason) {
+        for (boolean jsx : List.of(false, true)) {
+            assertThat(ImportScanner.scan("// synthetic fixture\n" + source, jsx).refusals())
+                    .as("%s, JSX=%s", description, jsx).extracting(Refusal::line, Refusal::reason)
+                    .containsExactly(tuple(2, reason));
+        }
+    }
+
+    @ParameterizedTest(name = "key syntax: {0}")
+    @ValueSource(strings = {
+        "const F = globalThis['Funct\\u0069on']; F(\"return import('unlisted')\")();",
+        "const F = globalThis['Funct\\u{69}on'];",
+        "const F = globalThis['Funct\\x69on'];",
+        "const F = globalThis['Funct\\ion'];",
+        "const F = globalThis['Funct\\\nion'];",
+        "const { 'Funct\\x69on': F } = globalThis;",
+        "const F = globalThis?.['Funct\\u0069on'];",
+        "const F = globalThis[`Funct\\u0069on`];",
+        "const F = globalThis[`Funct${'i'}on`];",
+        "const { [`Function`]: F } = globalThis;",
+        "const key = 'Fun' + 'ction'; const F = (globalThis)[key];",
+        "const key = `Function`; const F = globalThis?.[key];",
+        "const key = 'Function'; const F = globalThis![key];",
+        "const key = 'Function'; const F = (globalThis as typeof globalThis)[key];",
+        "const keys = { name: 'Function' }; const F = globalThis[keys.name];",
+        "const F = globalThis['constructor']; F('return 1')();",
+        "const F = (() => undefined).constructor; F('return 1')();",
+        "globalThis['setTimeout'](\"import('unlisted')\", 0);",
+        "globalThis[`setInterval`](\"import('unlisted')\", 0);",
+        "const schedule = setTimeout; schedule(\"import('unlisted')\", 0);",
+        "const code = \"import('unlisted')\"; setTimeout(code, 0);",
+        "setInterval.call(null, \"import('unlisted')\", 0);",
+        "setTimeout?.(\"import('unlisted')\", 0);"})
+    void unsupportedKeySyntaxAndIndirectTimersFailClosed(String source) {
+        for (boolean jsx : List.of(false, true)) {
+            assertThat(ImportScanner.scan("// synthetic fixture\n" + source, jsx).refusals())
+                    .as("JSX=%s", jsx).anySatisfy(refusal -> {
+                        assertThat(refusal.line()).isEqualTo(2);
+                        assertThat(refusal.reason()).isIn(LoaderKeyFixtures.ESCAPED, LoaderKeyFixtures.COMPUTED,
+                                LoaderKeyFixtures.TIMER, LoaderKeyFixtures.CONSTRUCTOR);
+                    });
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"globalThis.Funct\\u0069on", "globalThis.\\u0046unction",
+        "globalThis.\\u{46}unction", "\\u0065val", "\\u0057orker", "set\\u0054imeout"})
+    void escapedIdentifiersAreRefusedWithoutLosingEarlierQuotedKeys(String identifier) {
+        assertThat(ts("const { 'Function': F } = globalThis;\nconst loader = " + identifier + ";").refusals())
+                .extracting(Refusal::line, Refusal::reason).containsExactly(
+                        tuple(1, ImportScanner.FUNCTION), tuple(2,
+                                "a backslash outside a string, template or regular expression is not supported"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "setTimeout(function () {} && \"import('unlisted')\", 0);",
+        "setInterval(function task() {} ? \"import('unlisted')\" : '', 0);",
+        "setTimeout(async function () {} && \"import('unlisted')\", 0);",
+        "setInterval(function* () {} && \"import('unlisted')\", 0);"})
+    void aFunctionPrefixDoesNotProveTheTimerArgumentRemainsAFunction(String source) {
+        assertThat(ts(source).refusals()).extracting(Refusal::line, Refusal::reason)
+                .containsExactly(tuple(1, LoaderKeyFixtures.TIMER));
+    }
+
     private static ImportScanner.Scan ts(String text) {
         return ImportScanner.scan(text, false);
     }

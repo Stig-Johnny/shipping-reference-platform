@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * A web root is read as data: every file is classified by its name, code is scanned, style sheets are searched for
@@ -36,6 +37,19 @@ class SourceReaderTest {
                 .containsExactly(tuple("app.ts", 2, specifier, new Resolution.Unsupported(
                         "a TypeScript import of a style sheet is not supported: link style sheets from "
                                 + "index.html")));
+    }
+
+    @ParameterizedTest(name = "file reader static key: {0}")
+    @MethodSource("io.github.stigjohnny.c4contractkit.sources.LoaderKeyFixtures#keys")
+    void loaderKeyRefusalsReachBrowserAndTestFiles(String description, String source, String reason,
+            @TempDir Path root) throws IOException {
+        write(root, "app.ts", "// synthetic fixture\n" + source);
+        write(root, "view.tsx", "// synthetic fixture\n" + source);
+        for (RootKind kind : new RootKind[] {RootKind.SOURCE, RootKind.TEST}) {
+            assertThat(SourceReader.read(root, "src", kind).refusals()).as("%s, %s", description, kind)
+                    .extracting(FileRefusal::file, FileRefusal::line, FileRefusal::reason).containsExactly(
+                            tuple("app.ts", 2, reason), tuple("view.tsx", 2, reason));
+        }
     }
 
     private static final Set<String> FILES = Set.of("app/App.tsx", "app/main.tsx", "ui/Button.tsx", "ui/index.ts",

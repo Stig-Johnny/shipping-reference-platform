@@ -35,7 +35,9 @@ import org.jspecify.annotations.Nullable;
  * {@code dependencies} and {@code devDependencies}, whose versions must be exact. In a page: an import map, an inline
  * script, a {@code <base>} element, a script or link from another origin, and a style element that names
  * {@code @import}. Duplicate attributes and an ampersand in a URL or type attribute are refused rather than
- * guessing how a browser decodes character references or selects an attribute.
+ * guessing how a browser decodes character references or selects an attribute. URL attributes are validated against
+ * a conservative ASCII syntax subset before origin classification; controls, spaces, backslashes and uncertain
+ * schemes/authorities are refused rather than approximating browser normalization.
  *
  * @param app how reports name the directory, for example {@code apps/shipping-web}
  * @param dependencies the runtime dependencies, by name, with their exact versions
@@ -57,6 +59,12 @@ public record AppConfiguration(String app, Map<String, String> dependencies, Map
     private static final Pattern ATTRIBUTE = Pattern.compile(
             "\\s*([A-Za-z_:][-A-Za-z0-9_:.]*)(?:\\s*=\\s*(\"[^\"]*\"|'[^']*'|[^\\s\"'=<>`]+))?");
     private static final Pattern OTHER_ORIGIN = Pattern.compile("^(?:[A-Za-z][A-Za-z0-9+.-]*:|//)");
+    private static final Set<String> URL_ATTRIBUTES = Set.of("src", "href");
+    private static final Pattern DNS_HOST = Pattern.compile(
+            "[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*\\.?");
+    private static final Pattern URL_UNITS = Pattern.compile("(?:[A-Za-z0-9._~!$'()*+,;=:@/?#-]|%[0-9A-Fa-f]{2})*");
+    private static final Pattern NETWORK_URL = Pattern.compile(
+            "(?:https?://|//)([A-Za-z0-9.-]+)(?::([0-9]{1,5}))?(?:[/?#].*)?", Pattern.CASE_INSENSITIVE);
 
     public AppConfiguration {
         dependencies = Map.copyOf(dependencies);
@@ -230,7 +238,7 @@ public record AppConfiguration(String app, Map<String, String> dependencies, Map
                         + "changes what every URL of the page names"));
                 case "link" -> {
                     String href = attributes.getOrDefault("href", "");
-                    if (OTHER_ORIGIN.matcher(href.strip()).find()) {
+                    if (OTHER_ORIGIN.matcher(href).find()) {
                         refusals.add(new FileRefusal(file, line, "a link to another origin (" + href + ") is not "
                                 + "supported"));
                     }
@@ -270,7 +278,7 @@ public record AppConfiguration(String app, Map<String, String> dependencies, Map
                 refusals.add(new FileRefusal(file, line, "an inline script is not supported: the check never reads "
                         + "its imports"));
             }
-        } else if (OTHER_ORIGIN.matcher(src.strip()).find()) {
+        } else if (OTHER_ORIGIN.matcher(src).find()) {
             refusals.add(new FileRefusal(file, line, "a script from another origin (" + src + ") is not supported"));
         }
     }
@@ -291,12 +299,45 @@ public record AppConfiguration(String app, Map<String, String> dependencies, Map
             }
             String name = attribute.group(1).toLowerCase(Locale.ROOT);
             if (attributes.putIfAbsent(name, value) != null
-                    || (Set.of("src", "href", "type").contains(name) && value.contains("&"))) {
+                    || (name.equals("type") && value.contains("&"))
+                    || (URL_ATTRIBUTES.contains(name) && !certainUrl(value))) {
                 return null;
             }
             at = attribute.end();
         }
         return body.substring(at).isBlank() ? attributes : null;
+    }
+
+    /**
+     * A conservative subset, not an implementation of WHATWG URL. Validate before classifying origins: browsers
+     * remove TAB/LF/CR, trim C0 controls and spaces, and treat backslashes as slashes in special URLs. None of those
+     * inputs is accepted. Explicit syntax/percent validation admits only URL units without browser preprocessing.
+     * Accepted references are ASCII relative paths, or HTTP(S)/network URLs with plain DNS authorities. Refuse
+     * other schemes, encoded hosts, IP literals, credentials and ambiguous authorities rather than approximate
+     * WHATWG's host parser. Every accepted absolute/network URL is subsequently refused as another origin.
+     */
+    private static boolean certainUrl(String value) {
+        if (!URL_UNITS.matcher(value).matches()) {
+            return false;
+        }
+        Matcher network = NETWORK_URL.matcher(value);
+        if (!network.matches()) {
+            // Relative references in this alphabet always resolve against an HTTP(S) page. Everything that could
+            // begin a scheme or authority must instead match the strictly validated network syntax above.
+            return !OTHER_ORIGIN.matcher(value).find();
+        }
+        String host = network.group(1);
+        if (!DNS_HOST.matcher(host).matches()) {
+            return false;
+        }
+        // WHATWG attempts IPv4 parsing when a domain ends in a number; leave all such hosts unsupported.
+        String domain = host.endsWith(".") ? host.substring(0, host.length() - 1) : host;
+        String lastLabel = domain.substring(domain.lastIndexOf('.') + 1);
+        if (lastLabel.matches("[0-9]+") || lastLabel.matches("(?i)0x[0-9a-f]*")) {
+            return false;
+        }
+        String port = network.group(2);
+        return port == null || Integer.parseInt(port) <= 65535;
     }
 
     private static int indexOfIgnoreCase(String text, String needle, int from) {

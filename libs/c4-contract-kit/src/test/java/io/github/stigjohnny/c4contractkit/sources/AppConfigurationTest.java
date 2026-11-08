@@ -7,10 +7,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -40,6 +42,29 @@ class AppConfigurationTest {
         assertThat(read().refusals()).extracting(FileRefusal::file, FileRefusal::line, FileRefusal::reason)
                 .containsExactly(tuple("index.html", 2, "the attributes of a <" + element
                         + "> element cannot be read with certainty"));
+    }
+
+    @ParameterizedTest(name = "URL before origin classification: [{index}]")
+    @MethodSource("uncertainUrls")
+    void urlNormalizationAmbiguityIsRefusedBeforeOriginClassification(String url) throws IOException {
+        write("index.html", "<!doctype html>\n<script src=\"" + url + "\"></script>");
+        write("style.html", "<!doctype html>\n<link rel=stylesheet href=\"" + url + "\">");
+
+        assertThat(read().refusals()).extracting(FileRefusal::file, FileRefusal::line, FileRefusal::reason)
+                .containsExactly(
+                        tuple("index.html", 2, "the attributes of a <script> element cannot be read with certainty"),
+                        tuple("style.html", 2, "the attributes of a <link> element cannot be read with certainty"));
+    }
+
+    static Stream<String> uncertainUrls() {
+        return Stream.concat(Stream.of('\t', '\n', '\r', '\0', '\u000B', '\f', '\u001F').flatMap(control ->
+                Stream.of("ht" + control + "tps://example.invalid/a.js", control + "/app.js", "/app.js" + control)),
+                Stream.of("\\\\example.invalid/a.js", "\\example.invalid/a.js", "/\\example.invalid/a.js",
+                        "\\/example.invalid/a.js", "https:\\example.invalid/a.js", "/app\\main.js",
+                        "https://[invalid/a.js", "//[invalid/a.js", "https://example.invalid:99999/a.js",
+                        "https://example.invalid:bad/a.js", "https://exa%23mple.invalid/a.js", "https://",
+                        "https://#fragment", "//", "https://256.256.256.256/a.js", "/bad%escape.js",
+                        "/bad%.js", " /app.js", "/app.js ", "/app\u007F.js"));
     }
 
     /** The web app's own tsconfig.json and index.html, as written for the first runnable slice. */
