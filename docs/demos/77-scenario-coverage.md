@@ -6,7 +6,7 @@ updated: 2026-11-08
 pr: 77
 kind: gate
 recorded: 2026-11-08
-tests: [CoverageBypassTest, ReachabilityTest, QuoteScenarioTest, TenantDenialScenarioTest]
+tests: [CoverageBypassTest, ReachabilityTest, QuoteScenarioTest, TenantDenialScenarioTest, SiteAssetsTest]
 ---
 
 ## What changed
@@ -20,10 +20,16 @@ The value-behaviour fixture now registers and checks three quote outcomes. The p
 gaps from unexamined cases, and the repository-view comparison with Structurizr from syntax fixtures without that
 independent oracle.
 
+The shared diagram renderer now reserves space around group headings and uses opaque relationship-label backgrounds.
+This addresses the quote scenario's merged API heading and step 4, and the line through step 3's REQUIRED label,
+without changing the model's words, relationships or their order.
+
 ## See it
 
 Read the [executable scenarios](../flows/quote-book-label.md#executable-scenarios) and their
 [known limits](../gaps.md#6-tests-and-quality-gates).
+On the [quote scenario diagram](../architecture/scenario-quote.md), inspect the separation of API and step 4 and the
+backing behind relationship labels. The same rendering settings apply to every diagram.
 
 ## Try it
 
@@ -64,6 +70,11 @@ at their dispatch sites; their three outcomes still hold. The two positive scena
 page's metadata provide current-build evidence only when their JUnit results pass in the publishing build. Review
 reference: pull request #77.
 
+The diagram follow-up's new `SiteAssetsTest` assertion failed before the rendering settings changed (25 tests, one
+failure), then passed during documentation generation on 2026-11-08 with the same JDK. It checks the generated
+script's shared title margins and opaque SVG label backing. A fresh rendered inspection is still pending because
+browser access was unavailable in that review session; these assertions do not establish the final pixel layout.
+
 ## Limits
 
 These fixtures prove the reproduced cases, not every possible receiver, input or schedule. The census examines main
@@ -72,3 +83,5 @@ transient references and dispatch hidden in unexamined code can escape. The thre
 and tasks on existing workers, and close cannot discover calls made after it returns. The delayed-task fixtures fail
 because their dispatch sites are examined. HTTP, database operations, listeners and commit observation remain outside
 this slice. Accepted/refused DSL syntax fixtures have no independent Structurizr oracle.
+The diagram configuration assertions do not test browser layout or guarantee collision-free placement for future
+model views.

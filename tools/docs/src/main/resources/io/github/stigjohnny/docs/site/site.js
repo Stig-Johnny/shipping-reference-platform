@@ -280,8 +280,11 @@
       startOnLoad: false,
       securityLevel: 'strict',
       htmlLabels: false,
-      flowchart: { htmlLabels: false, useMaxWidth: true },
+      // Reserve room for boundary titles before routing relationships around their contents.
+      flowchart: { htmlLabels: false, useMaxWidth: true, subGraphTitleMargin: { top: 16, bottom: 32 } },
       theme: 'base',
+      // Mermaid's default SVG label backing is translucent; arrows must not show through relationship text.
+      themeCSS: '.edgeLabel .label rect { fill: #FFFDF7; opacity: 1; }',
       fontFamily: 'system-ui, sans-serif',
       // The drawing sheet of docs/ui/documentation-site.md: ink lines on the light sheet in both themes. Node colours
       // come from the generated definitions and are not themed.

@@ -2,7 +2,7 @@
 title: "Documentation site: visual design"
 description: "How the documentation site is drawn: a drawing set with sheet codes, a title block on every sheet and a status ledger that keeps accepted design, planned implementation and verified evidence apart."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 # Documentation site: visual design
@@ -183,7 +183,9 @@ what a stamp means.
 ## Diagrams
 
 Mermaid draws with `theme: 'base'` under the reviewed strict settings, with ink lines, the light sheet as background
-and 18 px labels. Node colours come from the generated definitions and are not themed. Node recolouring, dashed
+and 18 px labels. Group titles reserve 16 px above and 32 px below in the drawing's coordinates; relationship labels
+have an opaque light-sheet backing so arrows do not cross their text. These settings apply to every diagram.
+Node colours come from the generated definitions and are not themed. Node recolouring, dashed
 borders for planned elements and a dark drawing theme wait for a design decision here.
 
 ## Accessibility
