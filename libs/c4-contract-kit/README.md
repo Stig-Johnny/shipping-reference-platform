@@ -129,6 +129,10 @@ imports, loader references, ambiguous HTML attributes and approved package CSS s
 fixture checks both the failing verdict and the unapproved built-in import records. `WebReaderRefusalConformanceTest`
 also checks quoted and escaped loader keys, computed keys and indirect timers in `.ts` and `.tsx` browser sources,
 colocated tests and a separate test root, plus ambiguous script and link URLs (including controls and backslashes).
+It reuses all 66 numeric-boundary and regex-flag refusal fixtures from the scanner and reader tests, checking each
+independently in those six source/test placements. Constructor chains after numeric literals, uncertain numeric
+continuations and unsupported regex flags must fail the public gate, including inside template substitutions and
+after continued strings; same-line findings and shifted line numbers are preserved.
 Every case requires `passed=false` and the exact findings with file, line and reason; escaped identifiers must not
 hide an earlier quoted-key finding. The synthetic shop uses literal `[0]` access instead of array destructuring to
 stay within the restricted grammar. These library fixtures do not yet run the gate over the repository's web app;

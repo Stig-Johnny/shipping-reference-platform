@@ -202,9 +202,11 @@ closes it.
   web conformance gate is still planned. `WebConformanceTest` proves that reader refusals fail the model comparison,
   and that Node.js built-ins in tests need runtime approval for project `ci` in configuration `web`, at the version
   named by `engines.node`. `WebReaderRefusalConformanceTest` checks the quoted/escaped loader keys, computed keys,
-  indirect timers and ambiguous script/link URLs through the same public gate, asserting the failing verdict and
-  exact findings in browser sources and both kinds of test root. This is fixture evidence, not a check of real web
-  imports. The reader's grammar is deliberately restricted: ambiguous slashes after closing type arguments,
+  indirect timers and ambiguous script/link URLs through the same public gate. It also checks all 66 numeric-boundary
+  and regex-flag refusal fixtures independently in six TS/TSX source/test placements, asserting the failing verdict
+  and exact file, line and reason, including multiple findings on one line and findings after continued strings.
+  This is fixture evidence, not a check of real web imports. The reader's grammar is deliberately restricted:
+  ambiguous slashes after closing type arguments,
   loader references (including quoted keys, aliases and indirect calls), escaped property keys, non-literal computed
   access/binding keys (including templates and const-derived keys), duplicate HTML attributes, encoded URL/type
   attributes, and package CSS subpaths are refused.

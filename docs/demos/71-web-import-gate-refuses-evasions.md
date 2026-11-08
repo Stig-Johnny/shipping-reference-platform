@@ -24,6 +24,11 @@ URLs containing control characters, backslashes or other ambiguous syntax must a
 `passed=false` and exact findings naming the file, line and reason, so a reader refusal cannot disappear during
 model comparison. An escaped identifier must not hide an earlier quoted loader key's finding.
 
+Numeric literals also leave constructor properties visible to the gate: `1..constructor.constructor(...)`,
+`1.0.constructor.constructor(...)` and `1n.constructor.constructor(...)` now fail with their exact findings.
+The gate checks every numeric-boundary and regex-flag refusal fixture added by the corrected reader, including
+malformed numeric continuations, unsupported flags and nested template substitutions, in each source/test placement.
+
 A test's Node.js built-ins also need approval for the intended project, `ci`, in configuration `web`, at the exact
 version named by `engines.node`. Previously, a runtime review for another project could approve these imports if its
 version and job matched. That review now leaves both imports unapproved and fails the gate. The conforming synthetic
@@ -117,6 +122,30 @@ restricted reader now refuses; their assertions and import relationships are unc
 ```text
 WebReaderRefusalConformanceTest: tests=155, failures=0, errors=0, skipped=0
 WebConformanceTest: tests=76, failures=0, errors=0, skipped=0
+Exit status: 0
+```
+
+The numeric-boundary recording on 2026-11-08 adds 396 independent cases: all 66 reader fixtures, each in six TS/TSX
+browser-source, colocated-test and separate-test-root placements. Only the lexer's production file was temporarily
+restored from the previous reader for the red run. Every new case failed: 366 incorrectly passed the old gate, and
+30 already failed but lacked the required exact findings. No fixture source was executed as TypeScript.
+
+```text
+WebReaderRefusalConformanceTest: tests=396, failures=396, errors=0, skipped=0
+New lexical-boundary cases: 396
+Incorrectly accepted by the previous reader: 366; remaining failures assert exact findings.
+Exit status: 1
+```
+
+With the corrected lexer restored, all 396 new cases passed, as did the existing 155 reader-refusal cases and 76
+conformance cases. Every new case asserts `passed=false` and the complete findings, including their file, line,
+reason and refusal evidence. Multiple findings on one line and the line shift after a continued string are checked.
+These excerpts come from the retained JUnit summaries; task chatter, case lines and stack traces are omitted.
+
+```text
+WebConformanceTest: tests=76, failures=0, errors=0, skipped=0
+WebReaderRefusalConformanceTest: tests=551, failures=0, errors=0, skipped=0
+Case parity: all 396 red case names match the 396 passing new cases.
 Exit status: 0
 ```
 

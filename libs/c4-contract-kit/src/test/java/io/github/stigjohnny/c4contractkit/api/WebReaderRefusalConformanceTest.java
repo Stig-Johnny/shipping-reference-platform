@@ -3,6 +3,7 @@ package io.github.stigjohnny.c4contractkit.api;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import io.github.stigjohnny.c4contractkit.sources.LexicalBoundaryFixtures;
 import io.github.stigjohnny.c4contractkit.testing.WebFixture;
 import java.nio.file.Path;
 import java.util.List;
@@ -28,6 +29,26 @@ class WebReaderRefusalConformanceTest {
 
     @TempDir
     Path repository;
+
+    @ParameterizedTest(name = "gate lexical boundary: {0}, {1}")
+    @MethodSource("lexicalBoundaries")
+    void literalBoundaryRefusalsFailTheGateInEachSourceAndTestPlacement(
+            LexicalBoundaryFixtures.Fixture fixture, String path) {
+        Map<String, String> files = WebFixture.files();
+        files.put("/" + path, "// synthetic fixture\n" + fixture.source());
+        String model = WebFixture.MODEL.replace("\"web.root\" \"web/src\"",
+                "\"web.root\" \"web/src\"\n                \"web.testRoots\" \"web/e2e\"");
+        WebReport report = check(model, files);
+
+        assertThat(report.passed()).as("%s in %s", fixture.name(), path).isFalse();
+        assertThat(report.violations()).containsExactlyElementsOf(fixture.reasons().stream().sorted()
+                .map(reason -> refusal(WebViolationType.UNSUPPORTED_SYNTAX, path, fixture.line(), reason)).toList());
+    }
+
+    static Stream<Arguments> lexicalBoundaries() {
+        return LexicalBoundaryFixtures.cases().flatMap(fixture ->
+                SOURCE_PATHS.stream().map(path -> arguments(fixture, path)));
+    }
 
     @ParameterizedTest(name = "gate loader key: {0}")
     @MethodSource("io.github.stigjohnny.c4contractkit.sources.LoaderKeyFixtures#keys")
