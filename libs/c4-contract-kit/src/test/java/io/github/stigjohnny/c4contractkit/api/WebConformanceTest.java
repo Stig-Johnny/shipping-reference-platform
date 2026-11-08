@@ -554,7 +554,7 @@ class WebConformanceTest {
                 import { Button } from '../../ui/Button';
 
                 export function CartPage() {
-                    const [lines] = useState<string[]>([]);
+                    const lines = useState<string[]>([])[0];
                     return <section><p>{lines.length} items.</p><Button>Check out</Button></section>;
                 }
                 """);

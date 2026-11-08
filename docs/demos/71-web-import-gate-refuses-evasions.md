@@ -1,6 +1,6 @@
 ---
 title: "Hidden web loaders and wrong-project approvals now fail"
-description: "The model comparison rejects hidden loading paths and requires Node.js approval for the intended test job and project."
+description: "The model comparison rejects hidden loader keys and ambiguous URLs, and requires Node.js approval for the intended test job and project."
 status: accepted
 updated: 2026-11-08
 pr: 71
@@ -8,6 +8,7 @@ kind: gate
 recorded: 2026-11-08
 tests:
   - WebConformanceTest
+  - WebReaderRefusalConformanceTest
 ---
 
 ## What changed
@@ -16,6 +17,12 @@ The web import gate compares source imports with the model without running the w
 aliases, ambiguous page attributes and package stylesheet imports now fail that comparison using the reader fixes
 from pull request #70. The new conformance fixtures prove that the refusals reach the gate, including for computed
 imports and for approved stylesheet packages in browser sources and tests.
+
+The corrected reader's quoted and escaped loader keys, computed keys and indirect timers are now checked through
+the public gate in `.ts` and `.tsx` browser sources, colocated tests and a separate test root. Script and stylesheet
+URLs containing control characters, backslashes or other ambiguous syntax must also fail. Each case requires
+`passed=false` and exact findings naming the file, line and reason, so a reader refusal cannot disappear during
+model comparison. An escaped identifier must not hide an earlier quoted loader key's finding.
 
 A test's Node.js built-ins also need approval for the intended project, `ci`, in configuration `web`, at the exact
 version named by `engines.node`. Previously, a runtime review for another project could approve these imports if its
@@ -30,7 +37,7 @@ runtime or server are needed. Negative fixtures pass only when the gate rejects 
 and evidence. The same class includes the accepted synthetic shop and report-writing checks.
 
 ```sh
-./gradlew :libs:c4-contract-kit:test --rerun --tests '*WebConformanceTest'
+./gradlew :libs:c4-contract-kit:test --rerun --tests '*WebConformanceTest' --tests '*WebReaderRefusalConformanceTest'
 ```
 
 ## Evidence
@@ -88,13 +95,39 @@ Exit status: 0
 Before the fixes, all 36 new cases incorrectly passed the gate: 35 reader evasions and the wrong-project runtime.
 The red run used the pre-fix reader implementation and the original runtime matcher; the merged reader fixes were
 then restored. After the runtime fix, all 76 cases in `WebConformanceTest` passed. These are recorded test results.
-Separately, the test named in this demo's metadata is evidence of the publishing build only when it passes in that
-build; the recorded output above is never rerun by the site builder.
+
+A further recording on 2026-11-08 covered all 155 cases of `WebReaderRefusalConformanceTest`: 81 loader-key cases,
+27 key-syntax and timer cases, six cases retaining findings before escaped identifiers, and 41 URL cases. Each source
+case checks six files across the three source/test locations; each URL case checks both script and link attributes.
+The red run temporarily restored the three production reader files from the previous version of pull request #70.
+All 155 tests failed: 139 fixtures incorrectly passed the old gate, while the other 16 already failed the gate but
+lacked the exact new findings. The following excerpts are from the recording script's JUnit summaries and process
+exit statuses; individual case lines and Gradle task output are omitted.
+
+```text
+WebReaderRefusalConformanceTest: tests=155, failures=155, errors=0, skipped=0
+Incorrectly accepted by the previous reader: 139; remaining failures assert exact findings.
+Exit status: 1
+```
+
+With the corrected reader restored, the same 155 cases and the existing 76 conformance cases passed. The synthetic
+shop and its required-edge fixture use the equivalent literal `[0]` access instead of array destructuring, which the
+restricted reader now refuses; their assertions and import relationships are unchanged.
+
+```text
+WebReaderRefusalConformanceTest: tests=155, failures=0, errors=0, skipped=0
+WebConformanceTest: tests=76, failures=0, errors=0, skipped=0
+Exit status: 0
+```
+
+The trimmed red/green logs and reproduction script accompany the review of pull request #71 outside the published
+repository. Separately, the tests named in this demo's metadata are evidence of the publishing build only when they
+pass in that build; the recorded output above is never rerun by the site builder.
 
 ## Limits
 
 This is a library gate exercised on synthetic repositories. The repository's web-app integration remains planned;
 no real web imports are checked here. It does not execute TypeScript, simulate a browser, inspect installed packages
 or prove runtime behaviour. Conservative reader refusals can reject harmless syntax, including type uses of loader
-names and literal ampersands in URL attributes. Approval expiry remains PolicyCheck's responsibility before the
+names, array destructuring, computed indexing and literal ampersands in URL attributes. Approval expiry remains PolicyCheck's responsibility before the
 build. No capability is promoted by this recording.

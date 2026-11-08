@@ -119,8 +119,13 @@ allowlist entry that approves it.
 
 `WebConformanceTest` checks synthetic repositories through the public API, including the reader's refusals of hidden
 imports, loader references, ambiguous HTML attributes and approved package CSS subpaths. Its wrong-project Node.js
-fixture checks both the failing verdict and the unapproved built-in import records. These library fixtures do not
-yet run the gate over the repository's web app; that integration remains planned.
+fixture checks both the failing verdict and the unapproved built-in import records. `WebReaderRefusalConformanceTest`
+also checks quoted and escaped loader keys, computed keys and indirect timers in `.ts` and `.tsx` browser sources,
+colocated tests and a separate test root, plus ambiguous script and link URLs (including controls and backslashes).
+Every case requires `passed=false` and the exact findings with file, line and reason; escaped identifiers must not
+hide an earlier quoted-key finding. The synthetic shop uses literal `[0]` access instead of array destructuring to
+stay within the restricted grammar. These library fixtures do not yet run the gate over the repository's web app;
+that integration remains planned.
 
 ## The model
 
