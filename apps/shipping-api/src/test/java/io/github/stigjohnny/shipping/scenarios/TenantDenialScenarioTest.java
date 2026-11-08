@@ -43,8 +43,8 @@ class TenantDenialScenarioTest {
             run.verify();
             assertThat(run.result().verdict()).isEqualTo("COVERAGE_INCOMPLETE");
             assertThat(run.result().comparison().conforms()).isFalse();
-            assertThat(run.result().failing()).hasSize(77);
-            assertThat(run.result().markdown()).content().contains("coverage incomplete: 77 known gaps",
+            assertThat(run.result().failing()).hasSize(106);
+            assertThat(run.result().markdown()).content().contains("coverage incomplete: 106 known gaps",
                     "Steps evaluated: 2 of 6, passed: 2, not evaluated: 4", "Outcomes held: 3 of 3");
         }
     }

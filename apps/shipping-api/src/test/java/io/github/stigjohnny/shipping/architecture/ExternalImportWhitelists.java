@@ -380,6 +380,28 @@ final class ExternalImportWhitelists {
                     "tools.jackson.databind.annotation.JsonDeserialize",
                     "tools.jackson.databind.exc.InvalidNullException"),
 
+            // Issue #88: exact types needed by shipments HTTP, cursor/label values and their tests.
+            types(Area.ROOT, "FallbackProblemHandler: retain nested body paths during header/method validation",
+                    "org.springframework.validation.method.ParameterErrors"),
+            types(Area.ADAPTER_IN_WEB, "ShipmentBody: omit absent optional members, never serialize JSON null",
+                    "com.fasterxml.jackson.annotation.JsonInclude", "com.fasterxml.jackson.annotation.JsonInclude$Include"),
+            types(Area.ADAPTER_IN_WEB, "ShipmentsController: bind the idempotency header and pagination queries",
+                    "org.springframework.web.bind.annotation.RequestHeader", "org.springframework.web.bind.annotation.RequestParam"),
+            types(Area.ADAPTER_IN_WEB, "ShipmentsController: explicit UTF-8 label bytes; ShipmentProblems: cursor error fields",
+                    "java.nio.charset.StandardCharsets", "java.util.Map"),
+            types(Area.APPLICATION, "ListShipments and ShipmentStore: bounded keyset pages", "java.util.List"),
+            types(Area.DOMAIN, "ShipmentCursor: strict base64url and instant decoding",
+                    "java.util.Base64", "java.util.Base64$Encoder", "java.util.Base64$Decoder", "java.time.DateTimeException"),
+            types(Area.DOMAIN, "SvgLabelRenderer: escaped text assembly and the booking date in UTC",
+                    "java.lang.StringBuilder", "java.time.ZoneOffset", "java.time.format.DateTimeFormatter"),
+            types(Area.MODULE_TESTS, "Shipment HTTP tests: malformed cursors; in-memory store: keyset ordering",
+                    "java.util.Base64", "java.util.Base64$Encoder", "java.util.Comparator"),
+            types(Area.MODULE_TESTS, "SvgLabelRendererTest: read the golden fixture and independently inspect safe XML",
+                    "java.nio.file.Files", "java.nio.file.Path", "java.io.ByteArrayInputStream", "java.util.Set",
+                    "javax.xml.parsers.DocumentBuilderFactory", "javax.xml.parsers.DocumentBuilder",
+                    "org.w3c.dom.Document", "org.w3c.dom.Element", "org.w3c.dom.NamedNodeMap",
+                    "org.w3c.dom.Node", "org.w3c.dom.NodeList"),
+
             // internal.adapter.out.jdbc: no adapter exists yet, so its list stays empty.
 
             // Tests in a module's packages: JUnit's annotations by name (so @Disabled is not among them), AssertJ,

@@ -23,9 +23,9 @@ closes it.
   model; every web part is planned and the source and test roots are empty, so no real web imports are checked yet.
   The first
   application code exists, checked by `ArchitectureConformanceTest`, `ModularityTest` and `HexagonalLayeringTest`: the
-  `quotes` module with its two HTTP operations, booking in the `shipments` module, in its domain and application layers,
-  the `tenants` module's demo authentication with `GET /api/v1/me`, and the HTTP edge. Nine capabilities have passing
-  tests: two of the quotes module are shipped, and three of it, two of the tenants module and two of the shipments
+  `quotes` module with its two HTTP operations, booking, listing, reading and SVG labels over HTTP in the `shipments` module,
+  the `tenants` module's demo authentication with `GET /api/v1/me`, and the HTTP edge. Eleven capabilities have passing
+  tests: two of the quotes module are shipped, and three of it, two of the tenants module and four of the shipments
   module are partial, and so is the HTTP contract control. Every other capability in
   `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for them is still to
   be written (red first), except `ShipmentTest`, which exists for booking and does not yet assert cancellation.
@@ -35,8 +35,8 @@ closes it.
   up/down execution and RLS proof are pending CI, so control.migrations is partial and tenants.row-level-security
   remains planned. All four database test classes are tagged database and required in the reviewed harness window.
 - **The application starts in its tests only, without a database.** The HTTP tests start `ShippingApplication` with
-  test doubles for the two ports that have no adapter yet: the tenants module's membership directory, which holds the
-  synthetic users of `docs/modules/tenants.md`, and the quotes module's store, in memory. They leave out the data
+  test doubles for the ports that have no adapter yet: the tenants module's membership directory, which holds the
+  synthetic users of `docs/modules/tenants.md`, and the quotes and shipments stores and tracking numbers, in memory. They leave out the data
   source and Spring Modulith's event publication registry, which need PostgreSQL. So they prove the HTTP edge, the
   problems, and that the tenant comes from the membership only. They do not prove that a token is resolved through
   `tenants.resolve_demo_token`, that a quote is stored in PostgreSQL, or that the database hides another tenant's
@@ -46,14 +46,15 @@ closes it.
   `demo` profile has no database configuration.
   The scenario checks wire the quotes and tenants classes as beans of a plain Spring context of their own,
   which is not the application's wiring (section 6).
-- **The shipments module runs in its tests only.** No class of it is a Spring bean, and no endpoint, database or
-  running application exists. `BookShipment`'s `@Transactional` has no effect yet, and that `ShipmentBooked` is
-  published inside the booking's transaction is unproven until `ShipmentEventsIntegrationTest` exists. Requests with
-  the same `Idempotency-Key` are not serialized yet: the advisory lock, the recheck under it and the handling of
-  unique-key failures belong to the planned JDBC adapter, and `BookingIdempotencyIntegrationTest`, which is to show
-  that concurrent duplicates create one shipment, is planned. The stores and the tracking numbers its tests use are in
-  memory. The scenario checks wire `BookShipment` as a bean of their own plain Spring context, not the application's
-  wiring (section 6).
+- **Shipments HTTP uses test stores only.** Booking/replay, listing, detail and deterministic labels now run as
+  Spring beans through the application HTTP wiring. There is still no shipment database adapter, migration,
+  transaction manager or durable tracking sequence. `ShipmentBooked` publication inside a committed booking remains
+  unproven until `ShipmentEventsIntegrationTest` exists. Requests sharing an idempotency key are not serialized:
+  advisory locking, rechecking and unique-key failure handling await the JDBC adapter and
+  `BookingIdempotencyIntegrationTest`. `ShipmentListingIntegrationTest` will prove the same keyset behavior in SQL;
+  current HTTP pagination evidence is in memory. Cancellation, replay of a cancelled shipment and cancelled-label
+  refusal are not implemented. The accepted `CANCELLED` filter currently has no matching state.
+  The scenario checks still use their separate plain Spring context; the HTTP tests do not observe scenario steps.
 - The versions in the ADRs were checked against their sources on 2026-11-06. Their combination (JDK 25, Gradle
   9.8.2, Spring Boot 4.1.2, Spring Modulith 2.1.2, Error Prone 2.51.0, NullAway 0.14.3, JUnit 6.0.3 (property
   tests as `@ParameterizedTest` in the normal test task), PIT 1.30.2 with its JUnit 5 plugin 1.2.3) now compiles the
@@ -224,13 +225,13 @@ closes it.
   reads the API's main and test outputs. Internal ownership comes from the actual classes in those outputs, not a
   package prefix; an artifact colliding with any of them fails even without a use. External targets are classified
   through the provider index or the JDK's module descriptors and checked against the caller's layer whitelist.
-  The isolated root HTTP classes and the quotes and tenants web adapters have exact class grants; the shared
+  The isolated root HTTP classes and the quotes, tenants and shipments web adapters have exact class grants; the shared
   `io.github.stigjohnny.shipping.http` test package has its own exact-class whitelist, separate from module tests.
   The exact `scenarios` and `scenarios.support` test packages have a separate exact-class whitelist. A second
   scenario area covers only the named test fixtures `ScenarioAlterations`, `GatedQuoteStore`, `TenantBadge` and
   `ScenarioReference`, including their nested classes; they retain module packages for the recorder's attribution.
   These grants do not apply to main output or other module tests. They permit the harness to inspect and exercise
-  deliberately refused behavior; they do not close any of the 77 scenario coverage gaps in section 6.
+  deliberately refused behavior; they do not close any of the 106 scenario coverage gaps in section 6.
   No package grants cover these additions, and every whitelist entry must be used by the current compiled outputs.
   The JDBC adapter whitelist stays empty until an adapter exists.
   Maven providers need unexpired approval for the project, configuration and exact file, with SHA-256 comparison
@@ -411,13 +412,13 @@ closes it.
   objects, publications or event triggers. It does not establish that down scripts restore rows from a release.
 - **The scenario checks prove one run, within what the recorder sees** (`control.scenario-conformance`, partial). A
   run without detected gaps can show its evaluated steps conformed for one exercised run, not every path, schedule
-  or input. Today's two reports instead say `COVERAGE_INCOMPLETE`, "coverage incomplete: 77 known gaps".
+  or input. Today's two reports instead say `COVERAGE_INCOMPLETE`, "coverage incomplete: 106 known gaps".
   Four of their twelve steps are evaluated. They run in process on the built modules with test wiring; the HTTP
   tests separately use the application's wiring: HTTP exchanges, database steps and listener executions are not
   observed yet, and steps that touch a person, a simulated system or a planned module are never evaluated; the report
   counts each one with its reason. Outcomes, such as the tenant denial's rejection and absence of stored data, are
   test assertions, not verified steps.
-  - **Known coverage debt, still refused:** 75 Spring accesses in the HTTP adapters and two foreign-service
+  - **Known coverage debt, still refused:** 100 Spring accesses in the HTTP adapters and six foreign-service
     factory parameters remain `COVERAGE_GAP`, with `coverage.verified=false`. The source-controlled exact ledger
     `apps/shipping-api/src/test/resources/scenario-coverage-gaps.tsv` records owner, member/JVM descriptor,
     origin signature/descriptor, access kind and source line where available, plus classification and

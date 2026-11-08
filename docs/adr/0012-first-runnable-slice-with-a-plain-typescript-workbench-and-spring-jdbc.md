@@ -10,10 +10,9 @@ enforcedBy:
   - "java: HexagonalLayeringTest (ArchUnit)"
   - "java: ArchitectureConformanceTest (C4 edges)"
   - "java: compilation with Error Prone and NullAway"
-  - "java: QuotesHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest (HTTP contract, with test doubles for the database adapters)"
+  - "java: QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest (HTTP contract, with test doubles for the database adapters)"
   - "java: WebArchitectureConformanceTest, partial JDK lint over detected imports in apps/shipping-web: boundaries, cycles, a detected direct import for each REQUIRED relationship whose endpoints are built, and every detected package and Node.js built-in import whitelisted in the model and approved in security/allowlist.json (ADR 0015). It scans src, e2e, public and app configuration in every build; with all six parts planned and source and test roots empty, it evaluates no import yet (control.web-import-boundaries, partial)"
 plannedEnforcement:
-  - "java: ShipmentsHttpContractTest"
   - "java: RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, CrossTenantAccessTest"
   - "java: MigrationsIntegrationTest, and TableOwnershipTest on the SQL of each module's adapters"
   - "web: type check and emit with TypeScript 5.9.3, and the logic tests under node --test"
@@ -288,11 +287,11 @@ one.
   `package-info.java` annotated `@NullMarked` in every package; each rule also fails on a fixture that breaks it) and
   `ArchitectureConformanceTest` (ADR 0002). Compilation fails on Error Prone errors and NullAway findings;
   `@SuppressWarnings("NullAway")` is a level 3 behaviour signal in `policy/risk.json`.
-- `java` runs `QuotesHttpContractTest` and `TenantsHttpContractTest`, which validate every response they exercise
+- `java` runs `QuotesHttpContractTest`, `ShipmentsHttpContractTest` and `TenantsHttpContractTest`, which validate every response they exercise
   against the contract, and `ProblemDetailsHttpContractTest`, which covers an unknown path, a wrong method, a wrong
   media type, malformed JSON, an unknown member, a request refused before routing and an unexpected exception: the
   correct type, no stack trace, a correlation ID. They start the application with test doubles for the adapters to
-  the database, so they prove the HTTP edge, not persistence. Planned, `java`: `ShipmentsHttpContractTest`.
+  the database, so they prove the HTTP edge, not persistence. Shipment cancellation and PostgreSQL-backed HTTP evidence remain planned.
 - Implemented, CI evidence pending for V1/V2, `java` through `databaseTest`: `RowLevelSecurityCatalogTest` queries `pg_class`, `pg_policy` and `pg_roles`: every table with a
   `tenant_id` column has row-level security enabled and forced and at least one policy, except the four identity
   tables, on which `shipping_app` has no privileges; `shipping_app` is not superuser, lacks `BYPASSRLS` and owns

@@ -38,7 +38,7 @@ HTTP tests does not discover the scenario fixtures. `CoverageBypassTest` keeps t
 each altered quote implementation, including value behaviour and work held on virtual threads or pre-existing
 executor workers until after close. The latter fixtures are refused by their dispatch sites in the census.
 `ReachabilityTest` checks shared raw tenant references and containers in both owning-module traversal orders.
-The scenario reports retain 77 known gaps as `COVERAGE_INCOMPLETE`, including two unwitnessed
+The scenario reports retain 106 known gaps as `COVERAGE_INCOMPLETE`, including two unwitnessed
 `QuotesConfiguration` factory parameters and the Spring HTTP accesses. The exact classified ledger, tagged
 "phase 3 / option 2", rejects additions, changes and stale entries (`CoverageLedgerTest`); `CoverageBypassTest`
 also rejects a new Spring access with a previously ledgered owner/member. Passing this gate proves no framework
