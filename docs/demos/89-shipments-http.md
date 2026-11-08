@@ -30,8 +30,7 @@ tests, and the recorded exchanges are build output. Run:
 ./gradlew check
 ```
 
-The shipment HTTP tests write token-free recordings under the API's build reports. The source placeholder `pr: 0`
-must receive the orchestrator's actual pull request number before the documentation validator can pass.
+The shipment HTTP tests write token-free recordings under the API's build reports.
 
 ## Evidence
 
@@ -240,7 +239,7 @@ X-XSS-Protection: 0
 
 ```
 
-Review reference: issue #88; the orchestrator assigns the pull request number. `ShipmentsHttpContractTest`,
+Review reference: pull request #89, issue #88. `ShipmentsHttpContractTest`,
 `SvgLabelRendererTest` and `ContractTest` are separate current-build evidence only when they pass in the publishing
 build. The displayed HTTP exchanges are recordings, never rerun by the documentation renderer.
 
@@ -252,4 +251,4 @@ concurrent booking, durable event publication, cancellation, cancelled-state rep
 `CANCELLED` is accepted as a list filter and currently returns no matches. The label is explicitly simulated and its
 bars are decorative. U+FFFE and U+FFFF display as visible code-point placeholders because XML cannot contain them;
 booking values and contract bounds are unchanged. Scenario reports remain `COVERAGE_INCOMPLETE` with 106 exact known
-gaps. The temporary positive demo number used for local rendering is not an assigned pull request number.
+gaps.

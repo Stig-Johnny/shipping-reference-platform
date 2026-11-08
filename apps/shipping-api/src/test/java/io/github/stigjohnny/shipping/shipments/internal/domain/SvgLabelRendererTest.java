@@ -21,6 +21,8 @@ import java.time.Instant;
 import java.util.Set;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.w3c.dom.Element;
 
 /** Exact golden output plus an independent XML allowlist and byte-bound check, including adversarial synthetic text. */
@@ -52,6 +54,57 @@ class SvgLabelRendererTest {
         checkXml(svg);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"W", "\uFFFF", "\uFFFE", "😀", "&", "<", " "})
+    void fullLengthRecipientTextStaysInsideEachLabelField(String character) throws Exception {
+        String line = character.repeat(70);
+        String city = character.repeat(50);
+        Recipient recipient = new Recipient(line, line, line, "11122", city, "SE");
+        Shipment shipment = shipment(recipient, new ShipmentReference("W".repeat(35)));
+        String svg = new SvgLabelRenderer().render(shipment);
+        assertThat(svg).isEqualTo(new SvgLabelRenderer().render(shipment));
+        assertThat(svg.getBytes(StandardCharsets.UTF_8)).hasSizeLessThanOrEqualTo(65536);
+        var texts = checkXml(svg).getElementsByTagName("text");
+        String visible = character.equals("\uFFFF") ? "[U+FFFF]"
+                : character.equals("\uFFFE") ? "[U+FFFE]" : character;
+        String[] fields = {"SIMULATED LABEL - NOT VALID FOR CARRIAGE", "STANDARD", "FROM NO 0150", "TO",
+                visible.repeat(70), visible.repeat(70), visible.repeat(70), "11122 " + visible.repeat(50),
+                "SE", "SIM0123456789", "REF " + "W".repeat(35), "BOOKED 2026-11-10"};
+        int[] baselines = {70, 140, 240, 340, 410, 480, 550, 620, 690, 990, 1350, 1430};
+        int next = 0;
+        int previousBottom = 0;
+        for (int field = 0; field < fields.length; field++) {
+            int top = baselines[field] - 24;
+            int bottom = top + 70;
+            String actual = "";
+            while (next < texts.getLength()) {
+                Element text = (Element) texts.item(next);
+                int y = Integer.parseInt(text.getAttribute("y"));
+                if (y >= bottom) {
+                    break;
+                }
+                int size = Integer.parseInt(text.getAttribute("font-size"));
+                int x = Integer.parseInt(text.getAttribute("x"));
+                String content = text.getTextContent();
+                // Independent layout oracle: one em per displayed code point (half an em for ASCII spaces),
+                // with one em above and below the baseline. Parsed entities count once; placeholders count fully.
+                int spaces = content.length() - content.replace(" ", "").length();
+                int halfEms = 2 * content.codePointCount(0, content.length()) - spaces;
+                assertThat(size).isBetween(1, 24);
+                assertThat(x).isEqualTo(80);
+                assertThat(halfEms * size)
+                        .as("field %s estimated line width in half-units", field).isLessThanOrEqualTo(1840);
+                assertThat(y - size).isGreaterThanOrEqualTo(top).isGreaterThanOrEqualTo(previousBottom);
+                assertThat(y + size).isLessThanOrEqualTo(bottom).isLessThanOrEqualTo(1500);
+                previousBottom = y + size;
+                actual += content;
+                next++;
+            }
+            assertThat(actual).as("field %s retains every character in order", field).isEqualTo(fields[field]);
+        }
+        assertThat(next).isEqualTo(texts.getLength());
+    }
+
     private static Shipment shipment(Recipient recipient, @org.jspecify.annotations.Nullable ShipmentReference reference) {
         BookableOffer offer = new BookableOffer(new QuoteId(id(901)), new OfferId(id(902)), ServiceLevel.STANDARD,
                 eur("18.81"), OSLO, STOCKHOLM, Instant.parse("2026-11-10T09:30:00Z"));
@@ -59,7 +112,7 @@ class SvgLabelRendererTest {
                 reference), offer, KEY, new TrackingNumber("SIM0123456789"), Instant.parse("2026-11-10T09:05:00Z"));
     }
 
-    private static void checkXml(String svg) throws Exception {
+    private static Element checkXml(String svg) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
@@ -98,5 +151,6 @@ class SvgLabelRendererTest {
             assertThat(bar.getAttribute("height")).isEqualTo("160");
             x += (i + 1) * 4 + 8;
         }
+        return root;
     }
 }
