@@ -29,7 +29,7 @@ import java.util.stream.Stream;
  * that use, and be on the whitelist of the caller's area.
  *
  * <p>The uses are ArchUnit's direct dependencies of each class, read from the class files of explicit directories:
- * what a class file records, and nothing else (docs/gaps.md). Each class outside {@value #API} that a class uses is
+ * dependencies reported by ArchUnit 1.5.1 (docs/gaps.md). Each target outside the actual API outputs is
  * decided once, in this order, and the first rule that fails is its denial:
  * <ol>
  *   <li>{@code jdk-internal}: a class whose name starts with {@code sun.}, {@code com.sun.} or {@code jdk.internal.}.
@@ -38,8 +38,8 @@ import java.util.stream.Stream;
  *   <li>{@code provider}: any other class has exactly one provider in the provider index, on the scope's
  *       configuration: compileClasspath for main classes, testCompileClasspath for test classes.
  *   <li>{@code allowlist}: a Maven provider is approved by security/allowlist.json for :apps:shipping-api on that
- *       configuration, unexpired, for its exact file and, where the review records one, its SHA-256. A project of
- *       this build needs no review; any other kind of provider is refused.
+ *       configuration, unexpired, for its exact file and, where the review records one, its SHA-256. A verified
+ *       repository-owned project output needs no Maven review; any other kind of provider is refused.
  *   <li>{@code whitelist}: the class is on the whitelist of the caller's area (ExternalImportWhitelists).
  * </ol>
  */
@@ -91,6 +91,8 @@ final class ExternalImportPolicy {
     private record Origin(String provider, String review, String rule, String denial) {
     }
 
+    private static final Map<Scope, Set<String>> API_OUTPUTS = apiOutputs();
+
     private final ProviderIndex index;
     private final ReviewedArtifacts reviewed;
     private final JdkModules jdk;
@@ -109,6 +111,18 @@ final class ExternalImportPolicy {
     Result check(String name, Scope scope, String root, List<Path> directories) {
         JavaClasses classes = ClassDirectories.read(directories);
         requireEveryClassFile(classes, directories);
+        Set<String> internal = new LinkedHashSet<>(API_OUTPUTS.get(scope));
+        classes.forEach(javaClass -> internal.add(javaClass.getName()));
+        Set<String> allOutputs = new LinkedHashSet<>(API_OUTPUTS.get(Scope.TEST));
+        allOutputs.addAll(internal);
+        for (ProviderIndex.Provider provider : index.providers()) {
+            for (String target : provider.classes()) {
+                if (allOutputs.contains(target)) {
+                    throw new IllegalStateException(provider.label() + " collides with API output " + target
+                            + " on " + provider.configurations().stream().sorted().toList());
+                }
+            }
+        }
         Map<String, Use> uses = new HashMap<>();
         Set<Allowed> entriesUsed = new LinkedHashSet<>();
         for (JavaClass caller : classes) {
@@ -116,7 +130,7 @@ final class ExternalImportPolicy {
             for (Dependency dependency : caller.getDirectDependenciesFromSelf()) {
                 JavaClass target = dependency.getTargetClass().isArray()
                         ? dependency.getTargetClass().getBaseComponentType() : dependency.getTargetClass();
-                if (target.isPrimitive() || isApi(target.getName())) {
+                if (target.isPrimitive() || internal.contains(target.getName())) {
                     continue;
                 }
                 uses.computeIfAbsent(caller.getName() + " " + target.getName(),
@@ -182,7 +196,10 @@ final class ExternalImportPolicy {
         }
         ProviderIndex.Provider provider = providers.getFirst();
         return switch (provider.kind()) {
-            case "project" -> new Origin(provider.label(), "first-party: a project of this build", "", "");
+            case "project" -> provider.verifiedRepositoryProject()
+                    ? new Origin(provider.label(), "first-party: verified repository-owned output", "", "")
+                    : new Origin(provider.label(), "", "allowlist", provider.label()
+                            + " is not a verified repository-owned project: no review covers it");
             case "maven" -> switch (reviewed.decide(provider, scope.configuration())) {
                 case Approved approved -> new Origin(provider.label(), String.join(", ", approved.reviewRecords()),
                         "", "");
@@ -233,8 +250,17 @@ final class ExternalImportPolicy {
         }
     }
 
-    private static boolean isApi(String className) {
-        return className.startsWith(API + ".");
+    private static Map<Scope, Set<String>> apiOutputs() {
+        Set<String> main = outputNames(ClassDirectories.main());
+        Set<String> test = new LinkedHashSet<>(main);
+        test.addAll(outputNames(ClassDirectories.test()));
+        return Map.of(Scope.MAIN, main, Scope.TEST, Set.copyOf(test));
+    }
+
+    private static Set<String> outputNames(List<Path> directories) {
+        JavaClasses classes = ClassDirectories.read(directories);
+        requireEveryClassFile(classes, directories);
+        return classes.stream().map(JavaClass::getName).collect(Collectors.toUnmodifiableSet());
     }
 
     static String packageOf(String className) {

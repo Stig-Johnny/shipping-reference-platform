@@ -25,12 +25,22 @@ final class ProviderIndex {
     static final String PROPERTY = "shipping.providerIndex";
     static final JsonMapper JSON = JsonMapper.builder().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build();
 
-    /** One artifact: a Maven component ({@code maven}), a project of this build ({@code project}) or neither. */
+    /** One artifact: a Maven component ({@code maven}), a project with its build identity ({@code project}) or neither. */
     record Provider(String kind, String coordinate, String version, String file, @Nullable String sha256,
-                    Set<String> configurations, Set<String> classes) {
+                    Set<String> configurations, Set<String> classes, String buildPath, boolean repositoryOwned) {
+
+        Provider(String kind, String coordinate, String version, String file, @Nullable String sha256,
+                 Set<String> configurations, Set<String> classes) {
+            this(kind, coordinate, version, file, sha256, configurations, classes, "", false);
+        }
+
+        boolean verifiedRepositoryProject() {
+            return kind.equals("project") && buildPath.equals(":") && repositoryOwned;
+        }
 
         String label() {
-            return kind + " " + coordinate + (version.isEmpty() ? "" : ":" + version);
+            return kind + " " + (kind.equals("project") ? buildPath + " " : "") + coordinate
+                    + (version.isEmpty() ? "" : ":" + version);
         }
     }
 
@@ -76,7 +86,8 @@ final class ProviderIndex {
             providers.add(new Provider(provider.get("kind").stringValue(), provider.get("coordinate").stringValue(),
                     provider.get("version").stringValue(), provider.get("file").stringValue(),
                     sha256.isNull() ? null : sha256.stringValue(), strings(provider.get("configurations")),
-                    strings(provider.get("classes"))));
+                    strings(provider.get("classes")), provider.path("buildPath").asString(""),
+                    provider.path("repositoryOwned").asBoolean(false)));
         }
         List<Duplicate> duplicates = new ArrayList<>();
         for (JsonNode duplicate : index.get("duplicates").values()) {

@@ -34,6 +34,9 @@ final class ReviewedArtifacts {
 
     static final String API = ":apps:shipping-api";
     static final String FIRST_DESIGN_NAME = ":example-app";
+    // Exact existing affirmative statement; changing the owner's record needs a new review of this reading.
+    static final String CONFIRMED_ALIAS = "apps/shipping-api (Gradle :apps:shipping-api) is the project that the "
+            + "reviews' first design called :example-app.";
     static final Path ALLOWLIST = Path.of("../../security/allowlist.json");
     private static final Pattern QUALIFIED = Pattern.compile("((?::[A-Za-z0-9._-]+)+):([A-Za-z]+)");
     private static final Set<String> APPROVED = Set.of("APPROVE", "APPROVE-WITH-CONDITIONS");
@@ -68,6 +71,11 @@ final class ReviewedArtifacts {
 
     static ReviewedArtifacts read(Path allowlist, LocalDate today) {
         JsonNode root = ProviderIndex.JSON.readTree(allowlist);
+        JsonNode acceptance = root.path("acceptance");
+        if (!"accepted".equals(acceptance.path("status").asString(""))
+                || !CONFIRMED_ALIAS.equals(acceptance.path("projectPathConfirmed").asString(""))) {
+            throw new IllegalStateException(":example-app requires the exact accepted projectPathConfirmed record");
+        }
         List<Entry> entries = new ArrayList<>();
         for (JsonNode entry : root.get("entries").values()) {
             JsonNode sha256 = entry.path("sha256");

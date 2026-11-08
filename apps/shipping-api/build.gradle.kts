@@ -84,7 +84,7 @@ tasks.test {
     })
 }
 
-// ExternalImportPolicyTest classifies every class outside the API that its main and its test classes use: through the
+// ExternalImportPolicyTest classifies external dependencies reported by ArchUnit 1.5.1 from API outputs: through the
 // provider index (ProviderIndexTask in build-logic, which reads the four classpaths' JARs without loading a class) to
 // an artifact that security/allowlist.json approves for this project and that configuration, or to the JDK's module
 // metadata, and then against its layer's whitelist. The index and the allowlist are inputs of the test task.
@@ -94,6 +94,13 @@ val providerIndex = tasks.register<io.github.stigjohnny.build.ProviderIndexTask>
     release = tasks.compileJava.flatMap { it.options.release }
     rootDirectory = rootProject.layout.projectDirectory
     indexFile = layout.buildDirectory.file("external-imports/provider-index.json")
+    dependsOn(gradle.includedBuild("build-logic").task(":providerIdentityTest"))
+    repositoryOutputs = providers.provider {
+        val kit = project(":libs:c4-contract-kit")
+        val classes = kit.extensions.getByType<SourceSetContainer>().named("main").get().output.classesDirs.files
+        val jar = kit.tasks.named<Jar>("jar").get().archiveFile.get().asFile
+        (classes + jar).associate { it.relativeTo(rootDir).invariantSeparatorsPath to kit.path }
+    }
     for (name in listOf("compileClasspath", "runtimeClasspath", "testCompileClasspath", "testRuntimeClasspath")) {
         configuration(name, configurations.named(name).flatMap { it.incoming.artifacts.resolvedArtifacts })
     }

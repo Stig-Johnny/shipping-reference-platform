@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Every class outside the API that its main and its test classes use is security-reviewed for that use, and is on the
+ * External dependencies reported by ArchUnit 1.5.1 from API outputs have verified providers and are on the
  * whitelist of the part of the API that uses it (security/allowlist.json and ADR 0007; the layers of ADR 0003).
  *
  * <p>The provider index, which build-logic's ProviderIndexTask writes from the four classpaths, names the artifact
@@ -109,8 +109,7 @@ class ExternalImportPolicyTest {
     @Test
     void theReviewsFirstDesignNameIsTheApiAsTheOwnerConfirmed() {
         // ReviewedArtifacts reads :example-app as :apps:shipping-api only because the owner's acceptance says so.
-        assertThat(reviewed.projectPathConfirmed()).contains("apps/shipping-api", ":apps:shipping-api",
-                ReviewedArtifacts.FIRST_DESIGN_NAME);
+        assertThat(reviewed.projectPathConfirmed()).isEqualTo(ReviewedArtifacts.CONFIRMED_ALIAS);
         assertThat(List.of(ReviewedArtifacts.project("apps/shipping-api"), ReviewedArtifacts.project(":example-app"),
                 ReviewedArtifacts.project(":libs:c4-contract-kit"))).containsExactly(ReviewedArtifacts.API,
                 ReviewedArtifacts.API, ":libs:c4-contract-kit");
@@ -119,6 +118,83 @@ class ExternalImportPolicyTest {
                 new ReviewedArtifacts.Grant(ReviewedArtifacts.API, "testCompileClasspath"),
                 new ReviewedArtifacts.Grant(":core", "runtimeClasspath"),
                 new ReviewedArtifacts.Grant(ReviewedArtifacts.API, "runtimeClasspath"));
+    }
+
+    @Test
+    void aMissingAliasRecordFails(@TempDir Path dir) throws IOException {
+        assertAliasRefused(dir, Files.readString(ReviewedArtifacts.ALLOWLIST)
+                .replace("projectPathConfirmed", "missingConfirmation"));
+    }
+
+    @Test
+    void aChangedAliasRecordFails(@TempDir Path dir) throws IOException {
+        assertAliasRefused(dir, Files.readString(ReviewedArtifacts.ALLOWLIST)
+                .replace(reviewed.projectPathConfirmed(), reviewed.projectPathConfirmed() + " Changed."));
+    }
+
+    @Test
+    void aWithdrawnAliasRecordFails(@TempDir Path dir) throws IOException {
+        assertAliasRefused(dir, Files.readString(ReviewedArtifacts.ALLOWLIST)
+                .replace(reviewed.projectPathConfirmed(), reviewed.projectPathConfirmed().replace(" is ", " is not ")));
+    }
+
+    @Test
+    void aWithdrawnAcceptanceFailsEvenWithTheAffirmativeAliasText(@TempDir Path dir) throws IOException {
+        assertAliasRefused(dir, Files.readString(ReviewedArtifacts.ALLOWLIST)
+                .replace("\"status\": \"accepted\"", "\"status\": \"withdrawn\""));
+    }
+
+    private static void assertAliasRefused(Path dir, String contents) throws IOException {
+        Path changed = Files.writeString(dir.resolve("allowlist.json"), contents);
+        assertThatThrownBy(() -> ReviewedArtifacts.read(changed, LocalDate.parse("2026-11-08")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(":example-app requires the exact accepted projectPathConfirmed record");
+    }
+
+    @Test
+    void theIndexKeepsTheContractKitsBuildIdentityAndVerifiedOutput() {
+        var json = ProviderIndex.JSON.readTree(Path.of(System.getProperty(ProviderIndex.PROPERTY)));
+        var projects = json.get("providers").values().stream()
+                .filter(node -> node.get("kind").asString().equals("project")).toList();
+        assertThat(projects).isNotEmpty().allSatisfy(node -> {
+            assertThat(node.path("buildPath").asString("")).isEqualTo(":");
+            assertThat(node.path("repositoryOwned").asBoolean(false)).isTrue();
+            assertThat(node.get("coordinate").asString()).isEqualTo(":libs:c4-contract-kit");
+        });
+    }
+
+    @Test
+    void anIncludedBuildCannotImpersonateTheContractKit(@TempDir Path dir) throws IOException {
+        assertUnreviewedProject(dir, ":shadow", ":libs:c4-contract-kit", true);
+    }
+
+    @Test
+    void anUnverifiedRootBuildProjectIsNotExempt(@TempDir Path dir) throws IOException {
+        assertUnreviewedProject(dir, ":", ":shadow-lib", false);
+    }
+
+    @Test
+    void aContractKitProjectWithAnUnverifiedOutputIsNotExempt(@TempDir Path dir) throws IOException {
+        assertUnreviewedProject(dir, ":", ":libs:c4-contract-kit", false);
+    }
+
+    private void assertUnreviewedProject(Path dir, String buildPath, String project, boolean repositoryOwned)
+            throws IOException {
+        Path indexFile = Files.writeString(dir.resolve("index.json"), """
+                {"schema":"provider-index/1", "providers":[{
+                  "kind":"project", "coordinate":"%s", "version":"", "file":"shadow.jar", "sha256":null,
+                  "buildPath":"%s", "repositoryOwned":%s,
+                  "configurations":["compileClasspath"],
+                  "classes":["org.springframework.context.ApplicationEventPublisher"]
+                }], "duplicates":[]}
+                """.formatted(project, buildPath, repositoryOwned ? "true" : "false"));
+        ExternalImportPolicy unreviewed = new ExternalImportPolicy(ProviderIndex.read(indexFile), reviewed, JDK);
+        Result result = check(unreviewed, "project-provider", "legitimate", Scope.MAIN, fixture("legitimate"));
+        assertThat(result.denied()).filteredOn(use -> use.target().equals(
+                "org.springframework.context.ApplicationEventPublisher"))
+                .extracting(Use::rule, Use::message).containsExactly(tuple("allowlist",
+                        "project " + buildPath + " " + project + " is not a verified repository-owned project: "
+                                + "no review covers it"));
     }
 
     @Test
@@ -251,6 +327,55 @@ class ExternalImportPolicyTest {
         assertThat(lines(result.denied())).containsExactly(caller + " uses org.example.unreviewed.Helper [provider] "
                 + "org.example.unreviewed.Helper has no provider: no artifact on any of the four classpaths provides "
                 + "it, and it is not in a JDK module");
+    }
+
+    @Test
+    void anExternalClassUnderTheApiNamespaceStillNeedsAProvider(@TempDir Path dir) throws IOException {
+        String target = ExternalImportPolicy.API + ".quotes.api.UnreviewedHelper";
+        String caller = FIXTURES + "namespace.quotes.internal.application.UsesHelper";
+        Path external = compile(dir.resolve("external"), List.of(), List.of(), Map.of(target,
+                "public final class UnreviewedHelper { public static void help() { } }"));
+        Path classes = compile(dir.resolve("caller"), List.of(external), List.of(), Map.of(caller,
+                "public final class UsesHelper { void use() { " + target + ".help(); } }"));
+
+        Result missing = check("namespace", Scope.MAIN, classes);
+        assertThat(missing.denied()).extracting(Use::target, Use::rule).containsExactly(tuple(target, "provider"));
+    }
+
+    @Test
+    void anExternalFileUnderTheApiNamespaceStillNeedsReview(@TempDir Path dir) throws IOException {
+        String target = ExternalImportPolicy.API + ".quotes.api.UnreviewedHelper";
+        String caller = FIXTURES + "namespace.quotes.internal.application.UsesHelper";
+        Path external = compile(dir.resolve("external"), List.of(), List.of(), Map.of(target,
+                "public final class UnreviewedHelper { public static void help() { } }"));
+        Path classes = compile(dir.resolve("caller"), List.of(external), List.of(), Map.of(caller,
+                "public final class UsesHelper { void use() { " + target + ".help(); } }"));
+        ProviderIndex added = INDEX.adding(new ProviderIndex.Provider("unknown", "unreviewed.jar", "",
+                "unreviewed.jar", null, Set.of("compileClasspath"), Set.of(target)));
+
+        Result result = check(new ExternalImportPolicy(added, reviewed, JDK), "namespace-file", "namespace",
+                Scope.MAIN, classes);
+        assertThat(result.denied()).extracting(Use::target, Use::rule).containsExactly(tuple(target, "allowlist"));
+    }
+
+    @Test
+    void anArtifactCollidingWithAnUnusedMainOutputFails() {
+        assertOutputCollision("io.github.stigjohnny.shipping.tenants.api.TenantId", "runtimeClasspath");
+    }
+
+    @Test
+    void anArtifactCollidingWithAnUnusedTestOutputFails() {
+        assertOutputCollision(getClass().getName(), "testRuntimeClasspath");
+    }
+
+    private void assertOutputCollision(String target, String configuration) {
+        ProviderIndex added = INDEX.adding(new ProviderIndex.Provider("unknown", "collision.jar", "",
+                "collision.jar", null, Set.of(configuration), Set.of(target)));
+        ExternalImportPolicy colliding = new ExternalImportPolicy(added, reviewed, JDK);
+
+        assertThatThrownBy(() -> check(colliding, "collision", "legitimate", Scope.MAIN, fixture("legitimate")))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("collides with API output")
+                .hasMessageContaining(target).hasMessageContaining(configuration);
     }
 
     @Test

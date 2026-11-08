@@ -350,16 +350,16 @@ controls:
     negativeFixture: A domain class annotated with a Spring stereotype; one fixture for each other rule (fixtures of HexagonalLayeringTest).
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.external-imports
-    title: Every class outside the API that its main or test code uses comes from a provider reviewed for that project and configuration, and is on the whitelist of the caller's layer.
+    title: External dependencies reported by ArchUnit 1.5.1 from API main or test outputs have an approved provider or a verified repository-owned project provider, and are on the caller's layer whitelist.
     where: apps/shipping-api, build-logic
     check: java
     status: partial
     target: v0.1
     evidence: [ExternalImportPolicyTest]
     acceptanceTests: [ExternalImportPolicyTest, ExternalImportSourceTest, ProviderIndexScopeTest]
-    negativeFixture: A domain class that uses Spring; production code that uses AssertJ; sun.misc.Unsafe, jdk.internal.misc.Unsafe and java.awt.peer, which java.desktop does not export; a class from an artifact reviewed for another project only; a class that no artifact provides, and one that two provide; @Transactional on an api type (fixtures of ExternalImportPolicyTest).
-    enforcedSubset: Every use that the API's main and test class files record is classified through the provider index or the JDK's module descriptors, approved for its configuration, and checked against its layer's whitelist.
-    plannedRemainder: Source references that class files lose (ExternalImportSourceTest) and the scope of every artifact on the classpaths, used or not (ProviderIndexScopeTest), remain planned.
+    negativeFixture: A domain class that uses Spring; production code that uses AssertJ; sun.misc.Unsafe, jdk.internal.misc.Unsafe and java.awt.peer, which java.desktop does not export; a class from an artifact reviewed for another project only; a class that no artifact provides, and one that two provide; @Transactional on an api type; an external class under the API namespace; artifacts colliding with main/test outputs; included-build and unverified project providers; missing, changed or withdrawn alias approval (fixtures of ExternalImportPolicyTest).
+    enforcedSubset: Dependencies reported by ArchUnit 1.5.1 are classified using actual main/test output ownership, the provider index and JDK module descriptors, then checked against the caller's whitelist. Artifact collisions fail. Maven approval checks project, configuration, expiry and file, comparing SHA-256 where the review records a hash. The Maven-review exemption requires a verified repository-owned project output with root-build identity and an exact registered output path; other project providers fail.
+    plannedRemainder: Source analysis for compiler-erased references (such as inlined constants) and retained bytecode that ArchUnit does not report (such as type-use annotations) remains planned (ExternalImportSourceTest), as does scope enforcement for every artifact on the classpaths, used or not (ProviderIndexScopeTest).
     docs: README.md
   - id: control.table-ownership
     title: Each module's adapters run SQL only against tables in its own schema.

@@ -33,6 +33,7 @@ import org.gradle.api.artifacts.result.ResolvedArtifactResult;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
+import org.gradle.api.provider.MapProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Input;
@@ -48,8 +49,8 @@ import org.gradle.work.DisableCachingByDefault;
  * The provider index of a Java project: which resolved artifact provides each class on its classpaths.
  *
  * <p>For every artifact of the configurations it is given, the index records the component (a Maven coordinate and
- * version, or a project of this build), the file's SHA-256 and the packages and classes it provides. The classes come
- * from the names of the JAR's entries, read with {@link JarFile}: no class is loaded, defined or parsed. Gradle has
+ * version, or a project with its build identity), the file's SHA-256 and the packages and classes it provides.
+ * The classes come from the names of the JAR's entries, read with {@link JarFile}: no class is loaded, defined or parsed. Gradle has
  * checked every downloaded file against {@code gradle/verification-metadata.xml} (strict) when the configurations
  * resolved, before this task reads it.
  *
@@ -68,13 +69,13 @@ public abstract class ProviderIndexTask extends DefaultTask {
     private static final Pattern RELEASE = Pattern.compile("[1-9][0-9]{0,3}");
     private static final int FIRST_VERSIONED_RELEASE = 9;
 
-    /** One line per resolved artifact: its configuration, kind, coordinate and version, separated by tabs. */
+    /** One tab-separated line per artifact: configuration, kind, coordinate, version and build identity. */
     @Input
     public abstract ListProperty<String> getArtifacts();
 
-    /** The artifacts' files, in the order of {@link #getArtifacts()}. */
+    /** The artifacts' files, in order; location is an input because repository ownership depends on it. */
     @InputFiles
-    @PathSensitive(PathSensitivity.NAME_ONLY)
+    @PathSensitive(PathSensitivity.ABSOLUTE)
     public abstract ListProperty<File> getArtifactFiles();
 
     /** The Java release the project compiles for ({@code --release}): the view of a multi-release JAR. */
@@ -88,6 +89,10 @@ public abstract class ProviderIndexTask extends DefaultTask {
     /** The build's root directory: a file of one of its projects is named relative to it, any other by name. */
     @Internal
     public abstract DirectoryProperty getRootDirectory();
+
+    /** Exact output paths, relative to the repository root, registered for repository-owned projects. */
+    @Input
+    public abstract MapProperty<String, String> getRepositoryOutputs();
 
     @OutputFile
     public abstract RegularFileProperty getIndexFile();
@@ -116,8 +121,10 @@ public abstract class ProviderIndexTask extends DefaultTask {
             Path file = files.get(i).toPath().toAbsolutePath().normalize();
             String name = file.startsWith(root) ? root.relativize(file).toString().replace(File.separatorChar, '/')
                     : file.getFileName().toString();
-            Provided provided = providers.computeIfAbsent(String.join("\t", fields[1], fields[2], fields[3], name),
-                    key -> read(fields[1], fields[2], fields[3], name, file, release));
+            String identity = String.join("\t", fields[1], fields[2], fields[3], fields[4], name);
+            Provided provided = providers.computeIfAbsent(identity,
+                    key -> read(fields[1], fields[2], fields[3], fields[4],
+                            repositoryOwned(fields[1], fields[4], fields[2], name, file, root), name, file, release));
             provided.configurations().add(fields[0]);
         }
         try (BufferedWriter out = Files.newBufferedWriter(getIndexFile().get().getAsFile().toPath(),
@@ -139,25 +146,41 @@ public abstract class ProviderIndexTask extends DefaultTask {
         }
     }
 
-    /** The kind, coordinate and version of a component, separated by tabs. */
+    /** The kind, coordinate, version and build identity of a component, separated by tabs. */
     static String component(ComponentIdentifier id) {
         if (id instanceof ModuleComponentIdentifier module) {
-            return "maven\t" + module.getGroup() + ":" + module.getModule() + "\t" + module.getVersion();
+            return "maven\t" + module.getGroup() + ":" + module.getModule() + "\t" + module.getVersion() + "\t";
         }
         if (id instanceof ProjectComponentIdentifier project) {
-            return "project\t" + project.getProjectPath() + "\t";
+            return "project\t" + project.getProjectPath() + "\t\t" + project.getBuild().getBuildPath();
         }
         // A file dependency or another kind that no review covers: ExternalImportPolicyTest refuses its classes.
-        return "unknown\t" + id.getDisplayName() + "\t";
+        return "unknown\t" + id.getDisplayName() + "\t\t";
+    }
+
+    private boolean repositoryOwned(String kind, String buildPath, String coordinate, String name,
+                                    Path file, Path root) {
+        if (!kind.equals("project") || !buildPath.equals(":")
+                || !coordinate.equals(getRepositoryOutputs().get().get(name))) {
+            return false;
+        }
+        try {
+            // An output redirected through a symbolic link is not a repository-owned output.
+            return file.toRealPath().equals(root.toRealPath().resolve(name));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     /** What one artifact provides. */
-    record Provided(String kind, String coordinate, String version, String file, String sha256, boolean multiRelease,
+    record Provided(String kind, String coordinate, String version, String buildPath, boolean repositoryOwned,
+                    String file, String sha256, boolean multiRelease,
                     SortedSet<Integer> ignoredReleases, SortedSet<Integer> appliedReleases, SortedSet<String> classes,
                     SortedSet<String> configurations) {
 
         String label() {
-            return kind + " " + coordinate + (version.isEmpty() ? "" : ":" + version) + " (" + file + ")";
+            return kind + " " + (kind.equals("project") ? buildPath + " " : "") + coordinate
+                    + (version.isEmpty() ? "" : ":" + version) + " (" + file + ")";
         }
 
         String json() {
@@ -168,6 +191,8 @@ public abstract class ProviderIndexTask extends DefaultTask {
             return "    {\n      \"kind\": " + quote(kind) + ",\n      \"coordinate\": " + quote(coordinate)
                     + ",\n      \"version\": " + quote(version) + ",\n      \"file\": " + quote(file)
                     + ",\n      \"sha256\": " + (sha256.isEmpty() ? "null" : quote(sha256))
+                    + ",\n      \"buildPath\": " + quote(buildPath)
+                    + ",\n      \"repositoryOwned\": " + repositoryOwned
                     + ",\n      \"configurations\": " + strings(configurations, "")
                     + ",\n      \"multiRelease\": " + multiRelease
                     + ",\n      \"appliedReleases\": " + appliedReleases
@@ -199,7 +224,8 @@ public abstract class ProviderIndexTask extends DefaultTask {
         return duplicates;
     }
 
-    private static Provided read(String kind, String coordinate, String version, String name, Path file,
+    private static Provided read(String kind, String coordinate, String version, String buildPath,
+                                 boolean repositoryOwned, String name, Path file,
                                  int release) {
         SortedSet<Integer> ignored = new TreeSet<>();
         SortedSet<Integer> applied = new TreeSet<>();
@@ -211,8 +237,8 @@ public abstract class ProviderIndexTask extends DefaultTask {
                         addClass(classes, file.relativize(path).toString().replace(File.separatorChar, '/'));
                     }
                 }
-                return new Provided(kind, coordinate, version, name, "", false, ignored, applied, classes,
-                        new TreeSet<>());
+                return new Provided(kind, coordinate, version, buildPath, repositoryOwned, name, "", false, ignored,
+                        applied, classes, new TreeSet<>());
             }
             if (!Files.isRegularFile(file) || !name.endsWith(".jar")) {
                 throw new GradleException("The provider index cannot read " + name + ": it is neither a JAR nor a "
@@ -246,8 +272,8 @@ public abstract class ProviderIndexTask extends DefaultTask {
                     }
                 }
             }
-            return new Provided(kind, coordinate, version, name, sha256(file), multiRelease, ignored, applied,
-                    classes, new TreeSet<>());
+            return new Provided(kind, coordinate, version, buildPath, repositoryOwned, name, sha256(file), multiRelease,
+                    ignored, applied, classes, new TreeSet<>());
         } catch (IOException e) {
             throw new UncheckedIOException("The provider index cannot read " + name, e);
         }

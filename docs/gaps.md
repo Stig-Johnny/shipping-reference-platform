@@ -2,7 +2,7 @@
 title: "Known gaps and limits"
 description: "What v0.1 does not do, what each control cannot prove, and which decisions are still unverified. Read this before trusting a green build."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 # Known gaps and limits
@@ -148,23 +148,28 @@ closes it.
   version and checksum. Which projects and configurations a review approved is a condition the code owner checks in
   review: a reviewed library added to a project its review does not cover passes `preflight`. `ExternalImportPolicyTest`
   checks the scope of an artifact only when a class of the API uses one of its classes (next entry). On 2026-11-07,
-  23 artifacts on the API's classpaths had no entry for `:apps:shipping-api` and the configuration they are on, and
+  23 artifacts across 26 configuration pairs on the API's classpaths had no entry for `:apps:shipping-api` and the configuration they are on, and
   nothing failed: among them ArchUnit 1.5.1 on `runtimeClasspath`, which Spring Modulith brings and its review
   approves for the API's test classpaths only, and the contract kit's own dependencies on `testRuntimeClasspath`,
   approved for `:libs:c4-contract-kit`. Enforcing scope for every locked artifact first needs the entries' scope
   migrated to one machine-readable form, with the owner's acceptance: today they name the API three ways
   (`:apps:shipping-api`, `apps/shipping-api` and the first design's `:example-app`) and write configurations with
   and without a project prefix.
-- **The external-import check covers the API's static uses only.** `ExternalImportPolicyTest` reads the API's main
-  and test class files and classifies every class outside the API that they use: through the provider index, which
-  build logic writes from the four classpaths without loading a class, to an artifact that the allowlist approves for
-  that configuration, or through the JDK's module descriptors to a module; then against the whitelist of the caller's
-  layer. It treats `:example-app` as the API because the owner confirmed it (`acceptance.projectPathConfirmed`), and
-  fails if that record changes. It does not see:
-  - references that a class file does not keep, or that ArchUnit 1.5.1 does not report: inlined constants, casts,
-    local variable types, explicit type arguments and array creation (`BytecodeEvidenceTest` pins these), and
-    type-use annotations such as JSpecify's `@Nullable` (`ExternalImportPolicyTest` pins this). A source-level pass
-    with the JDK's compiler is planned (`ExternalImportSourceTest`);
+- **The external-import check covers dependencies reported by ArchUnit 1.5.1 only.** `ExternalImportPolicyTest`
+  reads the API's main and test outputs. Internal ownership comes from the actual classes in those outputs, not a
+  package prefix; an artifact colliding with any of them fails even without a use. External targets are classified
+  through the provider index or the JDK's module descriptors and checked against the caller's layer whitelist.
+  Maven providers need unexpired approval for the project, configuration and exact file, with SHA-256 comparison
+  where the review records a hash. The first-party exemption from Maven review requires root-build identity and an
+  exact registered repository-owned output (currently the contract kit); other project providers are rejected.
+  Included-build identity is retained. The check treats `:example-app` as the API only while the exact existing
+  affirmative `acceptance.projectPathConfirmed` text and `accepted` status remain; missing, changed or withdrawn
+  acceptance fails. This is a reading of the existing owner record, not a new scope approval. It does not see:
+  - compiler-erased references such as inlined constants, or retained bytecode that ArchUnit 1.5.1 does not report.
+    Casts, local variable types, explicit type arguments and array creation are not reported
+    (`BytecodeEvidenceTest` pins these), nor are retained type-use annotations such as JSpecify's `@Nullable`
+    (`ExternalImportPolicyTest` pins this). A source-level pass with the JDK's compiler is planned
+    (`ExternalImportSourceTest`);
   - use at run time: reflection, `ServiceLoader`, Spring's wiring and auto-configuration, class names in
     configuration, native libraries. The whitelists name what the API's code refers to, not what its frameworks load;
   - the classes that run: a main class is checked against `compileClasspath` and a test class against

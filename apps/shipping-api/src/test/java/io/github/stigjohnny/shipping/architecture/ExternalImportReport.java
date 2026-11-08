@@ -75,7 +75,7 @@ final class ExternalImportReport {
     static String markdown(Result result, Map<String, String> inputs) {
         List<Use> denied = result.denied();
         StringBuilder md = new StringBuilder("# External imports: ").append(result.name()).append("\n\n")
-                .append("Every class outside `").append(ExternalImportPolicy.API).append("` that these classes use, ")
+                .append("Dependencies reported by ArchUnit 1.5.1 outside the actual API outputs, ")
                 .append("decided by ExternalImportPolicyTest (").append(result.scope().label()).append("). Inputs: ")
                 .append(inputs.entrySet().stream().sorted(Map.Entry.comparingByKey())
                         .map(input -> input.getKey() + " `" + input.getValue() + "`").collect(Collectors.joining(", ")))
