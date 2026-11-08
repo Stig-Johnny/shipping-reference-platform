@@ -16,7 +16,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Synthetic cases for the partial import grammar (libs/c4-contract-kit/AGENTS.md, "Web imports"): tested forms are
  * read with their line and specifier or refused, and tested non-code text does not count as code. These assertions
- * do not establish complete detection; the known spread-syntax misses remain open (ADR 0013).
+ * do not establish complete detection; the known spread-syntax misses remain open (ADR 0014).
  */
 class ImportScannerTest {
 

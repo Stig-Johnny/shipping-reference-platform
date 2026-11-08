@@ -233,7 +233,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
             autoLayout lr
         }
 
-        dynamic api "QuoteBookLabel" "Quote, book and download a simulated label. Steps and their tests: docs/flows/quote-book-label.md." {
+        dynamic api "QuoteBookLabel" "Quote, book and download a simulated label. The documentation overview of the whole flow: it is not executable, and the views whose keys start with Scenario are the ones run against the code. Steps and their tests: docs/flows/quote-book-label.md." {
             clerk -> web "Prices a parcel, books an offer and downloads its label"
             web -> tenants "Sends the demo bearer token; the tenant is derived from the user's membership"
             web -> quotes "POST /api/v1/quotes (createQuote)"
@@ -249,6 +249,31 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
             audit -> db "Appends one audit entry per event ID; the publication is marked complete"
             web -> shipments "GET the label of the shipment (getShipmentLabel)"
             shipments -> carrier "Renders the simulated SVG label"
+            autoLayout lr
+        }
+
+        // Executable scenarios. Each view whose key starts with Scenario has a sidecar, architecture/scenarios/<key in
+        // kebab case>.json, that gives every step machine-readable metadata (kind, operation, order, cardinality),
+        // and a test in apps/shipping-api runs the scenario and compares what the code did with those steps. Steps
+        // here are single interactions: a step that combines actions cannot be checked.
+
+        dynamic api "ScenarioQuote" "Executable scenario: quote a parcel. QuoteScenarioTest runs it on the code and checks its steps (architecture/scenarios/scenario-quote.json)." {
+            clerk -> web "Enters a parcel, its origin and its destination"
+            web -> quotes "POST /api/v1/quotes (createQuote), answered 201 with the quote"
+            quotes -> tenants "CurrentTenant.require(): the tenant bound for the request"
+            quotes -> carrier "Rates each service level with the synthetic tariff, simulated in-process"
+            quotes -> db "Inserts the quote and its offers in schema quotes"
+            quotes -> db "Publishes QuoteIssued in the quote's transaction; no module listens to it in v0.1"
+            autoLayout lr
+        }
+
+        dynamic api "ScenarioTenantDenial" "Executable scenario: another tenant's quote is not found. TenantDenialScenarioTest runs it on the code and checks its steps (architecture/scenarios/scenario-tenant-denial.json)." {
+            clerk -> web "A clerk of Tenant Beta books an offer of Tenant Alpha's quote"
+            web -> shipments "POST /api/v1/shipments (bookShipment), answered 404 quote-not-found, as for an unknown quote"
+            shipments -> tenants "CurrentTenant.require(): Tenant Beta"
+            shipments -> db "Looks up the Idempotency-Key for Tenant Beta: no earlier shipment"
+            shipments -> quotes "QuoteOffers.findOffer for Tenant Beta: QuoteNotFound"
+            quotes -> db "Selects the quote by Tenant Beta and its ID: no row"
             autoLayout lr
         }
 

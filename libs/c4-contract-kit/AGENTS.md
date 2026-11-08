@@ -13,7 +13,7 @@ relationships without any static reference (absences). It reports PERMITTED rela
 Its package `sources` is a partial static lint: it reads a web app's TypeScript sources as data, with a restricted
 import grammar, and resolves the imports it detects to a file or a package (section "Web imports"). It can miss
 imports and unsupported constructs. The web conformance gate is not built yet; authoritative controls are planned
-in ADR 0013.
+in ADR 0014.
 
 ## Boundaries
 
@@ -114,7 +114,7 @@ Validation (each is a `ModelException` entry with element identifiers):
 
 ## Web imports
 
-**Partial static lint, accepted by the owner on 2026-11-08 (ADR 0013).** The reader's restrictions below describe
+**Partial static lint, accepted by the owner on 2026-11-08 (ADR 0014).** The reader's restrictions below describe
 recognized forms and tested cases. They are not a guarantee that all imports are found or unsupported constructs
 refused. Known open bypass: `import("unlisted")`, `import(name)`, `require("unlisted")` and
 `import.meta.glob("./*.ts")` immediately after `...` can yield no imports and no refusals. The review found object,
@@ -125,7 +125,7 @@ closing the bypass. No other open bypass class was reported by that non-exhausti
 The planned authoritative controls are the reviewed TypeScript compiler's import graph for import dependencies and
 a strict Content-Security-Policy in the web app enforced by the browser for runtime loading and execution. Neither
 exists in this reader. Do not present the lint or its passing tests as complete enforcement or runtime safety.
-The limits are recorded in `docs/gaps.md`, section 6, and ADR 0013.
+The limits are recorded in `docs/gaps.md`, section 6, and ADR 0014.
 
 Reading the sources (`sources`): every regular file under a web root, by name and the kind of root. In a source root,
 `.ts`, `.tsx` and `.d.ts` are code, and `*.test.ts` and `*.test.tsx` are tests; both are scanned. In a test root every

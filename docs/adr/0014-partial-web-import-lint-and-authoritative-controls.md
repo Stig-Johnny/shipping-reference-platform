@@ -1,5 +1,5 @@
 ---
-title: "ADR 0013: Partial web import lint and planned authoritative controls"
+title: "ADR 0014: Partial web import lint and planned authoritative controls"
 description: "The JDK web reader ships as partial lint with a known spread-syntax bypass; the reviewed compiler's import graph and browser-enforced CSP follow."
 status: accepted
 updated: 2026-11-08
@@ -12,7 +12,7 @@ plannedEnforcement:
   - "Strict Content-Security-Policy in the web app, enforced by the browser for runtime loading and execution"
 ---
 
-# ADR 0013: Partial web import lint and planned authoritative controls
+# ADR 0014: Partial web import lint and planned authoritative controls
 
 Adds the implementation scope for the web import control planned in ADR 0012. That record's intended application
 design and confirmation checks remain in place; this record labels the current reader's incomplete coverage and

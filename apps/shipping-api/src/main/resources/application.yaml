@@ -1,0 +1,32 @@
+# The shipping API's runtime configuration, for every profile. The demo profile, with PostgreSQL, the JDBC adapters and
+# the synthetic seed, arrives with the database adapters; until then the application starts in tests only.
+spring:
+  application:
+    name: shipping-api
+  jackson:
+    # Request bodies are read as strictly as the contract writes them (ADR 0004): unknown members are rejected, an
+    # integer member takes integers only, and an enum member takes its names only. A string member takes strings only
+    # through ShippingApplication's customizer, since Jackson has no property for that.
+    deserialization:
+      fail-on-unknown-properties: true
+      accept-float-as-int: false
+    datatype:
+      enum:
+        fail-on-numbers-for-enums: true
+    mapper:
+      allow-coercion-of-scalars: false
+  modulith:
+    events:
+      jdbc:
+        schema-initialization:
+          # A reviewed Flyway migration creates the publication table (security/reviews/maven--spring-modulith--2.1.2.md).
+          enabled: false
+  web:
+    resources:
+      # The API serves no static files, so an unknown path is the contract's 404 problem for every method.
+      add-mappings: false
+
+logging:
+  pattern:
+    # Every log line of a request carries its correlation ID (CorrelationIdFilter puts it in the MDC).
+    correlation: "[%X{correlationId:-}] "

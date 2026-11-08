@@ -10,11 +10,12 @@ enforcedBy:
   - "java: HexagonalLayeringTest (ArchUnit)"
   - "java: ArchitectureConformanceTest (C4 edges)"
   - "java: compilation with Error Prone and NullAway"
+  - "java: QuotesHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest (HTTP contract, with test doubles for the database adapters)"
 plannedEnforcement:
-  - "java: QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest"
+  - "java: ShipmentsHttpContractTest"
   - "java: RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, CrossTenantAccessTest"
   - "java: MigrationsIntegrationTest, and TableOwnershipTest on the SQL of each module's adapters"
-  - "java: WebArchitectureConformanceTest, partial lint over detected imports in apps/shipping-web/src: boundaries, cycles, and a direct import for each REQUIRED relationship whose endpoints are built (ADR 0013)"
+  - "java: WebArchitectureConformanceTest, partial lint over detected imports in apps/shipping-web/src: boundaries, cycles, and a direct import for each REQUIRED relationship whose endpoints are built (ADR 0014)"
   - "web: type check and emit with TypeScript 5.9.3, and the logic tests under node --test"
   - "contract-e2e: Playwright and axe-core against the API started with the demo profile on PostgreSQL"
 ---
@@ -24,7 +25,7 @@ plannedEnforcement:
 Supersedes ADR 0003, ADR 0004, ADR 0005 and ADR 0009. What they decided carries forward here unchanged, except where
 this record says otherwise; their text stays as it was accepted.
 
-**Web reader scope, 2026-11-08:** ADR 0013 records the owner's implementation decision for pull request #70:
+**Web reader scope, 2026-11-08:** ADR 0014 records the owner's implementation decision for pull request #70:
 the JDK reader ships as labelled partial static lint with a known spread-syntax bypass. The web import enforcement
 described below is intended design, not a complete guarantee supplied by that reader. The reviewed TypeScript
 compiler's import graph and a strict Content-Security-Policy in the web app enforced by the browser are planned
@@ -99,7 +100,7 @@ one.
   profile on PostgreSQL. Their reviews approve them for that job only, so browser automation does not run on developer
   machines.
 - **Import rules.** The JDK import checker in `libs/c4-contract-kit` (issues #62 to #64) supplies partial lint over
-  detected imports (ADR 0013); `tools/web-imports/check-imports.mjs` is not built. The model is to declare the web
+  detected imports (ADR 0014); `tools/web-imports/check-imports.mjs` is not built. The model is to declare the web
   app's six parts, `app`, `auth`, `api`, `quote-feature`, `shipment-feature` and `ui`, and the planned
   `WebArchitectureConformanceTest` is to check `apps/shipping-web/src` against them in the `java` check. The rules
   are listed in `apps/shipping-web/AGENTS.md`.
@@ -258,10 +259,11 @@ one.
   `package-info.java` annotated `@NullMarked` in every package; each rule also fails on a fixture that breaks it) and
   `ArchitectureConformanceTest` (ADR 0002). Compilation fails on Error Prone errors and NullAway findings;
   `@SuppressWarnings("NullAway")` is a level 3 behaviour signal in `policy/risk.json`.
-- Planned, `java`: `QuotesHttpContractTest`, `ShipmentsHttpContractTest` and `TenantsHttpContractTest` validate
-  responses against the contract; `ProblemDetailsHttpContractTest` covers an unknown path, a wrong method, a wrong
-  media type, malformed JSON, an unknown member and an unexpected exception: the correct type, no stack trace, a
-  correlation ID.
+- `java` runs `QuotesHttpContractTest` and `TenantsHttpContractTest`, which validate every response they exercise
+  against the contract, and `ProblemDetailsHttpContractTest`, which covers an unknown path, a wrong method, a wrong
+  media type, malformed JSON, an unknown member, a request refused before routing and an unexpected exception: the
+  correct type, no stack trace, a correlation ID. They start the application with test doubles for the adapters to
+  the database, so they prove the HTTP edge, not persistence. Planned, `java`: `ShipmentsHttpContractTest`.
 - Planned, `java`: `RowLevelSecurityCatalogTest` queries `pg_class`, `pg_policy` and `pg_roles`: every table with a
   `tenant_id` column has row-level security enabled and forced and at least one policy, except the four identity
   tables, on which `shipping_app` has no privileges; `shipping_app` is not superuser, lacks `BYPASSRLS` and owns
@@ -275,7 +277,7 @@ one.
   module's schema, and fails on the fixture above.
 - Planned, `java`: `WebArchitectureConformanceTest` runs the partial JDK import check over `apps/shipping-web/src`
   (issue #64). A detected import the model does not allow, a cycle of detected imports, and a REQUIRED relationship
-  between built parts without a detected direct import each fail it. This is not a complete graph (ADR 0013).
+  between built parts without a detected direct import each fail it. This is not a complete graph (ADR 0014).
 - Planned, `web`: `npm ci --ignore-scripts` from the reviewed lockfile; `tsc` type-checks and emits; `node --test`
   runs the logic tests.
 - Planned, `contract-e2e`: `quote-book-label.spec.ts`, `expired-quote.spec.ts`, `tenant-denial.spec.ts` and

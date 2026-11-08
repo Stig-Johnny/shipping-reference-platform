@@ -12,7 +12,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Partial static lint over a restricted TypeScript/TSX import grammar. The forms below describe recognized syntax,
- * not complete coverage: loaders after spread syntax can yield neither imports nor refusals (ADR 0013).
+ * not complete coverage: loaders after spread syntax can yield neither imports nor refusals (ADR 0014).
  *
  * <p>Read, each with the line of its specifier: import declarations ({@code import a from 'x'}, {@code import { a }
  * from 'x'}, {@code import * as a from 'x'}, {@code import 'x'}), type-only imports, re-exports ({@code export * from},

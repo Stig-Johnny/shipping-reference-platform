@@ -39,6 +39,8 @@ final class Sheets {
             Map.entry("model/quote-book-label.html", "M-04"),
             Map.entry("model/flow-quote-book-label.html", "M-05"),
             Map.entry(UseCasePage.PAGE, "M-07"),
+            Map.entry("model/scenario-quote.html", "M-08"),
+            Map.entry("model/scenario-tenant-denial.html", "M-09"),
             Map.entry("modules/index.html", "C-00"),
             Map.entry("modules/quotes.html", "C-01"),
             Map.entry("modules/shipments.html", "C-02"),

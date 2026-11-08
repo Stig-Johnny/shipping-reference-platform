@@ -1,6 +1,6 @@
 # AGENTS.md: apps/shipping-web (npm workspace `@shipping-reference-platform/web`)
 
-Adds to the root `AGENTS.md`. Decisions: ADR 0012 supersedes ADR 0009; ADR 0013 labels the current web reader as
+Adds to the root `AGENTS.md`. Decisions: ADR 0012 supersedes ADR 0009; ADR 0014 labels the current web reader as
 partial lint and records the authoritative controls that follow. Screen specification:
 `docs/ui/workbench.md` (binding for visual design, behaviour, states and accessibility; changes require an explicit
 design decision recorded there; its amendment of 2026-11-07 sets the scope of the first runnable slice).
@@ -55,7 +55,7 @@ whitespace, comments and line breaks after `...`, across TS/TSX and source/test 
 section 6, for the reviewed examples. Relationships touching planned parts are not evaluated. The HTTP calls to the
 API stay outside the check; the end-to-end tests are their evidence for the operations they exercise.
 
-Per the owner's decision of 2026-11-08 (ADR 0013), this reader ships as a labelled partial lint. Authoritative
+Per the owner's decision of 2026-11-08 (ADR 0014), this reader ships as a labelled partial lint. Authoritative
 controls follow: the reviewed TypeScript compiler's import graph for import dependencies, and a strict
 Content-Security-Policy in the web app enforced by the browser for runtime loading and execution. Neither control is
 implemented by the reader; passing lint is not proof of runtime safety.

@@ -13,7 +13,7 @@ Its package `sources` is a **partial static lint**. It reads a web app's TypeScr
 configuration as data, with a deliberately restricted grammar and the JDK alone, for a web conformance gate that is
 not built yet ([`AGENTS.md`](AGENTS.md), "Web imports"). It refuses some recognized unsupported or ambiguous forms;
 it does not guarantee that every import is found or every unsupported construct is refused. The owner accepted
-shipping this limited reader on 2026-11-08 (ADR 0013).
+shipping this limited reader on 2026-11-08 (ADR 0014).
 
 Known open bypass: directly after spread syntax, `import("unlisted")`, `import(name)`, `require("unlisted")` and
 `import.meta.glob("./*.ts")` can produce no imports and no refusals. The review found this in object, array, call
@@ -26,7 +26,7 @@ Authoritative controls are planned: the reviewed TypeScript compiler's import gr
 strict Content-Security-Policy in the web app, enforced by the browser, for runtime loading and execution. Neither
 is implemented by this reader. Passing this lint does not prove runtime safety; see
 [`docs/gaps.md`](../../docs/gaps.md#6-tests-and-quality-gates) and
-[ADR 0013](../../docs/adr/0013-partial-web-import-lint-and-authoritative-controls.md).
+[ADR 0014](../../docs/adr/0014-partial-web-import-lint-and-authoritative-controls.md).
 
 The reader also refuses a slash after `>`: a closing type argument can end a value, while a comparison operator
 starts an expression. Parenthesize the value before dividing; `=>` still starts an arrow-function expression.

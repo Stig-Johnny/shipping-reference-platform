@@ -34,12 +34,18 @@
 # same commit; `:tools:docs:checkGenerated` rejects a shipped or partial status whose evidence does not exist or did
 # not pass, and never shows a planned capability as available because its package exists. The docs tool's own
 # controls are shipped, and so are the controls of libs/c4-contract-kit, divergence and absence included now that
-# ArchitectureConformanceTest checks :apps:shipping-api, and the two module checks of the API. Of the product, the
-# quotes module's domain and application tests pass: the synthetic tariff and quote expiry are shipped, creating a
-# quote and the offer lookup are partial, since their HTTP and database tests are planned. So do the shipments
-# module's booking tests: booking from an offer and idempotent booking are partial, since their HTTP and database
-# tests are planned. ShipmentTest passes too, but it asserts only what booking produces, not cancellation, so
-# shipments.cancel-shipment stays planned. Every other status is planned and its evidence is "none yet".
+# ArchitectureConformanceTest checks :apps:shipping-api, and the two module checks of the API. The API's scenario checks
+# are partial: their in-process scenarios and negative fixtures pass, while the first booking, replay and label
+# scenarios and the observation of HTTP and SQL are planned. Of the product, the
+# synthetic tariff and quote expiry are shipped. Creating and reading a quote, the offer lookup, demo authentication
+# and the current membership are partial: their HTTP contract tests run the whole application with test doubles for
+# the ports that have no database adapter yet, so they prove the HTTP edge, not persistence. That is why creating a
+# quote, demo authentication and the current membership stay partial although every test they name passes: no quote
+# or token reaches PostgreSQL yet, and prototype flags are planned. The shipments module's booking tests pass too:
+# booking from an offer and idempotent booking are partial, since their HTTP and database tests are planned.
+# ShipmentTest passes, but it asserts only what booking produces, not cancellation, so shipments.cancel-shipment stays
+# planned. The HTTP contract control is partial, since the shipments operations are planned. Every other status is
+# planned and its evidence is "none yet".
 
 schemaVersion: 1
 
@@ -59,16 +65,16 @@ capabilities:
     title: Issue a tenant-scoped quote with one offer per available service level, or a reasoned refusal.
     status: partial
     target: v0.1
-    evidence: [RatingTest, CreateQuoteTest]
+    evidence: [RatingTest, CreateQuoteTest, QuotesHttpContractTest]
     acceptanceTests: [RatingTest, CreateQuoteTest, QuotesHttpContractTest]
     docs: docs/modules/quotes.md
     actors: [clerk]
   - id: quotes.get-quote
     module: quotes
     title: Read a quote of the caller's tenant with its computed OPEN or EXPIRED status.
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [QuotesHttpContractTest]
     acceptanceTests: [QuotesModuleIntegrationTest, QuotesHttpContractTest]
     docs: docs/modules/quotes.md
     actors: [clerk]
@@ -151,18 +157,18 @@ capabilities:
   - id: tenants.demo-authentication
     module: tenants
     title: Authenticate synthetic users with demo bearer tokens; never derive tenant identity from client-supplied tenant hints.
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [DemoTokenTest, DemoTokenAuthenticationTest]
     acceptanceTests: [DemoTokenTest, DemoTokenAuthenticationTest]
     docs: docs/modules/tenants.md
     actors: [clerk]
   - id: tenants.current-membership
     module: tenants
     title: Return the caller's membership and enabled prototype flags (GET /api/v1/me).
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [TenantsHttpContractTest]
     acceptanceTests: [TenantsHttpContractTest]
     docs: docs/modules/tenants.md
     actors: [clerk]
@@ -381,6 +387,30 @@ controls:
     acceptanceTests: [HexagonalLayeringTest]
     negativeFixture: A domain class annotated with a Spring stereotype; one fixture for each other rule (fixtures of HexagonalLayeringTest).
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
+  - id: control.scenario-conformance
+    title: A scenario view's evaluated steps are checked against one recording; missing steps, recorded unexpected interactions, wrong order and drift from exact known coverage debt fail the build; known gaps prevent conformance.
+    where: apps/shipping-api, architecture/scenarios
+    check: java
+    status: partial
+    target: v0.1
+    evidence: [QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, ReachabilityTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest, CoverageLedgerTest]
+    acceptanceTests: [QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, ReachabilityTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest, CoverageLedgerTest, FirstBookingScenarioTest, BookingReplayScenarioTest, LabelScenarioTest]
+    negativeFixture: CoverageLedgerTest rejects new Spring accesses, removed ledger entries, changed descriptors, disappeared gaps and duplicates; CoverageBypassTest rejects an additional Spring access with an already ledgered owner/member. Altered implementations in ScenarioFixturesTest, a removed call that keeps the outcome (missing step), an added call along a permitted relationship (unexpected interaction), two swapped interactions (order violation), a disabled call observer and a disabled publication observer (coverage gaps), an AFTER_COMMIT publication that runs before any commit (coverage gap), and two interleaved runs that must pass; nine implementations in CoverageBypassTest (coverage gaps), including virtual-thread and pre-existing-executor work released after close; shared receivers and containers in both module traversal orders in ReachabilityTest; a repeated signature with a varying cardinality in SidecarValidationTest (refused).
+    enforcedSubset: In process on the built modules, four declared steps of the quote and tenant-denial scenarios are verified against recorded interactions (three module API calls and one event publication); the other eight steps are counted as not evaluated. Reports say COVERAGE_INCOMPLETE with 77 known gaps (75 Spring accesses and two factory parameters), retained as refusals; an exact classified ledger tagged phase 3 / option 2 rejects new, changed, duplicate and disappeared findings, while all other bounded refusals remain build blockers; unexamined code, transient receivers, driver-supplied references and work after close remain limits (docs/gaps.md section 6). The tenant-denial outcome (rejected as an unknown quote, nothing stored for the other tenant) is asserted by the test apart from step verification.
+    plannedRemainder: Phase 3 / option 2 closes the 77 known gaps through production factory witnesses and concrete Spring receiver/callback coverage; the first booking, booking replay and label scenarios, HTTP exchanges, database steps observed through JDBC, listener executions, and commits observed so that AFTER_COMMIT steps are evaluated instead of refused.
+    docs: docs/adr/0013-scenario-views-are-checked-against-recorded-interactions.md
+  - id: control.external-imports
+    title: External dependencies reported by ArchUnit 1.5.1 from API main or test outputs have an approved provider or a verified repository-owned project provider, and are on the caller's layer whitelist.
+    where: apps/shipping-api, build-logic
+    check: java
+    status: partial
+    target: v0.1
+    evidence: [ExternalImportPolicyTest]
+    acceptanceTests: [ExternalImportPolicyTest, ExternalImportSourceTest, ProviderIndexScopeTest]
+    negativeFixture: A domain class that uses Spring; production code that uses AssertJ; sun.misc.Unsafe, jdk.internal.misc.Unsafe and java.awt.peer, which java.desktop does not export; a class from an artifact reviewed for another project only; a class that no artifact provides, and one that two provide; @Transactional on an api type; an external class under the API namespace; artifacts colliding with main/test outputs; included-build and unverified project providers; missing, changed or withdrawn alias approval (fixtures of ExternalImportPolicyTest).
+    enforcedSubset: Dependencies reported by ArchUnit 1.5.1 are classified using actual main/test output ownership, the provider index and JDK module descriptors, then checked against the caller's whitelist. Artifact collisions fail. Maven approval checks project, configuration, expiry and file, comparing SHA-256 where the review records a hash. The Maven-review exemption requires a verified repository-owned project output with root-build identity and an exact registered output path; other project providers fail.
+    plannedRemainder: Source analysis for compiler-erased references (such as inlined constants) and retained bytecode that ArchUnit does not report (such as type-use annotations) remains planned (ExternalImportSourceTest), as does scope enforcement for every artifact on the classpaths, used or not (ProviderIndexScopeTest).
+    docs: README.md
   - id: control.table-ownership
     title: Each module's adapters run SQL only against tables in its own schema.
     where: apps/shipping-api
@@ -405,14 +435,16 @@ controls:
     title: Exercised HTTP responses, including framework problems, conform to contracts/shipping.openapi.yaml.
     where: apps/shipping-api
     check: java
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [QuotesHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest]
     acceptanceTests: [QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest]
-    negativeFixture: A response with an undocumented member fails validation.
+    negativeFixture: A response with an undocumented member, an impossible date-time, an invalid header or a problem title that is not its type's, and a status that the operation does not document and no path may give, fails validation (ContractTest).
+    enforcedSubset: Every response that the HTTP tests exercise, of GET /api/v1/me, both quote operations and the problems that any path can give, is validated against the contract in java, on the application with test doubles for its database adapters.
+    plannedRemainder: The shipments operations (ShipmentsHttpContractTest) and the same responses from the PostgreSQL-backed application remain.
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.web-import-boundaries
-    title: Partial lint of detected web app imports for boundaries, cycles and a direct import for each REQUIRED relationship whose endpoints are built (ADR 0013).
+    title: Partial lint of detected web app imports for boundaries, cycles and a direct import for each REQUIRED relationship whose endpoints are built (ADR 0014).
     where: libs/c4-contract-kit, apps/shipping-web
     check: java
     status: planned
