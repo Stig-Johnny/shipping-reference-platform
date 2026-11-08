@@ -194,14 +194,17 @@ closes it.
   that condition was checked; the exposure was one listening socket per run, for the length of the run.
 - axe-core finds a subset of accessibility problems; manual keyboard and screen reader checks are required and
   recorded by hand.
-- The web app's static checks are to cover import boundaries and cycles, and a direct import for each REQUIRED
-  relationship whose endpoints are built (ADR 0012). Relationships touching planned parts are not evaluated, a direct
-  import proves a reference and not behaviour, and a part that no REQUIRED relationship reaches can be unused without
-  a report. dependency-cruiser is deferred.
-- The web source reader is implemented and tested on synthetic fixtures; the web conformance gate is still planned
-  on this reader-only slice. Its grammar is deliberately restricted: ambiguous slashes after closing type arguments,
-  loader references (including quoted keys, aliases and indirect calls), escaped property keys, non-literal computed
-  access/binding keys (including templates and const-derived keys), duplicate HTML attributes, encoded URL/type
+- The planned web conformance gate uses a **partial static lint** for import boundaries and cycles, and a direct
+  detected import for each REQUIRED relationship whose endpoints are built (ADR 0013). Relationships touching
+  planned parts are not evaluated, a direct import proves a reference and not behaviour, and a part that no REQUIRED
+  relationship reaches can be unused without a report. dependency-cruiser is deferred.
+- **The web source reader is a partial static lint, not authoritative enforcement.** The owner accepted this scope
+  on 2026-11-08 (ADR 0013). It is implemented and tested on synthetic fixtures; the web conformance gate is still
+  planned on this reader-only slice. It can miss imports and unsupported constructs without a refusal. Its grammar
+  is deliberately restricted; the following are recognized forms covered by fixtures, not universal guarantees:
+  ambiguous slashes after closing type arguments, loader references (including quoted keys, aliases and indirect
+  calls), escaped property keys, non-literal computed access/binding keys (including templates and const-derived
+  keys), duplicate HTML attributes, encoded URL/type
   attributes, and package CSS subpaths are refused. Timers require a direct call with a visible function literal.
   Numeric literals preserve following property names; malformed numeric continuations, misplaced separators and
   legacy leading-zero forms are refused. Regex flags accept only distinct letters from `dgimsuy`: unknown, escaped,
@@ -211,6 +214,20 @@ closes it.
   TypeScript or WHATWG URL parser and no proof about reflective calls or general runtime behaviour. Conservative
   refusals reject harmless names, computed indexing, callback aliases and valid URLs outside that subset too. The
   reader does not execute a web app or inspect installed packages.
+- **Known open web-reader bypass: spread syntax.** The review of pull request #70 found that
+  `const p = { ...import("unlisted") };`, `const p = { ...import(name) };`,
+  `const p = { ...require("unlisted") };` and `const p = { ...import.meta.glob("./*.ts") };` produce
+  `imports=[], refusals=[]`. Object, array, call and nested-template spreads reproduce this, including whitespace,
+  comments and line breaks after `...`, in TS/TSX and source/test placements. The lexer splits `...` into dots and
+  the scanner treats the next keyword as a property name. Parenthesizing the operand restores detection in the
+  reviewed control; that does not close the bypass. The review reported the numeric-token defect fixed and no other
+  open bypass class in its probe set; that set was not exhaustive. A green lint result cannot prove the absence of
+  undeclared imports or hidden runtime loaders.
+- **Authoritative web controls are planned, not delivered by the reader.** The reviewed TypeScript compiler's
+  import graph is to supply import dependencies, and a strict Content-Security-Policy in the web app is to be
+  enforced by the browser for runtime loading and execution (ADR 0013). The compiler graph is not a proof of general
+  runtime behaviour, and CSP does not enforce module boundaries. Neither control is implemented in this slice;
+  reader fixtures are not evidence of either one.
 - The first runnable slice defers the generated client and the component tests (ADR 0012). So there is no
   generated-client drift guarantee: the web app's request and response types are written by hand in
   `apps/shipping-web/src/api` and can drift from `contracts/shipping.openapi.yaml` without failing a build. The

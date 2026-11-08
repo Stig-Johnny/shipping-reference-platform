@@ -1,6 +1,6 @@
 ---
-title: "Hidden web loaders now produce reader refusals"
-description: "The import reader refuses ambiguous source and page attributes instead of reporting that they load nothing."
+title: "Partial web import lint refuses the recorded hidden loaders"
+description: "The recorded cases produce refusals; spread-syntax loaders remain a known bypass and authoritative controls are planned."
 status: accepted
 updated: 2026-11-08
 pr: 70
@@ -14,13 +14,15 @@ tests:
 
 ## What changed
 
-The web import reader reads sources and configuration without running them. A generic type assertion could hide an
+The web import reader is a **partial static lint**, accepted with this label by the owner on 2026-11-08 (ADR 0013).
+It reads sources and configuration without running them. In the tested cases, a generic type assertion could hide an
 import, an alias could hide a loader, and encoded or repeated HTML attributes could conceal a remote script or an
 import map. Quoted destructuring keys and escaped or computed property keys could also conceal a loader; URL tabs,
-line breaks and backslashes could conceal an external origin. Those cases now produce refusals. Keys held in const
-bindings and template keys fail closed. String timers and timer aliases are refused, with direct function callbacks
-still supported. URL validation precedes origin classification. CSS imports through package subpaths are refused too, in browser
-sources and tests. Ordinary local imports and local script and stylesheet links still pass.
+line breaks and backslashes could conceal an external origin. Those tested cases now produce refusals, as do the
+tested const-derived and template keys. String timers and timer aliases are refused, with direct function callbacks
+still supported. URL validation precedes origin classification. CSS imports through package subpaths are refused
+too, in browser sources and tests. Ordinary local imports and local script and stylesheet links still pass.
+The known spread-syntax bypass remains open; these results do not establish complete detection.
 
 ## Try it
 
@@ -83,8 +85,22 @@ recorded runs, separate from the publishing build's evidence.
 
 ## Limits
 
+This is a **partial static lint** with known silent misses, not authoritative enforcement or a general fail-closed
+check. The review of pull request #70 found that `const p = { ...import("unlisted") };`,
+`const p = { ...import(name) };`, `const p = { ...require("unlisted") };` and
+`const p = { ...import.meta.glob("./*.ts") };` yield `imports=[], refusals=[]`. The same bypass occurs in object,
+array, call and nested-template spreads, including whitespace, comments and line breaks after `...`, in TS/TSX and
+source/test placements. Parenthesizing the operand restores detection in the reviewed control; it does not fix the
+bypass. That review reported the numeric-token issue fixed and no other open bypass class in its probe set, which
+was not exhaustive. This is a review finding, not a new fixture or output rerun by this publishing build.
+
+Authoritative controls are planned: the reviewed TypeScript compiler's import graph for import dependencies, and a
+strict Content-Security-Policy in the web app enforced by the browser for runtime loading and execution (ADR 0013).
+Neither is implemented in this slice or proved by these reader fixtures. The graph does not prove general runtime
+behaviour, and CSP does not check module boundaries.
+
 This slice does not yet check a real web application against the model. It does not execute TypeScript, simulate
-browser parsing or inspect installed packages. The grammar deliberately refuses uncertainty: harmless names,
+browser parsing or inspect installed packages. Some recognized ambiguities are deliberately refused: harmless names,
 computed indexing, callback aliases, a slash after a comparison and literal ampersands can be rejected too.
 Non-literal computed access/binding keys are refused even when a person can evaluate their constant value. URL
 attributes accept only a conservative ASCII syntax subset; some valid browser URLs are refused, including IP

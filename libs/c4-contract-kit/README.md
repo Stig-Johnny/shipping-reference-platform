@@ -9,9 +9,24 @@ as evidence: class, member, kind, and the source file and line when the class fi
 components, planned components with code and unmapped classes have no reference to show; they name the components
 and classes concerned.
 
-Its package `sources` reads a web app's TypeScript sources, tests, style sheets and configuration as data, with a
-deliberately restricted grammar and the JDK alone, for a web import check that is not built yet
-([`AGENTS.md`](AGENTS.md), "Web imports"). Where it cannot decide with certainty, it refuses the file.
+Its package `sources` is a **partial static lint**. It reads a web app's TypeScript sources, tests, style sheets and
+configuration as data, with a deliberately restricted grammar and the JDK alone, for a web conformance gate that is
+not built yet ([`AGENTS.md`](AGENTS.md), "Web imports"). It refuses some recognized unsupported or ambiguous forms;
+it does not guarantee that every import is found or every unsupported construct is refused. The owner accepted
+shipping this limited reader on 2026-11-08 (ADR 0013).
+
+Known open bypass: directly after spread syntax, `import("unlisted")`, `import(name)`, `require("unlisted")` and
+`import.meta.glob("./*.ts")` can produce no imports and no refusals. The review found this in object, array, call
+and nested-template spreads, including whitespace, comments and line breaks after `...`, in TS/TSX and source/test
+placements. Parenthesizing the operand restores detection in the reviewed control; it does not close the bypass.
+The review reported no other open bypass class in its probe set, which was not exhaustive. The restrictions below
+describe recognized forms and tested cases, not complete enforcement.
+
+Authoritative controls are planned: the reviewed TypeScript compiler's import graph for import dependencies, and a
+strict Content-Security-Policy in the web app, enforced by the browser, for runtime loading and execution. Neither
+is implemented by this reader. Passing this lint does not prove runtime safety; see
+[`docs/gaps.md`](../../docs/gaps.md#6-tests-and-quality-gates) and
+[ADR 0013](../../docs/adr/0013-partial-web-import-lint-and-authoritative-controls.md).
 
 The reader also refuses a slash after `>`: a closing type argument can end a value, while a comparison operator
 starts an expression. Parenthesize the value before dividing; `=>` still starts an arrow-function expression.

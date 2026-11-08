@@ -10,9 +10,10 @@ reports class-level evidence. It fails on dependencies the model does not declar
 relationships without any static reference (absences). It reports PERMITTED relationships without references as
 "no static evidence", never as "unused".
 
-Its package `sources` reads a web app's TypeScript sources as data, with a restricted import grammar, and resolves
-each import to a file or a package (section "Web imports"). The web import check that is to hold them to the web
-container of the same model is not built yet.
+Its package `sources` is a partial static lint: it reads a web app's TypeScript sources as data, with a restricted
+import grammar, and resolves the imports it detects to a file or a package (section "Web imports"). It can miss
+imports and unsupported constructs. The web conformance gate is not built yet; authoritative controls are planned
+in ADR 0013.
 
 ## Boundaries
 
@@ -21,7 +22,7 @@ container of the same model is not built yet.
     `ModelException`.
   - `model`: restricted DSL parsing and validation into an immutable `ContractModel`.
   - `bytecode`: class import with ArchUnit and evidence extraction.
-  - `sources`: a web root read as data with the restricted import grammar, and each import resolved; the JDK only.
+  - `sources`: partial lint over a web root read as data, resolving detected imports; the JDK only.
   - `rules`: comparison and violation rules.
   - `report`: deterministic JSON and Markdown writers.
 - Allowed internal dependencies: `api -> model, bytecode, rules, report`; `rules -> model, bytecode`;
@@ -113,6 +114,19 @@ Validation (each is a `ModelException` entry with element identifiers):
 
 ## Web imports
 
+**Partial static lint, accepted by the owner on 2026-11-08 (ADR 0013).** The reader's restrictions below describe
+recognized forms and tested cases. They are not a guarantee that all imports are found or unsupported constructs
+refused. Known open bypass: `import("unlisted")`, `import(name)`, `require("unlisted")` and
+`import.meta.glob("./*.ts")` immediately after `...` can yield no imports and no refusals. The review found object,
+array, call and nested-template spread variants, including whitespace, comments and line breaks after `...`, in
+TS/TSX and source/test placements. Parenthesizing the operand restores detection in the reviewed control, without
+closing the bypass. No other open bypass class was reported by that non-exhaustive probe set.
+
+The planned authoritative controls are the reviewed TypeScript compiler's import graph for import dependencies and
+a strict Content-Security-Policy in the web app enforced by the browser for runtime loading and execution. Neither
+exists in this reader. Do not present the lint or its passing tests as complete enforcement or runtime safety.
+The limits are recorded in `docs/gaps.md`, section 6, and ADR 0013.
+
 Reading the sources (`sources`): every regular file under a web root, by name and the kind of root. In a source root,
 `.ts`, `.tsx` and `.d.ts` are code, and `*.test.ts` and `*.test.tsx` are tests; both are scanned. In a test root every
 `.ts` and `.tsx` file is a test. A public root may hold style sheets, images and fonts only. `.css` is searched, as raw
@@ -121,10 +135,10 @@ refused wherever they are, comments and strings included; images and fonts are a
 Names that start with a dot are left out, but a symbolic link anywhere is an error, hidden ones and those in hidden
 directories included: links are checked before anything is left out. Files must be UTF-8.
 
-The restricted import grammar reads, with the line of the specifier: `import ... from 'x'`, `import 'x'`,
-`import type`, `export * from`, `export { a } from`, their type-only forms, and `import('x')` with one plain string
-literal anywhere, types included. It refuses: `import()` with anything else, `require`, `import.meta` other than
-`import.meta.env` (a test, which runs in Node.js, may also locate files with `import.meta.url`, `import.meta.dirname`
+For recognized forms, the restricted import grammar reads, with the line of the specifier: `import ... from 'x'`,
+`import 'x'`, `import type`, `export * from`, `export { a } from`, their type-only forms, and `import('x')` with one
+plain string literal, types included. It refuses recognized uses of: `import()` with anything else, `require`,
+`import.meta` other than `import.meta.env` (a test, which runs in Node.js, may also locate files with `import.meta.url`, `import.meta.dirname`
 and `import.meta.filename`), import-equals declarations, import attributes, a module declaration with a module name
 (`module 'x'`, with or without `declare`), code that loads code at run time (`eval` and the `Function` constructor,
 even as properties such as `globalThis.eval`; a call of a `constructor` property; `Worker`, `SharedWorker`,
@@ -132,7 +146,8 @@ even as properties such as `globalThis.eval`; a call of a `constructor` property
 pragmas and a backslash escape in a specifier. Strings, comments, templates, regular expressions and JSX text never
 yield code; template substitutions and JSX expressions do.
 
-The lexer fails closed: where it cannot decide with certainty, it refuses the file with the line, and never guesses.
+The lexer refuses the following recognized ambiguities with a line number. This is partial lint coverage, not a
+general fail-closed guarantee; the spread bypass above remains open.
 
 - A slash, and in `.tsx` a `<`, starts a regular expression or a JSX element where an expression starts: after a
   punctuator other than `)`, `]`, `}`, `++` and `--`, after a keyword such as `return`, `typeof` or `else`, after the
@@ -160,11 +175,11 @@ which a subpath of names may follow: no empty, `.` or `..` segment and no percen
 a built-in module names that module (`node:test`, `node:assert/strict`); any other `node:` specifier is unsupported.
 Absolute specifiers, other schemes (`https:`, `data:`, `virtual:`), queries and fragments are unsupported.
 
-The web app's configuration (`AppConfiguration`, read as strict JSON and as text): the check resolves specifiers
-itself, so a setting that would make TypeScript, Node.js or the browser resolve one otherwise, or add an import that no
-source file shows, is refused with its file and line. In `tsconfig*.json`: `extends`, `references`, and in
-`compilerOptions` `paths`, `baseUrl`, `rootDirs`, `typeRoots`, `moduleSuffixes`, `customConditions`,
-`allowArbitraryExtensions` and `jsxImportSource`; `types` unless it is empty, `importHelpers` when true, and a `jsx`
+The web app's configuration (`AppConfiguration`, read as strict JSON and as text): the lint resolves detected
+specifiers itself and refuses the following recognized settings that can change resolution or add imports, with
+their file and line. This list is not a complete account of compiler or browser behaviour. In `tsconfig*.json`:
+`extends`, `references`, and in `compilerOptions` `paths`, `baseUrl`, `rootDirs`, `typeRoots`, `moduleSuffixes`,
+`customConditions`, `allowArbitraryExtensions` and `jsxImportSource`; `types` unless it is empty, `importHelpers` when true, and a `jsx`
 that imports a JSX runtime. In `package.json`: `imports`, `overrides`, `browser` and dependencies other than
 `dependencies` and `devDependencies`, whose versions must be exact; `engines.node` names one exact version of Node.js.
 In each page (`*.html`): an import map, an inline script, a `<base>` element, a script or link from another origin, and
@@ -197,5 +212,6 @@ Demo pull requests 6 to 10 stay open or are preserved as reproducible recordings
 
 - Mutation testing: at least 90 % killed mutants on changed lines (checker logic).
 - Every rule above has a negative fixture: a model or class set that must fail with that exact violation type.
-- Unsupported constructs fail loudly with a clear message; they never pass silently.
+- Recognized unsupported constructs have fixtures asserting a clear refusal. The web reader is a partial lint with
+  known silent misses listed above; its tests do not establish complete detection. Keep that limitation visible.
 - Not published in v0.1. Publishing under an owner-qualified Maven coordinate comes after namespace verification.

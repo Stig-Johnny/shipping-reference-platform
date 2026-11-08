@@ -1,6 +1,7 @@
 # AGENTS.md: apps/shipping-web (npm workspace `@shipping-reference-platform/web`)
 
-Adds to the root `AGENTS.md`. Decision: ADR 0012, which supersedes ADR 0009. Screen specification:
+Adds to the root `AGENTS.md`. Decisions: ADR 0012 supersedes ADR 0009; ADR 0013 labels the current web reader as
+partial lint and records the authoritative controls that follow. Screen specification:
 `docs/ui/workbench.md` (binding for visual design, behaviour, states and accessibility; changes require an explicit
 design decision recorded there; its amendment of 2026-11-07 sets the scope of the first runnable slice).
 
@@ -38,17 +39,26 @@ src/
 e2e/                   Playwright specs                                                  (risk level 2)
 ```
 
-The model declares the six parts (issue #64). The JDK import checker of `libs/c4-contract-kit` holds `src/` to them
-in the `java` check (`WebArchitectureConformanceTest`); `tools/web-imports/check-imports.mjs` is not built. The rules:
+The model is to declare the six parts (issue #64). The planned `WebArchitectureConformanceTest` uses the JDK reader
+of `libs/c4-contract-kit` as partial static lint over `src/` in the `java` check; the reader exists, but that gate is
+not built in this slice. `tools/web-imports/check-imports.mjs` is not built. The intended rules:
 
 - `src/ui/` imports nothing from `app`, `auth`, `api` or `features`.
 - A feature imports another feature only through that feature's `index.ts`.
 - `src/auth/` imports nothing from `features`.
 - No import cycles.
 
-The checker enforces import boundaries and cycles, and requires a direct import for each REQUIRED relationship whose
-endpoints are built. Relationships touching planned parts are not evaluated. The HTTP calls to the API stay outside
-the check; the end-to-end tests are their evidence.
+The planned gate compares detected imports for boundaries, cycles and a direct import for each REQUIRED relationship
+whose endpoints are built. It cannot guarantee complete detection: imports, `require` and unsupported `import.meta`
+immediately after spread syntax can pass unseen in object, array, call and nested-template expressions, including
+whitespace, comments and line breaks after `...`, across TS/TSX and source/test placements. See `docs/gaps.md`,
+section 6, for the reviewed examples. Relationships touching planned parts are not evaluated. The HTTP calls to the
+API stay outside the check; the end-to-end tests are their evidence for the operations they exercise.
+
+Per the owner's decision of 2026-11-08 (ADR 0013), this reader ships as a labelled partial lint. Authoritative
+controls follow: the reviewed TypeScript compiler's import graph for import dependencies, and a strict
+Content-Security-Policy in the web app enforced by the browser for runtime loading and execution. Neither control is
+implemented by the reader; passing lint is not proof of runtime safety.
 
 ## Rules
 
