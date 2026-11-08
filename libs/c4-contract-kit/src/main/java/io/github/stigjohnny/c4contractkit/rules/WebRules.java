@@ -324,7 +324,7 @@ public final class WebRules {
         Optional<Allowlist.Entry> entry = inputs.allowlist().nodeRuntime(node.get());
         if (entry.isEmpty()) {
             unapproved(file, name, Allowlist.PATH + " approves no " + Allowlist.NODE_RUNTIME + " " + node.get()
-                    + " for the web job, the Node.js whose built-in " + name + " tests import", evidence);
+                    + " for project ci in the web job, the Node.js whose built-in " + name + " tests import", evidence);
         }
         decide(found, file, name, node.get(), rule, entry);
     }

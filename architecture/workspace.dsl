@@ -84,7 +84,7 @@
 // Every package and built-in an import names is whitelisted twice: here, and in security/allowlist.json. A package
 // of browser code must be pinned in package.json "dependencies" and approved there for the app (project
 // apps/shipping-web, configuration dependencies); a test's package in "devDependencies" or "dependencies". A test's
-// built-ins need the approval of the Node.js that package.json "engines" names, for the web job.
+// built-ins need the approval of the Node.js that package.json "engines" names, for project ci, configuration web.
 //
 // On relationships between two components of that container, and nowhere else:
 //   web.mode      REQUIRED | PERMITTED, as contract.mode above with an import in place of a reference: "a -> b"

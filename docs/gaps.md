@@ -198,8 +198,11 @@ closes it.
   relationship whose endpoints are built (ADR 0012). Relationships touching planned parts are not evaluated, a direct
   import proves a reference and not behaviour, and a part that no REQUIRED relationship reaches can be unused without
   a report. dependency-cruiser is deferred.
-- The web source reader is implemented and tested on synthetic fixtures; the web conformance gate is still planned
-  on this reader-only slice. Its grammar is deliberately restricted: ambiguous slashes after closing type arguments,
+- The web source reader and conformance library are implemented and tested on synthetic fixtures; the repository's
+  web conformance gate is still planned. `WebConformanceTest` proves that reader refusals fail the model comparison,
+  and that Node.js built-ins in tests need runtime approval for project `ci` in configuration `web`, at the version
+  named by `engines.node`. This is fixture evidence, not a check of real web imports. The grammar is deliberately
+  restricted: ambiguous slashes after closing type arguments,
   loader references (including aliases and indirect calls), duplicate HTML attributes, encoded URL/type attributes,
   and package CSS subpaths are refused. This is no full TypeScript or browser parser and no proof about arbitrary
   computed property access or runtime behaviour. Conservative refusals can reject harmless type names and literal
