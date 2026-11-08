@@ -21,6 +21,20 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 class ImportScannerTest {
 
+    @ParameterizedTest(name = "lexical boundary: {0}, JSX={1}")
+    @MethodSource("lexicalBoundaries")
+    void literalBoundariesCannotConcealLoaderNames(LexicalBoundaryFixtures.Fixture fixture, boolean jsx) {
+        ImportScanner.Scan scan = ImportScanner.scan("// synthetic fixture\n" + fixture.source(), jsx);
+        assertThat(scan.imports()).isEmpty();
+        assertThat(scan.refusals()).containsExactlyElementsOf(fixture.reasons().stream()
+                .map(reason -> new Refusal(fixture.line(), reason)).toList());
+    }
+
+    static Stream<Arguments> lexicalBoundaries() {
+        return LexicalBoundaryFixtures.cases().flatMap(fixture -> Stream.of(
+                arguments(fixture, false), arguments(fixture, true)));
+    }
+
     @ParameterizedTest(name = "generic assertion hiding {0}, JSX={1}")
     @CsvSource({"import('undeclared'), false", "import(name), false",
         "import('undeclared'), true", "import(name), true"})

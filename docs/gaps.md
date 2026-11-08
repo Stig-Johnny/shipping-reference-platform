@@ -203,6 +203,9 @@ closes it.
   loader references (including quoted keys, aliases and indirect calls), escaped property keys, non-literal computed
   access/binding keys (including templates and const-derived keys), duplicate HTML attributes, encoded URL/type
   attributes, and package CSS subpaths are refused. Timers require a direct call with a visible function literal.
+  Numeric literals preserve following property names; malformed numeric continuations, misplaced separators and
+  legacy leading-zero forms are refused. Regex flags accept only distinct letters from `dgimsuy`: unknown, escaped,
+  duplicate and Unicode-set (`v`) flags are refused. This rejects some valid syntax intentionally.
   Every scanned URL attribute is validated before origin classification against a conservative ASCII subset:
   controls, spaces, backslashes, malformed escapes and uncertain schemes/authorities are refused. This is no full
   TypeScript or WHATWG URL parser and no proof about reflective calls or general runtime behaviour. Conservative

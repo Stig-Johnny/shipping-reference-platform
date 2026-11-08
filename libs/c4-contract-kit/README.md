@@ -22,6 +22,13 @@ plain string or number literal: templates, concatenations, parenthesized express
 refused, rather than evaluated. Timer references must be direct calls with a visible function literal; aliases and
 unproven arguments are refused. These conservative rules also reject harmless names and computed indexing.
 
+Numeric tokens stop at the literal's boundary: decimal fractions, exponents, BigInts and binary/octal/hexadecimal
+integers leave following property names visible, including `1..constructor` and `1n.constructor`. Separators must
+occur between digits; malformed continuations, identifier escapes immediately after a number and legacy leading-zero
+forms are refused. Regular expression flags must be distinct letters from `dgimsuy`; unknown, escaped and duplicate
+flags are refused. Unicode sets (`v`) are refused because their character classes need a different reader. These
+rules apply to TS and TSX in source and test roots, including test-named files in source roots.
+
 In HTML, duplicate attribute names (case-insensitive) and any ampersand in `src`, `href` or `type` are refused.
 Every `src` and `href` on a scanned element is validated before origin classification: ASCII controls (including
 TAB/LF/CR), spaces, backslashes, non-ASCII characters and malformed percent escapes are refused. The accepted URL
