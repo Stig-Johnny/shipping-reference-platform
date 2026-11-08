@@ -19,7 +19,7 @@ import org.jspecify.annotations.Nullable;
  * {@code export { a } from}, their type-only forms) and {@code import('x')} with one plain string literal, anywhere,
  * types included. Refused: {@code import()} with anything else, {@code require}, {@code import.meta} other than
  * {@code import.meta.env}, import-equals declarations, import attributes, a module declaration with a module name
- * ({@code module 'x'}, with or without {@code declare}), {@code eval}, the {@code Function} constructor and calls of a
+ * ({@code module 'x'}, with or without {@code declare}), references to {@code eval}, {@code Function} and calls of a
  * {@code constructor} property, workers ({@code Worker}, {@code SharedWorker}, {@code importScripts},
  * {@code serviceWorker}), {@code setTimeout} and {@code setInterval} with a string, triple-slash directives and JSX
  * pragmas, a backslash escape in a specifier, and whatever the lexer cannot read with certainty.
@@ -146,7 +146,9 @@ final class ImportScanner {
     private void read() {
         for (int i = 0; i < tokens.size(); i++) {
             Token token = tokens.get(i);
-            if (token.type() != TokenType.IDENTIFIER) {
+            // Literal computed properties can alias a loader too: globalThis['Function'] or window['Worker'].
+            boolean property = token.type() == TokenType.STRING && punctuator(i - 1, "[") && punctuator(i + 1, "]");
+            if (token.type() != TokenType.IDENTIFIER && !property) {
                 continue;
             }
             // Refused even as properties (globalThis.eval, window.Function(...)): what they run is never read.
@@ -154,13 +156,16 @@ final class ImportScanner {
                 refuse(token, EVAL);
                 continue;
             }
-            if (token.text().equals("Function") && punctuator(i + 1, "(")) {
+            // No call-shape test: aliases, .call/.apply/.bind and even type uses are refused conservatively.
+            if (token.text().equals("Function")) {
                 refuse(token, FUNCTION);
                 continue;
             }
-            if (WORKERS.contains(token.text())
-                    && (punctuator(i + 1, "(") || token.text().equals("serviceWorker"))) {
+            if (WORKERS.contains(token.text())) {
                 refuse(token, WORKER);
+                continue;
+            }
+            if (property) {
                 continue;
             }
             if (token.text().equals("constructor") && punctuator(i - 1, ".") && punctuator(i + 1, "(")) {

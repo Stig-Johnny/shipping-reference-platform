@@ -34,7 +34,8 @@ import org.jspecify.annotations.Nullable;
  * {@code package.json}: {@code imports}, {@code overrides}, {@code browser} and dependencies other than
  * {@code dependencies} and {@code devDependencies}, whose versions must be exact. In a page: an import map, an inline
  * script, a {@code <base>} element, a script or link from another origin, and a style element that names
- * {@code @import}.
+ * {@code @import}. Duplicate attributes and an ampersand in a URL or type attribute are refused rather than
+ * guessing how a browser decodes character references or selects an attribute.
  *
  * @param app how reports name the directory, for example {@code apps/shipping-web}
  * @param dependencies the runtime dependencies, by name, with their exact versions
@@ -274,7 +275,7 @@ public record AppConfiguration(String app, Map<String, String> dependencies, Map
         }
     }
 
-    /** The attributes of a tag, names in lower case, or null when the text holds anything else. */
+    /** Attributes with unique names and unencoded URL/type values, or null when their reading is uncertain. */
     private static @Nullable Map<String, String> attributes(String text) {
         String body = text.endsWith("/") ? text.substring(0, text.length() - 1) : text;
         Map<String, String> attributes = new TreeMap<>();
@@ -288,7 +289,11 @@ public record AppConfiguration(String app, Map<String, String> dependencies, Map
             if (value.startsWith("\"") || value.startsWith("'")) {
                 value = value.substring(1, value.length() - 1);
             }
-            attributes.put(attribute.group(1).toLowerCase(Locale.ROOT), value);
+            String name = attribute.group(1).toLowerCase(Locale.ROOT);
+            if (attributes.putIfAbsent(name, value) != null
+                    || (Set.of("src", "href", "type").contains(name) && value.contains("&"))) {
+                return null;
+            }
             at = attribute.end();
         }
         return body.substring(at).isBlank() ? attributes : null;
