@@ -38,7 +38,8 @@ class SiteBuilderTest {
             + "worker-src 'none'; base-uri 'none'; form-action 'none'\">";
     static final Set<String> DIAGRAM_PAGES = Set.of("index.html", "model/system-context.html",
             "model/containers.html", "model/api-components.html", "model/quote-book-label.html",
-            "model/flow-quote-book-label.html", "model/scenario-quote.html", "model/scenario-tenant-denial.html");
+            "model/flow-quote-book-label.html", "model/use-cases.html", "model/scenario-quote.html",
+            "model/scenario-tenant-denial.html");
     private static final String MERMAID_SHA256 = "581ed7d74bd9048d0e3a91363927d72ef22942d7722546b27f7cc29e35390eb8";
 
     @TempDir

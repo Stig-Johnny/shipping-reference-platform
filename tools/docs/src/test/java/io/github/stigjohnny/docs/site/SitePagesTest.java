@@ -189,8 +189,9 @@ class SitePagesTest {
         String page = site.text("trust/allowlist.html");
         Allowlist allowlist = sources.allowlist();
 
-        assertThat(page).contains(allowlist.current().reviewedSetSha256(), "pull request #10",
-                "2026-11-06T20:03:16.131Z", "pull request #7", "pull request #3", "entriesSha256",
+        assertThat(page).contains(allowlist.current().reviewedSetSha256(), "pull request #73",
+                "2026-11-07T23:45:39.135Z", "pull request #10", "2026-11-06T20:03:16.131Z",
+                "pull request #7", "pull request #3", "entriesSha256",
                 "Recomputed by this build", "Matches");
         assertThat(page.indexOf(allowlist.current().reviewedSetSha256()))
                 .isLessThan(page.indexOf("<caption>All " + allowlist.entries().size() + " entries"));
@@ -501,7 +502,7 @@ class SitePagesTest {
                         + "current head.</li>");
         assertThat(repository.indexOf("<li>An issue states the change.</li>"))
                 .isGreaterThan(repository.indexOf("Workflow source"));
-        assertThat(site.text("trust/third-party-notices.html")).contains("eight diagram pages");
+        assertThat(site.text("trust/third-party-notices.html")).contains("nine diagram pages");
     }
 
     @Test

@@ -66,6 +66,11 @@ closes it.
   happen in the same transaction. The dynamic view and `docs/flows/quote-book-label.md` describe order; tests
   assert it. The scenario checks compare the order of one run's module API calls and publications with a scenario
   view, in process only (section 6).
+- **The use case overview is not compared with what runs.** The dynamic view and the site's use case overview (sheet
+  M-07) show who takes part in what, as the model and `docs/capabilities/capabilities.yaml` declare it. A use case's
+  stamp there says that its named acceptance tests passed in the build that made the site, not that an actor started
+  it or that its interactions happened as drawn. Only the scenario views (sheets M-08 and M-09) are compared with a
+  run, and only for the steps that their reports count as evaluated (section 6).
 - **Only direct references.** A transitive path neither satisfies nor violates an edge. Two modules can be coupled
   through a third without any report.
 - **Only what the class file records, as ArchUnit 1.5.1 reads it.** javac copies compile-time constants
