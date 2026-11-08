@@ -29,6 +29,32 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
+      - name: Stop the container engine and prove it is unreachable
+        id: engine_off
+        run: |
+          # engine-guard: begin
+          set -euo pipefail
+          sudo systemctl stop docker.service docker.socket
+          sudo systemctl mask --runtime docker.service docker.socket
+          sudo rm -f /var/run/docker.sock
+          command -v nc >/dev/null
+          command -v timeout >/dev/null
+          if timeout 5 docker info >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          if nc -z -U -w 2 /var/run/docker.sock >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          # engine-guard: end
+
       # The base branch supplies the tooling that judges the candidate: the JDK staging script and the allowlist
       # checker. Nothing from the candidate runs until the checker has passed it. A pull request can still change this
       # workflow; preflight, which runs from the base branch, is the gate it cannot change.
@@ -76,6 +102,7 @@ jobs:
         # handovers that must be refused: a wrong digest, a path that leaves the checkout, a link, an overwrite.
         working-directory: candidate
         run: |
+          bash tools/ci/engine-guard-test.sh
           bash tools/ci/container-engine-test.sh
           bash tools/ci/site-handover-test.sh
 
@@ -94,14 +121,23 @@ jobs:
       # security/reviews/runner-image--github-ubuntu-24.04-docker-engine--28.0.4.md. These steps are the runner's half
       # of its conditions (tools/ci/container-engine.sh, the candidate's copy: the base branch's checkers have passed
       # the candidate); the test harness checks the rest from inside the test JVM before it starts a container.
+      - name: Compile the database tests while the engine is unavailable
+        working-directory: candidate
+        env:
+          GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
+        run: ./gradlew --no-daemon --console=plain :apps:shipping-api:testClasses
+
       - name: Check the container engine against its review before any container runs
+        id: prepare
         # The runner, Ubuntu and Docker Engine versions and runc, recorded in the job summary; a loopback-only daemon;
         # an empty registry configuration. A mismatch stops the job: another version needs a review, not a looser check.
         working-directory: candidate
         env:
           DOCKER_HOST: unix:///var/run/docker.sock
           DOCKER_CONFIG: ${{ runner.temp }}/docker-config
-        run: tools/ci/container-engine.sh prepare
+        run: |
+          sudo systemctl unmask --runtime docker.service docker.socket
+          tools/ci/container-engine.sh prepare
 
       - name: Stage the reviewed PostgreSQL image by digest
         id: stage
@@ -111,11 +147,7 @@ jobs:
           DOCKER_CONFIG: ${{ runner.temp }}/docker-config
         run: tools/ci/container-engine.sh stage
 
-      - name: Build and test, the database tests included
-        # check needs only the JDK; the database tests run in their own task, databaseTest, named here, and with
-        # -PdatabaseEvidence=true the docs check also requires their reports from this build, passing and unskipped.
-        # SRP_CONTAINER_ENGINE names the engine the steps above prepared; the harness refuses to start PostgreSQL
-        # without it, the socket, the empty registry configuration and both Testcontainers settings.
+      - name: Run only the reviewed database harness
         working-directory: candidate
         env:
           GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
@@ -124,7 +156,7 @@ jobs:
           DOCKER_CONFIG: ${{ runner.temp }}/docker-config
           TESTCONTAINERS_RYUK_DISABLED: 'true'
           TESTCONTAINERS_CHECKS_DISABLE: 'true'
-        run: ./gradlew --no-daemon --console=plain check :apps:shipping-api:databaseTest -PdatabaseEvidence=true
+        run: ./gradlew --no-daemon --console=plain :apps:shipping-api:databaseTest
 
       - name: Check that only the reviewed image ran, then remove the test containers
         # After the tests, whatever their outcome, once the image was staged: the image set, the containers made, no
@@ -136,10 +168,45 @@ jobs:
           DOCKER_CONFIG: ${{ runner.temp }}/docker-config
         run: tools/ci/container-engine.sh verify
 
+      - name: Stop the container engine and prove it is unreachable
+        id: engine_closed
+        if: ${{ always() }}
+        run: |
+          # engine-guard: begin
+          set -euo pipefail
+          sudo systemctl stop docker.service docker.socket
+          sudo systemctl mask --runtime docker.service docker.socket
+          sudo rm -f /var/run/docker.sock
+          command -v nc >/dev/null
+          command -v timeout >/dev/null
+          if timeout 5 docker info >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          if nc -z -U -w 2 /var/run/docker.sock >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          # engine-guard: end
+
+      - name: Run ordinary checks with the engine unavailable and require this run's database evidence
+        if: ${{ success() && steps.engine_closed.outcome == 'success' }}
+        working-directory: candidate
+        env:
+          GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
+        # The harness just ran; its reports remain mandatory, but it must not restart after shutdown.
+        run: ./gradlew --no-daemon --console=plain check -x databaseTest -PdatabaseEvidence=true
+
       - name: Refuse symbolic links before uploading reports
         # Any link under libs/ or apps/, the report directories themselves included: the upload follows links.
         id: report_guard
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.engine_off.outcome == 'success' && steps.engine_closed.outcome == 'success' }}
         run: |
           links="$(find candidate/libs candidate/apps -type l -print -quit 2>/dev/null || true)"
           if [[ -n "$links" ]]; then
@@ -149,7 +216,7 @@ jobs:
 
       - name: Upload the reports
         # Only when the guard ran and passed: always() would upload even after the guard failed.
-        if: ${{ !cancelled() && steps.report_guard.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.engine_closed.outcome == 'success' && steps.report_guard.outcome == 'success' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2, reviewed
         with:
           name: java-reports
@@ -172,6 +239,32 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
+      - name: Stop the container engine and prove it is unreachable
+        id: engine_off
+        run: |
+          # engine-guard: begin
+          set -euo pipefail
+          sudo systemctl stop docker.service docker.socket
+          sudo systemctl mask --runtime docker.service docker.socket
+          sudo rm -f /var/run/docker.sock
+          command -v nc >/dev/null
+          command -v timeout >/dev/null
+          if timeout 5 docker info >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          if nc -z -U -w 2 /var/run/docker.sock >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          # engine-guard: end
+
       - name: Check out the trusted tooling (the base branch)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
         with:
@@ -215,7 +308,7 @@ jobs:
       - name: Refuse symbolic links before uploading the report
         # Any link under libs/, the report directory itself included: the upload follows links.
         id: report_guard
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.engine_off.outcome == 'success' }}
         run: |
           links="$(find candidate/libs -type l -print -quit 2>/dev/null || true)"
           if [[ -n "$links" ]]; then

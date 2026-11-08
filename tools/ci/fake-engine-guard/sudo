@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$FAKE_GUARD_LOG"
+case "$*" in
+  'systemctl stop docker.service docker.socket') [[ "$FAKE_GUARD_SCENARIO" != stop-failed ]];;
+  'systemctl mask --runtime docker.service docker.socket') [[ "$FAKE_GUARD_SCENARIO" != mask-failed ]];;
+  'rm -f /var/run/docker.sock') [[ "$FAKE_GUARD_SCENARIO" != unlink-failed ]];;
+  *) exit 99;;
+esac

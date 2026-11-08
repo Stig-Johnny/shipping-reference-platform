@@ -39,7 +39,8 @@
 # quote and the offer lookup are partial, since their HTTP and database tests are planned. So do the shipments
 # module's booking tests: booking from an offer and idempotent booking are partial, since their HTTP and database
 # tests are planned. ShipmentTest passes too, but it asserts only what booking produces, not cancellation, so
-# shipments.cancel-shipment stays planned. Every other status is planned and its evidence is "none yet".
+# shipments.cancel-shipment stays planned. The dependency control is partial, with runtime workflow evidence;
+# check 8 is a PARTIAL static lint. Every other status is planned and its evidence is "none yet".
 
 schemaVersion: 1
 
@@ -422,16 +423,17 @@ controls:
     negativeFixture: Fixture files with a cycle, a cross-feature internal import, and a REQUIRED relationship between built parts without an import.
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.dependency-allowlist
-    title: No third-party component is downloaded or run on the sanctioned CI path unless reviewed and allowlisted.
-    where: tools/policy, security/
-    check: preflight
-    status: planned
+    title: Reviewed dependencies, runtime CI engine guards and check 8 as a PARTIAL static lint.
+    where: tools/policy, tools/ci, .github/workflows, security/
+    check: java
+    status: partial
     target: v0.1
-    evidence: none yet
-    acceptanceTests: [AllowlistCheckTest, GradleVerificationCheckTest, NpmLockCheckTest, WorkflowPinCheckTest, ApprovalBindingTest, StrictJsonParserTest]
-    negativeFixture: Demo pull request adding an unreviewed dependency; it is stopped before the build.
-    enforcedSubset: Current enforcement covers preflight, dependency verification, acceptance-digest checks, container image digests and SHA-256-pinned source launch sites.
-    plannedRemainder: Schema validation, policy tests and approval binding remain planned.
+    evidence: [ContainerEngineWorkflowTest]
+    evidenceLabel: CI workflow
+    acceptanceTests: [ContainerEngineWorkflowTest, AllowlistCheckTest, GradleVerificationCheckTest, NpmLockCheckTest, WorkflowPinCheckTest, ApprovalBindingTest, StrictJsonParserTest]
+    negativeFixture: The CI shell fixtures reject reachable CLI/socket and failed stop/mask/unlink/probe operations; ContainerEngineWorkflowTest rejects missing guards and an engine window extended beyond the harness.
+    enforcedSubset: Runtime CI guards enforce engine availability outside the reviewed harness window; check 8 remains a PARTIAL static lint of recognized declarations and pinned launch sites.
+    plannedRemainder: Static gaps include CR comment handling, reflective and Groovy launch APIs, implicit Gradle tasks, wrappers/aliases/mutations and indirect execution; trusted pin transitions, schema validation and approval binding remain open.
     docs: docs/adr/0007-dependency-allowlist-and-pre-use-enforcement.md
   - id: control.risk-classification
     title: Risk level from base-branch policy; level 3 waits for the owner's approval of the current head.

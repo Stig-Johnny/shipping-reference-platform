@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$*" == '5 docker info' ]] || exit 99
+if [[ "$FAKE_GUARD_SCENARIO" == cli-timeout ]]; then
+  echo cli-timeout >> "$FAKE_GUARD_LOG"
+  exit 124
+fi
+docker info

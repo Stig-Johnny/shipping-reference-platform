@@ -11,7 +11,8 @@ enforcedBy:
   - "tools/ci/stage-temurin.sh: SHA-256 check of the reviewed JDK archive before actions/setup-java installs it"
   - "GitHub Actions setting: selected actions only, SHA pinning required, six allowed patterns"
   - "acceptance: PolicyCheck recomputes acceptance.reviewedSetSha256 on every run"
-  - "preflight and java (required checks): the checker's check 8. The checker rejects recognized container declarations. The harness validates its PostgreSQL instance, and CI checks subsequent engine activity. These controls do not isolate arbitrary build code."
+  - "preflight and java (required checks): check 8 is a PARTIAL static lint of recognized container declarations and launch sites, with known bypasses; it is not the engine-access enforcing control"
+  - "workflow runtime guards: stop and mask the engine, remove its socket and prove it unreachable before checkout and after the reviewed database harness window"
   - "tools/ci/container-engine.sh: the runner review's conditions around the database tests in java and pages, with the test harness's own checks"
 plannedEnforcement:
   - "allowlist schema: security/allowlist.schema.json with the fields named in the decision"
@@ -144,44 +145,37 @@ What is built, and where it differs from the decision above. The decision stands
   a human accepted it: the owner and the AI agents use the same GitHub account, and the agent that records the
   acceptance also computes the digest. The record quotes the owner's words and their timestamp from the chat
   transcript. Nothing binds an approval to a head SHA.
-- **Container images: recognized declarations as text before the build, the engine around the tests.** The checker
-  rejects recognized container declarations. The harness validates its PostgreSQL instance, and CI checks subsequent
-  engine activity. These controls do not isolate arbitrary build code. Check 8 fails closed: it matches only in the
-  forms it decodes completely and refuses every other form, whatever it holds. It reads every file under a project's
-  `src/` directory whatever its extension, every Java, Kotlin and Groovy file outside the checker's own directory (the
-  build scripts included), `gradle.properties`, the workflows and action files, and every shell script, by its `.sh`
-  extension, its `#!` line or its executable bit; in the whole tree it refuses executables and archives other than the
-  wrapper JAR, and container build and compose files. It decodes Java after its Unicode escapes; Java and Kotlin
-  without comments, with every string literal decoded, alone and joined with its neighbours; YAML scalars on one line
-  and literal blocks, their indentation removed as YAML removes it; and shell text as bash splits it into words, with
-  the place of every command known. It refuses what it cannot decode: any heredoc in a script, a workflow or a
-  resource, and one with a body in a string literal; `$'...'` quoting with an escape; a YAML scalar over lines, a folded block, an
-  escape in a double-quoted scalar, anchors, aliases, tags, merge keys and explicit keys, a GitHub expression in a run
-  step, a shell other than bash or sh, and an action that is not composite; a command that is an expansion or a glob,
-  brace expansion, a shell that reads its commands from its input, an awk program that runs commands, an interpreter
-  or build tool whose programs it does not read (subject to the exact web command forms below) and a file of the tree run
-  as a script that it does not read as one; a backquoted Kotlin name, and every Groovy file; a runtime's name split
-  across string literals; the variables that make bash, the loader or a runtime run other code (`BASH_ENV`,
-  `LD_PRELOAD`, `JAVA_TOOL_OPTIONS` and others) and JVM options that run a command; a Unix socket
-  opened from code outside the harness; and a file under `src/` that is not UTF-8 text. Within what it decodes it
-  rejects a digest that no approved `container-image` entry has, a tag in place of or next to a digest, an image name
-  built in code, any reference to Testcontainers or docker-java outside the harness `ReviewedPostgres`, any container
-  there but the reviewed PostgreSQL one, the Testcontainers features the reviews forbid (Compose, host binds, copies
-  into a container, host access, privileged mode, reuse, a network mode and create-command modifiers), a container
-  runtime named in code, a string or a resource, Testcontainers configuration files and image settings, and in
-  workflows and scripts docker as a command word with anything but a pull by digest, reads and removals, docker in a
-  word it cannot read as a command, and job and service containers written as plain, quoted, flow, escaped or explicit
-  YAML keys. What it cannot see stays outside it: text assembled at run time (from variables, a file's contents, a
-  program's output or a method call such as `format`) inside a reviewed launch site, the programs that a command it allows runs in turn
-  (sed, git's configuration, `find -exec`), and a library that starts a container of its own; for those, the engine
-  checks after the tests are what find a container. Matching a Node command does not inspect or isolate the repository
-  code its test runner executes. The `java` job runs the candidate's copy of the checker as well, after the base branch's and before any other
-  code of the candidate, so that a rule a pull request adds applies to that pull request. At run time,
-  `tools/ci/container-engine.sh` checks the runner, the engine and runc versions against the runner review, makes the
-  daemon publish on 127.0.0.1 only, stages the image by digest, and afterwards checks that no other image appeared,
-  that every container created came from the reviewed image and that nothing was copied into one, every engine query
-  checked on its own; it does not see how another container was configured. The harness checks its own container
-  from inside the test JVM and hands a test only a `Database` handle, never the container.
+- **Container declarations: PARTIAL static lint (check 8).** The existing code remains unchanged under the owner's
+  2026-11-08 decision. It rejects recognized declarations, unsupported syntax it recognizes, non-reviewed image
+  digests and recognized launch sites without an exact path and whole-file hash. It scans source, build scripts,
+  workflow/action YAML, shell scripts and selected resources. This is a finite lexical scan, not a proof that every
+  executable route has been found. Its exact web-command predicate and launch registry are described below; the
+  known bypass classes are listed under the runtime decision. Its existing rejections and regression assertions
+  remain in place. A clean check 8 is not evidence that code cannot reach an engine.
+- **Runtime engine access is the enforcing control (owner decision, 2026-11-08).** Every job's first step, before
+  checkout or any action, stops `docker.service` and `docker.socket`, masks both units for the runner's lifetime and
+  removes `/var/run/docker.sock`. Any failure stops the job. The same step requires `docker info` to fail and a
+  direct Unix-socket connection with `nc` to fail; success of either refuses the job. Missing probe tools, timeouts
+  and unexpected probe exit codes fail too. Inline guards need no candidate checkout or additional action.
+
+  Only `java` and Pages `test` open a reviewed harness window: compile test classes with the engine off, unmask in
+  the preparation step, then prepare, stage the reviewed image, run only `:apps:shipping-api:databaseTest`, and verify
+  and sweep the engine. An `always()` step immediately afterwards stops, masks, unlinks and probes again, including
+  after harness failure or cancellation. Later checks, report uploads and the Pages handover require successful
+  shutdown. Ordinary tests and documentation run after shutdown with `-PdatabaseEvidence=true -x databaseTest`:
+  the database task has already run in this job, and its passing, unskipped reports remain required. `preflight`,
+  `mutation`, Pages `build` and `deploy` never open a window. No dependency or Action pin changes.
+
+  `tools/ci/engine-guard-test.sh` runs the actual inline blocks with fake commands in the Java CI job. Reachable
+  CLI/socket fixtures and stop/mask/unlink/probe failures, including a timeout, must fail, while the stopped fixture
+  passes. The regression checks call order and immediate termination after a failed operation. No real engine
+  is used by this regression. `ContainerEngineWorkflowTest` checks ordering and the window, and `PagesWorkflowTest`
+  retains the publication separation and evidence-handover checks. Hosted service behaviour still needs a CI run.
+
+  This enforces the workflow's engine availability windows. It is not a hostile-code sandbox: a privileged process
+  on a hosted runner could unmask/restart the daemon, install another engine or contact a remote endpoint. Arbitrary
+  Gradle configuration still runs within the database invocation. The harness validates its own PostgreSQL container;
+  `container-engine.sh` audits images/events afterwards, not every other container's privileges or configuration.
 - **No base-dispatched verification workflow.** `preflight` dispatches nothing, and no trusted job publishes check
   results. `java` is an ordinary `pull_request` workflow. It checks out the base branch next to the candidate, stages
   the JDK with the base branch's script and runs the base branch's checker on the candidate before any candidate code
@@ -193,7 +187,7 @@ What is built, and where it differs from the decision above. The decision stands
   for them, so their pull requests have the same author as the owner's.
 - **Repository settings.** The Actions setting is applied: selected actions only, SHA pinning required, six allowed
   patterns and no GitHub-owned or verified wildcard. `preflight` and `java` are required status checks on `main`.
-- **Reviewed web command forms (check 8).** Interpreter refusal remains the default. One predicate checks the literal
+- **Reviewed web command forms (check 8, PARTIAL static lint).** Interpreter refusal remains the default. One predicate checks the literal
   executable, every argument, the working directory and the effective reviewed entries. It requires the accepted
   reviewed-set digest, approved and unexpired entries with existing review files, Node 26.13.0 and its bundled npm
   11.20.0 for the same platform, and the command conditions. Workflows require the Linux CI pair; scripts and source
@@ -212,8 +206,9 @@ What is built, and where it differs from the decision above. The decision stands
 
   The same predicate applies to workflow run steps, shell scripts and recognized command vectors inside registered
   Java/Kotlin launch sites: `ProcessBuilder`, `Runtime.exec` and Gradle `commandLine`/`setCommandLine`. A matching
-  command alone never authorizes an unregistered source file. Complete literal vectors are read;
-  computed vectors, unsupported setters and constructor references fail closed. Root execution is the repository
+  command alone does not authorize a recognized launch site in an unregistered source file. Complete literal vectors are read;
+  recognized computed vectors, unsupported setters and constructor references are refused; missed execution sites
+  are outside this predicate. Root execution is the repository
   script/JVM convention; Gradle's default is its project directory. A workflow can state its directory on the step,
   a shell can start with a single literal `cd apps/shipping-web &&` followed by one command, a process builder can
   chain a literal `directory(new File(...))`, and an Exec block can state a literal `workingDir`. Inherited workflow
@@ -226,18 +221,18 @@ What is built, and where it differs from the decision above. The decision stands
   installation and registered script invocations. The separate maintenance approval authorizes no `npm install` in CI.
   There are still no npm manifests, lockfile or web job in this tree; these rules are exercised by inert fixtures.
 
-- **Structural launch-site gate (check 8, 2026-11-08).** Before inspecting commands, the checker refuses launch
-  capabilities in every Java, Kotlin and Gradle source unless its exact path and whole-file SHA-256 appear in
+- **Structural launch-site lint (check 8, PARTIAL, 2026-11-08).** Before inspecting commands, the checker refuses
+  recognized launch capabilities in Java, Kotlin and Gradle source unless its exact path and whole-file SHA-256 appear in
   `PolicyCheck.LAUNCH_SITES`. This scan includes tests, `tools/policy/`, source packages named `build`, generated
   source directories and caches; only Git's own metadata is outside it. It reads code after Java Unicode decoding
   and removal of identifier-ignorable characters, comments and inert literals. Kotlin expression templates and
   backquoted identifiers are refused without a pin; nested Kotlin comments retain their lexical boundaries.
 
-  The gate covers process builders, Runtime access, process handles, Exec/JavaExec types and operations, command
-  and argument setters/providers, reflection lookup/invocation and method-handle APIs. A qualified name, alias or
-  static import still exposes the capability before the alias is used. It does not try to reconstruct a command
-  after arbitrary setters or resolve an inferred receiver. An `env` wrapper, a later argument mutation and an
-  inferred Runtime alias in a new file therefore all fail for the same reason. Every present registered file is
+  The lint recognizes a finite list of process-builder, Runtime, process-handle, Exec/JavaExec, setter/provider,
+  reflection and method-handle spellings. Some qualified names, aliases and static imports expose those tokens;
+  the bypasses below show that the list and lexical model are incomplete. It does not try to reconstruct a command
+  after arbitrary setters or resolve an inferred receiver. Existing regression examples of `env` wrappers, later
+  argument mutations and inferred Runtime aliases in new files are rejected; this is not complete coverage. Every present registered file is
   hash-checked even if an edit removes all its launch code; copying it to another path grants nothing.
 
   Seven existing files are pinned: `ReviewedPostgres.java` (the DB harness), the API build script (its test JVM
@@ -249,11 +244,38 @@ What is built, and where it differs from the decision above. The decision stands
   The registry grants no permission to run PIT outside its existing reviewed CI conditions.
 
   The registry belongs to the running checker; preflight uses the base branch's version, not a registry supplied
-  by the candidate. A launch-site edit therefore needs a trusted, reviewed registry update as well as review of
-  the file. Merely updating a candidate's pin cannot override an older base-branch pin. The existing workflow/shell
+  by the candidate. There is currently no working transition protocol for updating an existing pin: a source plus
+  candidate-pin edit fails the base checker, while a registry-only replacement fails the candidate checker against
+  unchanged source. Owner approval alone does not resolve this. A trusted current/successor-digest protocol remains
+  open work; this change neither implements one nor changes any pin. The existing workflow/shell
   web predicate is unchanged, and registered source command vectors still receive its exact-form decision.
   Hashes freeze the reviewed launchers, including their dynamic JavaExec arguments; they do not prove their logic
   safe or isolate the repository code, approved libraries or tools those launchers execute.
+
+### Known static-lint gaps from the two PR #54 reviews
+
+The 2026-11-08 owner decision retains these as documented gaps rather than claiming complete static enforcement:
+
+- Gradle can mutate an initially approved vector through `args`, `setArgs`, `setExecutable`, property assignments
+  or argument providers. Process wrappers such as `env`, executable-path variants, and qualified or statically
+  imported inferred `Runtime` aliases are additional launch routes. Existing registry fixtures reject several
+  examples from the earlier review; they do not prove complete execution-site coverage.
+- Raw CR line endings in Java/Kotlin and Java Unicode-escaped CR can end a line comment for the compiler while the
+  scanner continues treating executable text as a comment. CR/LF/CRLF lexical handling is incomplete.
+- `java.beans.Expression` and `java.beans.Statement.execute()` provide reflection outside the token list.
+  `org.codehaus.groovy.runtime.ProcessGroovyMethods.execute` is a direct process API callable from Java or Kotlin
+  even though `.groovy` source is refused. Imports and aliases broaden these routes.
+- Gradle's Application plugin supplies an implicit `run` JavaExec task; `dependsOn(tasks.run)` can invoke it without
+  spelling a registered process API. Other plugin-provided tasks are not exhaustively modeled.
+- Commands assembled at runtime, dynamic arguments within pinned launchers, code imported by the reviewed Node test
+  runner, libraries, and commands launched indirectly by allowed tools (`find`, `sed`, git configuration) are outside
+  the complete-command predicate. An accepted command vector does not isolate any code it executes.
+- Existing single-digest pins have the base/candidate transition deadlock described above. Static false positives
+  also remain, including inert Testcontainers metadata and servlet `getMethod()` confused with reflection. These
+  limitations must not be worked around by relaxing a check or silently pinning ordinary helpers.
+
+The runtime guard is the enforcing control for local engine availability in CI. Broader isolation and a trusted
+pin-transition design remain open work; the static lint stays PARTIAL.
 
 ## More Information
 

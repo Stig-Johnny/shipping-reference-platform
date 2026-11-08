@@ -8,7 +8,7 @@
 #   build   In the github-pages environment, whose secret is the scan dictionary. It builds the site again from the
 #           same commit and those reports, without running the tests, requires the test job's digest, scans the site,
 #           re-checks Mermaid's SHA-256, refuses links and hidden files, and only then uploads the site directory.
-#   deploy  One step and the only write permissions.
+#   deploy  The engine guard, then deployment; the only write permissions.
 # The conditions of the Pages actions' reviews and of the runner review in security/reviews/ apply to every line here.
 name: pages
 
@@ -43,6 +43,32 @@ jobs:
       reports-sha256: ${{ steps.handover.outputs.reports-sha256 }}
       site-sha256: ${{ steps.handover.outputs.site-sha256 }}
     steps:
+      - name: Stop the container engine and prove it is unreachable
+        id: engine_off
+        run: |
+          # engine-guard: begin
+          set -euo pipefail
+          sudo systemctl stop docker.service docker.socket
+          sudo systemctl mask --runtime docker.service docker.socket
+          sudo rm -f /var/run/docker.sock
+          command -v nc >/dev/null
+          command -v timeout >/dev/null
+          if timeout 5 docker info >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          if nc -z -U -w 2 /var/run/docker.sock >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          # engine-guard: end
+
       # On a push to main the trusted base and the candidate are the same commit, so one checkout is enough.
       - name: Check out the commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
@@ -70,13 +96,21 @@ jobs:
       - name: Verify the Gradle wrapper before running it
         run: echo "3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  gradle/wrapper/gradle-wrapper.jar" | sha256sum --check --strict
 
+      - name: Compile the database tests while the engine is unavailable
+        env:
+          GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
+        run: ./gradlew --no-daemon --console=plain :apps:shipping-api:testClasses
+
       - name: Check the container engine against its review before any container runs
+        id: prepare
         # The runner, Ubuntu and Docker Engine versions and runc, recorded in the job summary; a loopback-only daemon;
         # an empty registry configuration. A mismatch stops the job: another version needs a review, not a looser check.
         env:
           DOCKER_HOST: unix:///var/run/docker.sock
           DOCKER_CONFIG: ${{ runner.temp }}/docker-config
-        run: tools/ci/container-engine.sh prepare
+        run: |
+          sudo systemctl unmask --runtime docker.service docker.socket
+          tools/ci/container-engine.sh prepare
 
       - name: Stage the reviewed PostgreSQL image by digest
         id: stage
@@ -85,11 +119,7 @@ jobs:
           DOCKER_CONFIG: ${{ runner.temp }}/docker-config
         run: tools/ci/container-engine.sh stage
 
-      - name: Run every project's tests, the database tests included, check the docs and build the site
-        # :tools:docs:check and :tools:docs:site run after the tests of every project with test sources and read their
-        # reports, so the site's evidence is this build's; with -PdatabaseEvidence=true they also run databaseTest and
-        # require its reports, passing and unskipped. :tools:docs:site empties tools/docs/build/site and writes it
-        # again from the sources of this commit.
+      - name: Run only the reviewed database harness
         env:
           GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
           SRP_CONTAINER_ENGINE: github-ubuntu-24.04
@@ -97,7 +127,7 @@ jobs:
           DOCKER_CONFIG: ${{ runner.temp }}/docker-config
           TESTCONTAINERS_RYUK_DISABLED: 'true'
           TESTCONTAINERS_CHECKS_DISABLE: 'true'
-        run: ./gradlew --no-daemon --console=plain :apps:shipping-api:databaseTest :tools:docs:check :tools:docs:site -PdatabaseEvidence=true
+        run: ./gradlew --no-daemon --console=plain :apps:shipping-api:databaseTest
 
       - name: Check that only the reviewed image ran, then remove the test containers
         # After the tests, whatever their outcome, once the image was staged: the image set, the containers made, no
@@ -108,8 +138,43 @@ jobs:
           DOCKER_CONFIG: ${{ runner.temp }}/docker-config
         run: tools/ci/container-engine.sh verify
 
+      - name: Stop the container engine and prove it is unreachable
+        id: engine_closed
+        if: ${{ always() }}
+        run: |
+          # engine-guard: begin
+          set -euo pipefail
+          sudo systemctl stop docker.service docker.socket
+          sudo systemctl mask --runtime docker.service docker.socket
+          sudo rm -f /var/run/docker.sock
+          command -v nc >/dev/null
+          command -v timeout >/dev/null
+          if timeout 5 docker info >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          if nc -z -U -w 2 /var/run/docker.sock >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          # engine-guard: end
+
+      - name: Run ordinary checks with the engine unavailable and require this run's database evidence
+        if: ${{ success() && steps.engine_closed.outcome == 'success' }}
+        env:
+          GRADLE_USER_HOME: ${{ runner.temp }}/gradle-user-home
+        # The harness just ran; its reports remain mandatory, but it must not restart after shutdown.
+        run: ./gradlew --no-daemon --console=plain :tools:docs:check :tools:docs:site -x databaseTest -PdatabaseEvidence=true
+
       - name: Hand this run's test reports and the site's digest to the build job
         id: handover
+        if: ${{ success() && steps.engine_closed.outcome == 'success' }}
         run: tools/ci/site-handover.sh send
 
   build:
@@ -123,6 +188,32 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Stop the container engine and prove it is unreachable
+        id: engine_off
+        run: |
+          # engine-guard: begin
+          set -euo pipefail
+          sudo systemctl stop docker.service docker.socket
+          sudo systemctl mask --runtime docker.service docker.socket
+          sudo rm -f /var/run/docker.sock
+          command -v nc >/dev/null
+          command -v timeout >/dev/null
+          if timeout 5 docker info >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          if nc -z -U -w 2 /var/run/docker.sock >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          # engine-guard: end
+
       - name: Check out the commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, reviewed
         with:
@@ -229,6 +320,32 @@ jobs:
       pages: write
       id-token: write
     steps:
+      - name: Stop the container engine and prove it is unreachable
+        id: engine_off
+        run: |
+          # engine-guard: begin
+          set -euo pipefail
+          sudo systemctl stop docker.service docker.socket
+          sudo systemctl mask --runtime docker.service docker.socket
+          sudo rm -f /var/run/docker.sock
+          command -v nc >/dev/null
+          command -v timeout >/dev/null
+          if timeout 5 docker info >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          if nc -z -U -w 2 /var/run/docker.sock >/dev/null 2>&1; then
+            echo "::error::Container engine is reachable outside the reviewed harness window"
+            exit 1
+          else
+            probe_status=$?
+            [[ "$probe_status" == 1 ]] || exit "$probe_status"
+          fi
+          # engine-guard: end
+
       - name: Deploy the site
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1, reviewed

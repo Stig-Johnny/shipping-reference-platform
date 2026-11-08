@@ -170,31 +170,26 @@ closes it.
   parsing assembles for an empty group (for example with a `$` group separator) stays in the parser's own table:
   no element carries it, so it is not checked and cannot reach a report.
 
-- **The container image check rejects what it recognizes, and refuses what it cannot decode.** The checker rejects
-  recognized container declarations. The harness validates its PostgreSQL instance, and CI checks subsequent engine
-  activity. These controls do not isolate arbitrary build code. Check 8 matches only in the forms it decodes (shell
-  words with each command in its place; YAML scalars on one line and literal blocks; Java and Kotlin without comments,
-  with their string literals decoded, alone and joined) and refuses the rest: heredocs, `$'\x..'`, YAML scalars over
-  lines, folded blocks, anchors, tags and expressions in run steps, a command that is an expansion or a glob, brace
-  expansion, a shell that reads its input, awk programs that run commands, interpreters and build tools it does not
-  read (apart from ADR 0007's exact reviewed web commands), backquoted Kotlin names, Groovy, binaries under `src/`, executables, container
-  files, the variables that make a shell or the JVM run other code, and Unix sockets opened from code outside the
-  harness. Java/Kotlin/Gradle launch capabilities, reflection lookup/invocation and method handles require an exact
-  file path and whole-file SHA-256 in the checker's launch-site registry (ADR 0007). The structural scan includes
-  `tools/policy/`, tests, build outputs and caches; image-string scanning still treats the checker's fixtures as data.
-  A changed registered file, a new launch site, an alias, an `env` wrapper or subsequent argument mutation fails
-  without a matching pin. Registered sites still undergo the existing command-vector checks. Hashes freeze reviewed
-  launchers; their dynamic JavaExec arguments and the behaviour of libraries and commands they execute still need
-  review. A library that starts a container of its own, or a program invoked in turn (sed, git's configuration,
-  `find -exec`), stays outside this source gate. Documents outside `src/` and review records are not executable code. At run time CI sees which images appeared and which images
-  containers were made from, and whether anything was copied into one; it does not see how another container was
-  configured, its privileges, mounts or networks. Only the harness's own container is checked for those. The exact
-  `node --test` exception runs repository-owned logic tests with discovery rooted in `apps/shipping-web`. It does not
-  analyze their JavaScript/TypeScript or prevent their imports from reaching other code or engine sockets/endpoints.
-  Exact command matching supplies no runtime isolation; an absolute engine-access restriction would need enforced
-  isolation. Verified tool installation, review conditions and subsequent engine auditing remain necessary. Check 8
-  inspects root and declared workspace scripts and refuses unregistered bodies, lifecycle hooks and unresolved forms;
-  it does not model every program an otherwise permitted command can invoke.
+- **Check 8 is a PARTIAL static lint, not the engine-access enforcing control.** The owner decision of 2026-11-08
+  leaves its code and rejections intact. Known bypass classes from the two PR #54 reviews are Gradle argument and
+  executable mutations (including providers/properties), process wrappers such as `env` and inferred Runtime
+  aliases; raw or Java Unicode-escaped CR hiding executable code after a comment; reflection through
+  `java.beans.Expression`/`Statement`; `ProcessGroovyMethods.execute` called from Java/Kotlin; and plugin-supplied
+  Gradle JavaExec tasks such as Application's implicit `run`. Several earlier mutation/wrapper/alias examples are
+  caught by existing pins, but that does not close the classes. Dynamic strings, indirect commands, approved
+  libraries and code imported by Node tests remain outside full analysis. Single-digest launch pins also have no
+  working base/candidate update sequence. Inert Testcontainers metadata and servlet `getMethod()` can be false
+  positives. [ADR 0007](adr/0007-dependency-allowlist-and-pre-use-enforcement.md#known-static-lint-gaps-from-the-two-pr-54-reviews)
+  records the complete limits; none is a claim of universal static refusal.
+- **CI enforces engine availability at runtime, within the workflow's privilege boundary.** Every job stops and
+  masks the engine units, unlinks the socket and probes CLI and direct socket access before checkout. Only the
+  reviewed harness steps in Java CI and Pages testing re-enable it; shutdown and both probes run immediately
+  afterwards, even after failure. Later work requires successful shutdown. Failed stop/mask/unlink operations and
+  failed probe tools refuse the job. The fixture regression exercises those failures without a real engine.
+  Hosted CI execution remains necessary to verify the runner's service behaviour. A privileged process can undo
+  the guard or use another/remote engine: these jobs are not a hostile-code sandbox. Gradle still configures the
+  build in the database step. The harness checks its own container's privileges, mounts and network; the subsequent
+  engine audit sees image/event history, not every other container's configuration.
 - **The platform image is inferred, not read back.** The runner's engine keeps an image's index digest, not the
   digest of the platform manifest it pulled. That the tests ran the linux/amd64 image `sha256:e923a22a…` follows
   from the pinned index, whose platforms the review lists, and from the image's reported platform; nothing compares

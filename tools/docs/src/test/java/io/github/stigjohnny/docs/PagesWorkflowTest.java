@@ -33,8 +33,9 @@ class PagesWorkflowTest {
     private static final String SETUP_JAVA = "actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78";
     private static final String UPLOAD = "actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9";
     private static final String DEPLOY_PAGES = "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346";
-    private static final String DOCS_AND_TESTS = "./gradlew --no-daemon --console=plain :apps:shipping-api:databaseTest "
-            + ":tools:docs:check :tools:docs:site -PdatabaseEvidence=true";
+    private static final String DATABASE_TESTS = "./gradlew --no-daemon --console=plain :apps:shipping-api:databaseTest";
+    private static final String DOCS_AND_TESTS = "./gradlew --no-daemon --console=plain "
+            + ":tools:docs:check :tools:docs:site -x databaseTest -PdatabaseEvidence=true";
     private static final String SITE_FROM_REPORTS = "./gradlew --no-daemon --console=plain :tools:docs:site -x test "
             + "-x databaseTest -PdatabaseEvidence=true";
 
@@ -90,10 +91,11 @@ class PagesWorkflowTest {
     void theTestJobChecksBeforeUseThenPreparesTheEngineRunsEveryTestAndOnlyThenHandsOverTheReports() {
         List<YMap> steps = steps(TEST);
 
-        assertCheckedOut(steps.getFirst());
+        assertThat(steps.getFirst().string("id")).isEqualTo("engine_off");
+        assertCheckedOut(steps.get(1));
         assertThat(order(steps, "stage-temurin.sh", SETUP_JAVA, "PolicyCheck.java . | tee -a \"$GITHUB_STEP_SUMMARY\"",
                 "gradle-wrapper.jar\" | sha256sum --check --strict", "container-engine.sh prepare",
-                "container-engine.sh stage", DOCS_AND_TESTS, "container-engine.sh verify", "site-handover.sh send"))
+                "container-engine.sh stage", DATABASE_TESTS, "container-engine.sh verify", DOCS_AND_TESTS, "site-handover.sh send"))
                 .isSorted();
         assertThat(steps.getLast().string("id")).isEqualTo("handover");
         assertThat(steps.getLast().string("run")).isEqualTo("tools/ci/site-handover.sh send");
@@ -104,9 +106,9 @@ class PagesWorkflowTest {
 
     @Test
     void theTestsRunUnderTheRunnerReviewsConditions() {
-        YMap tests = step(steps(TEST), DOCS_AND_TESTS);
+        YMap tests = step(steps(TEST), DATABASE_TESTS);
 
-        assertThat(tests.string("run")).isEqualTo(DOCS_AND_TESTS);
+        assertThat(tests.string("run")).isEqualTo(DATABASE_TESTS);
         assertThat(texts(tests.map("env"))).containsExactlyInAnyOrderEntriesOf(Map.of(
                 "GRADLE_USER_HOME", "${{ runner.temp }}/gradle-user-home",
                 "SRP_CONTAINER_ENGINE", "github-ubuntu-24.04",
@@ -125,7 +127,8 @@ class PagesWorkflowTest {
     void theBuildChecksBeforeUseTakesOverTheReportsBuildsComparesScansReChecksGuardsAndOnlyThenUploads() {
         List<YMap> steps = steps(BUILD);
 
-        assertCheckedOut(steps.getFirst());
+        assertThat(steps.getFirst().string("id")).isEqualTo("engine_off");
+        assertCheckedOut(steps.get(1));
         assertThat(order(steps, "stage-temurin.sh", SETUP_JAVA, "PolicyCheck.java . | tee -a \"$GITHUB_STEP_SUMMARY\"",
                 "gradle-wrapper.jar\" | sha256sum --check --strict", "site-handover.sh receive", SITE_FROM_REPORTS,
                 "site-handover.sh compare", ":tools:docs:scanSite", "mermaid.min.js\" | sha256sum --check --strict",
@@ -201,16 +204,20 @@ class PagesWorkflowTest {
     }
 
     @Test
-    void theDeployJobNeedsTheBuildAndHasOneStepWithDefaultInputs() {
+    void theDeployJobNeedsTheBuildAndGuardsTheEngineBeforeDeployingWithDefaultInputs() {
         assertThat(DEPLOY.string("needs")).isEqualTo("build");
         assertThat(DEPLOY.map("environment").string("name")).isEqualTo("github-pages");
         assertThat(DEPLOY.map("environment").string("url")).isEqualTo("${{ steps.deployment.outputs.page_url }}");
-        assertThat(steps(DEPLOY)).singleElement().satisfies(step -> {
+        assertThat(steps(DEPLOY)).hasSize(2);
+        assertThat(steps(DEPLOY).getFirst().string("id")).isEqualTo("engine_off");
+        assertThat(steps(DEPLOY).getLast()).satisfies(step -> {
             assertThat(step.string("uses")).isEqualTo(DEPLOY_PAGES);
             assertThat(step.has("with")).isFalse();
             assertThat(step.has("run")).isFalse();
         });
-        assertThat(TEXT).doesNotContain("always()");
+        assertThat(count(TEXT, "always()")).isEqualTo(1);
+        assertThat(steps(TEST)).filteredOn(step -> step.optionalString("if").orElse("").contains("always()"))
+                .singleElement().satisfies(step -> assertThat(step.string("id")).isEqualTo("engine_closed"));
     }
 
     @Test

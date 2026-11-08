@@ -30,9 +30,11 @@ Built and running:
   checks the API's classes against the model with the checker, `ModularityTest` runs Spring Modulith's verification
   and `HexagonalLayeringTest` the layering rules, and each of the three also fails on fixtures that break it.
 - **The database harness** of the shipping API's tests. It starts the reviewed PostgreSQL image, by digest, only on
-  a container engine that a review approves. The checker rejects recognized container declarations. The harness
-  validates its PostgreSQL instance, and CI checks subsequent engine activity. These controls do not isolate arbitrary
-  build code. No schema exists yet.
+  a container engine that a review approves. CI stops and masks the engine and probes CLI/socket denial before
+  checkout in every job and after the reviewed harness window. This runtime guard enforces engine availability;
+  check 8 is a PARTIAL static lint with known bypasses (ADR 0007). The harness validates its PostgreSQL instance,
+  and CI checks subsequent engine activity. Privileged code could undo the guard; it is not a hostile-code sandbox.
+  No schema exists yet.
 - **The documentation tool**, `tools/docs`, with its tests. It generates the C4 view pages, `BRAIN.md` and a static
   site. In `java`, it checks committed generated files for drift, repository-local links and anchors for validity,
   and shipped or partial capability claims against passing test evidence. The `pages` workflow scans the site before
@@ -206,7 +208,7 @@ it runs) and which part is **planned**.
 | Domain invariants | Golden tariff prices, monotonicity and rounding properties, idempotent booking, expiry rules. | Wrong requirements. | `java` (parameterized property tests included: `SyntheticTariffPropertiesTest`) | partial: the tariff, expiry and booking tests run in `java`, booking with stores in memory; idempotent booking against the database is planned |
 | Event delivery | A failed audit write is lost, or a replay has a second effect. | Consumers nobody has written yet. | `java`: `AuditReplayIntegrationTest` | planned |
 | Mutation testing | Fewer than 80 % of mutants on changed lines are killed (90 % for pricing and checker code). | Tests that consistently assert the wrong thing; hand-reviewed equivalent mutants. | `mutation` | planned (today the `mutation` job runs PIT on the contract kit and fails under 90 % killed; it is not a required check) |
-| Dependency allowlist, before use | A locked dependency, the Gradle wrapper or an Action has no approved, unexpired review; a checksum or a vendored file differs from its review; an Action is not pinned to an allowlisted commit; the reviewed set changed after the owner accepted it; the checked tree holds a symbolic link. | Build code that downloads executables itself, compromised approved artifacts, runner compromise, local agents bypassing CI, a reviewed component used outside the scope of its review. | `preflight` (from the base branch); `java` before Gradle starts, then the checker's tests (`tools/policy/PolicyCheckTest.java`) | **enforced**: `preflight` is a required check, made to fail on purpose by pull requests #16 and #17 (`security/README.md`). Planned, which is why `capabilities.yaml` still lists the control as planned: a schema for the allowlist, the checker's acceptance tests named there (its JDK-only tests run in `java` but write no JUnit report), and approval bound to a pull request's head |
+| Dependency allowlist and CI engine availability | A locked dependency, the Gradle wrapper or an Action has no approved, unexpired review; a checksum differs; the reviewed set changed after acceptance; the checked tree holds a symbolic link; engine shutdown or denial probes fail outside the reviewed harness window. | Check 8 is a PARTIAL static lint with known bypasses (ADR 0007); privileged code can undo the runtime guard. Build code downloading executables, compromised artifacts, runner compromise, local-agent bypass and review-scope misuse remain gaps. | `preflight` from the base branch; `java` before Gradle; engine guards in every CI job | **partial** in `capabilities.yaml`, with `ContainerEngineWorkflowTest` evidence and executable shell fixtures. The allowlist gate and runtime guard run today; schema validation, the remaining named acceptance tests and approval bound to the current head are planned. |
 | Risk-levelled approval | A level 3 change lacks the owner's approval of its current head. | A sensitive change that matches no rule; a single approver is not two-person review. | `risk-approval` | planned |
 | AI review record | No AI review with findings and dispositions is recorded for the final commit. | AI reviewers being wrong. | `ai-review` | planned |
 | Web behaviour and accessibility | Quote, book and label fail in a real browser against the real API; axe-core finds violations; import cycles or boundary breaks; a REQUIRED relationship between built web parts without a direct import. | Accessibility problems that automated tools miss; an unused part that no REQUIRED relationship reaches. | `web`, `contract-e2e`; the import check in `java` (ADR 0012) | planned |
@@ -263,7 +265,7 @@ off.
 | Test the allowlist checker (the JDK alone) | `java tools/policy/PolicyCheckTest.java` |
 | Run all Java checks (compile with Error Prone and NullAway, tests) | `./gradlew check` |
 | Run the database tests (CI only: they need the reviewed container engine, which the `java` job prepares) | `./gradlew :apps:shipping-api:databaseTest` |
-| Test the CI scripts (bash and GNU tar, as on the runner; no container engine) | `bash tools/ci/container-engine-test.sh`; `bash tools/ci/site-handover-test.sh` |
+| Test the CI scripts (bash and GNU tar, as on the runner; no container engine) | `bash tools/ci/engine-guard-test.sh`; `bash tools/ci/container-engine-test.sh`; `bash tools/ci/site-handover-test.sh` |
 | Run mutation tests (CI only, the `mutation` job: PIT's control socket accepts unauthenticated connections) | `./gradlew :libs:c4-contract-kit:pitest` |
 | Check docs and the brain; regenerate them | `./gradlew :tools:docs:check`; `./gradlew :tools:docs:generate` |
 | Build the documentation site into `tools/docs/build/site/` (open its `index.html`) | `./gradlew :tools:docs:site` |
@@ -272,7 +274,8 @@ off.
 `:apps:shipping-api:databaseTest` and are mandatory in Java CI and Pages testing. Missing engine prerequisites fail
 that task; tests are never conditionally skipped. They start the reviewed PostgreSQL 18.6 image through Testcontainers
 only on a container engine that a review approves: today the GitHub-hosted ubuntu-24.04 runner, prepared by
-`tools/ci/container-engine.sh`.
+`tools/ci/container-engine.sh`. The workflows run this task alone in the engine window, shut the engine down, then
+run ordinary checks with `-x databaseTest -PdatabaseEvidence=true`, requiring the reports already produced in that job.
 
 Not built yet; their commands arrive with their code: a developer toolchain bootstrap script, PostgreSQL 18.6 with
 the two roles, the API with the `demo` profile, the workbench, web checks, and contract and end-to-end tests.

@@ -2,7 +2,7 @@
 title: "ADR 0011: A Java documentation tool, a static site and a scanned publication"
 description: "One Java tool generates the C4 view pages, the budgeted brain and a static documentation site, and fails on drift and on claims without evidence; the site is published on GitHub Pages from main after a fail-closed scan. Supersedes ADR 0010."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
@@ -149,8 +149,9 @@ SnakeYAML Engine 3.2.
   runs the allowlist check, its trusted bootstrap, on a commit that is already on `main`, then verifies the Gradle
   wrapper. The test job has no environment and no secret, may only read the repository, and runs on GitHub-hosted
   ubuntu-24.04 under the container engine's review, because the database tests start PostgreSQL: it runs
-  `:apps:shipping-api:databaseTest`, `:tools:docs:check` and `:tools:docs:site` with `-PdatabaseEvidence=true`, and
-  with them every project's tests, then hands this run's JUnit reports, the database tests' among them, and the
+  `:apps:shipping-api:databaseTest` alone in the reviewed engine window, shuts the engine down and proves CLI/socket
+  denial, then runs `:tools:docs:check :tools:docs:site -x databaseTest -PdatabaseEvidence=true` with every project's
+  ordinary tests. The database reports remain mandatory. It then hands this run's JUnit reports and the
   site's digest to the build job as job outputs. The build job runs in the `github-pages` environment, whose secret is
   the dictionary, and may only read the repository. It unpacks those reports, refusing a wrong digest, a path outside
   the report directories, anything but regular files and an overwrite, builds the site again from the same commit
@@ -158,8 +159,8 @@ SnakeYAML Engine 3.2.
   the one the test job built, so the evidence it publishes is this run's and never a stale report. It then runs
   `:tools:docs:scanSite` in a step of its own, the only one that receives the dictionary, re-checks Mermaid's SHA-256
   in the site, refuses symbolic links, hard links and hidden files there, and only then uploads the site directory.
-  The deploy job has one step,
-  `actions/deploy-pages`, and the workflow's only write permissions, `pages: write` and `id-token: write`. Every
+  Every job first stops/masks the engine and proves it unreachable, as specified in ADR 0007.
+  The deploy job then runs `actions/deploy-pages`, and the workflow's only write permissions, `pages: write` and `id-token: write`. Every
   action runs at the full SHA its review approved; `actions/configure-pages` is not used, because the site's links
   are relative.
 

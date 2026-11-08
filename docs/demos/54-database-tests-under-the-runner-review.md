@@ -1,31 +1,28 @@
 ---
-title: "Database tests start only the reviewed PostgreSQL image, on the reviewed engine"
-description: "The database tests use the one reviewed PostgreSQL image, only on the container engine its review approves: the checker rejects other container declarations it recognizes, and CI checks what the engine did."
+title: "CI closes engine access outside the reviewed database-test window"
+description: "Runtime guards stop the engine and prove CLI/socket denial; check 8 remains a PARTIAL static lint with documented bypasses."
 status: accepted
 updated: 2026-11-08
 pr: 54
 kind: gate
 recorded: 2026-11-07
-tests: [PostgresHarnessIntegrationTest, ReviewedPostgresTest, PagesWorkflowTest]
+tests: [PostgresHarnessIntegrationTest, ReviewedPostgresTest, PagesWorkflowTest, ContainerEngineWorkflowTest]
 ---
 
 ## What changed
 
-Before, the reviews allowed PostgreSQL in tests only under conditions that no check applied, so no test used a
-database. Now the checker rejects recognized container declarations. The harness validates its PostgreSQL instance,
-and CI checks subsequent engine activity. These controls do not isolate arbitrary build code. In CI, the runner's
-container engine is checked against its review (versions, a loopback-only daemon, no registry credentials) before the
-database tests start, and afterwards CI checks which images appeared and which images containers were made from. The
-database tests run in their own task, `:apps:shipping-api:databaseTest`, which CI's java check and the site's
-publishing workflow run; `./gradlew check` needs only the reviewed JDK. The publishing workflow runs the tests in a
-job with no publication privilege.
+Before, CI left the engine running during ordinary builds and publication, and check 8's static scanning claims
+exceeded what it recognized. Under the owner's 2026-11-08 decision, every job now stops and masks the engine and
+removes its socket as its first step, then refuses to continue if the CLI or a direct socket connection succeeds.
+Only preparation, image staging, the database task and engine verification have access to the engine. A shutdown
+step runs immediately afterwards even on failure, and later work requires successful shutdown. The database tests
+remain mandatory in Java CI and Pages testing; the other tests and documentation run after the engine is stopped.
 
-Check 8 also distinguishes the reviewed web commands from arbitrary interpreter execution. It applies the same
-complete-command and working-directory decision to workflows, scripts and command vectors in registered Java/Kotlin
-launch sites, and checks root and declared workspace npm scripts. Source launch capabilities now require both an
-explicit reviewed path and a whole-file SHA-256 pin; any edit to a registered file fails until its pin is reviewed.
-Aliases, wrappers and later argument mutations in an unregistered file cannot earn an exception by command spelling. A process invoking an npm script whose body starts another
-container is refused. Compose remains refused; ADR 0012 now specifies the planned harness-based demo route.
+The runtime guard is the enforcing control for engine availability. Check 8 remains unchanged and is labelled a
+PARTIAL static lint. [ADR 0007](../adr/0007-dependency-allowlist-and-pre-use-enforcement.md) and
+[the gaps](../gaps.md#5-supply-chain-and-approvals) list the known bypasses and the unsolved pin-update sequence.
+The reviewed harness still checks its PostgreSQL instance and CI audits engine activity. This is not a sandbox
+against code that deliberately uses the hosted runner's privileges to re-enable an engine.
 
 ## See it
 
@@ -137,16 +134,51 @@ checker still reported only the pending acceptance-digest mismatch. The requeste
 also exited 1: all 62 documentation-test failures were caused by that same mismatch; the generated-docs task and
 rendered-demo review remain blocked behind it. These are recorded local results, not a passing publishing build.
 
+Additional capture on 2026-11-08 for the runtime decision: the shell regression executes the workflow guard blocks
+with fake commands, never Docker or sudo. Before the workflow change it exited 1:
+
+```text
+FAIL expected 8 engine guards, found 0
+```
+
+A second red case showed why an unavailable probe must not count as denial (exit 1):
+
+```text
+FAIL cli-error passed the guard
+```
+
+After the change, the regression exited 0:
+
+```text
+64 passed: 8 workflow guards reject reachable CLI/socket, failed stop/mask/unlink and probe errors; stopped passes
+```
+
+The three new `ContainerEngineWorkflowTest` tests failed before the workflow change. They and the updated
+`PagesWorkflowTest` passed afterwards. These are recorded local fixture and workflow results, not evidence that
+hosted service shutdown has run. No local database, Docker or mutation task ran.
+
+The resumed run on 2026-11-08 added a timeout fixture and exact call-order checks. Status assertions exit explicitly,
+including on the local Bash 3.2, which does not reliably apply `set -e` inside a `case` branch. The shell regression
+then exited 0:
+
+```text
+72 passed: 8 workflow guards reject reachable CLI/socket, failed stop/mask/unlink and probe errors/timeouts; shutdown precedes probes; stopped passes
+```
+
+The resumed Java check passed all 3 workflow-guard tests and all 16 publishing-workflow tests. Its 62 documentation
+failures still trace to the known acceptance-digest mismatch, so generated documentation and rendered-page review
+remain pending. No failing assertion was skipped or relaxed.
+
 ## Limits
 
-- The checker rejects recognized container declarations in the shell, Java, Kotlin and YAML forms it decodes, and
-  refuses every form it cannot decode: heredocs, YAML scalars over lines, Groovy, backquoted Kotlin names, a command
-  it cannot read, and interpreters except ADR 0007's exact reviewed web forms. Recognized process-launch APIs fail
-  closed on unresolved vectors inside hash-pinned launch sites. Reflection lookup/invocation and method-handle
-  capabilities also require a pin. An image that an approved library names itself and the behaviour of the reviewed
-  launchers' dynamic arguments remain outside the source gate. The permitted Node tests discover logic tests in the
-  web workspace and execute repository code; matching their command does not isolate them from engine endpoints.
-  These controls do not isolate arbitrary build code.
+- Check 8 is a PARTIAL static lint. Known bypass classes include Gradle argument/executable mutation, wrappers and
+  inferred Runtime aliases; raw or Unicode-escaped CR comment boundaries; JavaBeans reflection and Groovy process
+  APIs called from Java/Kotlin; implicit plugin-provided Gradle launch tasks; and indirect/dynamically assembled
+  commands or code imported by the reviewed Node test runner. Existing examples caught by pins do not establish
+  complete coverage. Single-digest launch pins also have no working trusted base/candidate update sequence.
+- Runtime guards enforce the workflow's engine window, but privileged code can undo them or use another/remote
+  engine. Gradle configuration runs during the database task. Local fixtures test failure handling; a hosted CI run
+  must verify service shutdown on the actual runner. The source scanner is not the enforcing control.
 - At run time CI sees which images appeared, which images containers were made from and whether anything was copied
   into one. It does not see how another container was configured; only the harness's own container is checked for
   privileges, mounts, networks and published ports.
