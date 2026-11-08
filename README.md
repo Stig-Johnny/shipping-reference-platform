@@ -243,7 +243,7 @@ docs/                            Markdown with frontmatter: adr/, modules/, flow
 policy/                          risk.json (risk levels)
 security/                        allowlist.json, reviews/ and verifications/, explained in README.md
 tools/policy/                    PolicyCheck.java, the dependency allowlist check, and PolicyCheckTest.java, its tests
-tools/ci/                        stage-temurin.sh: downloads the CI JDK and checks its SHA-256
+tools/ci/                        bounded, verified CI JDK staging and its local fixtures; build-output scan and fixtures
 tools/docs/                      Gradle project :tools:docs: docs, brain and site generator, publication scan
 build-logic/                     Gradle convention plugins: compiler settings, Error Prone and NullAway, locking, PIT
 gradle/                          wrapper, version catalog (libs.versions.toml), verification metadata
@@ -266,10 +266,25 @@ off.
 |---|---|
 | Check every dependency against the allowlist (the JDK alone; runs the repository's policy checker without invoking the build) | `java tools/policy/PolicyCheck.java .` |
 | Test the allowlist checker (the JDK alone) | `java tools/policy/PolicyCheckTest.java` |
+| Test CI JDK downloads (local transport fixtures, no network) | `bash tools/ci/stage-temurin-test.sh` |
 | Run all Java checks (compile with Error Prone and NullAway, tests) | `./gradlew check` |
 | Run mutation tests (CI only, the `mutation` job: PIT's control socket accepts unauthenticated connections) | `./gradlew :libs:c4-contract-kit:pitest` |
 | Check docs and the brain; regenerate them | `./gradlew :tools:docs:check`; `./gradlew :tools:docs:generate` |
 | Build the documentation site into `tools/docs/build/site/` (open its `index.html`) | `./gradlew :tools:docs:site` |
+
+CI stages the reviewed JDK through `tools/ci/stage-temurin.sh`. Its committed mirror base URL is empty: downloads
+still use the official source. Transient failures get at most two attempts, a 10-second connect timeout, a
+90-second transfer limit per attempt and a two-second backoff (182 seconds of transfers/backoff). Each completed
+download must match the reviewed size and SHA-256 before atomic promotion and the `jdk-file` output; wrong bytes
+stop the job. Partial files are removed on failure or cancellation. The local fixtures run in `java`, after the
+base branch's allowlist check, alongside the other `tools/ci` tests; they are separate from `./gradlew check`.
+
+The dormant mirror path uses content-addressed keys, two 45-second attempts, then official fallback only for
+unavailability; an integrity failure never falls back. Enabling it requires a source-review amendment and renewed
+owner acceptance. No runtime URL or checksum override exists. Gradle retains its official distribution URL and
+checksum, with `networkTimeout=60000`, `retries=3` and `retryBackOffMs=1000`; CI still starts with an empty Gradle
+home. A staged Gradle launcher and repeated offline signature verification belong to later reviewed work. The
+existing first-use signature record in `security/verifications/2026-11-06-toolchain.md` remains applicable.
 
 Not built yet; their commands arrive with their code: a developer toolchain bootstrap script, PostgreSQL 18.6 with
 the two roles, the API with the `demo` profile, the workbench, web checks, and end-to-end tests. The API's HTTP contract

@@ -2,7 +2,7 @@
 title: "Known gaps and limits"
 description: "What v0.1 does not do, what each control cannot prove, and which decisions are still unverified. Read this before trusting a green build."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 # Known gaps and limits
@@ -133,6 +133,14 @@ closes it.
 
 ## 5. Supply chain and approvals
 
+- **The download mirror is disabled.** JDK staging has bounded retries, size/SHA-256 checks on every successful
+  retrieval and a tested mirror-first path, but its committed mirror URL is empty. Gradle retains its official
+  wrapper URL and checksum with longer timeouts and retries. Local shell fixtures substitute transport and sleep;
+  they prove branching, retry budgets and integrity refusal, not live DNS/TLS, throughput or outage recovery.
+  Enabling a new source still needs review amendments and renewed owner acceptance, infrastructure and publication
+  evidence. A staged Gradle launcher and repeated offline signature checks are not built; the existing first-use
+  signature record remains unchanged. Issue #82 tracks the later rollout. These fixtures run separately in CI and
+  produce no JUnit evidence, so they do not change capability status.
 - **Pre-use enforcement covers the sanctioned CI path only.** It controls declared dependencies on that path. It
   cannot stop arbitrary build code downloading executables, compromised approved artifacts, runner compromise or
   local-agent bypass. Those need stronger execution isolation and egress controls.
