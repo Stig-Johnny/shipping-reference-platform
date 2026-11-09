@@ -2,7 +2,7 @@
 title: "C4 view: Components of the Web app"
 description: "Component view of the Web app. The six parts of the web app and the imports allowed between them: REQUIRED, PERMITTED or planned. The web import check holds apps/shipping-web/src to these lines; every part is planned until its code exists."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 ---
 
 > Generated—do not hand-edit. Source: `architecture/workspace.dsl`, view `WebComponents`. Regenerate with

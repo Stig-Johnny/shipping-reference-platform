@@ -2,7 +2,7 @@
 title: "Brain: shipping-reference-platform"
 description: "The generated entry point for agents: what the repository is, what is built and what is only planned, and where each module, decision, control and limit is written down."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 ---
 
 > Generated—do not hand-edit. Sources: `README.md`, `architecture/workspace.dsl`, `docs/`, `contracts/`, `policy/risk.json` and `security/allowlist.json`.
@@ -10,7 +10,7 @@ updated: 2026-11-08
 
 # Brain: shipping-reference-platform
 
-A reference monorepo that shows how a Java and TypeScript product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. The application's first code exists: the API's pricing and quotes and its demo authentication, served over HTTP in tests, and booking, listing, reading and simulated labels in its shipments module over HTTP. The tenants and quotes schemas have paired migrations; application persistence and most of the application are still planned. The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions, a labelled partial check of detected TypeScript imports in the web app, a dependency allowlist check and a documentation tool.
+A reference monorepo that shows how a Java and TypeScript product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. The application's first code exists: the API's pricing and quotes and its demo authentication, served over HTTP in tests, and booking, listing, reading and simulated labels in its shipments module over HTTP. The tenants, quotes and shipments schemas have paired migrations and JDBC adapters behind the postgres profile; database execution evidence and the runnable demo are still pending. The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions, a labelled partial check of detected TypeScript imports in the web app, a dependency allowlist check and a documentation tool.
 
 **State at this commit.** 27 capabilities: 2 shipped, 9 partial, 16 planned; 19 controls: 10 shipped, 6 partial, 3 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
 
@@ -83,6 +83,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | [ADR 0014: Partial web import lint and planned authoritative controls](docs/adr/0014-partial-web-import-lint-and-authoritative-controls.md) | accepted | not enforced yet |
 | [ADR 0015: Partial web import lint and planned authoritative controls](docs/adr/0015-partial-web-import-lint-and-authoritative-controls.md) | accepted | not enforced yet |
 | [ADR 0016: Every migration has a down script, proven in CI; production rolls forward](docs/adr/0016-down-scripts-proven-in-ci-production-rolls-forward.md) | accepted | java |
+| [ADR 0017: Bind JDBC statements locally and serialize booking keys and quotes](docs/adr/0017-jdbc-transaction-binding-and-booking-locks.md) | accepted | java |
 
 ## Third-party components
 

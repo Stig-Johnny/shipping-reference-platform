@@ -2,7 +2,7 @@
 title: "Brain: returns"
 description: "Generated summary of module returns for agents: status, dependencies, HTTP operations, capabilities with their evidence, decisions, flows and gaps."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 ---
 
 > Generated—do not hand-edit. Sources: `architecture/workspace.dsl`, `docs/modules/returns.md`, `docs/capabilities/capabilities.yaml`, `contracts/shipping.openapi.yaml` and `docs/`.

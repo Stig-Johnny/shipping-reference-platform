@@ -3,7 +3,7 @@ title: "Quotes and shipments have PostgreSQL storage adapters"
 description: "The same storage contracts now target in-memory fixtures and tenant-scoped JDBC adapters, with a paired shipments migration."
 status: accepted
 updated: 2026-11-09
-pr: 0
+pr: 91
 kind: feature
 recorded: 2026-11-09
 tests: [InMemoryStoresTest, JdbcProfileTest, MigrationFilesTest, ExternalImportPolicyTest]
@@ -34,7 +34,7 @@ these local checks need no database setup or cleanup. Gradle writes its ordinary
 The database-tagged classes run separately in CI through ReviewedPostgres. Do not start Docker locally for this
 recording. The owner accepted the JDBC findings: the ledger now contains 200 distinct findings (ADR 0013).
 The ledger reader accepts the JDBC debt classification; the census and multiplicity checks remain unchanged.
-The orchestrator must replace this page's pull request placeholder before publication.
+This demonstration belongs to pull request #91, for issue #90.
 
 ## Evidence
 
@@ -53,9 +53,8 @@ BUILD SUCCESSFUL in 5s
 
 Before V3 existed, the new MigrationFilesTest case failed, with 5 tests completed and 1 failed. Before adapters
 existed, the JDBC fixture failed compilation on their missing classes. No database test was run locally.
-Issue #90 is the work item; the orchestrator supplies the pull request reference. The metadata tests are evaluated
-separately from the publishing build's reports. The full check is not green: the temporary pull request number is
-not valid for publication.
+Review reference: pull request #91, issue #90. The tests named in this page's metadata count as current-build
+evidence only when they pass in the publishing build. The recorded output above remains separate from that evidence.
 
 ## Limits
 
@@ -63,4 +62,4 @@ CI must prove MembershipDirectoryIntegrationTest, QuotesModuleIntegrationTest, S
 BookingIdempotencyIntegrationTest and the extended migration/RLS classes. The database fixtures explicitly control
 transactions; the local profile check asserts annotations and does not prove live Spring proxies. PostgreSQL HTTP
 behavior, durable events, cancellation and a runnable demo are not claimed. Catalog round trips do not restore
-rows. Rendered-page review awaits a passing documentation build and a real pull request number.
+rows. The runnable demo profile is the next issue.

@@ -48,7 +48,7 @@ coverage. These are bounded coverage checks, not proof of every receiver or task
 The four JDBC adapters put each JdbcClient call on its own line, yielding 94 distinct census findings; ADR 0013
 records the owner's acceptance. The ledger reader accepts `JDBC statement construction and execution` as a debt
 classification. The census and multiplicity checks are unchanged; duplicate occurrences still cannot collapse into one.
-Generated documentation and rendered review remain blocked by the demo's temporary `pr: 0` metadata.
+The public demo is assigned to pull request #91; database execution evidence remains pending CI.
 
 ## Responsibilities
 
