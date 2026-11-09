@@ -99,6 +99,8 @@ final class SiteMap {
             case "docs/ui/documentation-site.md" -> "start/site-design.html";
             case "docs/risk-levels.md" -> "trust/risk-levels.html";
             case "docs/gaps.md" -> "trust/gaps.html";
+            case "docs/contributions.md" -> "trust/contributions.html";
+            case "docs/contributions/history.md" -> "trust/contribution-history.html";
             default -> throw new DocsException(docPath + " has no page on the site; give it one in "
                     + "tools/docs (SiteMap) before publishing it");
         };

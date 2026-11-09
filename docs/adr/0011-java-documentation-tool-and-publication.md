@@ -115,6 +115,10 @@ SnakeYAML Engine 3.2.
   not a runtime trace; an accepted ADR is not an implemented capability. The existing script enhances these records
   with SVG, filtering and selection under the strict CSP, without a library, storage or markup injection. The
   design exception and keyboard/no-script behavior are recorded in the site specification.
+- Issue #96 publishes the contribution convention and per-issue history as two authored Trust pages (T-07/T-08),
+  linked from Brain and indexed by the existing search. Their neutral status separates recorded provenance from
+  current-build test evidence. Existing Markdown/link/publication checks apply; no automated provenance,
+  completeness or append-only gate is claimed. The convention is in [contribution records](../contributions.md).
 - The Demos section publishes demonstration pages: one text-only sheet per pull request from
   `docs/demos/<pr>-<slug>.md` (sheet X- and its number), their register (X-00), newest recording first, and the
   recipe for writing one, `docs/demos/how-to.md` (X-GUIDE). The tool checks each before it is published: its
@@ -234,6 +238,8 @@ SnakeYAML Engine 3.2.
 - `SearchPageTest` proves complete published-sheet coverage, ownership of every indexed field, escaped title
   markup and publication scanning through entities. `BrainMapTest` proves typed source-backed relations, model
   changes flowing into the map and the absence of evidence arrows for missing or failed reports.
+- `ContributionPagesTest` proves authored records retain their text and issue anchors, appear in search and Trust,
+  and are discoverable from both Brain entry points, without a shipped capability badge.
 - `PublicationScannerTest` (a negative fixture for every rule, the dictionary through entities, NFKC, tags and
   zero-width characters, failing closed without a dictionary or with a malformed one, exact and stale exceptions,
   links and unreadable files, the digest and the revision in the summary, no value or term in any output, and the

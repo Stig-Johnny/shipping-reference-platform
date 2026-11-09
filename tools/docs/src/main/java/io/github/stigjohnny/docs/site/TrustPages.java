@@ -40,7 +40,19 @@ final class TrustPages {
         pages.add(LegalPages.licence(context));
         pages.add(LegalPages.notice(context));
         pages.add(NoticesPage.of(context));
+        pages.add(contributions(context, "docs/contributions.md", "Contribution records"));
+        pages.add(contributions(context, "docs/contributions/history.md", "Contribution history"));
         return pages;
+    }
+
+    private static SitePage contributions(SiteContext context, String source, String navLabel) {
+        DocFile doc = context.sources().doc(source).orElseThrow(() -> SiteContext.missing(source));
+        String page = SiteMap.pageOf(source);
+        return DocPages.of(context, doc, SiteSection.TRUST, navLabel, new StatusPanel(Statuses.design(doc),
+                Badge.NEUTRAL.html("Not applicable") + " Contribution records describe authorship, not a capability.",
+                Badge.NEUTRAL.html("Recorded provenance")
+                        + " Settings and approvals are recorded from receipts; this build does not verify them."),
+                context.links(source, page));
     }
 
     private static SitePage index(SiteContext context) {
@@ -55,6 +67,8 @@ final class TrustPages {
                 + "keeps.");
         card(body, NoticesPage.PAGE, "Third-party notices", "The licence of the one third-party file the site "
                 + "serves, and what it contains.");
+        card(body, "trust/contributions.html", "Contribution records", "Which model and effort contributed to each "
+                + "issue, with receipts and explicit unknowns.");
         body.append("</div>\n");
         return new SitePage(INDEX, "Trust", "Overview", SiteSection.TRUST, "How this repository decides what code may "
                 + "run, who approves what, and what its checks cannot prove.", new StatusPanel(

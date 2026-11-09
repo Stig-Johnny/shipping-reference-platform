@@ -31,6 +31,7 @@ final class BrainPage {
                 .append("<button type=\"button\" class=\"button\" data-copy-target=\"agent-context\" "
                         + "data-status=\"copy-status\" hidden>Copy agent context</button>\n")
                 .append(SiteContext.link(PAGE, SiteMap.BRAIN_DOWNLOAD, "Download BRAIN.md")).append('\n')
+                .append(SiteContext.link(PAGE, "trust/contributions.html", "Contribution records")).append('\n')
                 .append("<p id=\"copy-status\" class=\"copy-status\" role=\"status\"></p>\n</div>\n");
         body.append("<details class=\"brain-catalogue\"><summary>Full capability and control catalogue</summary>\n")
                 .append("<h2 id=\"capabilities\">Capabilities</h2>\n");

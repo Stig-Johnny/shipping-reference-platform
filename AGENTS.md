@@ -32,7 +32,11 @@ as the code. An agent that makes a check pass by weakening it has failed the tas
    the flow, `docs/capabilities/capabilities.yaml` (status and evidence only when the tests exist and pass),
    `docs/gaps.md`, and an ADR for a changed decision. Bump `updated:` in the frontmatter of every document you touch.
    If no document needs changing, say why under "Docs: none needed because" in the pull request body.
-6. **Run the checks locally** that exist for the area (commands in `README.md`), then open the pull request.
+6. **Record contributions.** Follow `docs/contributions.md`: append per-issue implementation, integration and
+   independent-review phases with verified model/effort settings and receipts in `docs/contributions/history.md`.
+   Use `unknown` for missing evidence; human phases use `not applicable`. Keep owner approval separate and tied
+   to its exact head. Append corrections rather than overwriting earlier phases; never publish raw/private logs.
+7. **Run the checks locally** that exist for the area (commands in `README.md`), then open the pull request.
 
 ## Pull requests and commits
 

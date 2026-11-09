@@ -122,6 +122,14 @@ published text and search; changing model/registry declarations updates the corr
 Free-form prose cannot invent a code dependency. Detail is available on demand so the first screen prioritizes
 the map and the reader's next action.
 
+## Contribution records
+
+Issue #96 adds Trust sheets T-07 (convention) and T-08 (issue history), rendered from their authored Markdown.
+The human Brain links to the convention without adding a graph relation or expanding its first-screen prose.
+Search finds stable issue headings. Records use neutral provenance status: settings and approvals are recorded
+from receipts, not verified by the publishing build. Existing safe rendering, relative links, source labels and
+publication scanning apply; no new dependency or data-fetching path is introduced.
+
 ## The Demos section
 
 Demos is the second section of the register, after Start. It shows a reader who does not read code what each pull

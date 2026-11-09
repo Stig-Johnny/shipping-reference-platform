@@ -175,7 +175,7 @@ class BrainGeneratorTest {
         Capability planned = sources().capabilities().controls().stream()
                 .filter(c -> c.status() == Capability.Status.PLANNED).findFirst().orElseThrow();
         assertThat(file(files, "BRAIN.md")).contains("| `control.brain-check` | shipped | `java` | "
-                + "BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest |")
+                + "BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest, ContributionPagesTest |")
                 .contains("| `" + planned.id() + "` | planned | `" + planned.check() + "` | none yet |");
     }
 

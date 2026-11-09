@@ -69,10 +69,10 @@ class BrainCheckTest {
 
     @Test
     void evidenceThatDoesNotExistFails() {
-        fixture.edit(CAPABILITIES, text -> text.replace("evidence: [BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest]",
-                "evidence: [BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest, NoSuchTest]")
-                .replace("acceptanceTests: [BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest]",
-                        "acceptanceTests: [BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest, NoSuchTest]"));
+        fixture.edit(CAPABILITIES, text -> text.replace("evidence: [BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest, ContributionPagesTest]",
+                "evidence: [BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest, ContributionPagesTest, NoSuchTest]")
+                .replace("acceptanceTests: [BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest, ContributionPagesTest]",
+                        "acceptanceTests: [BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest, ContributionPagesTest, NoSuchTest]"));
 
         assertFails().hasMessageContaining("evidence NoSuchTest does not exist in the repository");
     }
@@ -136,8 +136,8 @@ class BrainCheckTest {
 
     @Test
     void aShippedControlCannotHaveAPlannedRemainder() {
-        fixture.edit(CAPABILITIES, text -> text.replace("    evidence: [BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest]\n",
-                "    evidence: [BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest]\n    plannedRemainder: Nothing.\n"));
+        fixture.edit(CAPABILITIES, text -> text.replace("    evidence: [BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest, ContributionPagesTest]\n",
+                "    evidence: [BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest, ContributionPagesTest]\n    plannedRemainder: Nothing.\n"));
 
         assertFails().hasMessageContaining("control.brain-check: a shipped control has no planned remainder or "
                 + "enforced subset");

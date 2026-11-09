@@ -475,6 +475,10 @@ The [attended runbook](flows/attended-demo.md#recorded-database-evidence) record
 
 ## 7. Documentation
 
+- [Contribution records](contributions.md) are manually maintained provenance. Publication tests check their
+  routes, links and discoverability; they do not verify model settings, receipt truth, completeness or append-only
+  history. Historical gaps remain `unknown`. AI review and human approval need separate exact-head receipts.
+
 - The visual Brain maps API module dependencies, capability ownership, named decisions and passing evidence.
   It is a declaration/evidence view, not a runtime trace, and does not yet combine the separate web component map.
   Site search matches titles, summaries and headings as literal phrases; it does not search full prose or offer
