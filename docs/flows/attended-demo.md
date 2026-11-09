@@ -84,6 +84,6 @@ cross-tenant denial. Every API exchange passes the existing contract helper.
 `DemoPostgresSmokeIntegrationTest` runs those same assertions with live JDBC proxies and the reviewed harness,
 under the mandatory `database` tag in CI; local compilation is not PostgreSQL evidence.
 
-The live local launcher recording and rendered-page review are described in the public demo source `docs/demos/0-demo-profile.md`.
+The live local launcher recording and rendered-page review are described in the public demo source `docs/demos/94-demo-profile.md`.
 See [ADR 0018](../adr/0018-attended-demo-runtime.md) for boundaries and
 [known gaps](../gaps.md#0-state-of-this-commit) for what this does not prove.

@@ -10,7 +10,7 @@ updated: 2026-11-09
 
 # Brain: tenants
 
-Authenticates synthetic users and derives the tenant from membership; postgres selects the JDBC token directory. Prototype flags and event TenantScope are planned.
+Authenticates synthetic users and derives the tenant from membership; postgres selects the JDBC token directory; the demo web adapter serves local static assets with strict CSP. Prototype flags and event TenantScope are planned.
 
 - **Status in the model:** built (`contract.status`).
 - **Packages:** `io.github.stigjohnny.shipping.tenants`
@@ -37,7 +37,7 @@ Authenticates synthetic users and derives the tenant from membership; postgres s
 
 | Capability | Status | Acceptance tests | Evidence |
 |---|---|---|---|
-| `tenants.demo-authentication` | partial | DemoTokenTest, DemoTokenAuthenticationTest, MembershipDirectoryIntegrationTest | DemoTokenTest, DemoTokenAuthenticationTest |
+| `tenants.demo-authentication` | partial | DemoTokenTest, DemoTokenAuthenticationTest, DemoSecurityHeadersTest, DemoSmokeTest, MembershipDirectoryIntegrationTest, DemoPostgresSmokeIntegrationTest | DemoTokenTest, DemoTokenAuthenticationTest, DemoSecurityHeadersTest, DemoSmokeTest |
 | `tenants.current-membership` | partial | TenantsHttpContractTest | TenantsHttpContractTest |
 | `tenants.row-level-security` | planned | RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest | none yet |
 | `tenants.cross-tenant-denial` | planned | CrossTenantAccessTest, tenant-denial.spec.ts | none yet |
@@ -50,9 +50,11 @@ Authenticates synthetic users and derives the tenant from membership; postgres s
 - [ADR 0013: Scenario views are checked against recorded interactions](../adr/0013-scenario-views-are-checked-against-recorded-interactions.md) (accepted)
 - [ADR 0016: Every migration has a down script, proven in CI; production rolls forward](../adr/0016-down-scripts-proven-in-ci-production-rolls-forward.md) (accepted)
 - [ADR 0017: Bind JDBC statements locally and serialize booking keys and quotes](../adr/0017-jdbc-transaction-binding-and-booking-locks.md) (accepted)
+- [ADR 0018: An attended demo on one origin with selectable storage](../adr/0018-attended-demo-runtime.md) (accepted)
 
 ## Flows
 
+- [Run an attended shipping demo](../flows/attended-demo.md)
 - [Flow: quote, book and download a simulated label](../flows/quote-book-label.md)
 
 ## Gaps that name it

@@ -53,9 +53,11 @@ Prices parcels with the synthetic tariff and issues quotes whose offers expire a
 - [ADR 0013: Scenario views are checked against recorded interactions](../adr/0013-scenario-views-are-checked-against-recorded-interactions.md) (accepted)
 - [ADR 0016: Every migration has a down script, proven in CI; production rolls forward](../adr/0016-down-scripts-proven-in-ci-production-rolls-forward.md) (accepted)
 - [ADR 0017: Bind JDBC statements locally and serialize booking keys and quotes](../adr/0017-jdbc-transaction-binding-and-booking-locks.md) (accepted)
+- [ADR 0018: An attended demo on one origin with selectable storage](../adr/0018-attended-demo-runtime.md) (accepted)
 
 ## Flows
 
+- [Run an attended shipping demo](../flows/attended-demo.md)
 - [Flow: quote, book and download a simulated label](../flows/quote-book-label.md)
 
 ## Gaps that name it

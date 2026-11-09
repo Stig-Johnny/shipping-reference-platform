@@ -3,7 +3,7 @@ title: "Run the shipping flow and a static page on one local origin"
 description: "An attended launcher now starts a synthetic shipping demo, with disposable memory storage or an operator-prepared PostgreSQL database."
 status: accepted
 updated: 2026-11-09
-pr: 0
+pr: 94
 kind: feature
 recorded: 2026-11-09
 tests: [DemoSmokeTest, DemoSecurityHeadersTest]
@@ -32,8 +32,8 @@ test drives the API over real sockets. The ordinary check is:
 ./gradlew check
 ```
 
-The complete check currently rejects the new scenario framework findings pending the owner's exact ledger
-review, as well as this deliberately unassigned demo number. No new ledger row has been accepted.
+The owner accepted the 15 exact scenario framework findings for issue #92. The ledger records 215 known gaps
+and still reports `COVERAGE_INCOMPLETE`; matching accepted debt does not prove scenario conformance.
 
 ## Evidence
 
@@ -64,8 +64,8 @@ PostgreSQL configuration without printing the synthetic password marker.
 
 `DemoSmokeTest` and `DemoSecurityHeadersTest` are separately listed as current-build evidence. The smoke starts
 production memory stores and exercises synthetic identity, quote, booking/replay, list, detail, labels, foreign
-tenant denial, static types/CSP and traversal/symlink refusal. The review will receive its pull request number
-from the orchestrator; none is invented here.
+tenant denial, static types/CSP and traversal/symlink refusal. This demonstration belongs to pull request #94,
+for issue #92.
 
 ## Limits
 
@@ -74,4 +74,4 @@ implemented and compiled but must run through the reviewed harness in CI. Browse
 workbench, durable events, concurrent memory booking and production authentication are not established.
 Memory storage resets when the process stops. Application logs are deliberately discarded by the launcher to
 prevent framework connection diagnostics from revealing credentials. The scenario recorder still does not
-observe these HTTP exchanges; its new framework coverage findings remain unaccepted.
+observe these HTTP exchanges; the 15 new framework findings remain explicit accepted coverage debt.

@@ -39,7 +39,7 @@ Visits track object identity and owning module. This checks boundary snapshots, 
 ([known gaps](../gaps.md#6-tests-and-quality-gates)). Scenario configurations use `@TestConfiguration` and are wired
 explicitly, so the HTTP tests do not discover them through application component scanning.
 Both scenarios retain the full-main census. Their expected report is `COVERAGE_INCOMPLETE`, "coverage incomplete:
-200 known gaps". The exact ledger includes the Spring authentication/security
+215 known gaps". The exact ledger includes the Spring authentication/security
 accesses, 94 distinct JDBC findings and six quotes and shipments factory parameters; each is classified and tagged
 "phase 3 / option 2". Ambient security state and framework callbacks remain unproved.
 Only exact reviewed debt can pass the build; new, changed or disappeared findings require an explicit ledger update
@@ -53,11 +53,10 @@ Until that evidence exists, `tenants.row-level-security` remains planned.
 `tenants.cross-tenant-denial`, `tenants.tenant-scope-for-events` and
 `tenants.prototype-flags` are planned.
 
-**Issue #90 coverage ledger:** the accepted ledger contains 200 distinct findings.
-The four JDBC adapters put each JdbcClient call on its own line, yielding 94 distinct census findings; ADR 0013
-records the owner's acceptance. The ledger reader accepts `JDBC statement construction and execution` as a debt
-classification. The census and multiplicity checks are unchanged; duplicate occurrences still cannot collapse into one.
-The public demo is assigned to pull request #91; database execution evidence remains pending CI.
+**Scenario coverage ledger:** the owner accepted 15 exact demo findings for issue #92, bringing the ledger to
+215 distinct findings: 115 HTTP/security accesses, 94 JDBC accesses and six factory parameters. ADR 0013 records
+the acceptance. Existing classifications and the census, matching, duplicate and bypass checks are unchanged.
+Every finding remains a coverage refusal; the expected verdict is `COVERAGE_INCOMPLETE`.
 
 ## Responsibilities
 

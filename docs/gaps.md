@@ -11,11 +11,10 @@ A green build means the checks listed in `README.md` passed. It does not mean th
 says what is missing and, where one exists, what partly compensates. Removing an entry requires the evidence that
 closes it.
 
-**Issue #90 coverage ledger:** the accepted ledger contains 200 distinct findings.
-The four JDBC adapters put each JdbcClient call on its own line, yielding 94 distinct census findings; ADR 0013
-records the owner's acceptance. The ledger reader accepts `JDBC statement construction and execution` as a debt
-classification. The census and multiplicity checks are unchanged; duplicate occurrences still cannot collapse into one.
-The public demo is assigned to pull request #91; database execution evidence remains pending CI.
+**Scenario coverage ledger:** the owner accepted 15 exact demo findings for issue #92, bringing the ledger to
+215 distinct findings: 115 HTTP/security accesses, 94 JDBC accesses and six factory parameters. ADR 0013 records
+the acceptance. Existing classifications and the census, matching, duplicate and bypass checks are unchanged.
+Every finding remains a coverage refusal; the expected verdict is `COVERAGE_INCOMPLETE`.
 
 ## 0. State of this commit
 
@@ -235,7 +234,7 @@ The public demo is assigned to pull request #91; database execution evidence rem
   scenario area covers only the named test fixtures `ScenarioAlterations`, `GatedQuoteStore`, `TenantBadge` and
   `ScenarioReference`, including their nested classes; they retain module packages for the recorder's attribution.
   These grants do not apply to main output or other module tests. They permit the harness to inspect and exercise
-  deliberately refused behavior; they do not close any of the 200 distinct scenario coverage gaps in section 6.
+  deliberately refused behavior; they do not close any of the 215 distinct scenario coverage gaps in section 6.
   No package grants cover these additions, and every whitelist entry must be used by the current compiled outputs.
   The JDBC adapter whitelist stays empty until an adapter exists.
   Maven providers need unexpired approval for the project, configuration and exact file, with SHA-256 comparison
@@ -418,14 +417,14 @@ The public demo is assigned to pull request #91; database execution evidence rem
   objects, publications or event triggers. It does not establish that down scripts restore rows from a release.
 - **The scenario checks prove one run, within what the recorder sees** (`control.scenario-conformance`, partial). A
   run without detected gaps can show its evaluated steps conformed for one exercised run, not every path, schedule
-  or input. The accepted ledger now has 200 distinct known gaps. The expected report is `COVERAGE_INCOMPLETE`,
-  "coverage incomplete: 200 known gaps".
+  or input. The accepted ledger now has 215 distinct known gaps. The expected report is `COVERAGE_INCOMPLETE`,
+  "coverage incomplete: 215 known gaps".
   Four of their twelve steps are evaluated. They run in process on the built modules with test wiring; the HTTP
   tests separately use the application's wiring: HTTP exchanges, database steps and listener executions are not
   observed yet, and steps that touch a person, a simulated system or a planned module are never evaluated; the report
   counts each one with its reason. Outcomes, such as the tenant denial's rejection and absence of stored data, are
   test assertions, not verified steps.
-  - **Known coverage debt, still refused:** 100 Spring accesses in the HTTP adapters, 94 distinct JDBC accesses and
+  - **Known coverage debt, still refused:** 115 Spring accesses in the HTTP adapters, 94 distinct JDBC accesses and
     six foreign-service factory parameters remain coverage refusals; accepting debt does not verify coverage. The source-controlled exact ledger
     `apps/shipping-api/src/test/resources/scenario-coverage-gaps.tsv` records owner, member/JVM descriptor,
     origin signature/descriptor, access kind and source line where available, plus classification and

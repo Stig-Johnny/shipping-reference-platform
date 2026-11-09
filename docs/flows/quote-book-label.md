@@ -25,7 +25,8 @@ The attended runtime executes this HTTP flow on one origin. `DemoSmokeTest` star
 memory stores and drives synthetic sign-in/token selection, quote, booking, replay, list, detail and label through
 real sockets, including foreign-tenant refusals and the public static page's strict CSP. The shared PostgreSQL
 variant, `DemoPostgresSmokeIntegrationTest`, requires CI's reviewed database window. These smoke exchanges are
-separate from the in-process scenario recorder, whose new framework findings remain unaccepted in issue #92.
+separate from the in-process scenario recorder. Its 15 new framework findings are accepted as exact known debt
+for issue #92; its verdict remains `COVERAGE_INCOMPLETE` (ADR 0013).
 See the [runbook](../flows/attended-demo.md).
 
 ## Sequence
@@ -140,8 +141,8 @@ asserted separately.
 | `ScenarioTenantDenial` | `TenantDenialScenarioTest` | shipments' `CurrentTenant.require()` once, then `QuoteOffers.findOffer` once, through the real `BookShipment` | the clerk, the HTTP exchange, the two database reads |
 | First booking, booking replay, label | Planned: `FirstBookingScenarioTest`, `BookingReplayScenarioTest`, `LabelScenarioTest` | | |
 
-The accepted ledger has 200 distinct known gaps: 100 HTTP/security Spring accesses, 94 JDBC accesses and six
-factory-parameter findings. The expected reports say `COVERAGE_INCOMPLETE`: "coverage incomplete: 200 known gaps",
+The accepted ledger has 215 distinct known gaps: 115 HTTP/security Spring accesses, 94 JDBC accesses and six
+factory-parameter findings. The expected reports say `COVERAGE_INCOMPLETE`: "coverage incomplete: 215 known gaps",
 with failed coverage checks and `coverage.verified=false`. The ledger reader accepts the JDBC debt classification
 (ADR 0013). The exact ledger is `apps/shipping-api/src/test/resources/scenario-coverage-gaps.tsv`; every entry is
 classified and tagged

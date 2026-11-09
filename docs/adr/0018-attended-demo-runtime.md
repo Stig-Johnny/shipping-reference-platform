@@ -65,6 +65,6 @@ quote, booking/replay, list, detail, label and foreign-tenant denial. The shared
 `database` and uses ReviewedPostgres through the existing harness; execution awaits CI. Shell refusal tests and a
 live launcher run supplement JUnit. [The runbook](../flows/attended-demo.md) gives preparation and cleanup.
 
-New scenario census findings remain unaccepted until the owner reviews their exact proposed rows. The ledger
-still accepts only its existing 200 findings; line-only updates preserve those findings. Neither smoke tests nor
+The owner accepted exactly 15 new scenario census findings for issue #92 (ADR 0013). The ledger now records
+215 distinct known gaps, with the verdict `COVERAGE_INCOMPLETE`; line-only updates preserve the existing findings. Neither smoke tests nor
 CSP make the scenario recorder observe HTTP exchanges, JDBC receiver behavior or browser execution.

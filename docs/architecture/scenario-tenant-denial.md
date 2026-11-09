@@ -63,7 +63,7 @@ The same definition is in [scenario-tenant-denial.mmd](scenario-tenant-denial.mm
 | 6 | Web app | Container | Plain TypeScript SPA (no framework), TypeScript 5.9.3 | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
 | 14 | Quotes | Component | Spring Modulith module | built | Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes; postgres selects its JDBC store. |
 | 15 | Shipments | Component | Spring Modulith module | built | Books shipments with tenant-scoped idempotency and renders simulated labels; postgres selects its JDBC store and tracking sequence. Publishes ShipmentBooked. Cancellation is planned. |
-| 16 | Tenants | Component | Spring Modulith module | built | Authenticates synthetic users and derives the tenant from membership; postgres selects the JDBC token directory. Prototype flags and event TenantScope are planned. |
+| 16 | Tenants | Component | Spring Modulith module | built | Authenticates synthetic users and derives the tenant from membership; postgres selects the JDBC token directory; the demo web adapter serves local static assets with strict CSP. Prototype flags and event TenantScope are planned. |
 | 21 | Database | Container | PostgreSQL 18.6 | Not covered by module conformance | One schema per v0.1 module plus the event publication registry, with forced row-level security on tenant data. Built: the schemas tenants, quotes and shipments (migrations V1 to V3; CI verification pending), with JDBC adapters selected by the postgres profile. Planned: audit and the registry. |
 
 ## Relationships
