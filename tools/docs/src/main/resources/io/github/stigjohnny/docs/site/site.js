@@ -318,3 +318,269 @@
     }
   }
 })();
+
+// Search uses only text already present in the generated HTML. It does not fetch an index or parse query markup.
+(function () {
+  'use strict';
+  var input = document.getElementById('site-search');
+  if (!input) return;
+  var list = document.getElementById('search-results');
+  var status = document.getElementById('search-status');
+  var rows = Array.from(list.children).map(function (row, order) {
+    return { row: row, order: order, fields: [row.querySelector('.search-title'),
+      row.querySelector('.search-summary'), row.querySelector('.search-headings')] };
+  });
+  document.querySelector('.search-tools').hidden = false;
+  function filter() {
+    var query = input.value.trim().toLowerCase();
+    var matches = rows.map(function (entry) {
+      var field = query ? entry.fields.findIndex(function (node) {
+        return node.textContent.toLowerCase().includes(query);
+      }) : 0;
+      entry.row.hidden = field < 0;
+      var note = entry.row.querySelector('.search-match');
+      note.hidden = !query || field < 0;
+      note.textContent = field < 0 ? '' : 'Matched ' + ['title', 'summary', 'heading'][field] + ': '
+        + (field === 2 ? Array.from(entry.fields[2].children).find(function (heading) {
+          return heading.textContent.toLowerCase().includes(query);
+        }).textContent : entry.fields[field].textContent);
+      return { entry: entry, rank: field < 0 ? 3 : field };
+    });
+    matches.sort(function (a, b) { return a.rank - b.rank || a.entry.order - b.entry.order; });
+    matches.forEach(function (match) { list.append(match.entry.row); });
+    var count = rows.filter(function (entry) { return !entry.row.hidden; }).length;
+    status.textContent = count + (count === 1 ? ' page' : ' pages')
+      + (query ? (count === 1 ? ' matches.' : ' match.') + ' Title matches first.' : ' available.')
+      + (count ? '' : ' Try a shorter phrase.');
+  }
+  input.addEventListener('input', filter);
+  input.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') { input.value = ''; filter(); }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      var first = list.querySelector('li:not([hidden]) a');
+      if (first) first.focus();
+    }
+  });
+  filter();
+})();
+
+// Progressive enhancement of the Brain's typed HTML records. Text and relationships have one source of truth.
+(function () {
+  'use strict';
+  var graph = document.getElementById('brain-graph');
+  if (!graph) return;
+  var byId = function (id) { return document.getElementById(id); };
+  var records = byId('brain-records');
+  var nodes = new Map(Array.from(records.querySelectorAll('[data-brain-node]')).map(function (record) {
+    return [record.dataset.brainNode, { id: record.dataset.brainNode, kind: record.dataset.kind,
+      state: record.dataset.state, name: record.querySelector('[data-brain-title]').textContent,
+      description: record.querySelector('.brain-description').textContent, record: record }];
+  }));
+  var edges = Array.from(records.querySelectorAll('[data-relation]')).map(function (edge) {
+    return { from: edge.dataset.from, to: edge.dataset.to, kind: edge.dataset.relation,
+      meaning: edge.querySelector('.brain-meaning').textContent };
+  });
+  var selected = nodes.has('quotes') ? 'quotes' : nodes.keys().next().value;
+  var view = 'modules';
+  var moduleSelection = selected;
+  var firstControl = Array.from(nodes.values()).find(function (node) { return node.kind === 'control'; });
+  var controlSelection = firstControl ? firstControl.id : selected;
+  var input = byId('brain-find');
+  var results = byId('brain-results');
+  var modulePositions = { quotes: [220, 210], shipments: [720, 235], tenants: [475, 80],
+    audit: [270, 485], orders: [760, 480], tracking: [535, 565], returns: [820, 90] };
+  function element(tag, text) {
+    var result = document.createElement(tag);
+    if (text) result.textContent = text;
+    return result;
+  }
+  function svg(tag, attributes, text) {
+    var result = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    Object.entries(attributes).forEach(function (pair) { result.setAttribute(pair[0], String(pair[1])); });
+    if (text) result.textContent = text;
+    return result;
+  }
+  function owner(id) {
+    if (nodes.get(id).kind === 'module') return id;
+    var edge = edges.find(function (entry) { return entry.kind === 'ownership' && entry.to === id; });
+    return edge ? edge.from : null;
+  }
+  function select(id, focus) {
+    if (!nodes.has(id)) return;
+    var previousSelected = selected;
+    selected = id;
+    var node = nodes.get(id);
+    if (node.kind === 'module' || node.kind === 'capability') {
+      moduleSelection = owner(id);
+      var moduleContext = view === 'journey' || (node.kind === 'module' && view === 'decisions');
+      var evidenceContext = view === 'controls' && controlSelection === id;
+      if (!moduleContext && !evidenceContext) showView('modules');
+    } else if (node.kind === 'control') {
+      controlSelection = id;
+      showView('controls');
+    } else {
+      var relation = node.kind === 'decision' ? 'decision' : 'evidence';
+      var previous = node.kind === 'decision' ? moduleSelection : controlSelection;
+      var parents = edges.filter(function (edge) { return edge.to === id && edge.kind === relation; });
+      var parent = parents.find(function (edge) { return edge.from === previousSelected; })
+        || parents.find(function (edge) { return edge.from === previous; }) || parents[0];
+      if (parent) {
+        if (node.kind === 'decision') moduleSelection = parent.from;
+        else controlSelection = parent.from;
+        showView(node.kind === 'decision' ? 'decisions' : 'controls');
+      }
+    }
+    var clone = node.record.cloneNode(true);
+    clone.removeAttribute('id');
+    clone.removeAttribute('data-brain-node');
+    var heading = clone.querySelector('h3');
+    heading.setAttribute('tabindex', '-1');
+    byId('brain-detail').replaceChildren(clone);
+    clone.querySelectorAll('a[href^="#brain-node-"]').forEach(function (link) {
+      link.addEventListener('click', function (event) {
+        event.preventDefault();
+        select(link.getAttribute('href').slice('#brain-node-'.length), true);
+      });
+    });
+    draw();
+    filter();
+    if (focus) heading.focus();
+  }
+  function draw() {
+    graph.replaceChildren();
+    var positions = new Map();
+    var visibleEdges;
+    var caption;
+    if (view === 'modules' || view === 'journey') {
+      var modules = Array.from(nodes.values()).filter(function (node) { return node.kind === 'module'; });
+      modules.forEach(function (node, index) {
+        var position = modulePositions[node.id] || [500 + Math.cos(index) * 300, 320 + Math.sin(index) * 210];
+        positions.set(node.id, position);
+        var capabilities = edges.filter(function (edge) { return edge.from === node.id && edge.kind === 'ownership'; });
+        capabilities.forEach(function (edge, at) {
+          var angle = at / capabilities.length * Math.PI * 2;
+          positions.set(edge.to, [position[0] + Math.cos(angle) * 63, position[1] + Math.sin(angle) * 63]);
+        });
+      });
+      visibleEdges = edges.filter(function (edge) { return edge.kind === 'dependency' || edge.kind === 'ownership'; });
+      caption = modules.length + ' API modules · Arrows: declared code dependencies. Select a module for modes and sources.';
+    } else {
+      var centre = view === 'decisions' ? moduleSelection : controlSelection;
+      positions.set(centre, [500, 325]);
+      visibleEdges = edges.filter(function (edge) {
+        return edge.from === centre && edge.kind === (view === 'decisions' ? 'decision' : 'evidence');
+      });
+      visibleEdges.forEach(function (edge, index) {
+        var angle = index / visibleEdges.length * Math.PI * 2 - Math.PI / 2;
+        positions.set(edge.to, [500 + Math.cos(angle) * 315, 325 + Math.sin(angle) * 235]);
+      });
+      caption = nodes.get(centre).name + (view === 'decisions' ? ' · Arrows: specification names decision.'
+        : ' · Arrows: evidenced by passing test in this build.') + (visibleEdges.length ? '' : ' No such relations recorded.');
+    }
+    byId('brain-map-caption').textContent = caption;
+    var defs = svg('defs', {});
+    var marker = svg('marker', { id: 'brain-arrow', viewBox: '0 0 10 10', refX: 9, refY: 5,
+      markerWidth: 5, markerHeight: 5, orient: 'auto-start-reverse' });
+    marker.append(svg('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: '#bba0dc' }));
+    defs.append(marker); graph.append(defs);
+    visibleEdges.forEach(function (edge) {
+      var from = positions.get(edge.from), to = positions.get(edge.to);
+      if (!from || !to) return;
+      var distance = Math.hypot(to[0] - from[0], to[1] - from[1]);
+      var dx = (to[0] - from[0]) / distance, dy = (to[1] - from[1]) / distance;
+      var line = svg('path', { d: 'M ' + (from[0] + dx * 25) + ' ' + (from[1] + dy * 25)
+        + ' L ' + (to[0] - dx * 26) + ' ' + (to[1] - dy * 26),
+        'class': 'brain-edge ' + edge.kind + (edge.from === selected || edge.to === selected ? ' connected' : '') });
+      if (edge.kind !== 'ownership') line.setAttribute('marker-end', 'url(#brain-arrow)');
+      line.append(svg('title', {}, nodes.get(edge.from).name + ' → ' + nodes.get(edge.to).name + ': ' + edge.meaning));
+      graph.append(line);
+    });
+    positions.forEach(function (position, id) {
+      var node = nodes.get(id), small = node.kind === 'capability' && (view === 'modules' || view === 'journey');
+      var group = svg('g', { 'class': 'brain-node ' + node.kind + ' ' + node.state + (small ? ' satellite' : '') + (id === selected ? ' selected' : ''),
+        transform: 'translate(' + position[0] + ' ' + position[1] + ')', tabindex: 0, role: 'button',
+        'aria-label': node.name + ', ' + node.kind + ', ' + node.state, 'aria-pressed': String(id === selected) });
+      group.append(svg('circle', { r: small ? 22 : 34, 'class': 'brain-hit' }),
+        svg('circle', { r: small ? 10 : 31, 'class': 'brain-halo' }),
+        svg('circle', { r: small ? 4 : 11, 'class': 'brain-core' }), svg('title', {}, node.name + ': ' + node.state));
+      if (!small) {
+        var name = node.name.replace(/^control\./, '');
+        if (name.length > 17) name = name.slice(0, 15) + '…';
+        group.append(svg('text', { x: 0, y: -33, 'text-anchor': 'middle' }, name),
+          svg('text', { x: 0, y: -14, 'text-anchor': 'middle', 'class': 'brain-node-status' }, node.kind + ': ' + node.state));
+      }
+      group.addEventListener('click', function () { select(id, true); });
+      group.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(id, true); }
+      });
+      graph.append(group);
+    });
+  }
+  function filter() {
+    var query = input.value.trim().toLowerCase();
+    var found = Array.from(nodes.values()).filter(function (node) {
+      return query ? (node.name + ' ' + node.description).toLowerCase().includes(query)
+        : node.kind === (view === 'controls' ? 'control' : 'module');
+    });
+    if (query) found.sort(function (a, b) {
+      return Number(b.name.toLowerCase().includes(query)) - Number(a.name.toLowerCase().includes(query))
+        || a.name.localeCompare(b.name, 'en');
+    });
+    results.replaceChildren();
+    found.forEach(function (node) {
+      var button = element('button', node.name);
+      button.type = 'button';
+      button.append(element('small', node.kind + ' · ' + node.state));
+      button.setAttribute('aria-pressed', String(node.id === selected));
+      button.addEventListener('click', function () {
+        select(node.id, true);
+      });
+      results.append(button);
+    });
+    results.hidden = !query;
+    byId('brain-results-status').textContent = query
+      ? found.length + (found.length === 1 ? ' matching record.' : ' matching records.') : '';
+  }
+  function showView(next) {
+    view = next;
+    document.querySelectorAll('[data-brain-view]').forEach(function (button) {
+      button.setAttribute('aria-pressed', String(button.dataset.brainView === view));
+    });
+    byId('brain-map-view').hidden = view === 'journey';
+    byId('brain-journey').hidden = view !== 'journey';
+  }
+  function setView(next) {
+    if (next === 'controls' && nodes.get(selected).kind === 'capability') controlSelection = selected;
+    showView(next);
+    select(next === 'controls' ? controlSelection : moduleSelection, false);
+  }
+  document.querySelectorAll('[data-brain-view]').forEach(function (button) {
+    button.addEventListener('click', function () { input.value = ''; setView(button.dataset.brainView); });
+  });
+  document.querySelectorAll('[data-brain-select]').forEach(function (button) {
+    button.addEventListener('click', function () { select(button.dataset.brainSelect, true); });
+  });
+  input.addEventListener('input', filter);
+  input.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') { input.value = ''; filter(); }
+    if (event.key === 'Enter') { event.preventDefault(); var first = results.querySelector('button'); if (first) first.focus(); }
+  });
+  // A fragment into the catalogue remains usable even though enhancement initially collapses the long records.
+  function revealHash() {
+    var fragment;
+    try { fragment = decodeURIComponent(location.hash.slice(1)); } catch (error) { return; }
+    var target = byId(fragment);
+    if (target) {
+      for (var parent = target.parentElement; parent; parent = parent.parentElement) {
+        if (parent.tagName === 'DETAILS') parent.open = true;
+      }
+    }
+  }
+  select(selected, false);
+  records.open = false;
+  document.querySelector('.brain-tools').hidden = false;
+  document.querySelector('.brain-workspace').hidden = false;
+  window.addEventListener('hashchange', revealHash);
+  revealHash();
+})();

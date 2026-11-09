@@ -7,7 +7,7 @@ date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
   - "java: :tools:docs:checkGenerated, part of check (BrainGeneratorTest, BrainCheckTest, DemoCheckTest)"
-  - "java: :tools:docs:site, part of check (SiteBuilderTest, SitePagesTest, SiteAccessibilityTest, SiteAssetsTest, DemoPagesTest)"
+  - "java: :tools:docs:site, part of check (SiteBuilderTest, SitePagesTest, SiteAccessibilityTest, SiteAssetsTest, DemoPagesTest, SearchPageTest, BrainMapTest)"
   - "pages: the build job of .github/workflows/pages.yml scans the site before every upload (PublicationScannerTest, ScannedNamesTest, DocsToolTest, PagesWorkflowTest)"
 plannedEnforcement:
   - "a check that a pull request changing a module's code or tests also changes a document that names the module"
@@ -107,6 +107,14 @@ SnakeYAML Engine 3.2.
   the current acceptance and its reviewed-set digest, which the build recomputes and must match. The Trust section
   also publishes the repository's LICENSE and NOTICE, complete and unchanged, beside the third-party notices, as the
   Apache License 2.0 asks of a redistribution.
+- Issue #38 adds a generated search sheet and a visual human Brain. Search reads only assembled page titles,
+  summaries and rendered headings; its complete directory is HTML, including escaped text, so the publication
+  scan sees it. It does not publish a separate JSON index or fetch data. The Brain's semantic HTML records carry
+  module dependencies from the model, capability ownership from the registry, ADR mentions from module
+  specifications and evidence edges only for unambiguous tests that passed in this build. A dependency arrow is
+  not a runtime trace; an accepted ADR is not an implemented capability. The existing script enhances these records
+  with SVG, filtering and selection under the strict CSP, without a library, storage or markup injection. The
+  design exception and keyboard/no-script behavior are recorded in the site specification.
 - The Demos section publishes demonstration pages: one text-only sheet per pull request from
   `docs/demos/<pr>-<slug>.md` (sheet X- and its number), their register (X-00), newest recording first, and the
   recipe for writing one, `docs/demos/how-to.md` (X-GUIDE). The tool checks each before it is published: its
@@ -223,6 +231,9 @@ SnakeYAML Engine 3.2.
   README documents them) and `DemoPagesTest` (the register and its order, the sheet with its facts, the ledger's
   evidence that counts only tests that passed, a recording without the double rule, See it links that reach pages,
   the empty register).
+- `SearchPageTest` proves complete published-sheet coverage, ownership of every indexed field, escaped title
+  markup and publication scanning through entities. `BrainMapTest` proves typed source-backed relations, model
+  changes flowing into the map and the absence of evidence arrows for missing or failed reports.
 - `PublicationScannerTest` (a negative fixture for every rule, the dictionary through entities, NFKC, tags and
   zero-width characters, failing closed without a dictionary or with a malformed one, exact and stale exceptions,
   links and unreadable files, the digest and the revision in the summary, no value or term in any output, and the

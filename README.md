@@ -16,6 +16,11 @@ documentation tool.
 the acceptance. Existing classifications and the census, matching, duplicate and bypass checks are unchanged.
 Every finding remains a coverage refusal; the expected verdict is `COVERAGE_INCOMPLETE`.
 
+The human Brain offers a generated visual map of API modules, their capabilities and named decisions, plus controls
+and their passing test evidence. Site search finds published titles, summaries and headings. Both update when the
+normal checked Pages deployment succeeds; prose does not create architecture dependency arrows. The generated
+`BRAIN.md` and module brains remain the agent entry points.
+
 ## What exists today
 
 Built and running:

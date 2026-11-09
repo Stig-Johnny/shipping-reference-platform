@@ -26,6 +26,7 @@ final class Sheets {
 
     private static final Map<String, String> CODES = Map.ofEntries(
             Map.entry(StartPages.INDEX, "S-00"),
+            Map.entry(SearchPage.PAGE, "S-03"),
             Map.entry(StartPages.README, "S-01"),
             Map.entry(StartPages.SITE_DESIGN, "S-02"),
             Map.entry(DemoPages.INDEX, "X-00"),

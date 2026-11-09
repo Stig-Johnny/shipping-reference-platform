@@ -475,6 +475,13 @@ The [attended runbook](flows/attended-demo.md#recorded-database-evidence) record
 
 ## 7. Documentation
 
+- The visual Brain maps API module dependencies, capability ownership, named decisions and passing evidence.
+  It is a declaration/evidence view, not a runtime trace, and does not yet combine the separate web component map.
+  Site search matches titles, summaries and headings as literal phrases; it does not search full prose or offer
+  semantic search. Both rebuild from source through the checked Pages workflow; a failed deployment leaves the
+  previously published revision visible. Keyboard and narrow-screen reviews are attended checks, not a complete
+  screen-reader or accessibility certification.
+
 - The brain is a budgeted summary (12 KiB root, 8 KiB per module) and omits detail by design; it links to sources.
 - Frontmatter-linked documentation proves that a document changed with the code, not that it is correct. Not
   enforced yet: the check that a pull request changing a module's code also changes its documents.

@@ -19,6 +19,7 @@ A reference monorepo that shows how a Java and TypeScript product can be built w
 - [README.md](README.md): the idea, the controls and how each can fail.
 - [AGENTS.md](AGENTS.md): rules for agents, with scoped files in `apps/*`, `libs/*` and `security/`.
 - [docs/gaps.md](docs/gaps.md): what a green build does not prove.
+- [Human site design](docs/ui/documentation-site.md): generated page search and a visual map of API modules, decisions and passing evidence; prose does not create dependency arrows.
 - [docs/risk-levels.md](docs/risk-levels.md) and `policy/risk.json`: who approves what.
 
 ## Modules
@@ -60,7 +61,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | `control.dependency-allowlist` | partial | `java` | ContainerEngineWorkflowTest |
 | `control.risk-classification` | planned | `risk-approval` | none yet |
 | `control.mutation-testing` | planned | `mutation` | none yet |
-| `control.brain-check` | shipped | `java` | BrainGeneratorTest, BrainCheckTest |
+| `control.brain-check` | shipped | `java` | BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest |
 | `control.publication-scan` | shipped | `build` | PublicationScannerTest, PagesWorkflowTest |
 
 ## Decisions

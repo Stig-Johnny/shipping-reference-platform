@@ -18,7 +18,7 @@ that drawing set: every page is a sheet with a code and a title block, the navig
 the status of what a sheet describes is entered in a ledger. The metaphor lives in alignment, numbering and
 provenance, never in decoration.
 
-**Not allowed:** paper textures, grid wallpaper, distressed or rotated stamps, screws, barcodes, ornamental dimension
+**Not allowed outside the Brain map exception below:** paper textures, grid wallpaper, distressed or rotated stamps, screws, barcodes, ornamental dimension
 lines, decorative warnings, shadows, gradients, animation and illustrations.
 
 ## What lines mean
@@ -87,6 +87,40 @@ definitions, and a drawing must read the same wherever it is shown.
 At 1280 × 900 the first screen shows the title, the purpose, the title block and the status ledger, then the system
 context drawn, then the two reading paths; the COO's ends with the Demos section. The counts in the ledger come from
 `docs/capabilities/capabilities.yaml`. The explanations of the data and of what the site publishes follow below.
+
+## Search and the visual Brain
+
+Design decision for issue #38, reviewed by the owner on 2026-11-09: the human Brain leads with a dark network
+map instead of the full capability tables. The agent's generated Markdown remains unchanged. This is an explicit
+exception to the drawing palette and decoration rules: the map uses a near-black background, a restrained purple
+gradient, cyan built modules, violet planned modules and a gold selection. Module sizes are equal; layout and size
+never imply importance. Capability satellites indicate ownership, not evidence or runtime activity. Every state
+also appears in words. There is no particle animation or force simulation.
+
+The map starts with API module dependencies. Selecting a module reveals its capabilities, dependency modes and
+specification's named decisions; a decisions view draws those mentions, with ADR decision status kept separate
+from implementation status. An evidence view draws only tests that passed in the publishing build, for the selected capability or control.
+Every edge has a named meaning and source in the HTML records. REQUIRED/PERMITTED and planned are explicit text;
+map arrows are code dependencies, never runtime flow. The web component map remains on its existing Model sheet.
+
+At 1280 pixels the map and selected record share the available width; at 390 and 360 they stack. All controls have
+keyboard paths and visible focus. Small satellites may hide on mobile; the searchable record list keeps the same
+capabilities available. The map and selected details come first. Source metadata, the existing status ledger and the contents list follow
+the main body; full capability, control and module records remain available through disclosures. Without script the records remain readable and linked. The four-step
+demo journey links to the attended runbook and is visibly separate from static dependency arrows.
+
+Search is sheet S-03, linked from every page, with a labelled input and the complete list of published sheets
+(excluding the 404 fallback). Its index is generated from the assembled pages' titles, summaries and rendered
+headings, never from extra repository text. The index is ordinary HTML covered by the publication scan, with no
+JSON file, fetched data or storage. Without script every link and field remains readable. With script a literal,
+case-insensitive phrase filters the list; title matches rank before summaries, then headings, with source order
+breaking ties. Each result names the matching field and shows its text. Enter moves to the first result; Escape
+clears the query. No match is an announced result, never a blank page.
+
+Both views rebuild through the existing checked generation and Pages deployment. Changing prose updates the
+published text and search; changing model/registry declarations updates the corresponding graph relations.
+Free-form prose cannot invent a code dependency. Detail is available on demand so the first screen prioritizes
+the map and the reader's next action.
 
 ## The Demos section
 
