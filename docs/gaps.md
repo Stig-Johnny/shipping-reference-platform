@@ -16,6 +16,8 @@ closes it.
 the acceptance. Existing classifications and the census, matching, duplicate and bypass checks are unchanged.
 Every finding remains a coverage refusal; the expected verdict is `COVERAGE_INCOMPLETE`.
 
+The [attended runbook](flows/attended-demo.md#recorded-database-evidence) records the PostgreSQL CI result.
+
 ## 0. State of this commit
 
 - The specification, the reviewed toolchain and the dependency allowlist with its enforcement are in place, and so
@@ -32,23 +34,26 @@ Every finding remains a coverage refusal; the expected verdict is `COVERAGE_INCO
   the `tenants` module's demo authentication with `GET /api/v1/me`, and the HTTP edge. Eleven capabilities have passing
   tests: two of the quotes module are shipped, and three of it, two of the tenants module and four of the shipments
   module are partial, and so is the HTTP contract control. Every other capability in
-  `docs/capabilities/capabilities.yaml` is `planned` with no evidence, and every test class named for them is still to
-  be written (red first), except `ShipmentTest`, which exists for booking and does not yet assert cancellation.
+  `docs/capabilities/capabilities.yaml` is `planned` with no evidence, with local evidence still separated from recorded database execution. Cancellation, event and workbench acceptance
+  tests remain planned; `ShipmentTest` exists for booking and does not yet assert cancellation.
   The shipping API's database harness exists too: in CI, `PostgresHarnessIntegrationTest` starts the reviewed
   PostgreSQL 18.6 image under the runner review's conditions and queries it. V1 (tenants), V2 (quotes), V3 (shipments), their down
-  scripts and the role bootstrap now exist. MigrationFilesTest supplies only file-pairing evidence; the merged tree's
-  up/down execution and RLS proof are pending CI, so control.migrations is partial and tenants.row-level-security
-  remains planned. The migration, RLS and adapter database classes are tagged database and required in the reviewed harness window.
-- **The HTTP tests still use in-memory ports.** The tenants, quotes and shipments JDBC adapters now exist behind
+  scripts and the role bootstrap now exist. MigrationFilesTest supplies local file-pairing evidence. All ten database classes passed in recorded CI evidence (run `42612173809`) (45 tests, zero failures/skips), including up/down and RLS cases. The ordinary local
+  build does not consume those CI reports; generated capability evidence retains that distinction. The migration, RLS and adapter database classes are tagged database and required in the reviewed harness window.
+- **Local HTTP and recorded PostgreSQL evidence differ.** The tenants, quotes and shipments JDBC adapters now exist behind
   `postgres`, with transaction-local tenant binding before every query. Shared store contracts compile for both
   implementations; `MembershipDirectoryIntegrationTest`, `QuotesModuleIntegrationTest` and
   `ShipmentListingIntegrationTest` require CI's reviewed PostgreSQL engine. Local passing contracts prove only the
   in-memory implementation. `JdbcProfileTest` checks opt-in repository and transaction annotations, not live proxy
   behavior. The existing HTTP tests prove default wiring without JDBC. The attended demo now starts with production memory stores and serves configured static assets with strict CSP.
-  `DemoSmokeTest` exercises real HTTP; the shared `DemoPostgresSmokeIntegrationTest` is implemented but awaits CI.
+  `DemoSmokeTest` exercises real HTTP; the shared `DemoPostgresSmokeIntegrationTest` passed all three cases in that recorded CI run.
   Durable event publication remains planned. Memory mode is disposable and intended for sequential attended use,
-  not concurrent booking guarantees. The workbench and browser enforcement evidence remain separate work.
-  The scenario gate still rejects the new static/CSP framework call sites; no new ledger debt is accepted.
+  not concurrent booking guarantees. The static fixture loads its external script without browser console errors;
+  the workbench and adversarial CSP enforcement tests remain separate work. Early malformed-request JSON 400
+  responses from the path filter and strict firewall precede the security chains and do not receive their CSP headers;
+  outer fallback/reset responses also do not retain chain-written headers.
+  The owner accepted the 15 exact static/CSP framework findings; the ledger now records 215 known gaps and
+  retains `COVERAGE_INCOMPLETE`. Unledgered findings still block the scenario gate.
 - **Booking concurrency requires the enclosing transaction.** JDBC key and quote lookups acquire advisory locks
   until commit or rollback; unique constraints provide the final guard (ADR 0017). The protocol assumes READ
   COMMITTED and every booking entering through the transactional application service. Direct inserts that bypass

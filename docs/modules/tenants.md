@@ -30,8 +30,7 @@ Built:
 
 The HTTP tests start the whole application with an in-memory directory. `JdbcMembershipDirectory` now implements
 the port under the `postgres` profile. `MembershipDirectoryIntegrationTest` shares its exact membership contract
-with `InMemoryStoresTest`: Alpha, Beta, a known user without a membership and an unknown token. The database run
-is pending CI, so the two authentication capabilities remain partial and their HTTP evidence proves no SQL execution.
+with `InMemoryStoresTest`: Alpha, Beta, a known user without a membership and an unknown token. The database case passed in [recorded CI evidence](../flows/attended-demo.md#recorded-database-evidence) (run `42612173809`). The two authentication capabilities remain partial; local HTTP evidence and recorded SQL execution are distinguished.
 
 In the scenario coverage fixtures, `ReachabilityTest` shares one raw `ThreadTenantContext` between tenant-owned and
 quote-owned roots, directly and through shared containers, and requires a bypass gap in both traversal orders.
@@ -48,8 +47,9 @@ Only exact reviewed debt can pass the build; new, changed or disappeared finding
 Built: `JdbcMembershipDirectory` calls `tenants.resolve_demo_token`. It sets an empty transaction-local tenant
 before this pre-authentication query, since the token lookup is what discovers the tenant (ADR 0017).
 Built: the demo runtime defaults to synthetic memory identity; `demo,postgres` uses the JDBC directory with standard datasource environment variables and an operator-prepared seed. Planned: `TenantScope` and prototype flags; until then every flag is off and `enabledFlags` is empty.
-The V1 schema, role bootstrap and database RLS tests exist; their execution against the merged tree is pending CI.
-Until that evidence exists, `tenants.row-level-security` remains planned.
+The V1–V3 schema, role bootstrap and database RLS tests passed in the recorded CI run. The ordinary local build does
+not read CI database reports, so its generated RLS capability evidence remains unpromoted; this recorded result
+does not establish the planned audit schema or event tenant scope.
 `tenants.cross-tenant-denial`, `tenants.tenant-scope-for-events` and
 `tenants.prototype-flags` are planned.
 
@@ -130,11 +130,12 @@ These tokens are public, guessable test fixtures, not secrets. Rules:
   `DemoStaticController` serves the configured immutable build directory outside `/api`, with normalized/real-path
   containment. `DemoSmokeTest` proves static content types, CSP, traversal and escaping-symlink refusal plus the
   full shipment flow over real HTTP. See the [attended runbook](../flows/attended-demo.md) and
-  [ADR 0018](../adr/0018-attended-demo-runtime.md). PostgreSQL smoke execution awaits CI.
+  [ADR 0018](../adr/0018-attended-demo-runtime.md). The three PostgreSQL smoke cases passed in the recorded CI run.
 - A request that Spring Security's firewall refuses, such as a path with `;` or an encoded `/` or a method the
   server does not accept, is `400 malformed-request` before it is authenticated: the module's
   `RequestRejectedHandler` hands the rejection to the MVC exception resolvers, and the HTTP edge writes the problem,
-  with the correlation ID and `Cache-Control: no-store`.
+  with the correlation ID and `Cache-Control: no-store`. Early refusals and outer fallback/reset responses do not
+  retain the security chains' CSP/default headers, as the contract now states.
 - Spring Boot's generated user never exists, because the module defines its own `AuthenticationManager`
   (`security/reviews/maven--spring-security--7.1.2.md`, condition 3). `DemoTokenAuthenticationTest` checks the beans
   and the startup log of the application with and without the `demo` profile, and the `java` workflow fails when

@@ -438,11 +438,11 @@ class SitePagesTest {
         assertThat(repository).contains("<th>Implementation state</th>", "The planned v0.1 behaviour is: a shipping "
                 + "clerk", "<td>Minimal implementation planned for v0.1; no code yet</td>",
                 "<td>Built in part: booking from an offer, idempotent per tenant and key, with HTTP listing, reading and SVG "
-                        + "labels; database and cancellation planned</td>",
+                        + "labels; database execution recorded in CI; cancellation planned</td>",
                 "<td>Built in part: tariff, rating, quote creation and reading, and offer lookup, over HTTP in tests; "
-                        + "V2 schema exists, database execution evidence pending</td>",
+                        + "V2 schema and JDBC adapter have recorded CI evidence</td>",
                 "<td>Built in part: demo authentication over HTTP, <code>GET /api/v1/me</code> and the tenant bound "
-                        + "for each request; V1 schema exists, RLS execution evidence pending; JDBC directory and attended demo built; prototype flags planned"
+                        + "for each request; V1 schema exists, RLS execution recorded in CI; JDBC directory and attended demo built; prototype flags planned"
                         + "</td>")
                 .doesNotContain("<td>built</td>", "<td>built (minimal)</td>", "v0.1 target, not implemented");
     }

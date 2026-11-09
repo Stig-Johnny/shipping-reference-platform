@@ -62,6 +62,13 @@ After interruption, the launcher exited 130 and the loopback connection was refu
 also exited 0 as a test script, checking missing/wrong JDK, invalid arguments, missing static files and incomplete
 PostgreSQL configuration without printing the synthetic password marker.
 
+Independent review found that an already-running HTTP server could make the launcher print a false ready URL.
+The regression failed before the repair. JDK-only port checks now reject existing HTTP and non-HTTP listeners
+before the build and again before startup; both occupied-port regressions pass and run in Java CI.
+
+On the repaired launcher, the same fixture opened in the browser, its external script set the page's ready marker,
+and the browser recorded no console warnings or errors. This checks the committed fixture only.
+
 `DemoSmokeTest` and `DemoSecurityHeadersTest` are separately listed as current-build evidence. The smoke starts
 production memory stores and exercises synthetic identity, quote, booking/replay, list, detail, labels, foreign
 tenant denial, static types/CSP and traversal/symlink refusal. This demonstration belongs to pull request #94,
@@ -69,9 +76,15 @@ for issue #92.
 
 ## Limits
 
-The recording establishes a local memory run only. The database-tagged `DemoPostgresSmokeIntegrationTest` is
-implemented and compiled but must run through the reviewed harness in CI. Browser CSP enforcement, the actual
+The local recording establishes a memory run only. Separately, recorded CI run `42612173809` ran all ten database classes against reviewed PostgreSQL: 45 tests, zero failures and zero skips.
+`DemoPostgresSmokeIntegrationTest` contributed three passing real-HTTP cases. This is recorded CI evidence,
+not a local database run or a claim about a later publishing build. Adversarial CSP enforcement, the actual
 workbench, durable events, concurrent memory booking and production authentication are not established.
 Memory storage resets when the process stops. Application logs are deliberately discarded by the launcher to
-prevent framework connection diagnostics from revealing credentials. The scenario recorder still does not
+prevent framework connection diagnostics from revealing credentials. Run one launcher at a time; a simultaneous
+independent bind after the port check remains outside this attended check.
+The scenario recorder still does not
 observe these HTTP exchanges; the 15 new framework findings remain explicit accepted coverage debt.
+Malformed-request JSON 400 responses generated before the security chains (path filter or strict firewall)
+carry correlation/no-store headers but do not receive those chains' CSP and default security headers.
+Outer fallback/reset responses also do not retain the chain-written headers.

@@ -27,6 +27,9 @@ It must contain `index.html`. Files are served from this directory only; there i
 fallback. Give the process read-only access to an immutable, trusted build directory. Do not put secrets there.
 The server checks normalized and real paths, including symlink destinations, on each request. API paths remain
 behind the API authentication chain. CSP forbids inline script/style, remote resources, framing and base URLs.
+Early malformed-request JSON 400 responses from the path filter and strict firewall precede those chains and
+carry correlation/no-store headers without their CSP or default security headers. Outer fallback/reset responses
+also do not retain those chain-written headers.
 
 Gradle's root `bootJar` task packages an executable **thin** archive at
 `apps/shipping-api/build/demo/shipping-demo.jar`, alongside its `lib` directory. Keep both together.
@@ -66,6 +69,9 @@ for both demo modes until its schema and listeners exist (ADR 0006 remains the p
 
 ## Readiness, verification and cleanup
 
+The launcher checks that its IPv4 loopback port is free before the build and again before starting Java. An existing
+HTTP or non-HTTP listener is refused without contacting it. Run one launcher at a time: another process can still
+claim the port after a check, and child liveness alone does not establish ownership of a socket.
 Readiness polls the public index for up to 60 attempts, with a one-second request timeout. The launcher verifies
 that the child is alive and prints the URL and synthetic sign-in hint. Interrupt with Ctrl-C; EXIT/INT/TERM cleanup
 terminates and waits for the Java child. If startup fails or readiness times out it also cleans up. Memory resets;
@@ -73,11 +79,14 @@ PostgreSQL data persists and must be removed by the operator's database workflow
 
 ```sh
 bash tools/demo/run-attended-demo-test.sh
+java tools/demo/LoopbackPortCheckTest.java
 ./gradlew :apps:shipping-api:test --tests '*DemoSmokeTest' --tests '*DemoSecurityHeadersTest'
 java tools/policy/PolicyCheck.java .
 ```
 
-The nine shell refusal fixtures do not start Gradle, Java servers or PostgreSQL. The real-HTTP `DemoSmokeTest`
+The nine shell refusal fixtures do not start Gradle, Java servers or PostgreSQL. The JDK port regressions create
+temporary loopback HTTP and non-HTTP listeners and require refusal before Gradle or readiness. Both run in Java CI.
+The real-HTTP `DemoSmokeTest`
 boots production memory stores on a random port with fixed test clocks/IDs, verifies static content types/CSP,
 rejects traversal and escaping symlinks, and drives authentication, quote, book, replay, list, detail, label and
 cross-tenant denial. Every API exchange passes the existing contract helper.
@@ -87,3 +96,12 @@ under the mandatory `database` tag in CI; local compilation is not PostgreSQL ev
 The live local launcher recording and rendered-page review are described in the public demo source `docs/demos/94-demo-profile.md`.
 See [ADR 0018](../adr/0018-attended-demo-runtime.md) for boundaries and
 [known gaps](../gaps.md#0-state-of-this-commit) for what this does not prove.
+
+## Recorded database evidence
+
+CI run `42612173809`, recorded 2026-11-09, ran all ten database classes through the reviewed PostgreSQL harness:
+45 tests, zero failures and zero skips. The per-class report for `DemoPostgresSmokeIntegrationTest` contains three
+passing real-HTTP cases: the synthetic shipping flow, static types/headers, and traversal/symlink refusal.
+The other nine classes cover migration round trips, runtime roles/RLS, membership, quote storage, idempotent
+booking and shipment listing. This is a recording; ordinary local builds do not read a previous CI report as their
+own evidence. CI and Pages require database reports from their own run. No database or container was started locally.

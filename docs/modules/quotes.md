@@ -17,7 +17,7 @@ all of its code is pricing.
 
 The attended `demo` runtime now supplies disposable memory storage; `demo,postgres` selects the existing JDBC
 adapter with standard datasource environment variables. `DemoSmokeTest` exercises the real HTTP quote-to-label
-flow with memory storage; the matching `DemoPostgresSmokeIntegrationTest` compiles but awaits CI. See the
+flow with memory storage; the matching `DemoPostgresSmokeIntegrationTest` passed all three cases in [recorded CI evidence](../flows/attended-demo.md#recorded-database-evidence) (run `42612173809`). See the
 [runbook](../flows/attended-demo.md) and [ADR 0018](../adr/0018-attended-demo-runtime.md).
 
 Built: the public API below, the domain model, the application layer (`CreateQuote`, `GetQuote`,
@@ -30,7 +30,7 @@ now implements the same port under the `postgres` profile. `InMemoryStoresTest` 
 inherit the same quote contract: all offers and money round trip, selected service levels survive, duplicate IDs
 fail and tenant-scoped IDs may repeat across tenants. The database class also checks offer lookup, rollback and a quote committed during a concurrent read.
 The adapter reads the immutable parent first, so visible quotes already have their committed offers.
-Its PostgreSQL execution is pending CI; the existing capability statuses and evidence remain unchanged.
+Its six PostgreSQL cases passed in the recorded CI run. Capability statuses remain partial and local-build evidence is distinguished from that recording.
 
 V2 and its down script remain unchanged. Each JDBC statement first binds the transaction's tenant with
 `set_config('app.tenant_id', ..., true)` and also names the tenant in SQL (ADR 0017). Spring's transaction proxy

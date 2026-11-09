@@ -7,8 +7,7 @@ date: 2026-11-09
 decision-makers: repository owner
 enforcedBy:
   - "java: DemoSmokeTest, DemoSecurityHeadersTest, ExternalImportPolicyTest"
-plannedEnforcement:
-  - "databaseTest: DemoPostgresSmokeIntegrationTest; implemented, CI execution pending"
+  - "databaseTest: DemoPostgresSmokeIntegrationTest; recorded CI run 42612173809"
 ---
 
 # ADR 0018: An attended demo on one origin with selectable storage
@@ -36,10 +35,16 @@ A configured `shipping.demo.static-directory` enables a separate static security
 controller. It serves only regular files whose normalized and real paths stay inside the directory. Operators
 supply an immutable trusted build. GET/HEAD use exact media types; unknown paths do not become the index page.
 One shared CSP constant and configuration call retains default Spring security headers on both chains; the SVG
-label keeps its stricter policy. This provides HTTP header evidence, not browser execution or a compiler import graph.
+label keeps its stricter policy. Early malformed-request JSON 400 responses from the correlation/path filter or
+strict firewall precede these chains and do not receive their CSP/default security headers; outer fallback/reset
+responses also do not retain them. This preserves the
+existing early-rejection behavior; it does not make these JSON responses into static HTML.
+The fixture's external script loads in the browser without console warnings or errors; this is limited browser
+compatibility evidence, not an adversarial CSP enforcement suite or a compiler import graph.
 
 Gradle's existing Jar and Sync tasks package a thin executable archive and unmodified runtime jars. No Boot Gradle
-plugin or loader is added. The attended Bash launcher checks Temurin 25.0.5+8, builds with the wrapper, binds
+plugin or loader is added. The attended Bash launcher checks Temurin 25.0.5+8, rejects occupied loopback ports
+before and after the build using the JDK alone, builds with the wrapper without a persistent daemon, binds
 loopback, waits for readiness and reaps its child on exit. Application logs are discarded to prevent third-party
 connection diagnostics from exposing credentials. Standard Spring datasource environment variables reach the
 application only; Gradle receives none of those three variables.
@@ -55,14 +60,15 @@ concurrent booking guarantees.
 
 The launcher is runnable with the reviewed toolchain alone in memory mode. Operators must preserve the sibling
 library directory and prepare PostgreSQL independently. Logs cannot aid startup diagnosis because they are
-intentionally discarded; the public diagnostics remain credential-free.
+intentionally discarded; the public diagnostics remain credential-free. Port checks reject pre-existing listeners;
+operators run one launcher at a time because an independent bind can still race after the final check.
 
 ## Confirmation
 
 `DemoSmokeTest` exercises the production memory runtime over real sockets with synthetic fixtures and validates
 all API responses against OpenAPI. It checks static files, CSP, traversal and symlink containment, authentication,
 quote, booking/replay, list, detail, label and foreign-tenant denial. The shared PostgreSQL subclass is tagged
-`database` and uses ReviewedPostgres through the existing harness; execution awaits CI. Shell refusal tests and a
+`database` and uses ReviewedPostgres through the existing harness; all three cases passed in [recorded CI evidence](../flows/attended-demo.md#recorded-database-evidence) (run `42612173809`). Shell refusal tests and a
 live launcher run supplement JUnit. [The runbook](../flows/attended-demo.md) gives preparation and cleanup.
 
 The owner accepted exactly 15 new scenario census findings for issue #92 (ADR 0013). The ledger now records

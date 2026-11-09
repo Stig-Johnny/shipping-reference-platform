@@ -6,7 +6,7 @@ check that fails. The domain is generic webshop parcel shipping: quote a parcel,
 synthetic and the carrier is simulated. The application's first code exists: the API's pricing and quotes and its
 demo authentication, served over HTTP in tests, and booking, listing, reading and simulated labels in its shipments
 module over HTTP. The tenants, quotes and shipments schemas have paired migrations and JDBC adapters behind the postgres profile;
-the attended demo now runs with memory stores or opt-in PostgreSQL, while database execution evidence is pending CI.
+the attended demo now runs with memory stores or opt-in PostgreSQL, with PostgreSQL execution recorded in CI (see the attended demo evidence below).
 The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions,
 a labelled partial check of detected TypeScript imports in the web app, a dependency allowlist check and a
 documentation tool.
@@ -78,7 +78,7 @@ Built and running:
   forced row-level security and the role bootstrap `apps/shipping-api/postgres/init-roles.sql`. `MigrationFilesTest`
   checks their pairing without a database. `MigrationsIntegrationTest`, `MigrationRoundTripTest`,
   `RowLevelSecurityCatalogTest` and `RowLevelSecurityIntegrationTest` run in the mandatory CI `databaseTest` task.
-  The merged tree's database evidence is pending; no local up/down execution or RLS proof is claimed.
+  The database classes passed in recorded CI; no local up/down execution or RLS proof is claimed.
 
 The specification is in place too: the model, the API contract, the decisions, the module specifications, the risk
 policy and the agent rules, with the reviewed toolchain.
@@ -88,9 +88,10 @@ shipment cancellation, the workbench, a plain TypeScript app (ADR 0012), and the
 need them; the generated API client is deferred. In
 [docs/capabilities/capabilities.yaml](docs/capabilities/capabilities.yaml), the source of truth for status and
 evidence, the quotes module's tariff and quote expiry are shipped; quote creation, quote reading, the offer lookup,
-demo authentication and the current membership are partial, because their database tests are planned, and so are the
-shipments module's booking, idempotency, listing/reading and simulated labels. Shipment HTTP and SVG tests now pass,
-while database, concurrency and cancellation evidence remain planned; every other product capability is `planned`. [docs/gaps.md](docs/gaps.md) lists what a green build does not prove.
+demo authentication and the current membership remain partial, as do shipment booking, idempotency, listing/reading
+and simulated labels. Their local evidence covers memory/HTTP behavior; recorded CI also proves database execution
+and the implemented concurrency cases. Cancellation, durable events and the workbench remain planned. Generated
+capability evidence continues to name tests available to the ordinary local build; recorded CI is linked separately. [docs/gaps.md](docs/gaps.md) lists what a green build does not prove.
 
 ## The checker
 
@@ -225,9 +226,9 @@ see each other's data, enforced in queries and by forced PostgreSQL row-level se
 
 | Module | Implementation state | Depends on (from the model) |
 |---|---|---|
-| `quotes` | Built in part: tariff, rating, quote creation and reading, and offer lookup, over HTTP in tests; V2 schema exists, database execution evidence pending | `tenants` (REQUIRED) |
-| `shipments` | Built in part: booking from an offer, idempotent per tenant and key, with HTTP listing, reading and SVG labels; database and cancellation planned | `quotes`, `tenants` (REQUIRED) |
-| `tenants` | Built in part: demo authentication over HTTP, `GET /api/v1/me` and the tenant bound for each request; V1 schema exists, RLS execution evidence pending; JDBC directory and attended demo built; prototype flags planned | nothing |
+| `quotes` | Built in part: tariff, rating, quote creation and reading, and offer lookup, over HTTP in tests; V2 schema and JDBC adapter have recorded CI evidence | `tenants` (REQUIRED) |
+| `shipments` | Built in part: booking from an offer, idempotent per tenant and key, with HTTP listing, reading and SVG labels; database execution recorded in CI; cancellation planned | `quotes`, `tenants` (REQUIRED) |
+| `tenants` | Built in part: demo authentication over HTTP, `GET /api/v1/me` and the tenant bound for each request; V1 schema exists, RLS execution recorded in CI; JDBC directory and attended demo built; prototype flags planned | nothing |
 | `audit` | Minimal implementation planned for v0.1; no code yet | `shipments`, `tenants` (REQUIRED); `quotes` (PERMITTED, not evaluated) |
 | `orders` | planned, no code | `quotes`, `shipments` (PERMITTED, not evaluated) |
 | `tracking` | planned, no code | `shipments` (PERMITTED, not evaluated) |
@@ -245,9 +246,9 @@ it runs) and which part is **planned**.
 | Model validity | Package mappings overlap, are empty or leave classes uncovered; a planned module has code; forbidden DSL directives; tags disagree with contract properties; cycles. | Whether the model describes the right architecture. | `java`: `RepositoryWorkspaceTest` reads `architecture/workspace.dsl` with the library; `ArchitectureConformanceTest` applies the rules that need classes | **enforced**: for the model file, and for the API's classes (uncovered classes, code in a planned module) |
 | Module boundaries and layering | Access to another module's internal packages, module cycles, Spring in domain code, unexpected packages. | Coupling through shared data or timing. | `java`: `ModularityTest`, `HexagonalLayeringTest` | **enforced** for the built modules, each rule with a fixture that fails it |
 | External imports of the API | A dependency reported by ArchUnit 1.5.1 from an API main or test class targets a JDK internal or a package its JDK module does not export; has no unique provider on the caller's compile classpath; lacks an unexpired approval for the project, configuration and file, with SHA-256 comparison where the review records a hash; or is absent from the caller's layer whitelist. Artifacts colliding with actual main/test outputs also fail. Internal ownership comes from those outputs; only verified repository-owned project outputs are exempt from Maven review (currently the contract kit, with root-build identity and an exact registered output path). | Compiler-erased references such as inlined constants; retained bytecode that ArchUnit does not report, including casts and type-use annotations; reflection, `ServiceLoader`, framework wiring and native loading; another artifact at run time; artifacts no API class uses; the kit's and the tools' code (`docs/gaps.md`). | `java`: `ExternalImportPolicyTest`, through build-logic's `ProviderIndexTask`; `ProviderIdentityTest` checks build identity | **partial**: enforced for dependencies reported by ArchUnit 1.5.1 from the API's main and test outputs, including the isolated HTTP edge, web adapters and separately whitelisted HTTP tests, scenario tests and named scenario fixtures; source analysis and the scope of every locked artifact are planned |
-| API contract | A response deviates from the OpenAPI schema. | Operations and status codes no test exercises; the web app's hand-written types drifting from the contract, because the generated client is deferred (ADR 0012). | `java`: `*HttpContractTest` | **partial**: the quote, membership and four shipment operations and HTTP problems are validated in `java`, including SVG, with negative fixtures in `ContractTest`; cancellation and PostgreSQL-backed responses remain planned |
-| Tenant isolation | A tenant table lacks forced row-level security; the runtime role could bypass it; another tenant's IDs are readable through SQL or HTTP. | Policy changes by the owner role; superusers; the shared event publication table; strength of the demo authentication. | `java`: `RowLevelSecurityCatalogTest`, `RowLevelSecurityIntegrationTest`, `CrossTenantAccessTest` | database tests for V1/V2 implemented, CI evidence pending; quote/shipment HTTP isolation passes with stores in memory; application database tenant binding and cross-tenant database proof remain planned |
-| Domain invariants | Golden tariff prices, monotonicity and rounding properties, idempotent booking, expiry rules. | Wrong requirements. | `java` (parameterized property tests included: `SyntheticTariffPropertiesTest`) | partial: the tariff, expiry and booking tests run in `java`, booking with stores in memory; idempotent booking against the database is planned |
+| API contract | A response deviates from the OpenAPI schema. | Operations and status codes no test exercises; the web app's hand-written types drifting from the contract, because the generated client is deferred (ADR 0012). | `java`: `*HttpContractTest` | **partial**: the quote, membership and four shipment operations and HTTP problems are validated in `java`, including SVG, with negative fixtures in `ContractTest`; cancellation and unexercised response paths remain planned; the PostgreSQL smoke flow has recorded CI evidence |
+| Tenant isolation | A tenant table lacks forced row-level security; the runtime role could bypass it; another tenant's IDs are readable through SQL or HTTP. | Policy changes by the owner role; superusers; the shared event publication table; strength of the demo authentication. | `java`: `RowLevelSecurityCatalogTest`, `RowLevelSecurityIntegrationTest`, `CrossTenantAccessTest` | V1–V3 RLS, adapter tenant binding and cross-tenant database checks passed in recorded CI; ordinary local checks use memory stores |
+| Domain invariants | Golden tariff prices, monotonicity and rounding properties, idempotent booking, expiry rules. | Wrong requirements. | `java` (parameterized property tests included: `SyntheticTariffPropertiesTest`) | partial: the tariff, expiry and booking tests run in `java`, booking with stores in memory; database idempotency and concurrency cases passed in recorded CI |
 | Event delivery | A failed audit write is lost, or a replay has a second effect. | Consumers nobody has written yet. | `java`: `AuditReplayIntegrationTest` | planned |
 | Mutation testing | Fewer than 80 % of mutants on changed lines are killed (90 % for pricing and checker code). | Tests that consistently assert the wrong thing; hand-reviewed equivalent mutants. | `mutation` | planned (today the `mutation` job runs PIT on the contract kit and fails under 90 % killed; it is not a required check) |
 | Dependency allowlist and CI engine availability | A locked dependency, the Gradle wrapper or an Action has no approved, unexpired review; a checksum differs; the reviewed set changed after acceptance; the checked tree holds a symbolic link; engine shutdown or denial probes fail outside the reviewed harness window. | Check 8 is a PARTIAL static lint with known bypasses (ADR 0007); privileged code can undo the runtime guard. Build code downloading executables, compromised artifacts, runner compromise, local-agent bypass and review-scope misuse remain gaps. | `preflight` from the base branch; `java` before Gradle; engine guards in every CI job | **partial** in `capabilities.yaml`, with `ContainerEngineWorkflowTest` evidence and executable shell fixtures. The allowlist gate and runtime guard run today; schema validation, the remaining named acceptance tests and approval bound to the current head are planned. |
@@ -395,5 +396,5 @@ and standard Spring datasource environment variables; it never prints them. Foll
 [runbook](docs/flows/attended-demo.md) for preparation, commands, tests and limits.
 
 `DemoSmokeTest` proves the full real-HTTP memory flow and static containment/CSP. The database-tagged
-`DemoPostgresSmokeIntegrationTest` shares those assertions and awaits CI. The owner accepted exactly 15 new demo framework findings for issue #92; the 215-row scenario ledger
+`DemoPostgresSmokeIntegrationTest` shares those assertions: its three tests passed without failures or skips in [recorded CI evidence](docs/flows/attended-demo.md#recorded-database-evidence) (run `42612173809`). All ten database classes passed (45 tests, zero failures/skips). The owner accepted exactly 15 new demo framework findings for issue #92; the 215-row scenario ledger
 retains `COVERAGE_INCOMPLETE` and does not claim HTTP tracing coverage (ADR 0013).

@@ -27,9 +27,12 @@ esac
 static_directory="$(cd "$static_directory" && pwd -P)"
 command -v curl >/dev/null || refuse 'curl is required for readiness'
 cd "$root"
+# Refuse an existing HTTP or non-HTTP listener before the build, and again after the build's delay.
+java tools/demo/LoopbackPortCheck.java "$port"
 # No database credentials are needed by Gradle, and no build output can reveal them.
 env -u SPRING_DATASOURCE_URL -u SPRING_DATASOURCE_USERNAME -u SPRING_DATASOURCE_PASSWORD \
-  ./gradlew :bootJar
+  ./gradlew --no-daemon :bootJar
+java tools/demo/LoopbackPortCheck.java "$port"
 # Framework connection errors may contain URLs. Do not print or persist application logs in this attended launcher.
 # Diagnose an unavailable prepared database through the operator's approved database workflow.
 java -jar apps/shipping-api/build/demo/shipping-demo.jar \
@@ -47,7 +50,7 @@ ready=false
 for ((attempt=0; attempt<60; attempt++)); do
   kill -0 "$child" 2>/dev/null || refuse 'Demo failed to start; check port, static directory and prepared database'
   if curl --noproxy '*' --silent --fail --max-time 1 "http://127.0.0.1:$port/" > /dev/null; then
-    # Confirm our child still owns a running server, not an already-running service on the requested port.
+    # Catch an immediate child exit. The port preflights reject pre-existing listeners; liveness alone is not ownership.
     sleep 1
     kill -0 "$child" 2>/dev/null || refuse 'Demo failed to start; port may already be occupied'
     ready=true
