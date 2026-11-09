@@ -154,6 +154,8 @@ The public demo is assigned to pull request #91; database execution evidence rem
   `CrossTenantAccessTest`, the listeners' tenant scope and the audit schema remain planned.
   A session that can call `set_config` chooses its tenant: the setting scopes a connection, it authenticates nobody.
 - **Tracking numbers come from one global sequence.** A tenant can infer the platform's total booking volume.
+  `JdbcTrackingNumbersTest` proves ASCII formatting under `ar-EG` without a database. Sequence allocation and booking
+  transactions still require CI database evidence; locale-independent formatting does not close those gaps.
 - **Labels are SVG.** They are served as attachments with a restrictive Content Security Policy and contain no
   active content, but SVG remains a document format that some viewers treat as active.
 

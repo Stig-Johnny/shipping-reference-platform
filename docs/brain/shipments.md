@@ -45,7 +45,7 @@ Books shipments with tenant-scoped idempotency and renders simulated labels; pos
 
 | Capability | Status | Acceptance tests | Evidence |
 |---|---|---|---|
-| `shipments.book-from-offer` | partial | BookShipmentTest, RecipientTest, ShipmentsHttpContractTest | BookShipmentTest, RecipientTest, ShipmentsHttpContractTest |
+| `shipments.book-from-offer` | partial | BookShipmentTest, RecipientTest, ShipmentsHttpContractTest, JdbcTrackingNumbersTest | BookShipmentTest, RecipientTest, ShipmentsHttpContractTest, JdbcTrackingNumbersTest |
 | `shipments.idempotent-booking` | partial | BookingIdempotencyIntegrationTest, RequestFingerprintTest, BookShipmentTest, ShipmentsHttpContractTest | RequestFingerprintTest, BookShipmentTest, ShipmentsHttpContractTest |
 | `shipments.cancel-shipment` | planned | ShipmentTest, CancelShipmentTest | none yet |
 | `shipments.list-and-read` | partial | ShipmentListingIntegrationTest, ShipmentsHttpContractTest | ShipmentsHttpContractTest |

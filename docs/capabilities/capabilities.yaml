@@ -110,8 +110,8 @@ capabilities:
     title: Book one shipment per quote from an unexpired offer whose destination matches the recipient.
     status: partial
     target: v0.1
-    evidence: [BookShipmentTest, RecipientTest, ShipmentsHttpContractTest]
-    acceptanceTests: [BookShipmentTest, RecipientTest, ShipmentsHttpContractTest]
+    evidence: [BookShipmentTest, RecipientTest, ShipmentsHttpContractTest, JdbcTrackingNumbersTest]
+    acceptanceTests: [BookShipmentTest, RecipientTest, ShipmentsHttpContractTest, JdbcTrackingNumbersTest]
     docs: docs/modules/shipments.md
     actors: [clerk]
   - id: shipments.idempotent-booking

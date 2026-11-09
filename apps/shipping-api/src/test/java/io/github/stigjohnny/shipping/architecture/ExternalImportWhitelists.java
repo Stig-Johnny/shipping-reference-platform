@@ -403,6 +403,8 @@ final class ExternalImportWhitelists {
                     "org.w3c.dom.Node", "org.w3c.dom.NodeList"),
 
             // Issue #90: exact types for the postgres-profile adapters, without widening any other production layer.
+            types(Area.ADAPTER_OUT_JDBC, "JdbcTrackingNumbers: format tracking numbers with locale-independent ASCII digits",
+                    "java.util.Locale"),
             types(Area.ADAPTER_OUT_JDBC, "JDBC adapters: language values, row mapping and required constructor arguments",
                     "java.lang.Object", "java.lang.String", "java.lang.Integer", "java.lang.Long",
                     "java.lang.Boolean", "java.util.Objects", "java.util.UUID",
@@ -431,6 +433,8 @@ final class ExternalImportWhitelists {
 
             // Tests in a module's packages: JUnit's annotations by name (so @Disabled is not among them), AssertJ,
             // and the JDK types the tests use.
+            types(Area.MODULE_TESTS, "JdbcTrackingNumbersTest: set and restore the default formatting locale",
+                    "java.util.Locale", "java.util.Locale$Category"),
             types(Area.MODULE_TESTS, "JUnit Jupiter: the test and parameterised-test annotations in use",
                     "org.junit.jupiter.api.Test", "org.junit.jupiter.params.ParameterizedTest",
                     "org.junit.jupiter.params.provider.CsvSource", "org.junit.jupiter.params.provider.MethodSource",

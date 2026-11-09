@@ -144,7 +144,10 @@ different requests would share a fingerprint, and a changed body would be replay
 fingerprint's encoder refuses such text as well; it never replaces a character.
 
 **Tracking numbers:** `SIM` followed by the next value of the database sequence `shipments.tracking_number_seq`,
-left-padded with zeros to 10 digits (the first is `SIM0000000001`). Unique across tenants.
+left-padded with ASCII zeros to 10 ASCII digits (the first is `SIM0000000001`). Unique across tenants.
+`JdbcTrackingNumbers` formats with `Locale.ROOT`, independent of the server's default locale.
+`JdbcTrackingNumbersTest` checks the formatter under `ar-EG`, including padding, mixed digits and the sequence's
+upper bound, without a database; it restores the default formatting locale after each case.
 
 ## Lifecycle
 
@@ -260,6 +263,7 @@ columns `not null`.
 | S11 | Shipments of another tenant are never visible or changeable. | `ShipmentsHttpContractTest` (detail/label, in memory); `CrossTenantAccessTest`, `RowLevelSecurityIntegrationTest` (implemented; CI pending) |
 | S12 | HTTP responses match the contract. | `ShipmentsHttpContractTest` |
 | S13 | Recipient values are validated per the contract. | `RecipientTest` |
+| S14 | Tracking numbers retain the `SIM[0-9]{10}` format regardless of the server's default formatting locale. | `JdbcTrackingNumbersTest` (formatter only, no database) |
 
 Mutation testing: at least 80 % killed mutants on changed lines.
 

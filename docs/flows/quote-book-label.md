@@ -109,6 +109,10 @@ Shipment browsing is also exercised by `ShipmentsHttpContractTest`: tenant-scope
 ID exactly as unknown; list pages use descending booking time and ID, respect the status filter and reject cursors
 from another tenant or filter. None of this supplies database isolation or browser evidence.
 
+The tracking number assigned during booking always uses `SIM` and ten ASCII digits, including on servers whose
+default formatting locale uses other digits. `JdbcTrackingNumbersTest` checks the production formatter under
+`ar-EG` without a database; it supplies no evidence of sequence allocation or transaction behavior.
+
 ## Executable scenarios
 
 The dynamic view `QuoteBookLabel` is this flow's documentation overview and is not executable: some of its steps

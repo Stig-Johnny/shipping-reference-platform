@@ -3,6 +3,7 @@ package io.github.stigjohnny.shipping.shipments.internal.adapter.out.jdbc;
 import io.github.stigjohnny.shipping.shipments.internal.application.TrackingNumbers;
 import io.github.stigjohnny.shipping.shipments.internal.domain.TrackingNumber;
 import io.github.stigjohnny.shipping.tenants.api.CurrentTenant;
+import java.util.Locale;
 import java.util.Objects;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -28,6 +29,10 @@ public class JdbcTrackingNumbers implements TrackingNumbers {
         long next = jdbc.sql("select nextval('shipments.tracking_number_seq')")
                 .query(Long.class)
                 .single();
-        return new TrackingNumber("SIM%010d".formatted(next));
+        return format(next);
+    }
+
+    static TrackingNumber format(long next) {
+        return new TrackingNumber(String.format(Locale.ROOT, "SIM%010d", next));
     }
 }
