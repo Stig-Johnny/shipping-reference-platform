@@ -183,7 +183,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
                 }
             }
 
-            api = container "API" "Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals." "Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient)" {
+            api = container "API" "Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. The demo profile serves a configured static directory from this origin, with memory stores or opt-in postgres." "Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient)" {
                 properties {
                     "contract.root" "io.github.stigjohnny.shipping"
                     "contract.isolated" "io.github.stigjohnny.shipping.ShippingApplication,io.github.stigjohnny.shipping.CorrelationIdFilter,io.github.stigjohnny.shipping.FallbackProblemHandler"
@@ -205,7 +205,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
                     }
                 }
 
-                tenants = component "Tenants" "Authenticates synthetic users and derives the tenant from membership; postgres selects the JDBC token directory. Prototype flags and event TenantScope are planned." "Spring Modulith module" {
+                tenants = component "Tenants" "Authenticates synthetic users and derives the tenant from membership; postgres selects the JDBC token directory; the demo web adapter serves local static assets with strict CSP. Prototype flags and event TenantScope are planned." "Spring Modulith module" {
                     properties {
                         "contract.id" "tenants"
                         "contract.packages" "io.github.stigjohnny.shipping.tenants"

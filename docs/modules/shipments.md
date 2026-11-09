@@ -15,6 +15,11 @@ bookings and personal data (recipient names and addresses, synthetic only).
 
 ## Implementation state
 
+The attended `demo` runtime now supplies disposable memory storage; `demo,postgres` selects the existing JDBC
+adapter with standard datasource environment variables. `DemoSmokeTest` exercises the real HTTP quote-to-label
+flow with memory storage; the matching `DemoPostgresSmokeIntegrationTest` compiles but awaits CI. See the
+[runbook](../flows/attended-demo.md) and [ADR 0018](../adr/0018-attended-demo-runtime.md).
+
 Built: booking, listing, reading and simulated labels over HTTP. `ShipmentsController` maps the existing
 `BookShipment` outcomes; `ShipmentsConfiguration` wires `GetShipment`, `ListShipments` and `RenderLabel` through application ports.
 `ShipmentsHttpContractTest` starts the application with in-memory quote and shipment stores, deterministic IDs and
@@ -35,7 +40,7 @@ PostgreSQL's default READ COMMITTED isolation. The adapters' transaction annotat
 `ShipmentListingIntegrationTest` shares its exact store contract with `InMemoryStoresTest`.
 `BookingIdempotencyIntegrationTest` covers real overlapping transactions; execution is pending CI.
 
-Planned: `ShipmentCancelled`, cancellation, the runnable demo configuration and durable event publication.
+Planned: `ShipmentCancelled`, cancellation and durable event publication.
 The migration reserves cancellation and version columns, but the application still writes and reads BOOKED only.
 No new event publication claim is made.
 

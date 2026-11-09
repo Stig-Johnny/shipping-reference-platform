@@ -31,6 +31,12 @@ info:
       `application/problem+json`; labels are `image/svg+xml`.
     - Every response carries `Correlation-Id` and `Cache-Control: no-store`. A client may send its own
       `Correlation-Id` (8 to 64 characters from `A-Z a-z 0-9 -`); otherwise the server generates a UUID.
+    - In the `demo` profile, responses carry `Content-Security-Policy: default-src 'self';
+      frame-ancestors 'none'; form-action 'self'; base-uri 'none'` unless an operation specifies a stricter
+      policy. The simulated label retains `default-src 'none'; sandbox`. Existing security headers remain.
+
+    The demo profile may also serve a configured static directory outside `/api`; those public GET/HEAD
+    responses use the same origin and security headers. They are not API operations.
 
     ## Errors (RFC 9457)
 

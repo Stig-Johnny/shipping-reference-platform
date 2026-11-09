@@ -1,0 +1,20 @@
+# Static files are opt-in via shipping.demo.static-directory. No default directory is exposed.
+# No durable event publication is claimed until its schema and listeners exist.
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.modulith.events.jdbc.JdbcEventPublicationAutoConfiguration
+      - org.springframework.modulith.events.config.EventPublicationAutoConfiguration
+  flyway:
+    # Operators migrate and seed as shipping_owner before running the demo as shipping_app.
+    enabled: false
+---
+spring:
+  config:
+    activate:
+      on-profile: "demo & !postgres"
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.modulith.events.jdbc.JdbcEventPublicationAutoConfiguration
+      - org.springframework.modulith.events.config.EventPublicationAutoConfiguration

@@ -45,8 +45,11 @@ The public demo is assigned to pull request #91; database execution evidence rem
   implementations; `MembershipDirectoryIntegrationTest`, `QuotesModuleIntegrationTest` and
   `ShipmentListingIntegrationTest` require CI's reviewed PostgreSQL engine. Local passing contracts prove only the
   in-memory implementation. `JdbcProfileTest` checks opt-in repository and transaction annotations, not live proxy
-  behavior. The existing HTTP tests prove default wiring without JDBC. The runnable demo configuration, PostgreSQL
-  HTTP tests and durable event publication remain planned; no full running application is claimed.
+  behavior. The existing HTTP tests prove default wiring without JDBC. The attended demo now starts with production memory stores and serves configured static assets with strict CSP.
+  `DemoSmokeTest` exercises real HTTP; the shared `DemoPostgresSmokeIntegrationTest` is implemented but awaits CI.
+  Durable event publication remains planned. Memory mode is disposable and intended for sequential attended use,
+  not concurrent booking guarantees. The workbench and browser enforcement evidence remain separate work.
+  The scenario gate still rejects the new static/CSP framework call sites; no new ledger debt is accepted.
 - **Booking concurrency requires the enclosing transaction.** JDBC key and quote lookups acquire advisory locks
   until commit or rollback; unique constraints provide the final guard (ADR 0017). The protocol assumes READ
   COMMITTED and every booking entering through the transactional application service. Direct inserts that bypass

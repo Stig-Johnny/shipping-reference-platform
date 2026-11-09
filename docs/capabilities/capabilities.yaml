@@ -166,8 +166,8 @@ capabilities:
     title: Authenticate synthetic users with demo bearer tokens; never derive tenant identity from client-supplied tenant hints.
     status: partial
     target: v0.1
-    evidence: [DemoTokenTest, DemoTokenAuthenticationTest]
-    acceptanceTests: [DemoTokenTest, DemoTokenAuthenticationTest, MembershipDirectoryIntegrationTest]
+    evidence: [DemoTokenTest, DemoTokenAuthenticationTest, DemoSecurityHeadersTest, DemoSmokeTest]
+    acceptanceTests: [DemoTokenTest, DemoTokenAuthenticationTest, DemoSecurityHeadersTest, DemoSmokeTest, MembershipDirectoryIntegrationTest, DemoPostgresSmokeIntegrationTest]
     docs: docs/modules/tenants.md
     actors: [clerk]
   - id: tenants.current-membership

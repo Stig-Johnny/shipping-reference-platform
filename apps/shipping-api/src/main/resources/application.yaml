@@ -1,5 +1,5 @@
-# The shipping API's runtime configuration, for every profile. The demo profile, with PostgreSQL, the JDBC adapters and
-# the synthetic seed, arrives with the database adapters; until then the application starts in tests only.
+# Shared runtime configuration. The demo profile supplies memory defaults or selects postgres adapters;
+# its static directory is configured explicitly. See docs/flows/attended-demo.md.
 spring:
   application:
     name: shipping-api

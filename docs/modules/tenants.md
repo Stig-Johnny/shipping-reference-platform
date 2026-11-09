@@ -47,7 +47,7 @@ Only exact reviewed debt can pass the build; new, changed or disappeared finding
 
 Built: `JdbcMembershipDirectory` calls `tenants.resolve_demo_token`. It sets an empty transaction-local tenant
 before this pre-authentication query, since the token lookup is what discovers the tenant (ADR 0017).
-Planned: the `demo` profile's database configuration, `TenantScope`, prototype flags (until then every flag is off and `enabledFlags` is empty) and the demo seed.
+Built: the demo runtime defaults to synthetic memory identity; `demo,postgres` uses the JDBC directory with standard datasource environment variables and an operator-prepared seed. Planned: `TenantScope` and prototype flags; until then every flag is off and `enabledFlags` is empty.
 The V1 schema, role bootstrap and database RLS tests exist; their execution against the merged tree is pending CI.
 Until that evidence exists, `tenants.row-level-security` remains planned.
 `tenants.cross-tenant-denial`, `tenants.tenant-scope-for-events` and
@@ -121,9 +121,17 @@ These tokens are public, guessable test fixtures, not secrets. Rules:
 - Tenant headers and query hints never affect membership. Unknown JSON members, including tenantId, produce 400
   validation-failed, consistent with OpenAPI. DemoTokenAuthenticationTest verifies both behaviors.
 - The demo token filter is part of the security chain only with the `demo` Spring profile. Without it nobody
-  authenticates, and every `/api/**` request returns `401 unauthenticated`. Paths outside `/api` serve nothing: the
+  authenticates, and every `/api/**` request returns `401 unauthenticated`. Without a configured demo static directory, paths outside `/api` serve nothing: the
   chain denies them, with `401` to anyone unauthenticated, `403` to a user without a tenant and the generic
   `404 not-found` to a member.
+- The `demo` chain adds `Content-Security-Policy: default-src 'self'; frame-ancestors 'none'; form-action 'self';
+  base-uri 'none'` while retaining its existing security headers. `DemoSecurityHeadersTest` checks successful
+  membership, unauthenticated and no-membership responses through the HTTP contract helper. The simulated label
+  retains its stricter `default-src 'none'; sandbox` policy, checked by `ShipmentsHttpContractTest`.
+  `DemoStaticController` serves the configured immutable build directory outside `/api`, with normalized/real-path
+  containment. `DemoSmokeTest` proves static content types, CSP, traversal and escaping-symlink refusal plus the
+  full shipment flow over real HTTP. See the [attended runbook](../flows/attended-demo.md) and
+  [ADR 0018](../adr/0018-attended-demo-runtime.md). PostgreSQL smoke execution awaits CI.
 - A request that Spring Security's firewall refuses, such as a path with `;` or an encoded `/` or a method the
   server does not accept, is `400 malformed-request` before it is authenticated: the module's
   `RequestRejectedHandler` hands the rejection to the MVC exception resolvers, and the HTTP edge writes the problem,
@@ -188,10 +196,10 @@ Items marked built exist; the rest is planned.
   (`getCurrentMembership`) and `AuthenticationProblems`, which maps `unauthenticated` and `no-tenant-membership`.
 - `internal.adapter.out.jdbc`: `JdbcMembershipDirectory` is built (calls the function); `JdbcFlagSettings` is planned.
 
-## Data: schema `tenants` (migration `V1__tenants.sql`; seed `db/demo/V1000__synthetic_tenants.sql`)
+## Data: schema `tenants` (migration `V1__tenants.sql`; seed `db/demo/synthetic-tenants.sql`)
 
 `V1__tenants.sql` exists in `apps/shipping-api/src/main/resources/db/migration`, with its down script
-`db/down/V1__tenants.down.sql` (ADR 0016). The seed does not exist yet. Every column is `not null`.
+`db/down/V1__tenants.down.sql` (ADR 0016). The opt-in seed now supplies the three documented users and two memberships; it is applied separately as the owner before launching `demo,postgres`. No prototype flags are seeded. Every column is `not null`.
 
 | Table | Columns | Notes |
 |---|---|---|

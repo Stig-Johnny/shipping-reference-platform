@@ -14,12 +14,19 @@ test becomes evidence only once it exists, passes and asserts the step; each row
 expiry logic have passing Java tests. Signing in and creating and reading a quote pass over HTTP, in the application
 started by the tests with test doubles for the token lookup and the quote store; so storage is tested in memory, and so
 are booking, replay, shipment listing/reading and SVG labels over HTTP. The tenants, quotes and shipments schemas have paired up and down migrations (ADR 0016),
-and JDBC adapters selected by `postgres`. Their CI database evidence is pending. The runnable demo and durable
-event publication remain planned.
+and JDBC adapters selected by `postgres`. Their CI database evidence is pending. The attended demo is runnable (ADR 0018); durable
+event publication remains planned.
 Parts of the flow are also executable scenarios, checked against what the code does when they run
 ([Executable scenarios](#executable-scenarios)).
 
 Actors: a shipping clerk of Tenant Alpha signed in as the synthetic user `clerk-alpha`. All data is synthetic.
+
+The attended runtime executes this HTTP flow on one origin. `DemoSmokeTest` starts the application with production
+memory stores and drives synthetic sign-in/token selection, quote, booking, replay, list, detail and label through
+real sockets, including foreign-tenant refusals and the public static page's strict CSP. The shared PostgreSQL
+variant, `DemoPostgresSmokeIntegrationTest`, requires CI's reviewed database window. These smoke exchanges are
+separate from the in-process scenario recorder, whose new framework findings remain unaccepted in issue #92.
+See the [runbook](../flows/attended-demo.md).
 
 ## Sequence
 

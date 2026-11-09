@@ -85,6 +85,7 @@ class SecurityConfiguration {
         if (environment.matchesProfiles(DEMO_PROFILE)) {
             http.addFilterBefore(new DemoTokenAuthenticationFilter(authentication, tenantContext, unauthenticated),
                     AuthorizationFilter.class);
+            DemoStaticConfiguration.securityHeaders(http);
         }
         return http.build();
     }

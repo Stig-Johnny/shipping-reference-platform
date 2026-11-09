@@ -6,7 +6,7 @@ check that fails. The domain is generic webshop parcel shipping: quote a parcel,
 synthetic and the carrier is simulated. The application's first code exists: the API's pricing and quotes and its
 demo authentication, served over HTTP in tests, and booking, listing, reading and simulated labels in its shipments
 module over HTTP. The tenants, quotes and shipments schemas have paired migrations and JDBC adapters behind the postgres profile;
-database execution evidence and the runnable demo are still pending.
+the attended demo now runs with memory stores or opt-in PostgreSQL, while database execution evidence is pending CI.
 The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions,
 a labelled partial check of detected TypeScript imports in the web app, a dependency allowlist check and a
 documentation tool.
@@ -50,7 +50,7 @@ Built and running:
   `QuotesHttpContractTest`, `ShipmentsHttpContractTest`, `TenantsHttpContractTest` and `ProblemDetailsHttpContractTest`
   validate every response they exercise against the contract. The tests use test doubles and stores in memory, a fixed clock and deterministic
   IDs, and booking is tested against real quotes. These tests keep in-memory ports and prove
-  the HTTP edge and domain; JDBC adapters are selected separately by `postgres`. The runnable demo configuration remains planned. In `java`, `ArchitectureConformanceTest` checks the API's classes against the model with the checker,
+  the HTTP edge and domain; JDBC adapters are selected separately by `postgres`. The `demo` profile now serves a configured static build directory on the API origin with strict CSP; its real-HTTP memory smoke passes. In `java`, `ArchitectureConformanceTest` checks the API's classes against the model with the checker,
   `ModularityTest` runs Spring Modulith's verification and `HexagonalLayeringTest` the layering rules, and each of the
   three also fails on fixtures that break it.
 - **The scenario checks** (`control.scenario-conformance`, partial): two scenario views run in process on the built
@@ -84,7 +84,7 @@ Built and running:
 The specification is in place too: the model, the API contract, the decisions, the module specifications, the risk
 policy and the agent rules, with the reviewed toolchain.
 
-Planned, with no code yet: the API's other four modules, the runnable PostgreSQL demo configuration, durable event publication,
+Planned, with no code yet: the API's other four modules, durable event publication,
 shipment cancellation, the workbench, a plain TypeScript app (ADR 0012), and the checks that
 need them; the generated API client is deferred. In
 [docs/capabilities/capabilities.yaml](docs/capabilities/capabilities.yaml), the source of truth for status and
@@ -228,7 +228,7 @@ see each other's data, enforced in queries and by forced PostgreSQL row-level se
 |---|---|---|
 | `quotes` | Built in part: tariff, rating, quote creation and reading, and offer lookup, over HTTP in tests; V2 schema exists, database execution evidence pending | `tenants` (REQUIRED) |
 | `shipments` | Built in part: booking from an offer, idempotent per tenant and key, with HTTP listing, reading and SVG labels; database and cancellation planned | `quotes`, `tenants` (REQUIRED) |
-| `tenants` | Built in part: demo authentication over HTTP, `GET /api/v1/me` and the tenant bound for each request; V1 schema exists, RLS execution evidence pending; database adapter and prototype flags planned | nothing |
+| `tenants` | Built in part: demo authentication over HTTP, `GET /api/v1/me` and the tenant bound for each request; V1 schema exists, RLS execution evidence pending; JDBC directory and attended demo built; prototype flags planned | nothing |
 | `audit` | Minimal implementation planned for v0.1; no code yet | `shipments`, `tenants` (REQUIRED); `quotes` (PERMITTED, not evaluated) |
 | `orders` | planned, no code | `quotes`, `shipments` (PERMITTED, not evaluated) |
 | `tracking` | planned, no code | `shipments` (PERMITTED, not evaluated) |
@@ -338,8 +338,8 @@ checksum, with `networkTimeout=60000`, `retries=3` and `retryBackOffMs=1000`; CI
 home. A staged Gradle launcher and repeated offline signature verification belong to later reviewed work. The
 existing first-use signature record in `security/verifications/2026-11-06-toolchain.md` remains applicable.
 
-Not built yet; their commands arrive with their code: a developer toolchain bootstrap script, PostgreSQL 18.6 with
-the two roles, the API with the `demo` profile, the workbench with its type check and tests, and end-to-end tests.
+Not built yet: a developer toolchain bootstrap script and the workbench with its browser tests. The attended
+demo launcher and real-HTTP smoke now exist; PostgreSQL preparation remains an operator step.
 The API's HTTP contract tests run in `./gradlew check`.
 
 ## Honest limits
@@ -385,3 +385,16 @@ check in both directions and what 2025–2026 studies say about coding agents an
 Except for the third-party material identified in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md), all original
 code, configuration, models, specifications, ADRs, security reviews and documentation are licensed under the
 [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for attribution.
+
+## Attended demo
+
+Run `bash tools/demo/run-attended-demo.sh memory 8080 tools/demo/fixture` with the reviewed JDK.
+The root `bootJar` task produces a thin executable archive and sibling runtime libraries without a new plugin.
+The fixture is a static page; the separate workbench is not part of this change. The launcher prints its loopback
+URL and synthetic user hint and cleans up on interruption. `postgres` mode uses an already migrated/seeded database
+and standard Spring datasource environment variables; it never prints them. Follow the
+[runbook](docs/flows/attended-demo.md) for preparation, commands, tests and limits.
+
+`DemoSmokeTest` proves the full real-HTTP memory flow and static containment/CSP. The database-tagged
+`DemoPostgresSmokeIntegrationTest` shares those assertions and awaits CI. The existing 200-row scenario ledger
+accepts no new demo framework finding yet; issue #92's proposed rows await one owner decision.

@@ -41,6 +41,12 @@ class SitePagesTest {
     }
 
     @Test
+    void theAttendedRunbookIsPublishedWithItsStorageModesAndLimits() {
+        assertThat(site.text("model/flow-attended-demo.html")).contains("M-10", "Memory mode", "PostgreSQL mode",
+                "SPRING_DATASOURCE_PASSWORD", "DemoPostgresSmokeIntegrationTest", "operator", "Ctrl-C");
+    }
+
+    @Test
     void theStartPageStatesThePurposeTheStateTheDataAndTwoReadingPaths() {
         String start = site.text("index.html");
 
@@ -73,7 +79,7 @@ class SitePagesTest {
                 "<span class=\"badge badge-shipped\">Passing</span> 6 evidence test classes passed");
         assertThat(site.text("modules/tenants.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
                 + "</span> 2 capabilities partial, 4 capabilities planned.",
-                "<span class=\"badge badge-shipped\">Passing</span> 3 evidence test classes passed");
+                "<span class=\"badge badge-shipped\">Passing</span> 5 evidence test classes passed");
     }
 
     @Test
@@ -436,7 +442,7 @@ class SitePagesTest {
                 "<td>Built in part: tariff, rating, quote creation and reading, and offer lookup, over HTTP in tests; "
                         + "V2 schema exists, database execution evidence pending</td>",
                 "<td>Built in part: demo authentication over HTTP, <code>GET /api/v1/me</code> and the tenant bound "
-                        + "for each request; V1 schema exists, RLS execution evidence pending; database adapter and prototype flags planned"
+                        + "for each request; V1 schema exists, RLS execution evidence pending; JDBC directory and attended demo built; prototype flags planned"
                         + "</td>")
                 .doesNotContain("<td>built</td>", "<td>built (minimal)</td>", "v0.1 target, not implemented");
     }
@@ -456,7 +462,7 @@ class SitePagesTest {
         }
         // The flow page keeps its own evidence: the quotes, shipments and tenants modules' tests that pass.
         assertThat(site.text("model/flow-quote-book-label.html"))
-                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> 17 "
+                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> 19 "
                         + "evidence test classes passed")
                 .doesNotContain("Checker tests passing", "Conformance tests passing");
         String index = site.text("model/index.html");

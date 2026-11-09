@@ -15,6 +15,11 @@ all of its code is pricing.
 
 ## Implementation state
 
+The attended `demo` runtime now supplies disposable memory storage; `demo,postgres` selects the existing JDBC
+adapter with standard datasource environment variables. `DemoSmokeTest` exercises the real HTTP quote-to-label
+flow with memory storage; the matching `DemoPostgresSmokeIntegrationTest` compiles but awaits CI. See the
+[runbook](../flows/attended-demo.md) and [ADR 0018](../adr/0018-attended-demo-runtime.md).
+
 Built: the public API below, the domain model, the application layer (`CreateQuote`, `GetQuote`,
 `QuoteOffersService` and the port `QuoteStore`), and the web adapter with both operations. `QuotesConfiguration`
 makes the use cases Spring beans. `QuotesHttpContractTest` starts the whole application and validates every response
@@ -30,7 +35,7 @@ Its PostgreSQL execution is pending CI; the existing capability statuses and evi
 V2 and its down script remain unchanged. Each JDBC statement first binds the transaction's tenant with
 `set_config('app.tenant_id', ..., true)` and also names the tenant in SQL (ADR 0017). Spring's transaction proxy
 makes quote and offer insertion atomic when wired with the JDBC transaction manager; the CI contracts explicitly
-control real JDBC transactions. The runnable `demo` configuration, seed and durable publication proof remain planned.
+control real JDBC transactions. The runnable demo and synthetic identity seed now exist (ADR 0018); durable publication proof remains planned.
 
 Scenario tests wire these classes explicitly with `@TestConfiguration`, so application component scanning in the
 HTTP tests does not discover the scenario fixtures. `CoverageBypassTest` keeps three quote outcome assertions for
