@@ -42,6 +42,13 @@ Independent final-head review and owner merge approval are pending at this recor
 independent review of the integrated change. Append the final review, PR/commit references and human approval
 receipts when available; do not treat the existing permission to implement as permission to merge.
 
+### Revision receipt added on 2026-11-09
+
+Issue 96 implementation is [PR 98](https://github.com/Stig-Johnny/shipping-reference-platform/pull/98), starting at
+[3ffd907899fe19a37483e6a38cf478e837ac2ef4](https://github.com/Stig-Johnny/shipping-reference-platform/commit/3ffd907899fe19a37483e6a38cf478e837ac2ef4).
+This adds the revision missing from the initial recording above. Later exact-head independent review and human
+approval receipts belong to PR 98; their existence is not asserted by this initial revision receipt.
+
 ## Issue 93
 
 fix(ci): restore Pages publication for larger test reports.

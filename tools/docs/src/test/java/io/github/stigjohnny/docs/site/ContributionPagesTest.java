@@ -20,20 +20,18 @@ class ContributionPagesTest {
     @Test
     void recordsKeepSourceTextAndStableIssueLinksAcrossTheSiteAndSearch() {
         Fixture fixture = Fixture.copy(dir).passingEvidence()
-                .write("docs/contributions.md", document("Contribution records", """
-                        # Contribution records
+                .edit("docs/contributions.md", text -> text + """
 
-                        ## Find an issue
+                        ## Synthetic issue lookup
 
                         [Issue 123](contributions/history.md#issue-123)
-                        """))
-                .write("docs/contributions/history.md", document("Contribution history", """
-                        # Contribution history
+                        """)
+                .edit("docs/contributions/history.md", text -> text + """
 
                         ## Issue 123
 
                         Configured model: unknown. Evidence receipt: synthetic-record-123.
-                        """));
+                        """);
         Sources sources = Sources.read(fixture.root(), List.of(fixture.reports()));
         SiteBuilder.build(sources, dir.resolve("site"), "0123456789abcdef0123456789abcdef01234567");
         BuiltSite site = BuiltSite.read(dir.resolve("site"));
@@ -57,8 +55,4 @@ class ContributionPagesTest {
         assertThat(Brains.root(sources)).contains("[Contribution records](docs/contributions.md)");
     }
 
-    private static String document(String title, String body) {
-        return "---\ntitle: \"" + title + "\"\ndescription: \"Synthetic contribution fixture.\"\n"
-                + "status: accepted\nupdated: 2026-11-09\n---\n\n" + body;
-    }
 }
