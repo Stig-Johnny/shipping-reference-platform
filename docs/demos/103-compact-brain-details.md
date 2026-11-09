@@ -49,7 +49,7 @@ BUILD SUCCESSFUL in 1m 39s
 
 The excerpts omit task listings and toolchain warnings. This recording preceded addition of this demo page.
 
-Attended inspection of the local [Brain preview](https://stig-johnny.github.io/shipping-reference-platform/brain/index.html)
+Attended inspection of a local build of the [Brain](https://stig-johnny.github.io/shipping-reference-platform/brain/index.html)
 used the Codex in-app browser at 1280 by 720 and 1280 by 900 pixels. Enter and Space toggled the native groups;
 nested links focused their destination heading and preserved Quotes or Tenants context for ADR 0013. Search found
 the collapsed label capability, capability and control evidence stayed visible, the guided journey selected
