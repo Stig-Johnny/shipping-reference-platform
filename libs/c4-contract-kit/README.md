@@ -208,7 +208,12 @@ Details the specification leaves open, decided here:
   result depends only on the class roots. The import switches off a class resolver or class-path resolution that
   `archunit.properties` sets; it refuses to run when an `archunit.classResolver` or
   `archunit.resolveMissingDependenciesFromClassPath=true` system property sets one, since a system property overrides
-  any local setting.
+  any local setting. Type patterns in a `switch` (`case T t`, `case T _`) compile to an `invokedynamic` type switch
+  whose bootstrap arguments hold the classes, but ArchUnit reports no reference for them, so a pattern-only use
+  shows no divergence and is omitted from the evidence; `BytecodeEvidenceTest` pins both forms with an `instanceof`
+  positive control. This change keeps the ArchUnit-only importer and defers custom type-switch and enum-switch
+  bootstrap extraction to a separate design and implementation with deterministic evidence, deduplication and no
+  class loading; it does not measure `enumSwitch`.
 - A package root must lie strictly below `contract.root`; no two package roots in the model may overlap, also not
   within one component.
 
