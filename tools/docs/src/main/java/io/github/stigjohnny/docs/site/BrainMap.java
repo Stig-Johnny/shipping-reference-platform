@@ -125,22 +125,73 @@ final class BrainMap {
                         default -> "Capability";
                     })).append(" status: ").append(Html.escape(node.status())).append("</p>\n")
                     .append("<p class=\"brain-description\">").append(Html.escape(node.description())).append("</p>\n")
-                    .append(node.more()).append("<ul class=\"brain-relations\">\n");
-            for (Edge edge : edges.stream().filter(e -> e.from().equals(node.id())).toList()) {
-                Node target = nodes.get(edge.to());
-                if (target == null) {
-                    throw SiteContext.missing("a graph target for " + edge.to());
-                }
-                out.append("<li data-from=\"").append(Html.escape(edge.from())).append("\" data-to=\"")
-                        .append(Html.escape(edge.to())).append("\" data-relation=\"").append(edge.kind()).append("\">")
-                        .append("<a href=\"#brain-node-").append(Html.escape(target.id())).append("\">")
-                        .append(Html.escape(target.name())).append("</a><p class=\"brain-meaning\">")
-                        .append(Html.escape(edge.meaning())).append("</p><small>Source: ")
-                        .append(Html.escape(edge.source())).append("</small></li>\n");
-            }
-            out.append("</ul><p class=\"brain-source\">Source: ").append(Html.escape(node.source()))
+                    .append(node.more()).append(relations(node, edges, nodes))
+                    .append("<p class=\"brain-source\">Source: ").append(Html.escape(node.source()))
                     .append("</p></article>\n");
         }
         return out.append("</details></section>\n").toString();
+    }
+
+    private static String relations(Node node, List<Edge> edges, Map<String, Node> nodes) {
+        List<Edge> outgoing = edges.stream().filter(edge -> edge.from().equals(node.id())).toList();
+        StringBuilder out = new StringBuilder();
+        relationList(out, outgoing.stream().filter(edge -> edge.kind().equals("dependency")).toList(), nodes);
+        relationGroup(out, "decision", "Decisions named by this specification",
+                outgoing.stream().filter(edge -> edge.kind().equals("decision")).toList(), nodes);
+        relationGroup(out, "ownership", "Declared capabilities",
+                outgoing.stream().filter(edge -> edge.kind().equals("ownership")).toList(), nodes);
+        relationList(out, outgoing.stream().filter(edge -> edge.kind().equals("evidence")).toList(), nodes);
+        return out.toString();
+    }
+
+    private static void relationGroup(StringBuilder out, String kind, String title, List<Edge> edges,
+            Map<String, Node> nodes) {
+        if (edges.isEmpty()) {
+            return;
+        }
+        Edge first = edges.get(0);
+        boolean shared = edges.stream().allMatch(edge -> edge.meaning().equals(first.meaning())
+                && edge.source().equals(first.source()));
+        out.append("<details class=\"brain-relation-group\" data-relation-group=\"").append(kind).append("\" open>\n")
+                .append("<summary>").append(Html.escape(title)).append(" (").append(edges.size())
+                .append(")</summary>\n");
+        if (shared) {
+            out.append("<p class=\"brain-group-meaning\">").append(Html.escape(first.meaning())).append("</p>\n")
+                    .append("<p class=\"brain-group-source\">Source: ").append(Html.escape(first.source()))
+                    .append("</p>\n");
+        }
+        out.append("<ul class=\"brain-relations\">\n");
+        for (Edge edge : edges) {
+            relationItem(out, edge, nodes, !shared);
+        }
+        out.append("</ul>\n</details>\n");
+    }
+
+    private static void relationList(StringBuilder out, List<Edge> edges, Map<String, Node> nodes) {
+        if (edges.isEmpty()) {
+            return;
+        }
+        out.append("<ul class=\"brain-relations\">\n");
+        for (Edge edge : edges) {
+            relationItem(out, edge, nodes, true);
+        }
+        out.append("</ul>\n");
+    }
+
+    private static void relationItem(StringBuilder out, Edge edge, Map<String, Node> nodes, boolean ownProvenance) {
+        Node target = nodes.get(edge.to());
+        if (target == null) {
+            throw SiteContext.missing("a graph target for " + edge.to());
+        }
+        out.append("<li data-from=\"").append(Html.escape(edge.from())).append("\" data-to=\"")
+                .append(Html.escape(edge.to())).append("\" data-relation=\"").append(edge.kind())
+                .append("\" data-meaning=\"").append(Html.escape(edge.meaning())).append("\">")
+                .append("<a href=\"#brain-node-").append(Html.escape(target.id())).append("\">")
+                .append(Html.escape(target.name())).append("</a>");
+        if (ownProvenance) {
+            out.append("<p class=\"brain-meaning\">").append(Html.escape(edge.meaning())).append("</p><small>Source: ")
+                    .append(Html.escape(edge.source())).append("</small>");
+        }
+        out.append("</li>\n");
     }
 }

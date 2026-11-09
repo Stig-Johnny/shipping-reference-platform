@@ -379,7 +379,7 @@
   }));
   var edges = Array.from(records.querySelectorAll('[data-relation]')).map(function (edge) {
     return { from: edge.dataset.from, to: edge.dataset.to, kind: edge.dataset.relation,
-      meaning: edge.querySelector('.brain-meaning').textContent };
+      meaning: edge.dataset.meaning };
   });
   var selected = nodes.has('quotes') ? 'quotes' : nodes.keys().next().value;
   var view = 'modules';
@@ -434,6 +434,9 @@
     var clone = node.record.cloneNode(true);
     clone.removeAttribute('id');
     clone.removeAttribute('data-brain-node');
+    clone.querySelectorAll('[data-relation-group="decision"], [data-relation-group="ownership"]').forEach(function (group) {
+      group.open = false;
+    });
     var heading = clone.querySelector('h3');
     heading.setAttribute('tabindex', '-1');
     byId('brain-detail').replaceChildren(clone);

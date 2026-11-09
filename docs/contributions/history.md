@@ -25,6 +25,24 @@ Known phases below use receipts recorded on 2026-11-09. The table's date is the 
 precision the receipt supports. No receipt here establishes a resolved provider checkpoint. Private source logs
 are not published. Model provenance, review outcome, owner approval and passing tests are different evidence.
 
+## Issue 101
+
+**Compact Brain details.** Group named decisions and declared capabilities while preserving relationship meanings,
+sources, statuses and evidence. Initial implementation revision and PR are recorded after the first commit.
+
+[Issue 101](https://github.com/Stig-Johnny/shipping-reference-platform/issues/101) ·
+[settings and checkpoint receipt 6754558658](https://github.com/Stig-Johnny/shipping-reference-platform/issues/101#issuecomment-6754558658).
+
+| Phase / role | Work date (UTC) | Tool and observed settings | Verification and scope |
+|---|---|---|---|
+| 101-1 partial implementation | 2026-11-09 23:25–23:36 | OpenCode bounded worker; configured `deepseek-flash`; checkpoint `unknown`; effort `unknown` | Receipt 6754558658 records exploration, seven renderer tests, the executed red check and a partial Java renderer. Exported patch SHA-256 `ca8b6d1e7c35fc8bfa687c9d83d7c2d732e207d301a0bc7882b3eb1cecfb9be2`. No worker green or browser result is claimed. |
+| 101-2 integration and validation | 2026-11-09 | Codex coordinator; configured `gpt-6-astra`; checkpoint `unknown`; effort `xhigh` | Receipt 6754558658 establishes runtime settings at 23:30:06 UTC. Corrected test assumptions, integrated the browser reader and native groups, adjusted layout and updated documentation. Corrected tests ran red before applying the renderer, then passed; the full check passed 4464 ordinary tests and regenerated 22 current files. Browser and final-head receipts follow separately. |
+| 101-3 independent checkpoint review | 2026-11-09 | Separate Codex reviewer; configured `gpt-6-astra`; checkpoint `unknown`; effort `xhigh` | Receipt 6754558658 records inherited settings without override. Reviewed the partial patch and actual red chronology; confirmed test defects and preserved constructed edge semantics by inspection. This is not final-head approval. |
+
+Final independent review remains required. The owner's standing delegation permits the coordinator to review and
+merge demo-loop work after checks and independent review; it is not an individual human approval of a named head.
+Record final-head review and the exercised delegation as separate PR receipts without rewriting these phases.
+
 ## Issue 96
 
 **Contribution records.** Current implementation; PR and implementation commit pending at this initial recording.
