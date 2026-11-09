@@ -155,6 +155,14 @@ will be appended after the first commit. Phases recorded on 2026-11-09:
 Final-head AI review and human merge approval are pending at this recording. Their exact-head receipts will be
 recorded on the PR. Raw worker transcripts and private machine paths are not published.
 
+### Revision receipt added on 2026-11-09
+
+Implementation is [PR 99](https://github.com/Stig-Johnny/shipping-reference-platform/pull/99), starting at
+[77c23dea4234171ed23a39e2afb8f4d93e02ea9c](https://github.com/Stig-Johnny/shipping-reference-platform/commit/77c23dea4234171ed23a39e2afb8f4d93e02ea9c).
+This appends the revision missing above. The coordinator's integrated ordinary checks passed with 4,457 tests,
+zero failures/errors/skips and all 22 generated files current. Final-head review and owner approval are separate
+receipts on PR 99 and are not asserted by this implementation receipt.
+
 ## Issue 66
 
 Scenario diagrams checked against what the code does at run time.
