@@ -27,6 +27,16 @@ final class Fixtures {
     private static final String OFFER_COLUMNS = "insert into quotes.quote_offer (tenant_id, quote_id, offer_id,"
             + " service_level, amount, currency, transit_min_days, transit_max_days) values ";
 
+    static String shipment(String tenant, String id, String tracking) {
+        return "insert into shipments.shipment (tenant_id, shipment_id, quote_id, offer_id, status, service_level,"
+                + " amount, currency, tracking_number, origin_country, origin_postcode, recipient_name,"
+                + " recipient_address_line1, recipient_postcode, recipient_city, recipient_country, idempotency_key,"
+                + " request_fingerprint, booked_at) values ('" + tenant + "', '" + id + "', '" + id + "', '" + id
+                + "', 'BOOKED', 'STANDARD', 18.81, 'EUR', '" + tracking + "', 'NO', '0150', 'Synthetic Recipient 1',"
+                + " '1 Example Street', '11122', 'Exampleby', 'SE', 'synthetic-key-0001', repeat('a', 64),"
+                + " '2026-01-05T09:00:00.000Z')";
+    }
+
     private Fixtures() {
     }
 

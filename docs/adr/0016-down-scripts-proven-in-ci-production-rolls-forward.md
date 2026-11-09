@@ -2,7 +2,7 @@
 title: "ADR 0016: Every migration has a down script, proven in CI; production rolls forward"
 description: "The reviewed Flyway Community edition has no undo migrations, so each migration has a down script in db/down that CI proves restores the previous catalog exactly; a deployed database is only ever migrated forward."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 date: 2026-11-07
 decision-makers: repository owner
 enforcedBy:
@@ -87,7 +87,7 @@ migration's footprint unchecked. Option 4 deletes data: a down script drops tabl
 
 ## Implementation and evidence (2026-11-08)
 
-V1 creates the tenants schema and V2 the quotes schema, each with a matching down script. The role bootstrap
+V1 creates tenants, V2 quotes and V3 shipments, each with a matching down script. The role bootstrap
 runs through JDBC as the harness superuser before migration; it sets no committed passwords. The fixtures generate
 fresh role passwords per server, then Flyway runs as shipping_owner and keeps its history in the flyway schema.
 The runtime role shipping_app has no privileges there. Neither role inherits another role's privileges.
@@ -98,8 +98,8 @@ run only through databaseTest, inside CI's reviewed engine window. The merged tr
 no local migration execution or RLS result is claimed. The public record is
 `docs/demos/55-reversible-migrations-and-tenant-isolation.md`.
 
-The application still lacks JDBC port adapters, transaction tenant binding and database configuration. Migrations
-V3 to V5 and the demo seed remain planned. Down scripts compare empty-database catalogs, not data restoration.
+JDBC port adapters and transaction-local binding now exist under `postgres` (ADR 0017). Database configuration for
+the runnable demo, migrations V4 and V5 and the demo seed remain planned. Down scripts compare empty-database catalogs, not data restoration.
 
 ## More Information
 

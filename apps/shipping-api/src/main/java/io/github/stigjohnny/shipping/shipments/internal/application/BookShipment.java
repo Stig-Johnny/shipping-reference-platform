@@ -31,12 +31,12 @@ import org.springframework.transaction.annotation.Transactional;
  * number, stored and {@link ShipmentBooked} published. A rejection stores and publishes nothing, so a key that was
  * refused is evaluated again when it is sent again.
  *
- * <p>The HTTP adapter wires this class as a Spring bean. Transactions take effect only with the transaction manager
- * of the planned JDBC adapter, and nothing tests the transaction before then. The class is not final, so that Spring can
- * proxy it. Serializing requests with the same key belongs to that adapter too, and is not done here: an advisory
- * lock on the tenant and the key for the length of the transaction, taken before the key is looked up; the key looked
- * up again under the lock; and a unique-key failure resolved in a fresh transaction, key and fingerprint first. Until
- * then, two concurrent requests with one key are not serialized.
+ * <p>The HTTP adapter wires this class as a Spring bean. With the postgres profile and a configured data source,
+ * Spring's JDBC transaction manager encloses the whole booking. JdbcShipmentStore acquires a transaction-scoped
+ * tenant/key lock before the first lookup and a tenant/quote lock before the quote lookup, each followed by a fresh
+ * READ COMMITTED statement (ADR 0017). The unique constraints remain the final guard. Existing HTTP tests retain
+ * in-memory ports without a transaction manager; database fixtures explicitly control their JDBC transactions.
+ * This class is not final so Spring can proxy it. Durable event publication remains separate work.
  */
 public class BookShipment {
 

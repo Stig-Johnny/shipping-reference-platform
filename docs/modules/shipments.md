@@ -2,7 +2,7 @@
 title: "Module: shipments"
 description: "Books shipments from quote offers with tenant-scoped idempotency, cancels them, renders simulated SVG labels and publishes shipment events."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 module: shipments
 moduleStatus: built
 riskLevel: 3
@@ -28,15 +28,28 @@ cancellation are unproven. `ShipmentTest` covers booking only. `ShipmentStatus` 
 `CANCELLED` list filter is accepted and returns no matches until cancellation exists. There is no cancellation route,
 no cancelled state to replay and no `409 shipment-cancelled` label outcome yet.
 
-Planned: `ShipmentCancelled`, cancellation, the JDBC adapters and migration, and a running application outside tests.
-The HTTP configuration now creates Spring beans, but without a transaction manager `@Transactional` has no effect.
-Nothing yet proves that `ShipmentBooked` commits with its shipment, or that concurrent requests with one key serialize.
-The advisory lock, recheck, unique-key failure resolution and tracking sequence belong to the planned JDBC adapter.
+Built under `postgres`: `JdbcShipmentStore`, `JdbcTrackingNumbers`, migration V3 and its down script. Every
+statement binds the transaction-local tenant before its SQL. The unchanged HTTP test configuration continues to
+use in-memory stores. Spring's JDBC transaction manager must enclose the whole `BookShipment.handle` call, at
+PostgreSQL's default READ COMMITTED isolation. The adapters' transaction annotations also cover standalone port calls.
+`ShipmentListingIntegrationTest` shares its exact store contract with `InMemoryStoresTest`.
+`BookingIdempotencyIntegrationTest` covers real overlapping transactions; execution is pending CI.
+
+Planned: `ShipmentCancelled`, cancellation, the runnable demo configuration and durable event publication.
+The migration reserves cancellation and version columns, but the application still writes and reads BOOKED only.
+No new event publication claim is made.
 
 `TenantDenialScenarioTest` separately asserts Beta's booking rejection, no stored shipment for Beta, and Alpha's
-still-bookable offer. Two declared API calls are evaluated, but the full-main census retains 106 known coverage gaps
-from the HTTP edge and quotes/shipments factories. Its verdict is `COVERAGE_INCOMPLETE`; exact ledger matching is build
-acceptance with known debt, not proof of conformance. Closing the classified gaps is phase 3 / option 2 (ADR 0013).
+still-bookable offer. Two declared API calls are evaluated, but the ledger retains 200 distinct known coverage gaps
+from the HTTP edge, JDBC adapters and quotes/shipments factories. The expected verdict is `COVERAGE_INCOMPLETE`.
+Exact ledger matching is build acceptance with known debt, not proof of conformance. Closing the classified gaps
+is phase 3 / option 2 (ADR 0013).
+
+**Issue #90 coverage ledger:** the accepted ledger contains 200 distinct findings.
+The four JDBC adapters put each JdbcClient call on its own line, yielding 94 distinct census findings; ADR 0013
+records the owner's acceptance. The ledger reader accepts `JDBC statement construction and execution` as a debt
+classification. The census and multiplicity checks are unchanged; duplicate occurrences still cannot collapse into one.
+Generated documentation and rendered review remain blocked by the demo's temporary `pr: 0` metadata.
 
 ## Responsibilities
 
@@ -110,12 +123,15 @@ The order of checks is part of the contract (description of `bookShipment`):
 
 A rejected request stores nothing, so the same key sent again after a rejection is evaluated again from step 4.
 
-Concurrency: acquire a transaction-scoped PostgreSQL advisory lock derived deterministically from tenant and
-idempotency key before step 3; collisions only serialize unrelated requests. Recheck the key after acquiring the
-lock. After any relevant unique-constraint failure, roll back and resolve in a fresh transaction: inspect the key and
-fingerprint first, then the quote conflict. Never classify a same-key replay solely from which unique constraint
-PostgreSQL reports. BookingIdempotencyIntegrationTest covers matching and differing bodies, different keys for one
-quote, and expiry while waiting.
+Concurrency (ADR 0017): `findByKey` takes a transaction-scoped advisory lock in namespace 1 on the tenant/key;
+`findByQuote` takes one in namespace 2 on the tenant/quote. Both use PostgreSQL `hashtext`; collisions serialize
+unrelated requests. Each lookup runs in a separate statement after its lock, so READ COMMITTED sees the winner's
+commit. All bookings acquire the key lock first, then the quote lock, and hold them to commit or rollback.
+The unique constraints remain the final guard. Direct insert conflicts abort the transaction; they are never
+caught and queried in an aborted transaction. These locks replace the planned exception/retry path for supported
+booking calls. A writer bypassing that protocol gets a database error rather than a classified booking outcome.
+`BookingIdempotencyIntegrationTest` covers matching and differing bodies, different keys for one quote, replay after
+expiry, and expiry after a lock holder rolls back. It observes the blocked advisory lock through PostgreSQL's catalog.
 
 **Request fingerprint:** SHA-256, lower-case hex, over the UTF-8 encoding of these fields in this order: `quoteId`,
 `offerId`, `recipient.name`, `recipient.addressLine1`, `recipient.addressLine2`, `recipient.postcode`,
@@ -203,8 +219,8 @@ identical input.
 
 - `internal.adapter.in.web`: `ShipmentsController` (book, list, read and label; cancellation planned), request and response records, mapping of
   outcomes to problems. Recipient data is never logged; request logging excludes bodies.
-- `internal.adapter.out.jdbc`: `JdbcShipmentStore` (Spring JDBC's `JdbcClient`, ADR 0012; optimistic locking by a
-  check of the `version` column in each update), `JdbcTrackingNumbers` (sequence).
+- `internal.adapter.out.jdbc`: `JdbcShipmentStore` (Spring JDBC's `JdbcClient`, ADRs 0012 and 0017), `JdbcTrackingNumbers` (sequence).
+  Optimistic updates arrive with cancellation; current inserts leave the reserved version at zero.
 
 ## Data: schema `shipments` (migration `V3__shipments.sql`)
 
@@ -213,7 +229,7 @@ identical input.
 `origin_postcode varchar(10)`, `recipient_name varchar(70)`, `recipient_address_line1 varchar(70)`,
 `recipient_address_line2 varchar(70) null`, `recipient_postcode varchar(10)`, `recipient_city varchar(50)`,
 `recipient_country char(2)`, `reference varchar(35) null`, `idempotency_key varchar(64)`,
-`request_fingerprint char(64)`, `booked_at timestamptz`, `cancelled_at timestamptz null`, `version int`; all other
+`request_fingerprint char(64)`, `booked_at timestamptz`, `cancelled_at timestamptz null`, `version int default 0`; all other
 columns `not null`.
 
 - PK `(tenant_id, shipment_id)`; unique `(tenant_id, idempotency_key)`, `(tenant_id, quote_id)`,
@@ -221,7 +237,7 @@ columns `not null`.
 - Checks: status and service level enums; `amount >= 0`; `currency = 'EUR'`; tracking number pattern;
   `(status = 'CANCELLED') = (cancelled_at is not null)`.
 - Index `(tenant_id, booked_at desc, shipment_id desc)` for listing.
-- Sequence `shipments.tracking_number_seq`.
+- Sequence `shipments.tracking_number_seq`: 1 through 9999999999, no cycling; rollback may leave gaps.
 - Row-level security enabled and forced, policy `tenant_isolation`. Grants to `shipping_app`: `SELECT, INSERT,
   UPDATE` on the table, `USAGE` on the sequence. No `DELETE`.
 - No foreign key to `quotes`; the quote's existence is checked through `QuoteOffers` in the same transaction.
@@ -235,13 +251,13 @@ columns `not null`.
 | S2 | Booking checks run in the documented order and map to the documented rejections. | `BookShipmentTest` |
 | S3 | An offer is bookable only while `now < expiresAt`. | `BookShipmentTest`, `QuoteExpiryTest` |
 | S4 | The recipient's country and postcode equal the quote's destination. | `BookShipmentTest` |
-| S5 | Same tenant, key and body give the same shipment (`201` then `200`); a different body gives `422`; concurrent duplicates create one row. | `ShipmentsHttpContractTest` (sequential HTTP), `BookingIdempotencyIntegrationTest` (planned concurrency) |
-| S6 | One shipment per quote; a second key for the same quote gives `409`. | `ShipmentsHttpContractTest` (sequential HTTP), `BookingIdempotencyIntegrationTest` (planned concurrency) |
+| S5 | Same tenant, key and body give the same shipment (`201` then `200`); a different body gives `422`; concurrent duplicates create one row. | `ShipmentsHttpContractTest` (sequential HTTP), `BookingIdempotencyIntegrationTest` (implemented; CI pending) |
+| S6 | One shipment per quote; a second key for the same quote gives `409`. | `ShipmentsHttpContractTest` (sequential HTTP), `BookingIdempotencyIntegrationTest` (implemented; CI pending) |
 | S7 | The fingerprint changes when any field changes and distinguishes absent from present optional fields. | `RequestFingerprintTest` |
 | S8 | `ShipmentBooked` and `ShipmentCancelled` are published once on commit and never on rollback. | `ShipmentEventsIntegrationTest` |
 | S9 | Labels are byte-identical for the same shipment, escape all text, contain only allowed elements and attributes, carry the simulation banner; a cancelled shipment has no label. | `SvgLabelRendererTest`, `ShipmentsHttpContractTest` |
-| S10 | Listing is newest first, paginates without gaps or repeats, honours the status filter and rejects foreign cursors. | `ShipmentsHttpContractTest` (in memory), `ShipmentListingIntegrationTest` (planned database) |
-| S11 | Shipments of another tenant are never visible or changeable. | `ShipmentsHttpContractTest` (detail/label, in memory); `CrossTenantAccessTest`, `RowLevelSecurityIntegrationTest` (planned shipment database proof) |
+| S10 | Listing is newest first, paginates without gaps or repeats, honours the status filter and rejects foreign cursors. | `ShipmentsHttpContractTest` (in memory), `ShipmentListingIntegrationTest` (implemented; CI pending) |
+| S11 | Shipments of another tenant are never visible or changeable. | `ShipmentsHttpContractTest` (detail/label, in memory); `CrossTenantAccessTest`, `RowLevelSecurityIntegrationTest` (implemented; CI pending) |
 | S12 | HTTP responses match the contract. | `ShipmentsHttpContractTest` |
 | S13 | Recipient values are validated per the contract. | `RecipientTest` |
 

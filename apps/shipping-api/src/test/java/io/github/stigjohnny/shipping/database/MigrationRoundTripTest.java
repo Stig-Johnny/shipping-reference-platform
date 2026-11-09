@@ -69,6 +69,7 @@ class MigrationRoundTripTest {
     @Test
     void aDatabaseThatWentDownAndUpThroughEveryVersionEqualsOneMigratedStraight() throws SQLException {
         List<Migration> migrations = Scripts.migrations();
+        assertThat(migrations.stream().map(Migration::version).toList()).contains(3);
         assertThat(migrations).isNotEmpty();
         ShippingDatabase stepwise = server.newDatabase("round_trip_stepwise");
         for (Migration migration : migrations) {
@@ -107,6 +108,9 @@ class MigrationRoundTripTest {
         ShippingDatabase database = server.newDatabase("round_trip_snapshot").migrate();
         // Each change, made by the superuser in a transaction that is rolled back, and the kind of line it changes.
         Map<String, String> changes = Map.ofEntries(
+                Map.entry("revoke usage on sequence shipments.tracking_number_seq from shipping_app",
+                        "relation shipments.tracking_number_seq "),
+                Map.entry("alter table shipments.shipment no force row level security", "relation shipments.shipment "),
                 Map.entry("revoke insert on quotes.quote from shipping_app", "relation quotes.quote "),
                 Map.entry("alter table quotes.quote_offer no force row level security", "relation quotes.quote_offer "),
                 Map.entry("alter table quotes.quote alter column zone type varchar(13)", "column quotes.quote.zone "),

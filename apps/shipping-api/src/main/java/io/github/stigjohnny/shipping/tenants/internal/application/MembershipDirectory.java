@@ -1,7 +1,7 @@
 package io.github.stigjohnny.shipping.tenants.internal.application;
 
 /**
- * The port through which a demo token's user and membership are found, by the token's SHA-256 only: the planned JDBC
+ * The port through which a demo token's user and membership are found, by the token's SHA-256 only: the postgres-profile JDBC
  * adapter calls the security-definer function {@code tenants.resolve_demo_token(bytea)} (docs/modules/tenants.md); the
  * tests use the synthetic fixtures of that document.
  */

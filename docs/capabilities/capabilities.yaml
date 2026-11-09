@@ -52,6 +52,8 @@
 # MigrationFilesTest checks paired SQL files, while up/down execution and RLS await CI database evidence.
 # Every other status is planned and its evidence is "none yet".
 
+# Issue #90: shared JDBC contracts compile; their database execution is pending CI.
+# No database test is added to evidence until its CI report passes.
 schemaVersion: 1
 
 capabilities:
@@ -165,7 +167,7 @@ capabilities:
     status: partial
     target: v0.1
     evidence: [DemoTokenTest, DemoTokenAuthenticationTest]
-    acceptanceTests: [DemoTokenTest, DemoTokenAuthenticationTest]
+    acceptanceTests: [DemoTokenTest, DemoTokenAuthenticationTest, MembershipDirectoryIntegrationTest]
     docs: docs/modules/tenants.md
     actors: [clerk]
   - id: tenants.current-membership
@@ -180,8 +182,8 @@ capabilities:
   - id: tenants.row-level-security
     module: tenants
     title: Forced PostgreSQL row-level security on every tenant-owned table, with a runtime role that cannot bypass it.
-    # Tests for V1/V2 are implemented and mandatory in databaseTest; CI evidence for this merged tree is pending.
-    # Application tenant binding and the tables of shipments and audit remain planned.
+    # Tests for V1/V2/V3 are implemented and mandatory in databaseTest; CI evidence for this merged tree is pending.
+    # Adapter binding exists; the audit schema and event TenantScope remain planned.
     status: planned
     target: v0.1
     evidence: none yet
@@ -403,8 +405,8 @@ controls:
     evidence: [QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, ReachabilityTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest, CoverageLedgerTest]
     acceptanceTests: [QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, ReachabilityTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest, CoverageLedgerTest, FirstBookingScenarioTest, BookingReplayScenarioTest, LabelScenarioTest]
     negativeFixture: CoverageLedgerTest rejects new Spring accesses, removed ledger entries, changed descriptors, disappeared gaps and duplicates; CoverageBypassTest rejects an additional Spring access with an already ledgered owner/member. Altered implementations in ScenarioFixturesTest, a removed call that keeps the outcome (missing step), an added call along a permitted relationship (unexpected interaction), two swapped interactions (order violation), a disabled call observer and a disabled publication observer (coverage gaps), an AFTER_COMMIT publication that runs before any commit (coverage gap), and two interleaved runs that must pass; nine implementations in CoverageBypassTest (coverage gaps), including virtual-thread and pre-existing-executor work released after close; shared receivers and containers in both module traversal orders in ReachabilityTest; a repeated signature with a varying cardinality in SidecarValidationTest (refused).
-    enforcedSubset: In process on the built modules, four declared steps of the quote and tenant-denial scenarios are verified against recorded interactions (three module API calls and one event publication); the other eight steps are counted as not evaluated. Reports say COVERAGE_INCOMPLETE with 106 known gaps (100 Spring accesses and six factory parameters), retained as refusals; an exact classified ledger tagged phase 3 / option 2 rejects new, changed, duplicate and disappeared findings, while all other bounded refusals remain build blockers; unexamined code, transient receivers, driver-supplied references and work after close remain limits (docs/gaps.md section 6). The tenant-denial outcome (rejected as an unknown quote, nothing stored for the other tenant) is asserted by the test apart from step verification.
-    plannedRemainder: Phase 3 / option 2 closes the 106 known gaps through production factory witnesses and concrete Spring receiver/callback coverage; the first booking, booking replay and label scenarios, HTTP exchanges, database steps observed through JDBC, listener executions, and commits observed so that AFTER_COMMIT steps are evaluated instead of refused.
+    enforcedSubset: In process on the built modules, four declared steps of the quote and tenant-denial scenarios are verified against recorded interactions (three module API calls and one event publication); the other eight steps are counted as not evaluated. The accepted ledger has 200 distinct known gaps (100 HTTP/security Spring accesses, 94 JDBC accesses and six factory parameters), retained as refusals; the expected report is COVERAGE_INCOMPLETE, with the JDBC debt classification accepted by the ledger reader (ADR 0013); an exact classified ledger tagged phase 3 / option 2 rejects new, changed, duplicate and disappeared findings, while all other bounded refusals remain build blockers; unexamined code, transient receivers, driver-supplied references and work after close remain limits (docs/gaps.md section 6). The tenant-denial outcome (rejected as an unknown quote, nothing stored for the other tenant) is asserted by the test apart from step verification.
+    plannedRemainder: Phase 3 / option 2 closes the 200 distinct known gaps through production factory witnesses and concrete Spring receiver/callback coverage; the first booking, booking replay and label scenarios, HTTP exchanges, database steps observed through JDBC, listener executions, and commits observed so that AFTER_COMMIT steps are evaluated instead of refused.
     docs: docs/adr/0013-scenario-views-are-checked-against-recorded-interactions.md
   - id: control.external-imports
     title: External dependencies reported by ArchUnit 1.5.1 from API main or test outputs have an approved provider or a verified repository-owned project provider, and are on the caller's layer whitelist.

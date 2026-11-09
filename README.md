@@ -5,11 +5,17 @@ API contract and the documentation lead and the code follows, and when each clai
 check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is
 synthetic and the carrier is simulated. The application's first code exists: the API's pricing and quotes and its
 demo authentication, served over HTTP in tests, and booking, listing, reading and simulated labels in its shipments
-module over HTTP. The tenants and quotes schemas have paired migrations; application persistence and most of the
-application are still planned.
+module over HTTP. The tenants, quotes and shipments schemas have paired migrations and JDBC adapters behind the postgres profile;
+database execution evidence and the runnable demo are still pending.
 The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions,
 a labelled partial check of detected TypeScript imports in the web app, a dependency allowlist check and a
 documentation tool.
+
+**Issue #90 coverage ledger:** the accepted ledger contains 200 distinct findings.
+The four JDBC adapters put each JdbcClient call on its own line, yielding 94 distinct census findings; ADR 0013
+records the owner's acceptance. The ledger reader accepts `JDBC statement construction and execution` as a debt
+classification. The census and multiplicity checks are unchanged; duplicate occurrences still cannot collapse into one.
+Generated documentation and rendered review remain blocked by the demo's temporary `pr: 0` metadata.
 
 ## What exists today
 
@@ -43,15 +49,15 @@ Built and running:
 
   `QuotesHttpContractTest`, `ShipmentsHttpContractTest`, `TenantsHttpContractTest` and `ProblemDetailsHttpContractTest`
   validate every response they exercise against the contract. The tests use test doubles and stores in memory, a fixed clock and deterministic
-  IDs, and booking is tested against real quotes: the ports to the database have no adapter yet, so the tests prove
-  the HTTP edge and the domain, not persistence. The schema migrations exist, but the application does not start outside
-  its tests. In `java`, `ArchitectureConformanceTest` checks the API's classes against the model with the checker,
+  IDs, and booking is tested against real quotes. These tests keep in-memory ports and prove
+  the HTTP edge and domain; JDBC adapters are selected separately by `postgres`. The runnable demo configuration remains planned. In `java`, `ArchitectureConformanceTest` checks the API's classes against the model with the checker,
   `ModularityTest` runs Spring Modulith's verification and `HexagonalLayeringTest` the layering rules, and each of the
   three also fails on fixtures that break it.
 - **The scenario checks** (`control.scenario-conformance`, partial): two scenario views run in process on the built
   modules. Of their twelve declared steps, four are verified against what the code did (three module API calls and one
-  event publication); the rest are counted as not evaluated. Each report says `COVERAGE_INCOMPLETE` and
-  "coverage incomplete: 106 known gaps": 100 Spring accesses and six factory parameters remain refused. An exact
+  event publication); the rest are counted as not evaluated. The accepted ledger has 200 distinct known gaps:
+  100 HTTP/security Spring accesses, 94 JDBC accesses and six factory parameters remain refused. The expected report
+  is `COVERAGE_INCOMPLETE`, "coverage incomplete: 200 known gaps". An exact
   source-controlled ledger makes new, changed or disappeared findings fail the build; matching it proves no coverage.
   Receiver coverage and task completion are not universally proven (the unexamined cases are in [known gaps](docs/gaps.md#6-tests-and-quality-gates)).
   The tenant-denial test separately asserts the outcome, a rejection as for an unknown
@@ -63,13 +69,13 @@ Built and running:
   check 8 is a PARTIAL static lint: direct container findings and registered-file pin mismatches block, while
   unregistered launch/reflection capabilities warn. Literal/data class names are not use (ADR 0007). The harness validates its PostgreSQL instance,
   and CI checks subsequent engine activity. Privileged code could undo the guard; it is not a hostile-code sandbox.
-  The tenants and quotes migrations use its opaque JDBC handle; only the harness uses container libraries.
+  The tenants, quotes and shipments migrations use its opaque JDBC handle; only the harness uses container libraries.
 - **The documentation tool**, `tools/docs`, with its tests. It generates the C4 view pages, `BRAIN.md` and a static
   site. In `java`, it checks committed generated files for drift, repository-local links and anchors for validity,
   and shipped or partial capability claims against passing test evidence. The `pages` workflow scans the site before
   each upload and publishes it from `main` at <https://stig-johnny.github.io/shipping-reference-platform/>.
   The site's use case overview shows each capability's actors and what its tests showed, not a runtime trace.
-- **The first database migrations**, `V1__tenants.sql` and `V2__quotes.sql`, with matching down scripts (ADR 0016),
+- **The database migrations**, `V1__tenants.sql`, `V2__quotes.sql` and `V3__shipments.sql`, with matching down scripts (ADR 0016),
   forced row-level security and the role bootstrap `apps/shipping-api/postgres/init-roles.sql`. `MigrationFilesTest`
   checks their pairing without a database. `MigrationsIntegrationTest`, `MigrationRoundTripTest`,
   `RowLevelSecurityCatalogTest` and `RowLevelSecurityIntegrationTest` run in the mandatory CI `databaseTest` task.
@@ -78,8 +84,8 @@ Built and running:
 The specification is in place too: the model, the API contract, the decisions, the module specifications, the risk
 policy and the agent rules, with the reviewed toolchain.
 
-Planned, with no code yet: the API's other four modules, everything of quotes, shipments and tenants that needs the
-application database adapters, shipment cancellation, the workbench, a plain TypeScript app (ADR 0012), and the checks that
+Planned, with no code yet: the API's other four modules, the runnable PostgreSQL demo configuration, durable event publication,
+shipment cancellation, the workbench, a plain TypeScript app (ADR 0012), and the checks that
 need them; the generated API client is deferred. In
 [docs/capabilities/capabilities.yaml](docs/capabilities/capabilities.yaml), the source of truth for status and
 evidence, the quotes module's tariff and quote expiry are shipped; quote creation, quote reading, the offer lookup,

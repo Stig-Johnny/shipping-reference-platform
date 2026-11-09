@@ -34,7 +34,7 @@ import org.junit.jupiter.api.io.TempDir;
 class MigrationsIntegrationTest {
 
     /** The migrations this commit ships, by version and description: a missing or an extra one fails. */
-    private static final List<String> MIGRATIONS = List.of("1 tenants", "2 quotes");
+    private static final List<String> MIGRATIONS = List.of("1 tenants", "2 quotes", "3 shipments");
 
     /**
      * DDL and other schema changes the runtime role tries. TRUNCATE is not DDL, but row-level security does not apply
@@ -45,6 +45,13 @@ class MigrationsIntegrationTest {
             "create table public.scratch (id integer)",
             "create table tenants.scratch (id integer)",
             "create table quotes.scratch (id integer)",
+            "create table shipments.scratch (id integer)",
+            "alter table shipments.shipment disable row level security",
+            "alter table shipments.shipment no force row level security",
+            "alter table shipments.shipment owner to shipping_app",
+            "truncate shipments.shipment",
+            "alter sequence shipments.tracking_number_seq restart",
+            "drop schema shipments cascade",
             "create temporary table scratch (id integer)",
             "create function quotes.scratch() returns integer language sql as 'select 1'",
             "create index on quotes.quote (issued_at)",
@@ -101,13 +108,13 @@ class MigrationsIntegrationTest {
             // Everything the migrations created belongs to the owner role, and nothing to the runtime role.
             assertThat(Jdbc.strings(superuser, """
                     select distinct pg_get_userbyid(owner) from (
-                        select nspowner as owner from pg_namespace where nspname in ('tenants', 'quotes')
+                        select nspowner as owner from pg_namespace where nspname in ('tenants', 'quotes', 'shipments')
                         union all select relowner from pg_class where relnamespace in ('tenants'::regnamespace,
-                            'quotes'::regnamespace)
+                            'quotes'::regnamespace, 'shipments'::regnamespace)
                         union all select proowner from pg_proc where pronamespace in ('tenants'::regnamespace,
-                            'quotes'::regnamespace)
+                            'quotes'::regnamespace, 'shipments'::regnamespace)
                         union all select typowner from pg_type where typnamespace in ('tenants'::regnamespace,
-                            'quotes'::regnamespace)) owners""")).containsExactly(ShippingDatabase.OWNER);
+                            'quotes'::regnamespace, 'shipments'::regnamespace)) owners""")).containsExactly(ShippingDatabase.OWNER);
         }
         assertThat(database.flyway().migrate().migrationsExecuted).as("a second run").isZero();
     }

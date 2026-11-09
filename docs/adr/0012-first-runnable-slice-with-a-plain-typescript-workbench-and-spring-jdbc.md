@@ -2,7 +2,7 @@
 title: "ADR 0012: First runnable slice with a plain TypeScript workbench and Spring JDBC"
 description: "Supersedes ADRs 0003, 0004, 0005 and 0009. Their modules, contract-first API and PostgreSQL design carry forward unchanged, except that adapters use Spring JDBC's JdbcClient; the workbench is plain TypeScript with a hand-written typed HTTP adapter, and React and the generated client are deferred."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 date: 2026-11-07
 decision-makers: repository owner
 enforcedBy:
@@ -127,6 +127,9 @@ one.
   HTTP relationship from the web app to the API stays outside the check; the end-to-end tests are its evidence, for
   the operations they run. This changes ADR 0009, which claimed import boundaries and cycles only and deferred
   required frontend edges: the frontend gets both failure directions over the detected imports.
+
+ADR 0017 refines synchronous transaction binding and booking serialization for the JDBC adapter implementation;
+the custom tenant-binding manager described below is superseded for those adapters. Event TenantScope remains planned.
 
 ### Persistence through Spring JDBC
 
