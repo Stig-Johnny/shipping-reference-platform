@@ -27,12 +27,13 @@ final class BrainPage {
     static SitePage of(SiteContext context) {
         Sources sources = context.sources();
         TestEvidence evidence = sources.evidence();
-        StringBuilder body = new StringBuilder("<div class=\"actions\">\n")
+        StringBuilder body = new StringBuilder(BrainMap.html(context)).append("<div class=\"actions\">\n")
                 .append("<button type=\"button\" class=\"button\" data-copy-target=\"agent-context\" "
                         + "data-status=\"copy-status\" hidden>Copy agent context</button>\n")
                 .append(SiteContext.link(PAGE, SiteMap.BRAIN_DOWNLOAD, "Download BRAIN.md")).append('\n')
                 .append("<p id=\"copy-status\" class=\"copy-status\" role=\"status\"></p>\n</div>\n");
-        body.append("<h2 id=\"capabilities\">Capabilities</h2>\n");
+        body.append("<details class=\"brain-catalogue\"><summary>Full capability and control catalogue</summary>\n")
+                .append("<h2 id=\"capabilities\">Capabilities</h2>\n");
         HtmlTable capabilities = HtmlTable.of("Capabilities (" + sources.capabilities().capabilities().size()
                 + "), from docs/capabilities/capabilities.yaml", "Capabilities, scrolls sideways", "Capability",
                 "Module", "Status", "Risk", "Evidence", "Acceptance targets");
@@ -52,22 +53,21 @@ final class BrainPage {
         for (ModuleFacts module : context.modules()) {
             body.append(module(context, module));
         }
-        body.append("<h2 id=\"agent-context-heading\">Agent context</h2>\n<p class=\"prose\">The text of "
+        body.append("</details>\n<h2 id=\"agent-context-heading\">Agent context</h2>\n<p class=\"prose\">The text of "
                 + "<code>BRAIN.md</code>, generated with this site, for an AI agent to start from.</p>\n")
                 .append("<details class=\"agent-context\">\n<summary>Agent context (BRAIN.md)</summary>\n")
                 .append("<pre id=\"agent-context\">").append(Html.escape(Brains.root(sources))).append("</pre>\n")
                 .append("</details>\n");
-        for (String id : List.of("capabilities", "controls", "modules", "agent-context-heading")) {
+        for (String id : List.of("map-title", "capabilities", "controls", "modules", "agent-context-heading")) {
             context.map().anchor(PAGE, id);
         }
 
-        return new SitePage(PAGE, "Project brain", "Brain", SiteSection.BRAIN, "What is shipped and what is only "
-                + "planned, with the evidence for each, then one summary per module. Generated with the site from the "
-                + "same sources as BRAIN.md, which agents read first.", new StatusPanel(
+        return new SitePage(PAGE, "Project brain", "Brain", SiteSection.BRAIN, "Explore the modules, decisions and evidence. Generated from the same sources as the agent’s BRAIN.md.", new StatusPanel(
                         Statuses.design("accepted", "ADR 0011: a generated, budgeted brain that never claims more "
                                 + "than its evidence."), overview(sources.capabilities()),
                         passing(sources.capabilities(), evidence)),
-                List.of(new SitePage.Contents("capabilities", "Capabilities"),
+                List.of(new SitePage.Contents("map-title", "Explore the map"),
+                        new SitePage.Contents("capabilities", "Capabilities"),
                         new SitePage.Contents("controls", "Controls"), new SitePage.Contents("modules", "Modules"),
                         new SitePage.Contents("agent-context-heading", "Agent context")),
                 body.toString(), context.mentioned("ADR 0011 docs/gaps.md", PAGE), Capabilities.PATH + ", "

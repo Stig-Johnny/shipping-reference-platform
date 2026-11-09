@@ -64,6 +64,7 @@ public final class SiteBuilder {
         // The Demos section comes second in the register, but is built last, so that its links are checked against
         // every other page as built.
         pages.addAll(start, DemoPages.of(context, pages));
+        pages.add(SearchPage.of(pages));
         SitePage notFound = NotFoundPage.of();
         List<String> paths = new ArrayList<>(pages.stream().map(SitePage::path).toList());
         paths.add(notFound.path());

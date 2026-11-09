@@ -106,7 +106,10 @@ class SiteAssetsTest {
                 .contains("outline: 2px solid var(--link);", "outline-offset: 2px;")
                 .contains("@media (prefers-reduced-motion: reduce)")
                 .contains("border-radius: 2px;").doesNotContain("border-radius: 8px;", "box-shadow", "@import",
-                        "url(", "@font-face", "gradient(", "rotate(");
+                        "url(", "@font-face", "rotate(");
+        // Issue 38 explicitly permits the reviewed Brain palette; all earlier drawing styles retain the ban.
+        assertThat(css.substring(0, css.indexOf("/* Brain map exception:"))).doesNotContain("gradient(");
+        assertThat(css).contains(".brain-visual {", "background: radial-gradient(ellipse at center, #28123f, #0b0a12 75%);");
     }
 
     @Test
@@ -363,7 +366,7 @@ class SiteAssetsTest {
         Set<String> tokens = Set.of("#F4F1E8", "#FFFDF7", "#172B3A", "#4C5E6B", "#687987",
                 "#164F86", "#A33225", "#CFD2CA", "#0B2538", "#12344A", "#F3F0E6", "#B8C8D1", "#7F9CAB", "#9ACBFF",
                 "#FFAB9D", "#325369");
-        Matcher colour = Pattern.compile("#[0-9A-Fa-f]{3,8}\\b").matcher(css);
+        Matcher colour = Pattern.compile("#[0-9A-Fa-f]{3,8}\\b").matcher(css.substring(0, css.indexOf("/* Brain map exception:")));
         while (colour.find()) {
             assertThat(tokens).as("colour " + colour.group()).contains(colour.group().toUpperCase(Locale.ROOT));
         }

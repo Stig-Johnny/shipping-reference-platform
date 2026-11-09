@@ -181,11 +181,12 @@ class SiteAccessibilityTest {
             int status = html.indexOf("class=\"status-panel\"");
             int body = html.indexOf("class=\"page-body");
             int source = html.indexOf("class=\"page-source\"");
-            assertThat(List.of(breadcrumb, title, summary, status, body, source)).as(page).isSorted()
+            assertThat(page.equals("brain/index.html") ? List.of(breadcrumb, title, summary, body, status, source)
+                    : List.of(breadcrumb, title, summary, status, body, source)).as(page).isSorted()
                     .doesNotContain(-1);
             int contents = html.indexOf("class=\"page-contents\"");
             if (contents >= 0) {
-                assertThat(contents).as(page).isBetween(status, body);
+                assertThat(contents).as(page).isBetween(status, page.equals("brain/index.html") ? source : body);
             }
             int related = html.indexOf("class=\"page-related\"");
             if (related >= 0) {

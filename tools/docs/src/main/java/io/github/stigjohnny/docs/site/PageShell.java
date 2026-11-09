@@ -31,6 +31,7 @@ final class PageShell {
 
     static String render(SitePage page, List<SitePage> pages, String revision, @Nullable String updated,
             UnaryOperator<String> url) {
+        boolean brain = page.path().equals(BrainPage.PAGE);
         StringBuilder out = new StringBuilder("<!DOCTYPE html>\n<html lang=\"").append(Html.escape(page.lang()))
                 .append(page.layout() == SitePage.Layout.DECK ? "\" class=\"deck\">" : "\">")
                 .append("\n<head>\n<meta charset=\"utf-8\">\n")
@@ -47,10 +48,13 @@ final class PageShell {
         }
         out.append("<script src=\"").append(url.apply(SiteBuilder.JS)).append("\" defer></script>\n")
                 .append("</head>\n<body>\n<a class=\"skip-link\" href=\"#site-main\">Skip to main content</a>\n")
-                .append("<div class=\"site\">\n<header class=\"site-header\">\n<p class=\"site-name\"><a href=\"")
+                .append("<div class=\"site" + (page.path().equals(BrainPage.PAGE) ? " brain-site" : "")
+                        + "\">\n<header class=\"site-header\">\n<p class=\"site-name\"><a href=\"")
                 .append(url.apply(StartPages.INDEX)).append("\">").append(SITE_NAME).append("</a></p>\n")
                 .append("<p class=\"site-tagline\">Generated from the repository. Synthetic data only.</p>\n")
                 .append("<details class=\"site-nav-disclosure\" open>\n<summary>Site navigation</summary>\n")
+                .append("<p class=\"site-search-link\"><a href=\"").append(url.apply(SearchPage.PAGE))
+                .append("\">Search all pages</a></p>\n")
                 .append(Navigation.html(page, pages, url))
                 .append("<fieldset class=\"theme-switch\" hidden>\n<legend>Theme</legend>\n")
                 .append("<label><input type=\"radio\" name=\"theme\" value=\"system\" checked> System</label>\n")
@@ -71,24 +75,22 @@ final class PageShell {
         if (facts != null) {
             out.append(facts);
         }
-        if (status != null) {
+        if (status != null && !brain) {
             out.append(sheetMeta(page, revision, updated));
         }
         out.append("</header>\n");
-        if (status != null) {
+        if (status != null && !brain) {
             out.append(status.html());
         }
-        if (!page.contents().isEmpty()) {
-            out.append("<nav class=\"page-contents\" aria-labelledby=\"site-contents-title\">\n<details>\n")
-                    .append("<summary id=\"site-contents-title\">On this sheet (").append(page.contents().size())
-                    .append(")</summary>\n<ol>\n");
-            for (SitePage.Contents entry : page.contents()) {
-                out.append("<li><a href=\"#").append(Html.escape(entry.id())).append("\">")
-                        .append(Html.escape(entry.text())).append("</a></li>\n");
-            }
-            out.append("</ol>\n</details>\n</nav>\n");
+        if (!brain) {
+            out.append(contents(page));
         }
         out.append("<div class=\"page-body\">\n").append(page.body()).append("</div>\n");
+        if (brain && status != null) {
+            out.append("<details class=\"brain-build\"><summary>Build status, sources and revision</summary>")
+                    .append(sheetMeta(page, revision, updated)).append(status.html()).append("</details>\n")
+                    .append(contents(page));
+        }
         if (!page.related().isEmpty()) {
             out.append("<section class=\"page-related\" aria-labelledby=\"site-related-title\">\n")
                     .append("<h2 id=\"site-related-title\">Related pages</h2>\n<ul>\n");
@@ -105,6 +107,21 @@ final class PageShell {
                 .append("\">Repository licence</a>, <a href=\"").append(url.apply(LegalPages.NOTICE_PAGE))
                 .append("\">Repository NOTICE</a> and <a href=\"").append(url.apply(NoticesPage.PAGE))
                 .append("\">Third-party notices</a>.</p>\n</footer>\n</div>\n</body>\n</html>\n");
+        return out.toString();
+    }
+
+    private static String contents(SitePage page) {
+        StringBuilder out = new StringBuilder();
+        if (!page.contents().isEmpty()) {
+            out.append("<nav class=\"page-contents\" aria-labelledby=\"site-contents-title\">\n<details>\n")
+                    .append("<summary id=\"site-contents-title\">On this sheet (").append(page.contents().size())
+                    .append(")</summary>\n<ol>\n");
+            for (SitePage.Contents entry : page.contents()) {
+                out.append("<li><a href=\"#").append(Html.escape(entry.id())).append("\">")
+                        .append(Html.escape(entry.text())).append("</a></li>\n");
+            }
+            out.append("</ol>\n</details>\n</nav>\n");
+        }
         return out.toString();
     }
 

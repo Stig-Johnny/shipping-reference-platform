@@ -503,10 +503,10 @@ controls:
     check: java
     status: shipped
     target: v0.1
-    evidence: [BrainGeneratorTest, BrainCheckTest]
+    evidence: [BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest]
     evidenceLabel: documentation-tool
-    acceptanceTests: [BrainGeneratorTest, BrainCheckTest]
-    negativeFixture: A shipped capability without evidence; a hand-edited BRAIN.md.
+    acceptanceTests: [BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest]
+    negativeFixture: A shipped capability without evidence; a hand-edited BRAIN.md; an omitted search page or foreign indexed text; markup becoming DOM; an evidence arrow without a passing report.
     docs: docs/adr/0011-java-documentation-tool-and-publication.md
 
   - id: control.publication-scan

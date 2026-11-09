@@ -152,7 +152,11 @@ class SitePagesTest {
         assertThat(at0010).isPositive().isLessThan(at0011);
         assertThat(successor.substring(at0010, at0011)).contains("<span class=\"badge badge-neutral\">Superseded"
                 + "</span>");
-        assertThat(site.text("assets/site.css")).doesNotContain("line-through", "opacity");
+        String css = site.text("assets/site.css");
+        // The reviewed network uses translucent edges; decision badges keep their original full contrast.
+        int brain = css.indexOf("/* Brain map exception:");
+        assertThat(css.substring(0, brain)).doesNotContain("line-through", "opacity");
+        assertThat(css.substring(brain)).doesNotContain("badge-neutral", "line-through");
         assertThat(site.text("brain/index.html")).contains("ADR 0011: ");
     }
 
@@ -414,7 +418,7 @@ class SitePagesTest {
         assertThat(adr.indexOf("Passed in the build that generated this site:"))
                 .isGreaterThan(adr.indexOf("<h3 id=\"confirmation\">Confirmation</h3>"));
         assertThat(adr).contains("Passed in the build that generated this site: BrainGeneratorTest, BrainCheckTest, "
-                + "PublicationScannerTest, PagesWorkflowTest.");
+                + "SearchPageTest, BrainMapTest, PublicationScannerTest, PagesWorkflowTest.");
     }
 
     @Test
