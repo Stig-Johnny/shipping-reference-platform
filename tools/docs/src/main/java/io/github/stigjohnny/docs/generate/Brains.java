@@ -82,6 +82,8 @@ public final class Brains {
                 .append("- [AGENTS.md](AGENTS.md): rules for agents, with scoped files in `apps/*`, `libs/*` and "
                         + "`security/`.\n")
                 .append("- [docs/gaps.md](docs/gaps.md): what a green build does not prove.\n")
+                .append("- [Contribution records](docs/contributions.md): per-issue models, reasoning effort, "
+                        + "receipts and separate review/owner approval phases.\n")
                 .append("- [Human site design](docs/ui/documentation-site.md): generated page search and a visual map "
                         + "of API modules, decisions and passing evidence; prose does not create dependency arrows.\n")
                 .append("- [docs/risk-levels.md](docs/risk-levels.md) and `policy/risk.json`: who approves what.\n\n");

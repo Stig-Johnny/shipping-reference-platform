@@ -20,6 +20,8 @@ The human Brain offers a generated visual map of API modules, their capabilities
 and their passing test evidence. Site search finds published titles, summaries and headings. Both update when the
 normal checked Pages deployment succeeds; prose does not create architecture dependency arrows. The generated
 `BRAIN.md` and module brains remain the agent entry points.
+[Contribution records](docs/contributions.md) link each implemented issue to its model/effort phases and receipts;
+missing historical settings stay unknown, and AI review and human approval are recorded separately.
 
 ## What exists today
 
@@ -219,7 +221,8 @@ The workflow in the diagram, in order:
 3. Failing tests describe the new behaviour.
 4. Code and documentation change until the tests pass.
 5. The required checks run; when one fails, the change goes back to step 4.
-6. An AI review is recorded.
+6. An independent AI review is recorded. Contribution phases and verified model/effort settings are appended to
+   [the issue history](docs/contributions/history.md), with missing evidence explicitly unknown.
 7. The risk level decides: levels 0 to 2 merge; level 3 merges only after the owner approves the current head.
 
 GitHub enforces step 5: branch protection on `main` requires the `preflight` and `java` checks, for administrators
