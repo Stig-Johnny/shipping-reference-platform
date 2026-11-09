@@ -130,7 +130,7 @@ class BrainGeneratorTest {
                 + "static imports of TypeScript files, read from apps/shipping-web/src with a restricted import "
                 + "grammar, not runtime calls.\n", "This is labelled partial lint over detected imports; spread-syntax "
                 + "bypasses remain open. Compiler-graph boundary enforcement and browser verification of the strict CSP "
-                + "remain planned; the web job compiles and checks policy text (ADRs 0015 and 0017).")
+                + "remain planned; the web job compiles and checks policy text (ADRs 0015 and 0019).")
                 .doesNotContain("compiled classes have no static reference",
                         "The check does not evaluate a line that touches a planned part");
         assertThat(file(files, "BRAIN.md")).contains("the partial web import check compares only detected TypeScript "

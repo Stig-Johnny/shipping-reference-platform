@@ -12,7 +12,7 @@ enforcedBy:
   - "java: compilation with Error Prone and NullAway"
   - "java: QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest (HTTP contract, with test doubles for the database adapters)"
   - "java: WebArchitectureConformanceTest, partial JDK lint over detected imports in apps/shipping-web: boundaries, cycles, a detected direct import for each REQUIRED relationship whose endpoints are built, and every detected package and Node.js built-in import whitelisted in the model and approved in security/allowlist.json (ADR 0015). It scans src, e2e, public and app configuration in every build; with all six parts built, it checks real production imports for all ten REQUIRED relationships (control.web-import-boundaries, partial)"
-  - "web: type check and emit with TypeScript 5.9.3, and the logic tests under node --test; strict CSP text in csp.test.ts (ADR 0019), no browser evidence"
+  - "web: type check and emit with TypeScript 5.9.3, and the logic tests under node --test; strict CSP text in csp.test.ts (ADR 0019), no adversarial CSP enforcement test"
 plannedEnforcement:
   - "java: RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, CrossTenantAccessTest"
   - "java: MigrationsIntegrationTest, and TableOwnershipTest on the SQL of each module's adapters"
@@ -128,7 +128,7 @@ one.
   the operations they run. This changes ADR 0009, which claimed import boundaries and cycles only and deferred
   required frontend edges: the frontend gets both failure directions over the detected imports.
 
-ADR 0019 refines synchronous transaction binding and booking serialization for the JDBC adapter implementation;
+ADR 0017 refines synchronous transaction binding and booking serialization for the JDBC adapter implementation;
 the custom tenant-binding manager described below is superseded for those adapters. Event TenantScope remains planned.
 
 ### Persistence through Spring JDBC

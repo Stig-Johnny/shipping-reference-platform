@@ -146,7 +146,7 @@ public final class ViewText {
                     + "network calls, which no static check sees.");
             limits.add("This is labelled partial lint over detected imports; spread-syntax bypasses remain open. "
                     + "Compiler-graph boundary enforcement and browser verification of the strict CSP "
-                    + "remain planned; the web job compiles and checks policy text (ADRs 0015 and 0017).");
+                    + "remain planned; the web job compiles and checks policy text (ADRs 0015 and 0019).");
             return List.copyOf(limits);
         }
         switch (view.kind()) {

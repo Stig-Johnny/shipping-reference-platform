@@ -640,7 +640,7 @@ class SitePagesTest {
                         "checks real production imports for all ten REQUIRED relationships"));
         assertThat(adr.frontmatter().strings("enforcedBy"))
                 .anySatisfy(entry -> assertThat(entry).contains("web: type check and emit", "node --test",
-                        "strict CSP text", "no browser evidence"));
+                        "strict CSP text", "no adversarial CSP enforcement test"));
         assertThat(adr.frontmatter().strings("plannedEnforcement"))
                 .noneSatisfy(entry -> assertThat(entry).contains("WebArchitectureConformanceTest"));
         assertThat(adr.frontmatter().strings("plannedEnforcement"))
