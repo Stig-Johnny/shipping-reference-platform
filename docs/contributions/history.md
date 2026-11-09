@@ -139,6 +139,22 @@ Merge commit: [a1df8ad2a921eb6f84c68545b7f32f45332fccc2](https://github.com/Stig
 
 **Phase 74-1 — historical implementation:** [unknown settings under the backfill rule](#backfill-rule).
 
+## Issue 69
+
+**Type-switch evidence limit.** Characterizes the existing omission of named and unnamed switch type patterns;
+the production importer remains unchanged. Custom bootstrap extraction is deferred and `enumSwitch` is unmeasured.
+[Issue 69](https://github.com/Stig-Johnny/shipping-reference-platform/issues/69). PR and implementation revision
+will be appended after the first commit. Phases recorded on 2026-11-09:
+
+| Phase / role | Work date (UTC) | Tool and observed settings | Verification and scope |
+|---|---|---|---|
+| 69-1 implementation | 2026-11-09 | OpenCode 2.2.6 worker, DeepSeek direct API; configured `deepseek-flash`; checkpoint `unknown`; effort `unknown` | Exported `issue-69-build` patch SHA-256 `752b85a1ec524e5cd11ecdf462cc74bfcb52742c6170144ee595904c41d635c6`, independently read and hash-verified by the integrating coordinator. Two bounded rounds, 24 completed model steps. Receipt establishes only the alias; no checkpoint or effort field was recorded. |
+| 69-2 initial patch review | 2026-11-09 19:40:26 | Separate Codex setup coordinator; model/checkpoint/effort `unknown` | Sanitized review receipt: accepted the three-file patch for integration after diff review, test-log hash checks and independent fixture disassembly. Worker source was `1194adbc6e85a40d170deeac79e45914f1ab65c6` with an accepted local JDK overlay excluded from the patch. This was not final-head review or merge approval. |
+| 69-3 integration and validation | 2026-11-09 | Codex integrating coordinator; configured `gpt-6-astra`; checkpoint `unknown`; effort `xhigh` | Runtime turn metadata at 20:36:46 UTC establishes model and effort. Applied the exact worker patch to `e1108baec90543f8a898b847eb79f46b8e8e26fa`, independently verified all ten exported check-log hashes and ran the 28-test focused suite with zero failures/errors/skips. Adds publication and provenance records; final integrated checks remain separate receipts. |
+
+Final-head AI review and human merge approval are pending at this recording. Their exact-head receipts will be
+recorded on the PR. Raw worker transcripts and private machine paths are not published.
+
 ## Issue 66
 
 Scenario diagrams checked against what the code does at run time.
@@ -464,4 +480,3 @@ Specification first: the C4 model, the API contract and the decisions.
 Merge commit: [7e947cd3ad682d5b44a946fbd2942ff7165d3d30](https://github.com/Stig-Johnny/shipping-reference-platform/commit/7e947cd3ad682d5b44a946fbd2942ff7165d3d30).
 
 **Phase 1-1 — historical implementation:** [unknown settings under the backfill rule](#backfill-rule).
-

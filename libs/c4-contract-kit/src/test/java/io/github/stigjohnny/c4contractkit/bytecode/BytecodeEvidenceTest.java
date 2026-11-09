@@ -272,6 +272,32 @@ class BytecodeEvidenceTest {
             }
             """);
 
+    private static final FixtureSource PATTERN_SWITCH = new FixtureSource("fx/app/a/PatternSwitch.java", """
+            package fx.app.a;
+
+            import fx.app.b.Target;
+
+            public class PatternSwitch {
+                int named(Object value) {
+                    return switch (value) {
+                        case Target target -> 1; // L:named
+                        default -> 0;
+                    };
+                }
+
+                int unnamed(Object value) {
+                    return switch (value) {
+                        case Target _ -> 2; // L:unnamed
+                        default -> 0;
+                    };
+                }
+
+                boolean visible(Object value) {
+                    return value instanceof Target; // L:visible
+                }
+            }
+            """);
+
     private static final FixtureSource OUTER = new FixtureSource("fx/app/a/Outer.java", """
             package fx.app.a;
 
@@ -643,6 +669,22 @@ class BytecodeEvidenceTest {
                 """);
 
         assertThat(referencesToTargets(invisible, "fx.app.a.Invisible", constants)).isEmpty();
+    }
+
+    @Test
+    void typePatternsInASwitchAreNotReportedEvenThoughTheClassFileHoldsTheirTypes() {
+        // A known limit (docs/gaps.md, issue #69): a type pattern compiles to an invokedynamic type switch whose
+        // bootstrap arguments name the target class, but ArchUnit 1.5.1 reports no reference for it. The visible
+        // instanceof is the positive control: the importer and the compiled target are present. This test pins
+        // ArchUnit's omission; it does not parse the bootstrap arguments itself.
+        List<ImportedClass> classes = ClassRootImporter.importRoots(List.of(compile(PATTERN_SWITCH)));
+
+        assertThat(classes).extracting(ImportedClass::name).contains("fx.app.a.PatternSwitch");
+        assertThat(targetsOf(classes, "fx.app.a.PatternSwitch")).containsExactly(
+                reference("fx.app.a.PatternSwitch", "visible(java.lang.Object)", "fx.app.b.Target", "", INSTANCEOF,
+                        PATTERN_SWITCH.lineOf("L:visible")));
+        assertThat(targetsOf(classes, "fx.app.a.PatternSwitch")).extracting(CodeReference::originMember)
+                .doesNotContain("named(java.lang.Object)", "unnamed(java.lang.Object)");
     }
 
     @Test

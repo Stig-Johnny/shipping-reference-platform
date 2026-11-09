@@ -361,7 +361,7 @@ controls:
     target: v0.1
     evidence: [BytecodeEvidenceTest]
     acceptanceTests: [BytecodeEvidenceTest]
-    negativeFixture: Fixture classes for each reference kind; a missing kind fails the test.
+    negativeFixture: Fixture classes for each reported reference kind; a missing kind fails the test. Named and unnamed switch type patterns pin ArchUnit's known omission with an instanceof positive control.
     docs: libs/c4-contract-kit/AGENTS.md
   - id: control.deterministic-reports
     title: Byte-identical JSON and Markdown reports for identical inputs, written before an assertion fails.

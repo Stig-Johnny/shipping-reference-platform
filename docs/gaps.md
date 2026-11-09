@@ -104,8 +104,13 @@ The [attended runbook](flows/attended-demo.md#recorded-database-evidence) record
   no reference. Casts, the types of local variables, explicit type arguments of method calls and array creation
   (`new T[n]`) are not reported either. A module that uses another only in these ways shows no divergence, and such
   a use does not satisfy a REQUIRED edge. `BytecodeEvidenceTest` pins this list. Type patterns in a `switch`
-  (`case T t`, `case T _`) compile to an `invokedynamic` type switch whose bootstrap arguments hold the classes; they
-  are not reported either, and `BytecodeEvidenceTest` does not pin that yet (issue #69).
+  (`case T t`, `case T _`) compile to an `invokedynamic` type switch whose bootstrap arguments hold the classes, and
+  ArchUnit 1.5.1 reports no reference for them either: `BytecodeEvidenceTest` pins both forms with an `Object`
+  selector and literal-returning branches, plus an `instanceof T` positive control, so a pattern-only use shows no
+  divergence, does not satisfy a REQUIRED edge, and is omitted from the evidence. This change keeps the
+  ArchUnit-only importer; custom type-switch and enum-switch bootstrap extraction is deferred to a separate design
+  and implementation, with deterministic evidence, deduplication and no class loading. This change measures the
+  type-pattern cases above, not `enumSwitch`.
 - **Granularity.** Mapping is by package root. A class placed in the wrong module's package is attributed to that
   module. Encapsulation inside a module (which internal class may call which) is Spring Modulith's and ArchUnit's
   job, and both see the same static references only.
