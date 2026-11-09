@@ -61,10 +61,12 @@ public final class SiteBuilder {
         pages.addAll(ApiPages.of(context));
         pages.addAll(TrustPages.of(context));
         pages.add(BrainPage.of(context));
-        // The Demos section comes second in the register, but is built last, so that its links are checked against
-        // every other page as built.
+        // Register the search sheet before checking demo links, then rebuild its directory with the demos included.
+        SitePage search = SearchPage.of(pages);
+        pages.add(search);
+        // The Demos section comes second in the register; its links see every other page as built.
         pages.addAll(start, DemoPages.of(context, pages));
-        pages.add(SearchPage.of(pages));
+        pages.set(pages.indexOf(search), SearchPage.of(pages));
         SitePage notFound = NotFoundPage.of();
         List<String> paths = new ArrayList<>(pages.stream().map(SitePage::path).toList());
         paths.add(notFound.path());

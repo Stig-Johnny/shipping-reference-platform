@@ -349,7 +349,8 @@
     matches.sort(function (a, b) { return a.rank - b.rank || a.entry.order - b.entry.order; });
     matches.forEach(function (match) { list.append(match.entry.row); });
     var count = rows.filter(function (entry) { return !entry.row.hidden; }).length;
-    status.textContent = count + ' pages' + (query ? ' match. Title matches first.' : ' available.')
+    status.textContent = count + (count === 1 ? ' page' : ' pages')
+      + (query ? (count === 1 ? ' matches.' : ' match.') + ' Title matches first.' : ' available.')
       + (count ? '' : ' Try a shorter phrase.');
   }
   input.addEventListener('input', filter);
@@ -538,7 +539,8 @@
       results.append(button);
     });
     results.hidden = !query;
-    byId('brain-results-status').textContent = query ? found.length + ' matching records.' : '';
+    byId('brain-results-status').textContent = query
+      ? found.length + (found.length === 1 ? ' matching record.' : ' matching records.') : '';
   }
   function showView(next) {
     view = next;

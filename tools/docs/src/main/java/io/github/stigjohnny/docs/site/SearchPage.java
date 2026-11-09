@@ -16,7 +16,7 @@ final class SearchPage {
     private SearchPage() { }
 
     static SitePage of(List<SitePage> pages) {
-        List<SitePage> indexed = new ArrayList<>(pages);
+        List<SitePage> indexed = new ArrayList<>(pages.stream().filter(sheet -> !sheet.path().equals(PAGE)).toList());
         indexed.add(page(""));
         StringBuilder out = new StringBuilder("""
                 <div class="search-tools" hidden>
