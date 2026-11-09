@@ -43,6 +43,12 @@ Final independent review remains required. The owner's standing delegation permi
 merge demo-loop work after checks and independent review; it is not an individual human approval of a named head.
 Record final-head review and the exercised delegation as separate PR receipts without rewriting these phases.
 
+### Revision receipt added on 2026-11-09
+
+Issue 101 implementation is [PR 103](https://github.com/Stig-Johnny/shipping-reference-platform/pull/103), starting at
+[39f1de2d6abfd5419ee7cac10ecd2ced74035816](https://github.com/Stig-Johnny/shipping-reference-platform/commit/39f1de2d6abfd5419ee7cac10ecd2ced74035816).
+This identifies the initial integrated revision; final review and merge authorization remain separate PR receipts.
+
 ## Issue 96
 
 **Contribution records.** Current implementation; PR and implementation commit pending at this initial recording.
