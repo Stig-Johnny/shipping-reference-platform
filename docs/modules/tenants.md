@@ -123,12 +123,13 @@ These tokens are public, guessable test fixtures, not secrets. Rules:
   authenticates, and every `/api/**` request returns `401 unauthenticated`. Without a configured demo static directory, paths outside `/api` serve nothing: the
   chain denies them, with `401` to anyone unauthenticated, `403` to a user without a tenant and the generic
   `404 not-found` to a member.
-- The `demo` chain adds `Content-Security-Policy: default-src 'self'; frame-ancestors 'none'; form-action 'self';
-  base-uri 'none'` while retaining its existing security headers. `DemoSecurityHeadersTest` checks successful
+- The `demo` chain adds the full strict same-origin `Content-Security-Policy` of [ADR 0019](../adr/0019-strict-same-origin-workbench-csp.md),
+  including `frame-ancestors 'none'` while retaining its existing security headers. `DemoSecurityHeadersTest` checks successful
   membership, unauthenticated and no-membership responses through the HTTP contract helper. The simulated label
   retains its stricter `default-src 'none'; sandbox` policy, checked by `ShipmentsHttpContractTest`.
   `DemoStaticController` serves the configured immutable build directory outside `/api`, with normalized/real-path
-  containment. `DemoSmokeTest` proves static content types, CSP, traversal and escaping-symlink refusal plus the
+  containment. Documented workbench page routes resolve the entry file; unknown paths stay 404 and `/api` stays protected.
+  `DemoSmokeTest` proves static content types, CSP, traversal and escaping-symlink refusal plus the
   full shipment flow over real HTTP. See the [attended runbook](../flows/attended-demo.md) and
   [ADR 0018](../adr/0018-attended-demo-runtime.md). The three PostgreSQL smoke cases passed in the recorded CI run.
 - A request that Spring Security's firewall refuses, such as a path with `;` or an encoded `/` or a method the

@@ -10,21 +10,26 @@ modules: [tenants, quotes, shipments]
 
 Use the reviewed Temurin JDK 25.0.5+8, the repository Gradle wrapper, Bash and curl. Set `JAVA_HOME` to that
 JDK and put its `bin` first on `PATH`. The launcher checks `java -version`; it does not download a JDK.
-Use synthetic data only. The workbench is separate work; this change includes a small HTML/JS/CSS fixture.
+Use synthetic data only. The workbench runs against the API in this profile; a small HTML/JS/CSS fixture also remains available for serving checks.
 The launcher binds to `127.0.0.1` and stays in the foreground until interrupted.
 
 ## Memory mode
 
-From the repository root:
+From the repository root, with reviewed Node and the installed compiler on PATH, compile and stage the
+workbench (`apps/shipping-web/README.md` describes the checks):
 
 ```sh
-bash tools/demo/run-attended-demo.sh memory 8080 tools/demo/fixture
+npm ci --ignore-scripts
+tsc -p apps/shipping-web
+cp apps/shipping-web/index.html apps/shipping-web/dist/index.html
+cp apps/shipping-web/public/workbench.css apps/shipping-web/dist/workbench.css
+bash tools/demo/run-attended-demo.sh memory 8080
 ```
 
 The arguments are mode (`memory` by default), port (`8080` by default), and static directory
-(`apps/shipping-web/dist` by default). Replace the fixture directory with the built workbench when available.
-It must contain `index.html`. Files are served from this directory only; there is no directory listing or SPA
-fallback. Give the process read-only access to an immutable, trusted build directory. Do not put secrets there.
+(`apps/shipping-web/dist` by default). Pass `tools/demo/fixture` as the third argument only to inspect the static-serving fixture.
+It must contain `index.html`. Files are served from this directory only; there is no directory listing or general SPA fallback. Only the documented workbench page routes serve the entry file;
+unknown paths, missing assets and API requests never fall back to HTML. Give the process read-only access to an immutable, trusted build directory. Do not put secrets there.
 The server checks normalized and real paths, including symlink destinations, on each request. API paths remain
 behind the API authentication chain. CSP forbids inline script/style, remote resources, framing and base URLs.
 Early malformed-request JSON 400 responses from the path filter and strict firewall precede those chains and
@@ -36,8 +41,7 @@ Gradle's root `bootJar` task packages an executable **thin** archive at
 It uses the existing reviewed Gradle Jar/Sync tasks and resolved runtime artifacts; no Boot plugin, loader,
 new dependency or runtime download is introduced. The launcher runs this archive with `java -jar`.
 
-The printed URL opens the fixture, which demonstrates static serving, not a functioning workbench.
-With the future workbench choose `clerk-alpha` or `clerk-beta`. Their public fixture tokens and the no-membership
+The printed URL opens the workbench. Choose `clerk-alpha` or `clerk-beta`. Their public fixture tokens and the no-membership
 user are documented in [the tenants module](../modules/tenants.md#demo-authentication).
 There is no new sign-in endpoint: each API request carries the selected public bearer token and `/api/v1/me`
 returns its membership. Memory mode forgets quotes, bookings and tracking numbers when stopped. It is for
@@ -93,7 +97,8 @@ cross-tenant denial. Every API exchange passes the existing contract helper.
 `DemoPostgresSmokeIntegrationTest` runs those same assertions with live JDBC proxies and the reviewed harness,
 under the mandatory `database` tag in CI; local compilation is not PostgreSQL evidence.
 
-The live local launcher recording and rendered-page review are described in the public demo source `docs/demos/94-demo-profile.md`.
+The live local launcher recording and rendered-page review are described in the public demo sources `docs/demos/94-demo-profile.md` (runtime) and
+`docs/demos/87-web-workbench-slice.md` (integrated workbench).
 See [ADR 0018](../adr/0018-attended-demo-runtime.md) for boundaries and
 [known gaps](../gaps.md#0-state-of-this-commit) for what this does not prove.
 

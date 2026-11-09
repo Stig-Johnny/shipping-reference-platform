@@ -157,10 +157,10 @@ class SitePagesTest {
     }
 
     @Test
-    void theWebViewSaysItsPartsAreCheckedByTheWebImportCheckAndStillPlanned() {
+    void theWebViewSaysItsBuiltPartsAreCheckedByThePartialWebImportCheck() {
         String web = site.text("model/web-components.html");
 
-        assertThat(web).contains("<td>planned; checked by the web import check</td>",
+        assertThat(web).contains("<td>built; checked by the web import check</td>",
                 "A thick line is a REQUIRED import between parts of the web app.",
                 "A REQUIRED arrow specifies an obligation; where both parts are built, a passing web import check "
                         + "establishes a detected direct import, not complete boundary or cycle coverage or runtime "
@@ -174,11 +174,10 @@ class SitePagesTest {
     void theWebViewsPanelGivesTheWebPartsAndTheWebImportControlNotTheApiModules() {
         String panel = statusPanel(site.text("model/web-components.html"));
 
-        assertThat(panel).contains("6 web parts planned in the model; a planned part has no code yet, so the web "
-                        + "import check evaluates none of the web app&#39;s imports.",
+        assertThat(panel).contains("6 web parts built in the model; a planned part has no code yet.",
                 "Partly enforced",
-                "These tests verify the web import check on synthetic web apps; no import of the web app has been "
-                        + "checked yet.", "<p>ImportScannerTest, SourceReaderTest, JsonTest, AppConfigurationTest, "
+                "These tests verify the web import check, and the built parts&#39; imports against the model, "
+                        + "not their behaviour.", "<p>ImportScannerTest, SourceReaderTest, JsonTest, AppConfigurationTest, "
                         + "WebModelValidationTest, WebConformanceTest, WebReportDeterminismTest, "
                         + "WebArchitectureConformanceTest</p>")
                 .doesNotContain("module", "Checker tests passing");
@@ -592,8 +591,8 @@ class SitePagesTest {
         panel = panel.substring(0, panel.indexOf("</section>"));
         assertThat(panel).contains("<span class=\"badge badge-shipped\">Passing</span> 8 evidence test classes passed "
                 + "in the build that generated this site. This verifies the structure of the built modules, their "
-                + "exercised HTTP responses and the web import gate on synthetic fixtures; persistence and runtime "
-                + "behaviour beyond those HTTP tests remain unverified, and no real web imports are checked yet.")
+                + "exercised HTTP responses and detected imports in the built web parts; persistence and browser "
+                + "behaviour remain unverified.")
                 .doesNotContain(Statuses.TOOLING);
         assertThat(panel).contains("<span class=\"badge badge-partial\">Partly enforced</span> Every response that "
                 + "the HTTP tests exercise", "on the application with test doubles for its database adapters.",
@@ -601,10 +600,9 @@ class SitePagesTest {
                 + "on apps/shipping-web in every build, where a file under src in no part or in a planned part fails "
                 + "it; e2e tests are scanned and need declared and approved imports.",
                 "Shipment cancellation, cancelled-state replay/label denial", "PostgreSQL-backed application remain.",
-                "All six web parts are planned, so no import of the web app is evaluated yet; the rules apply to "
-                + "its real imports once the parts are built.",
+                "All six web parts are built and all ten REQUIRED relationships have production import evidence.",
                 "RowLevelSecurityCatalogTest", "RowLevelSecurityIntegrationTest", "CrossTenantAccessTest",
-                "MigrationsIntegrationTest", "TableOwnershipTest", "web: type check and emit", "node --test",
+                "MigrationsIntegrationTest", "TableOwnershipTest",
                 "contract-e2e: Playwright and axe-core");
         List<String> implemented = List.of("ModularityTest", "HexagonalLayeringTest", "ArchitectureConformanceTest",
                 "WebArchitectureConformanceTest", "QuotesHttpContractTest", "ShipmentsHttpContractTest", "TenantsHttpContractTest",
@@ -633,13 +631,16 @@ class SitePagesTest {
     }
 
     @Test
-    void theWebGateIsImplementedPartialLintWhileAuthoritativeControlsStayPlanned() {
+    void theWebGateChecksBuiltPartsWhileCompilerGraphAndBrowserProofStayPlanned() {
         var adr = sources.docsUnder("docs/adr/").stream().filter(doc -> doc.path().contains("/0012-"))
                 .findFirst().orElseThrow();
 
         assertThat(adr.frontmatter().strings("enforcedBy")).anySatisfy(entry -> assertThat(entry)
-                .contains("WebArchitectureConformanceTest", "partial JDK lint", "all six parts planned",
-                        "evaluates no import yet"));
+                .contains("WebArchitectureConformanceTest", "partial JDK lint", "all six parts built",
+                        "checks real production imports for all ten REQUIRED relationships"));
+        assertThat(adr.frontmatter().strings("enforcedBy"))
+                .anySatisfy(entry -> assertThat(entry).contains("web: type check and emit", "node --test",
+                        "strict CSP text", "no adversarial CSP enforcement test"));
         assertThat(adr.frontmatter().strings("plannedEnforcement"))
                 .noneSatisfy(entry -> assertThat(entry).contains("WebArchitectureConformanceTest"));
         assertThat(adr.frontmatter().strings("plannedEnforcement"))

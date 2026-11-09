@@ -16,6 +16,11 @@ started by the tests with test doubles for the token lookup and the quote store;
 are booking, replay, shipment listing/reading and SVG labels over HTTP. The tenants, quotes and shipments schemas have paired up and down migrations (ADR 0016),
 and JDBC adapters selected by `postgres`. Their database classes passed in [recorded CI evidence](../flows/attended-demo.md#recorded-database-evidence) (run `42612173809`). The attended demo is runnable (ADR 0018); durable
 event publication remains planned.
+The web sources now implement the in-scope screens and have passing logic tests for parcel validation, quote expiry,
+booking key reuse and recovery, shipment pagination and label state. These run without a DOM or live HTTP server:
+the `*.test.tsx` component tests and Playwright specs in the table remain planned. The attended launcher now serves
+the workbench, with a separate memory-mode browser recording in `docs/demos/87-web-workbench-slice.md`.
+No integrated browser-to-database quote/book/label result is claimed.
 Parts of the flow are also executable scenarios, checked against what the code does when they run
 ([Executable scenarios](#executable-scenarios)).
 

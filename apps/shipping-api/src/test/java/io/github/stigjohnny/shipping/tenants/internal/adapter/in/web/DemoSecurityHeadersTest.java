@@ -49,7 +49,7 @@ class DemoSecurityHeadersTest {
 
     private static void assertSecurityHeaders(MockHttpServletResponse response) {
         assertThat(response.getHeader("Content-Security-Policy")).isEqualTo(
-                "default-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'");
+                "default-src 'self'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; frame-ancestors 'none'");
         assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
         assertThat(response.getHeader("X-Frame-Options")).isEqualTo("DENY");
         assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");

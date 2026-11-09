@@ -33,8 +33,9 @@ No module dependency, package mapping or module status changes.
 
 A configured `shipping.demo.static-directory` enables a separate static security chain outside `/api` and a file
 controller. It serves only regular files whose normalized and real paths stay inside the directory. Operators
-supply an immutable trusted build. GET/HEAD use exact media types; unknown paths do not become the index page.
-One shared CSP constant and configuration call retains default Spring security headers on both chains; the SVG
+supply an immutable trusted build. GET/HEAD use exact media types. The workbench integration (ADR 0019) adds only its documented page routes as
+entry-document aliases; unknown files and paths still do not become the index page.
+One shared strict CSP constant (ADR 0019) and configuration call retains default Spring security headers on both chains; the SVG
 label keeps its stricter policy. Early malformed-request JSON 400 responses from the correlation/path filter or
 strict firewall precede these chains and do not receive their CSP/default security headers; outer fallback/reset
 responses also do not retain them. This preserves the

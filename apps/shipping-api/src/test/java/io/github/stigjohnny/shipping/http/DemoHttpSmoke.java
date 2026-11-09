@@ -92,12 +92,35 @@ public abstract class DemoHttpSmoke {
             String type = path.endsWith(".js") ? "text/javascript" : path.endsWith(".css") ? "text/css" : "text/html";
             assertThat(response.headers().firstValue("Content-Type").orElseThrow()).startsWith(type);
             assertThat(response.headers().firstValue("Content-Security-Policy").orElseThrow()).isEqualTo(
-                    "default-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'");
+                    "default-src 'self'; script-src 'self'; connect-src 'self'; style-src 'self'; "
+                    + "img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; "
+                    + "object-src 'none'; frame-src 'none'; worker-src 'none'; frame-ancestors 'none'");
             assertThat(response.headers().firstValue("X-Content-Type-Options").orElseThrow()).isEqualTo("nosniff");
             assertThat(response.headers().firstValue("X-Frame-Options").orElseThrow()).isEqualTo("DENY");
             assertThat(response.headers().firstValue("Cache-Control").orElseThrow()).isEqualTo("no-store");
         }
         assertThat(send("GET", "/missing.txt", "", "").statusCode()).isEqualTo(404);
+    }
+
+    @Test
+    void workbenchRoutesCanBeOpenedDirectlyWithoutMaskingMissingFiles() throws Exception {
+        String id = "33333333-3333-4333-8333-333333333333";
+        for (String path : List.of("/sign-in", "/quotes/new", "/quotes/" + id,
+                "/shipments", "/shipments/" + id)) {
+            for (String suffix : List.of("", "/")) {
+                HttpResponse<String> response = send("GET", path + suffix, "", "");
+                assertThat(response.statusCode()).as(path + suffix).isEqualTo(200);
+                assertThat(response.body()).contains("Synthetic workbench fixture");
+                assertThat(response.headers().firstValue("Content-Type").orElseThrow()).startsWith("text/html");
+            }
+        }
+        for (String path : List.of("/missing.js", "/sign-in.js", "/quotes/not-an-id", "/shipments/not-an-id",
+                "/shipments/" + id + "/label", "/quotes/new/missing.js", "/other", "/sign-in//")) {
+            HttpResponse<String> response = send("GET", path, "", "");
+            assertThat(response.statusCode()).as(path).isIn(400, 404);
+            assertThat(response.body()).doesNotContain("Synthetic workbench fixture");
+        }
+        assertThat(send("GET", "/api", "", "").statusCode()).isEqualTo(401);
     }
 
     @Test

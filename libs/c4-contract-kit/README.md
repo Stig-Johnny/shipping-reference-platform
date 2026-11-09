@@ -15,7 +15,7 @@ JDK alone. The implemented web conformance
 library compares the imports it detects with the web container of the same model in both directions, with file,
 line and specifier evidence: the web import check, below ([`AGENTS.md`](AGENTS.md), "Web imports"). The reader and
 conformance library are tested on synthetic fixtures; `WebArchitectureConformanceTest` runs the repository's web-app
-gate in every build, with all six parts planned and no real source or test files yet. The reader
+gate in every build, on six built parts with real production imports for all ten REQUIRED relationships. The reader
 refuses some recognized unsupported or ambiguous forms; it does not guarantee that every import is found or every
 unsupported construct is refused. The owner accepted this scope for the reader, conformance rules and repository gate
 in pull requests #70, #71 and #72 on 2026-11-08 (ADR 0015); the capability remains partial.
@@ -27,9 +27,8 @@ placements. Parenthesizing the operand restores detection in the reviewed contro
 The review reported no other open bypass class in its probe set, which was not exhaustive. The restrictions below
 describe recognized forms and tested cases, not complete enforcement.
 
-Authoritative controls are planned in the web app pull request: the reviewed TypeScript compiler's `tsc` import
-graph for import dependencies, and a strict Content-Security-Policy enforced by the browser for runtime loading
-and execution. Neither is implemented by this library. Passing this check does not prove a complete import graph
+Compiler-graph boundary enforcement and browser verification remain planned. The web job type-checks and emits
+with the reviewed compiler; the entry document carries ADR 0019's strict CSP, tested as text. Neither is implemented by this library. Passing this check does not prove a complete import graph
 or runtime safety; see
 [`docs/gaps.md`](../../docs/gaps.md#6-tests-and-quality-gates) and
 [ADR 0015](../../docs/adr/0015-partial-web-import-lint-and-authoritative-controls.md).
@@ -170,8 +169,8 @@ hide an earlier quoted-key finding. The synthetic shop uses literal `[0]` access
 stay within the restricted grammar.
 
 The repository gate is implemented by `WebArchitectureConformanceTest`, which also proves that an unapproved import
-in the repository model's end-to-end test root fails. All six web parts remain planned and the source and test roots
-are empty: the import rules have synthetic fixture evidence, with no real web imports checked yet, so the control
+in the repository model's end-to-end test root fails. All six web parts are built and all ten REQUIRED relationships
+have production import evidence; synthetic fixtures still exercise rejections. The control
 remains partial.
 
 ## The model

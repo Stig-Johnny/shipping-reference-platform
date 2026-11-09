@@ -34,6 +34,17 @@ class WebArchitectureConformanceTest {
     @Test
     void anUnapprovedImportInTheRepositorysE2eRootFailsTheGate(@TempDir Path repository) throws IOException {
         Path app = repository.resolve("apps/shipping-web");
+        // Copy the real production tree so built components and REQUIRED edges remain present.
+        // Unit-test imports are not part of this fixture: only its e2e import lacks runtime approval.
+        Path sources = REPOSITORY.resolve("apps/shipping-web/src");
+        try (var files = Files.walk(sources)) {
+            for (Path source : files.filter(Files::isRegularFile)
+                    .filter(file -> !file.toString().endsWith(".test.ts")).toList()) {
+                Path target = app.resolve("src").resolve(sources.relativize(source));
+                Files.createDirectories(target.getParent());
+                Files.copy(source, target);
+            }
+        }
         Files.createDirectories(app.resolve("e2e"));
         Files.writeString(app.resolve("package.json"), "{\"engines\":{\"node\":\"26.13.0\"}}\n");
         Files.writeString(app.resolve("e2e/unapproved.spec.ts"), "import 'node:fs';\n");
@@ -51,39 +62,46 @@ class WebArchitectureConformanceTest {
     }
 
     @Test
-    void everyPartIsPlannedWithoutCodeSoNoEdgeIsEvaluatedYet() {
+    void everyPartIsBuiltAndEveryRequiredEdgeHasProductionImportEvidence() {
         WebReport report = WebConformance.check(REPOSITORY.resolve("architecture/workspace.dsl"), REPOSITORY);
 
-        assertThat(report.components()).extracting(WebComponentResult::id, WebComponentResult::status,
-                WebComponentResult::fileCount).containsExactly(
-                tuple("api", ComponentStatus.PLANNED, 0),
-                tuple("app", ComponentStatus.PLANNED, 0),
-                tuple("auth", ComponentStatus.PLANNED, 0),
-                tuple("quote-feature", ComponentStatus.PLANNED, 0),
-                tuple("shipment-feature", ComponentStatus.PLANNED, 0),
-                tuple("ui", ComponentStatus.PLANNED, 0));
+        assertThat(report.components()).extracting(WebComponentResult::id, WebComponentResult::status).containsExactly(
+                tuple("api", ComponentStatus.BUILT),
+                tuple("app", ComponentStatus.BUILT),
+                tuple("auth", ComponentStatus.BUILT),
+                tuple("quote-feature", ComponentStatus.BUILT),
+                tuple("shipment-feature", ComponentStatus.BUILT),
+                tuple("ui", ComponentStatus.BUILT));
         // No part declares an npm package, so an import of any package in browser code fails as undeclared.
         assertThat(report.components()).allSatisfy(component -> assertThat(component.packages()).isEmpty());
-        assertThat(report.externalImports()).isEmpty();
+        assertThat(report.components()).allSatisfy(component -> assertThat(component.fileCount()).isPositive());
+        assertThat(report.externalImports()).isNotEmpty().allSatisfy(external ->
+                assertThat(external.status()).isEqualTo(ExternalImportStatus.APPROVED));
         assertThat(report.components()).filteredOn(component -> component.entry().isPresent())
                 .extracting(WebComponentResult::id, component -> component.entry().orElseThrow()).containsExactly(
                         tuple("quote-feature", "features/quotes/index.ts"),
                         tuple("shipment-feature", "features/shipments/index.ts"));
         assertThat(report.edges()).extracting(WebEdgeResult::source, WebEdgeResult::target, WebEdgeResult::mode,
                 WebEdgeResult::status).containsExactly(
-                tuple("app", "api", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED),
-                tuple("app", "auth", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
-                tuple("app", "quote-feature", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
-                tuple("app", "shipment-feature", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
-                tuple("app", "ui", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
-                tuple("auth", "api", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
-                tuple("auth", "ui", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
-                tuple("quote-feature", "api", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
-                tuple("quote-feature", "shipment-feature", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED),
-                tuple("quote-feature", "ui", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
-                tuple("shipment-feature", "api", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED),
-                tuple("shipment-feature", "auth", Mode.PERMITTED, EdgeStatus.NOT_EVALUATED),
-                tuple("shipment-feature", "ui", Mode.REQUIRED, EdgeStatus.NOT_EVALUATED));
+                tuple("app", "api", Mode.PERMITTED, EdgeStatus.NO_STATIC_EVIDENCE),
+                tuple("app", "auth", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
+                tuple("app", "quote-feature", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
+                tuple("app", "shipment-feature", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
+                tuple("app", "ui", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
+                tuple("auth", "api", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
+                tuple("auth", "ui", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
+                tuple("quote-feature", "api", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
+                tuple("quote-feature", "shipment-feature", Mode.PERMITTED, EdgeStatus.CONVERGENCE),
+                tuple("quote-feature", "ui", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
+                tuple("shipment-feature", "api", Mode.REQUIRED, EdgeStatus.CONVERGENCE),
+                tuple("shipment-feature", "auth", Mode.PERMITTED, EdgeStatus.NO_STATIC_EVIDENCE),
+                tuple("shipment-feature", "ui", Mode.REQUIRED, EdgeStatus.CONVERGENCE));
+        assertThat(report.edges()).filteredOn(edge -> edge.mode() == Mode.REQUIRED)
+                .hasSize(10).allSatisfy(edge -> {
+                    assertThat(edge.status()).isEqualTo(EdgeStatus.CONVERGENCE);
+                    assertThat(edge.evidence()).isNotEmpty().allSatisfy(evidence ->
+                            assertThat(evidence.file()).doesNotEndWith(".test.ts"));
+                });
         assertThat(report.violations()).isEmpty();
     }
 }

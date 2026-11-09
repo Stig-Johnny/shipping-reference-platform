@@ -12,5 +12,8 @@
   },
   "overrides": {
     "axe-core": "4.14.0"
+  },
+  "scripts": {
+    "build:web": "tsc -p apps/shipping-web"
   }
 }

@@ -35,7 +35,7 @@ From `architecture/workspace.dsl`. Arrows in the model point from the module who
 | `tracking` | planned | 3 | shipments (PERMITTED, planned) | [tracking](docs/brain/tracking.md) | [docs/modules/tracking.md](docs/modules/tracking.md) |
 | `returns` | planned | 3 | shipments (PERMITTED, planned) | [returns](docs/brain/returns.md) | [docs/modules/returns.md](docs/modules/returns.md) |
 
-The web app is a container, not an API module: 4 capabilities, specified in [docs/ui/workbench.md](docs/ui/workbench.md). Its 6 parts are in the model (6 planned), and the partial web import check compares only detected TypeScript imports with them (ADR 0015).
+The web app is a container, not an API module: 4 capabilities, specified in [docs/ui/workbench.md](docs/ui/workbench.md). Its 6 parts are in the model (0 planned), and the partial web import check compares only detected TypeScript imports with them (ADR 0015).
 
 ## Controls
 
@@ -78,13 +78,14 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | [ADR 0009: React workbench with a generated API client](docs/adr/0009-react-workbench-with-a-generated-client.md) | superseded by ADR 0012 | not enforced yet |
 | [ADR 0010: Documentation as code with a generated brain](docs/adr/0010-documentation-as-code-with-a-generated-brain.md) | superseded by ADR 0011 | not enforced yet |
 | [ADR 0011: A Java documentation tool, a static site and a scanned publication](docs/adr/0011-java-documentation-tool-and-publication.md) | accepted | java, pages |
-| [ADR 0012: First runnable slice with a plain TypeScript workbench and Spring JDBC](docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md) | accepted | java |
+| [ADR 0012: First runnable slice with a plain TypeScript workbench and Spring JDBC](docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md) | accepted | java, web |
 | [ADR 0013: Scenario views are checked against recorded interactions](docs/adr/0013-scenario-views-are-checked-against-recorded-interactions.md) | accepted | java |
 | [ADR 0014: Partial web import lint and planned authoritative controls](docs/adr/0014-partial-web-import-lint-and-authoritative-controls.md) | accepted | not enforced yet |
-| [ADR 0015: Partial web import lint and planned authoritative controls](docs/adr/0015-partial-web-import-lint-and-authoritative-controls.md) | accepted | not enforced yet |
+| [ADR 0015: Partial web import lint and planned authoritative controls](docs/adr/0015-partial-web-import-lint-and-authoritative-controls.md) | accepted | java |
 | [ADR 0016: Every migration has a down script, proven in CI; production rolls forward](docs/adr/0016-down-scripts-proven-in-ci-production-rolls-forward.md) | accepted | java |
 | [ADR 0017: Bind JDBC statements locally and serialize booking keys and quotes](docs/adr/0017-jdbc-transaction-binding-and-booking-locks.md) | accepted | java |
 | [ADR 0018: An attended demo on one origin with selectable storage](docs/adr/0018-attended-demo-runtime.md) | accepted | java, databaseTest |
+| [ADR 0019: Strict same-origin content security for the workbench](docs/adr/0019-strict-same-origin-workbench-csp.md) | accepted | web, java |
 
 ## Third-party components
 

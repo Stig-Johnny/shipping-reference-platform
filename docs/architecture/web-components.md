@@ -22,18 +22,18 @@ flowchart LR
         style 5 fill:#ffffff,stroke:#475569,color:#475569
         subgraph 6 ["Web app"]
             style 6 fill:#ffffff,stroke:#64748b,color:#64748b
-            10["Quote feature [Component] (planned)"]
-            style 10 fill:#f1f5f9,stroke:#64748b,color:#334155
-            11["Shipment feature [Component] (planned)"]
-            style 11 fill:#f1f5f9,stroke:#64748b,color:#334155
-            12["UI [Component] (planned)"]
-            style 12 fill:#f1f5f9,stroke:#64748b,color:#334155
-            7["App shell [Component] (planned)"]
-            style 7 fill:#f1f5f9,stroke:#64748b,color:#334155
-            8["Auth [Component] (planned)"]
-            style 8 fill:#f1f5f9,stroke:#64748b,color:#334155
-            9["API adapter [Component] (planned)"]
-            style 9 fill:#f1f5f9,stroke:#64748b,color:#334155
+            10["Quote feature [Component] (built)"]
+            style 10 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            11["Shipment feature [Component] (built)"]
+            style 11 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            12["UI [Component] (built)"]
+            style 12 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            7["App shell [Component] (built)"]
+            style 7 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            8["Auth [Component] (built)"]
+            style 8 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+            9["API adapter [Component] (built)"]
+            style 9 fill:#ccfbf1,stroke:#0f766e,color:#134e4a
         end
         13["API [Container]"]
         style 13 fill:#115e59,stroke:#475569,color:#ffffff
@@ -59,11 +59,9 @@ The same definition is in [web-components.mmd](web-components.mmd).
 ## How to read it
 
 - Each box is an element of the model: its name, its C4 type in brackets and, in parentheses, its implementation status.
-- "(planned)" marks an element that has no code yet.
 - Each line is labelled with its number in the view's relationships table and, where it has one, its mode.
 - A thick line is a REQUIRED import between parts of the web app. Where both parts are built, the partial web import check in libs/c4-contract-kit fails without a detected direct import from one to the other.
 - A dotted line labelled PERMITTED is an import between parts of the web app that the sources may have; the check requires none for it and reports one without a detected import as "no static evidence".
-- The check does not evaluate a line that touches a planned part until both parts are built; a file in a planned part fails it.
 - A solid thin line is a relationship of people, systems or containers, which module conformance does not cover.
 - Arrows point from the element that depends on the other.
 
@@ -71,12 +69,12 @@ The same definition is in [web-components.mmd](web-components.mmd).
 
 | ID | Element | Type | Technology | Status | Description |
 |---|---|---|---|---|---|
-| 7 | App shell | Component | TypeScript | planned; checked by the web import check | Left navigation, the router on the History API, the theme and the route outlet; mounts the app. |
-| 8 | Auth | Component | TypeScript | planned; checked by the web import check | Synthetic user picker and sign-in; holds the demo token and the membership in memory only. |
-| 9 | API adapter | Component | TypeScript | planned; checked by the web import check | The typed HTTP adapter, the only caller of fetch: hand-written request and response types, the bearer token and Correlation-Id on every call. |
-| 10 | Quote feature | Component | TypeScript | planned; checked by the web import check | ParcelForm, QuoteCardList and QuoteCard: price a parcel and compare its offers. |
-| 11 | Shipment feature | Component | TypeScript | planned; checked by the web import check | BookingForm, ShipmentTable and ShipmentDrawer: book, list and open shipments and download their labels (LabelPreview is deferred). |
-| 12 | UI | Component | TypeScript, CSS | planned; checked by the web import check | Presentational components: Button, ProblemAlert, EmptyState, StatusBadge, Skeleton and ThemeToggle. |
+| 7 | App shell | Component | TypeScript | built; checked by the web import check | Left navigation, the router on the History API, the theme and the route outlet; mounts the app. |
+| 8 | Auth | Component | TypeScript | built; checked by the web import check | Synthetic user picker and sign-in; holds the demo token and the membership in memory only. |
+| 9 | API adapter | Component | TypeScript | built; checked by the web import check | The typed HTTP adapter, the only caller of fetch: hand-written request and response types, the bearer token and Correlation-Id on every call. |
+| 10 | Quote feature | Component | TypeScript | built; checked by the web import check | ParcelForm, QuoteCardList and QuoteCard: price a parcel and compare its offers. |
+| 11 | Shipment feature | Component | TypeScript | built; checked by the web import check | BookingForm, ShipmentTable and ShipmentDrawer: book, list and open shipments and download their labels (LabelPreview is deferred). |
+| 12 | UI | Component | TypeScript, CSS | built; checked by the web import check | Presentational components: Button, ProblemAlert, EmptyState, StatusBadge, Skeleton and ThemeToggle. |
 | 13 | API | Container | Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient) | Not covered by module conformance | Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. The demo profile serves a configured static directory from this origin, with memory stores or opt-in postgres. |
 
 ## Relationships
@@ -103,4 +101,4 @@ The same definition is in [web-components.mmd](web-components.mmd).
 - A diagram shows the model, not the code. The API's modules are checked against its compiled classes and the web app's parts against detected TypeScript imports using partial lint (docs/gaps.md, section 1).
 - Arrows between the web app's parts are static imports of TypeScript files, read from apps/shipping-web/src with a restricted import grammar, not runtime calls.
 - A REQUIRED arrow specifies an obligation; where both parts are built, a passing web import check establishes a detected direct import, not complete boundary or cycle coverage or runtime behaviour. The API adapter's calls to the API are network calls, which no static check sees.
-- This is labelled partial lint over detected imports; spread-syntax bypasses remain open. The authoritative tsc import graph and browser-enforced strict Content-Security-Policy are planned in the web app pull request (ADR 0015).
+- This is labelled partial lint over detected imports; spread-syntax bypasses remain open. Compiler-graph boundary enforcement and browser verification of the strict CSP remain planned; the web job compiles and checks policy text (ADRs 0015 and 0019).

@@ -33,7 +33,7 @@ class DemoStaticController {
         if (path.equals("/api") || path.startsWith("/api/") || path.contains("%") || path.contains("\\")) {
             throw missing();
         }
-        Path candidate = root.resolve(path.equals("/") ? "index.html" : path.substring(1)).normalize();
+        Path candidate = root.resolve(workbenchRoute(path) ? "index.html" : path.substring(1)).normalize();
         if (!candidate.startsWith(root) || !Files.isRegularFile(candidate)) { throw missing(); }
         Path real = candidate.toRealPath();
         if (!real.startsWith(root)) { throw missing(); }
@@ -45,4 +45,11 @@ class DemoStaticController {
     private static NoResourceFoundException missing() {
         return new NoResourceFoundException(HttpMethod.GET, "", "");
     }
+
+    private static boolean workbenchRoute(String path) {
+        String id = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+        return path.equals("/") || path.matches("/(sign-in|quotes/new|quotes/" + id
+                + "|shipments|shipments/" + id + ")/?");
+    }
+
 }

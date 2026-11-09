@@ -243,7 +243,8 @@ capabilities:
     docs: docs/modules/audit.md
     actors: []
 
-  # web app
+  # web app: sources and 130 Node tests exist, including CSP text. These are not the named
+  # component/e2e acceptance tests, and tools/docs cannot consume Node results. Keep all four planned.
   - id: web.quote-workbench
     module: web
     title: Parcel form and comparable quote cards with tabular prices and expiry.
@@ -461,7 +462,7 @@ controls:
     negativeFixture: One synthetic web app per rule fails with exactly that violation (divergence, absence, a test that bridges parts, a production import of a test, unowned file, planned part with code, bypassed entry, undeclared or unapproved package, Node.js built-in in browser code, cycle, resolution override, unsupported syntax or file).
     evidenceLabel: the web import check's tests
     enforcedSubset: Each rule fails its synthetic negative fixture, and WebArchitectureConformanceTest runs the check on apps/shipping-web in every build, where a file under src in no part or in a planned part fails it; e2e tests are scanned and need declared and approved imports. This is partial lint over detected imports and reported refusals only; silent misses prevent complete boundary or cycle coverage.
-    plannedRemainder: All six web parts are planned, so no import of the web app is evaluated yet; the rules apply to its real imports once the parts are built. The source and test roots are empty; future comparisons remain limited to detected imports. Known spread-syntax bypasses remain open for literal and computed imports, require and unsupported import.meta. The authoritative tsc import graph and browser-enforced strict Content-Security-Policy are planned in the web app pull request (ADRs 0012 and 0015).
+    plannedRemainder: All six web parts are built and all ten REQUIRED relationships have production import evidence. Comparisons remain limited to detected imports; known spread-syntax bypasses remain open for literal and computed imports, require and unsupported import.meta. Compiler-graph boundary enforcement and browser verification of the strict CSP remain planned (ADRs 0015 and 0019); the web job compiles and tests policy text only.
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.dependency-allowlist
     title: Reviewed dependencies and runtime CI engine guards; check 8 is PARTIAL lint with blocking container findings and non-blocking launch warnings.

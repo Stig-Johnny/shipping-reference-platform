@@ -15,8 +15,9 @@ import grammar, and resolves the imports it detects to a file or a package (sect
 imports and unsupported constructs. The web conformance library compares those detected imports with the web
 container of the same model in both directions and reports file, line and specifier evidence. The reader and
 conformance library are implemented and tested on synthetic fixtures; `WebArchitectureConformanceTest` runs the
-repository's web-app gate in every build. All six web parts are planned and the source and test roots are empty,
-so no real web imports are checked yet. The authoritative controls in ADR 0015 remain planned.
+repository's web-app gate in every build. All six web parts are built, and all ten REQUIRED
+relationships have production import evidence. The authoritative compiler-graph boundary check in ADR 0015 and
+browser verification of ADR 0019's strict CSP remain planned.
 
 ## Boundaries
 

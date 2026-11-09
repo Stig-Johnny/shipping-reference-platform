@@ -13,7 +13,7 @@ import org.springframework.security.web.SecurityFilterChain;
 @Profile("demo")
 @ConditionalOnProperty("shipping.demo.static-directory")
 class DemoStaticConfiguration {
-    private static final String CSP = "default-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'";
+    private static final String CSP = "default-src 'self'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; frame-ancestors 'none'";
 
     static void securityHeaders(HttpSecurity http) throws Exception {
         http.headers(headers -> headers.contentSecurityPolicy(csp -> csp.policyDirectives(CSP)));

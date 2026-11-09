@@ -2,7 +2,7 @@
 title: "Shipping workbench: UI specification"
 description: "Screens, states, components, keyboard and accessibility requirements of the workbench in apps/shipping-web."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-09
 module: web
 ---
 
@@ -27,10 +27,32 @@ An explicit design decision under the rule above. The rest of this specification
   tokens, the theme override and the booking recovery are held in memory only.
 - **Technology:** the components are plain TypeScript, without a framework (ADR 0012). Their
   names and responsibilities in [Components](#components) stay. The component tests named there are deferred with
-  their tooling and stay acceptance targets; until they exist, logic tests under `node --test` and the end-to-end
-  specs test the workbench.
+  their tooling and stay acceptance targets; until they exist, logic tests under `node --test` cover its models. End-to-end
+  specs remain planned.
 - **End-to-end:** `prototype-flag.spec.ts` waits for the preview; the other specs in
   [End-to-end scenarios](#end-to-end-scenarios-contract-e2e) apply to this slice.
+
+## Amendment 2026-11-09: attended serving
+
+The demo server serves the entry document for the documented History API routes: sign-in, new quote,
+quote by UUID, shipments and shipment by UUID (also with one trailing slash). These are page routes only;
+unknown assets and other paths remain 404, and API paths retain their authentication and contract behavior.
+The build stages the existing index and stylesheet beside the emitted modules. The static response header
+repeats the strict meta policy and adds `frame-ancestors 'none'` (ADR 0019). No new dependency is required.
+
+## Implementation evidence, 2026-11-08
+
+The six model parts now contain the plain TypeScript workbench. The 130 `node --test` cases cover the API adapter,
+validation, sign-in state, routes, parcel and quote models, booking intent and recovery, shipments, labels and
+formatting; they include the exact CSP policy and its placement in the entry page. They run without a DOM.
+`WebArchitectureConformanceTest` checks the real imports and every REQUIRED relationship; its reader remains partial.
+The `web` job installs the reviewed lock, runs `tsc -p apps/shipping-web` and then `node --test` in the workspace.
+
+The demo launcher serves the staged assets and documented page routes. The attended memory-mode browser
+recording in `docs/demos/87-web-workbench-slice.md` includes focused keyboard checks. No Playwright e2e,
+axe, screen-reader or adversarial browser CSP enforcement result is claimed. The component and e2e names below stay acceptance targets, and all four `web.*` capabilities stay
+planned until their evidence exists and the documentation build can consume it. Cancellation and preview stay
+deferred. ADR 0019 records the owner's strict same-origin CSP decision.
 
 ## Users and the job
 

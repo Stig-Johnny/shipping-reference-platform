@@ -27,7 +27,9 @@ The [attended runbook](flows/attended-demo.md#recorded-database-evidence) record
   controls, `control.brain-check` and `control.publication-scan`, are shipped with their tests as evidence. The
   library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. So does
   its partial web import check, which compares detected imports in `apps/shipping-web` with the web container of the
-  model; every web part is planned and the source and test roots are empty, so no real web imports are checked yet.
+  model; all six web parts are built and all ten REQUIRED relationships have production import evidence.
+  The workbench sources, logic tests and API asset serving exist. Attended browser observations are recorded
+  separately; named browser acceptance tests do not exist.
   The first
   application code exists, checked by `ArchitectureConformanceTest`, `ModularityTest` and `HexagonalLayeringTest`: the
   `quotes` module with its two HTTP operations, booking, listing, reading and SVG labels over HTTP in the `shipments` module,
@@ -49,7 +51,8 @@ The [attended runbook](flows/attended-demo.md#recorded-database-evidence) record
   `DemoSmokeTest` exercises real HTTP; the shared `DemoPostgresSmokeIntegrationTest` passed all three cases in that recorded CI run.
   Durable event publication remains planned. Memory mode is disposable and intended for sequential attended use,
   not concurrent booking guarantees. The static fixture loads its external script without browser console errors;
-  the workbench and adversarial CSP enforcement tests remain separate work. Early malformed-request JSON 400
+  the integrated workbench has an attended memory-mode recording in demo #87; adversarial CSP enforcement
+  tests remain separate work. Early malformed-request JSON 400
   responses from the path filter and strict firewall precede the security chains and do not receive their CSP headers;
   outer fallback/reset responses also do not retain chain-written headers.
   The owner accepted the 15 exact static/CSP framework findings; the ledger now records 215 known gaps and
@@ -356,9 +359,9 @@ The [attended runbook](flows/attended-demo.md#recorded-database-evidence) record
 - The web app's repository import gate is implemented: `WebArchitectureConformanceTest` holds `src`, the `e2e`
   test root, `public` and app configuration to the model in every build using **partial static lint**. It compares
   detected imports for boundaries and cycles, and requires a detected direct import for each REQUIRED relationship
-  whose endpoints are built (ADRs 0012 and 0015; limits in section 1). All six web parts remain planned, the source
-  and test roots contain no real files, and every relationship touches a planned part, so no real web imports are
-  checked and no relationship is evaluated yet.
+  whose endpoints are built (ADRs 0012 and 0015; limits in section 1). All six parts are built and all ten REQUIRED
+  relationships have detected production imports. Two unused PERMITTED relationships have no static evidence.
+  The e2e root has no real browser tests yet; its rejection case is a synthetic fixture.
   The control remains partial. A direct import proves a reference, not behaviour, and a part that no REQUIRED
   relationship reaches can be unused without a report. dependency-cruiser is deferred.
 - **The web reader, conformance rules and repository gate ship as a labelled partial static check.**
@@ -403,19 +406,23 @@ The [attended runbook](flows/attended-demo.md#recorded-database-evidence) record
   reported refusals; they do not recover dependencies the reader misses. Their passing verdict cannot establish
   complete boundary or cycle coverage. `control.web-import-boundaries` remains partial: the repository gate exists
   and runs, but its passing verdict neither closes this bypass nor proves complete detection.
-- **Authoritative web controls are planned in the web app pull request.** The reviewed TypeScript compiler's
-  `tsc` import graph is to supply import dependencies, and a strict Content-Security-Policy in the web app is to be
-  enforced by the browser for runtime loading and execution (ADRs 0012 and 0015). The compiler graph is not a proof
-  of general runtime behaviour, and CSP does not enforce module boundaries. Neither control is implemented by the
-  reader, conformance rules or repository gate in this slice; their fixtures are not evidence of either one.
+- **Compiler checking and CSP text are present; authoritative boundary and browser proof remain open.** The web
+  job runs `tsc -p apps/shipping-web`, but no compiler-derived graph is compared with the C4 model. The strict
+  same-origin CSP is in `index.html` and `csp.test.ts` asserts its exact text and placement before resources
+  (ADR 0019). There is no adversarial browser test of enforcement. The demo API serves the workbench with its strict
+  response header, checked by real-HTTP tests. No Playwright e2e or axe
+  tests run. CSP does not enforce module boundaries, and neither compiler checking nor this text test closes the
+  partial reader's spread-syntax bypasses.
 - The first runnable slice defers the generated client and the component tests (ADR 0012). So there is no
   generated-client drift guarantee: the web app's request and response types are written by hand in
   `apps/shipping-web/src/api` and can drift from `contracts/shipping.openapi.yaml` without failing a build. The
-  server's HTTP contract tests and the Playwright tests catch drift only for the operations and fields they exercise.
+  server's HTTP contract tests catch drift only for the operations and fields they exercise. The web logic tests
+  check selected contract values; Playwright coverage is still absent.
   The component tests (`ParcelForm.test.tsx`, `QuoteCardList.test.tsx`, `BookingForm.test.tsx`,
   `ShipmentDrawer.test.tsx`, `ProblemAlert.test.tsx`, `ThemeToggle.test.tsx`) wait for Vitest, Testing Library and
   jsdom. They stay acceptance targets, so the capabilities that name them stay unshipped; until they exist, only
-  logic tests under `node --test` and the Playwright specs test the web app.
+  logic tests under `node --test` run. Playwright specs and a full manual keyboard/screen-reader audit remain pending; focused keyboard checks
+  accompany the attended recording in demo #87.
 - The CI time target of 8 to 12 minutes is a target, not a measurement.
 - The migration round trip (ADR 0016) compares catalogs, not data, and runs on empty databases. It covers only
   the object kinds listed by CatalogSnapshot, not operators, casts, collations, text search objects, foreign data

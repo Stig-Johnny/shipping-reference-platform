@@ -1,15 +1,15 @@
 ---
 title: "ADR 0015: Partial web import lint and planned authoritative controls"
-description: "The JDK web reader, conformance rules and repository gate ship as a labelled partial check with known spread-syntax bypasses; the tsc import graph and browser-enforced strict CSP are planned in the web app pull request."
+description: "The JDK web reader, conformance rules and repository gate ship as a labelled partial check with known spread-syntax bypasses; compiler-graph boundary enforcement and browser verification of the implemented CSP remain planned."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 date: 2026-11-08
 decision-makers: repository owner
 enforcedBy:
-  - not enforced yet
+  - "java: WebArchitectureConformanceTest checks detected imports in the six built web parts; the control stays partial"
 plannedEnforcement:
   - "Web app pull request: import dependencies from the reviewed TypeScript compiler's tsc import graph"
-  - "Web app pull request: strict Content-Security-Policy, enforced by the browser for runtime loading and execution"
+  - "Web app pull request: browser verification of strict Content-Security-Policy (policy text implemented and tested, ADR 0019)"
 ---
 
 # ADR 0015: Partial web import lint and planned authoritative controls
@@ -45,8 +45,8 @@ this decision. Existing detections, refusals and assertions remain in place; no 
   library are implemented and tested on synthetic fixtures. In pull requests #70 and #71, the repository's web-app
   integration was still planned. Pull request #72 adds `WebArchitectureConformanceTest`, which runs the gate over
   the repository's source, test and public roots and app configuration in every build; its passing tests support
-  `control.web-import-boundaries` as partial. All six web parts remain planned and the source and test roots are
-  empty, so no real web imports are checked yet. The partial label alone does not promote the capability's status.
+  `control.web-import-boundaries` as partial. At that integration step all six parts were planned. The workbench now has six built parts and production
+  import evidence for all ten REQUIRED relationships. The partial label alone does not promote the capability's status.
 - **Known open spread bypass.** Immediately after `...`, literal `import("unlisted")`, computed `import(name)`,
   `require("unlisted")` and unsupported `import.meta.glob("./*.ts")` can yield `imports=[], refusals=[]`.
   The review reproduced object, array, call and nested-template spreads, with whitespace, comments and line breaks
@@ -58,8 +58,8 @@ this decision. Existing detections, refusals and assertions remain in place; no 
 - **Authoritative controls in the web app pull request.** Use the reviewed TypeScript compiler's `tsc` import graph
   for import dependencies, and a strict Content-Security-Policy in the web app, enforced by the browser, for runtime
   loading and execution.
-  Neither control is implemented by the reader, conformance library or repository gate. Their implementation and
-  evidence belong to the planned web app pull request.
+  Neither control is implemented by the reader, conformance library or repository gate. ADR 0019 records the
+  implemented policy text; compiler-graph comparison and browser evidence remain pending.
 
 ### Consequences
 
@@ -80,4 +80,5 @@ the repository's web-app integration or browser enforcement. Repository integrat
 `WebArchitectureConformanceTest`, including a fixture that rejects an unapproved import in the repository model's
 `e2e` root; it does not close reader misses. The known spread misses are review findings documented
 in `docs/gaps.md` and the pull requests #70, #71 and #72 demos; this decision adds no reader fixture or runtime
-control. The authoritative controls remain planned and have no enforcement evidence in this slice.
+control. The compiler now checks and emits the workbench, and ADR 0019 records the tested strict CSP text.
+Compiler-graph boundary enforcement and browser verification remain planned.
