@@ -55,7 +55,7 @@ class CoverageBypassTest {
             List<Finding> blocking = quoteAndFinish(run);
             assertThat(blocking).singleElement().satisfies(f -> assertThat(f.message()).contains(
                     "ScenarioAlterations$UnledgeredSpringAccess.reply()", "ResponseEntity#status(I)"));
-            assertThat(run.result().failing()).hasSize(201);
+            assertThat(run.result().failing()).hasSize(216);
             assertThat(catchThrowable(run::verify)).isInstanceOf(AssertionError.class)
                     .hasMessageContaining("ResponseEntity#status(I)");
         }

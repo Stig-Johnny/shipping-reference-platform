@@ -30,8 +30,7 @@ Built:
 
 The HTTP tests start the whole application with an in-memory directory. `JdbcMembershipDirectory` now implements
 the port under the `postgres` profile. `MembershipDirectoryIntegrationTest` shares its exact membership contract
-with `InMemoryStoresTest`: Alpha, Beta, a known user without a membership and an unknown token. The database run
-is pending CI, so the two authentication capabilities remain partial and their HTTP evidence proves no SQL execution.
+with `InMemoryStoresTest`: Alpha, Beta, a known user without a membership and an unknown token. The database case passed in [recorded CI evidence](../flows/attended-demo.md#recorded-database-evidence) (run `42612173809`). The two authentication capabilities remain partial; local HTTP evidence and recorded SQL execution are distinguished.
 
 In the scenario coverage fixtures, `ReachabilityTest` shares one raw `ThreadTenantContext` between tenant-owned and
 quote-owned roots, directly and through shared containers, and requires a bypass gap in both traversal orders.
@@ -39,7 +38,7 @@ Visits track object identity and owning module. This checks boundary snapshots, 
 ([known gaps](../gaps.md#6-tests-and-quality-gates)). Scenario configurations use `@TestConfiguration` and are wired
 explicitly, so the HTTP tests do not discover them through application component scanning.
 Both scenarios retain the full-main census. Their expected report is `COVERAGE_INCOMPLETE`, "coverage incomplete:
-200 known gaps". The exact ledger includes the Spring authentication/security
+215 known gaps". The exact ledger includes the Spring authentication/security
 accesses, 94 distinct JDBC findings and six quotes and shipments factory parameters; each is classified and tagged
 "phase 3 / option 2". Ambient security state and framework callbacks remain unproved.
 Only exact reviewed debt can pass the build; new, changed or disappeared findings require an explicit ledger update
@@ -47,17 +46,17 @@ Only exact reviewed debt can pass the build; new, changed or disappeared finding
 
 Built: `JdbcMembershipDirectory` calls `tenants.resolve_demo_token`. It sets an empty transaction-local tenant
 before this pre-authentication query, since the token lookup is what discovers the tenant (ADR 0017).
-Planned: the `demo` profile's database configuration, `TenantScope`, prototype flags (until then every flag is off and `enabledFlags` is empty) and the demo seed.
-The V1 schema, role bootstrap and database RLS tests exist; their execution against the merged tree is pending CI.
-Until that evidence exists, `tenants.row-level-security` remains planned.
+Built: the demo runtime defaults to synthetic memory identity; `demo,postgres` uses the JDBC directory with standard datasource environment variables and an operator-prepared seed. Planned: `TenantScope` and prototype flags; until then every flag is off and `enabledFlags` is empty.
+The V1–V3 schema, role bootstrap and database RLS tests passed in the recorded CI run. The ordinary local build does
+not read CI database reports, so its generated RLS capability evidence remains unpromoted; this recorded result
+does not establish the planned audit schema or event tenant scope.
 `tenants.cross-tenant-denial`, `tenants.tenant-scope-for-events` and
 `tenants.prototype-flags` are planned.
 
-**Issue #90 coverage ledger:** the accepted ledger contains 200 distinct findings.
-The four JDBC adapters put each JdbcClient call on its own line, yielding 94 distinct census findings; ADR 0013
-records the owner's acceptance. The ledger reader accepts `JDBC statement construction and execution` as a debt
-classification. The census and multiplicity checks are unchanged; duplicate occurrences still cannot collapse into one.
-The public demo is assigned to pull request #91; database execution evidence remains pending CI.
+**Scenario coverage ledger:** the owner accepted 15 exact demo findings for issue #92, bringing the ledger to
+215 distinct findings: 115 HTTP/security accesses, 94 JDBC accesses and six factory parameters. ADR 0013 records
+the acceptance. Existing classifications and the census, matching, duplicate and bypass checks are unchanged.
+Every finding remains a coverage refusal; the expected verdict is `COVERAGE_INCOMPLETE`.
 
 ## Responsibilities
 
@@ -121,13 +120,22 @@ These tokens are public, guessable test fixtures, not secrets. Rules:
 - Tenant headers and query hints never affect membership. Unknown JSON members, including tenantId, produce 400
   validation-failed, consistent with OpenAPI. DemoTokenAuthenticationTest verifies both behaviors.
 - The demo token filter is part of the security chain only with the `demo` Spring profile. Without it nobody
-  authenticates, and every `/api/**` request returns `401 unauthenticated`. Paths outside `/api` serve nothing: the
+  authenticates, and every `/api/**` request returns `401 unauthenticated`. Without a configured demo static directory, paths outside `/api` serve nothing: the
   chain denies them, with `401` to anyone unauthenticated, `403` to a user without a tenant and the generic
   `404 not-found` to a member.
+- The `demo` chain adds `Content-Security-Policy: default-src 'self'; frame-ancestors 'none'; form-action 'self';
+  base-uri 'none'` while retaining its existing security headers. `DemoSecurityHeadersTest` checks successful
+  membership, unauthenticated and no-membership responses through the HTTP contract helper. The simulated label
+  retains its stricter `default-src 'none'; sandbox` policy, checked by `ShipmentsHttpContractTest`.
+  `DemoStaticController` serves the configured immutable build directory outside `/api`, with normalized/real-path
+  containment. `DemoSmokeTest` proves static content types, CSP, traversal and escaping-symlink refusal plus the
+  full shipment flow over real HTTP. See the [attended runbook](../flows/attended-demo.md) and
+  [ADR 0018](../adr/0018-attended-demo-runtime.md). The three PostgreSQL smoke cases passed in the recorded CI run.
 - A request that Spring Security's firewall refuses, such as a path with `;` or an encoded `/` or a method the
   server does not accept, is `400 malformed-request` before it is authenticated: the module's
   `RequestRejectedHandler` hands the rejection to the MVC exception resolvers, and the HTTP edge writes the problem,
-  with the correlation ID and `Cache-Control: no-store`.
+  with the correlation ID and `Cache-Control: no-store`. Early refusals and outer fallback/reset responses do not
+  retain the security chains' CSP/default headers, as the contract now states.
 - Spring Boot's generated user never exists, because the module defines its own `AuthenticationManager`
   (`security/reviews/maven--spring-security--7.1.2.md`, condition 3). `DemoTokenAuthenticationTest` checks the beans
   and the startup log of the application with and without the `demo` profile, and the `java` workflow fails when
@@ -188,10 +196,10 @@ Items marked built exist; the rest is planned.
   (`getCurrentMembership`) and `AuthenticationProblems`, which maps `unauthenticated` and `no-tenant-membership`.
 - `internal.adapter.out.jdbc`: `JdbcMembershipDirectory` is built (calls the function); `JdbcFlagSettings` is planned.
 
-## Data: schema `tenants` (migration `V1__tenants.sql`; seed `db/demo/V1000__synthetic_tenants.sql`)
+## Data: schema `tenants` (migration `V1__tenants.sql`; seed `db/demo/synthetic-tenants.sql`)
 
 `V1__tenants.sql` exists in `apps/shipping-api/src/main/resources/db/migration`, with its down script
-`db/down/V1__tenants.down.sql` (ADR 0016). The seed does not exist yet. Every column is `not null`.
+`db/down/V1__tenants.down.sql` (ADR 0016). The opt-in seed now supplies the three documented users and two memberships; it is applied separately as the owner before launching `demo,postgres`. No prototype flags are seeded. Every column is `not null`.
 
 | Table | Columns | Notes |
 |---|---|---|

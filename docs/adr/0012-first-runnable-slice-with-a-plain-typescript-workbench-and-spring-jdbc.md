@@ -328,3 +328,10 @@ the custom tenant-binding manager described below is superseded for those adapte
 - Node.js and TypeScript: <https://nodejs.org/api/typescript.html>; the compiler option `erasableSyntaxOnly`:
   <https://www.typescriptlang.org/tsconfig/#erasableSyntaxOnly>.
 - Screens, states and accessibility: `docs/ui/workbench.md`. Module data: `docs/modules/<module>.md`.
+
+### Attended runtime follow-up, issue #92
+
+[ADR 0018](0018-attended-demo-runtime.md) now supplies the runnable demo profile, default memory ports,
+configured static directory with strict CSP, operator-prepared JDBC mode and synthetic identity seed.
+`DemoSmokeTest` passes over real sockets with memory storage; `DemoPostgresSmokeIntegrationTest` compiles and
+awaits CI. Durable events and browser behavior remain unproved.

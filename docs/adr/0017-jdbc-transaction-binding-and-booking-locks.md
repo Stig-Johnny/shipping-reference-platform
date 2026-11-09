@@ -77,3 +77,10 @@ only and exposes no update; cancellation behavior is separate work. Down scripts
 behaviors without PostgreSQL. The database classes in the metadata must pass in CI through ReviewedPostgres before
 any database capability is promoted. `ExternalImportPolicyTest` still rejects every unlisted class use and unused
 whitelist entry; entries added for this implementation are exact types only, with one-line justifications.
+
+### Attended runtime follow-up, issue #92
+
+[ADR 0018](0018-attended-demo-runtime.md) now supplies the runnable demo profile, default memory ports,
+configured static directory with strict CSP, operator-prepared JDBC mode and synthetic identity seed.
+`DemoSmokeTest` passes over real sockets with memory storage; `DemoPostgresSmokeIntegrationTest` compiles and
+awaits CI. Durable events and browser behavior remain unproved.

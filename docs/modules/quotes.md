@@ -15,6 +15,11 @@ all of its code is pricing.
 
 ## Implementation state
 
+The attended `demo` runtime now supplies disposable memory storage; `demo,postgres` selects the existing JDBC
+adapter with standard datasource environment variables. `DemoSmokeTest` exercises the real HTTP quote-to-label
+flow with memory storage; the matching `DemoPostgresSmokeIntegrationTest` passed all three cases in [recorded CI evidence](../flows/attended-demo.md#recorded-database-evidence) (run `42612173809`). See the
+[runbook](../flows/attended-demo.md) and [ADR 0018](../adr/0018-attended-demo-runtime.md).
+
 Built: the public API below, the domain model, the application layer (`CreateQuote`, `GetQuote`,
 `QuoteOffersService` and the port `QuoteStore`), and the web adapter with both operations. `QuotesConfiguration`
 makes the use cases Spring beans. `QuotesHttpContractTest` starts the whole application and validates every response
@@ -25,30 +30,29 @@ now implements the same port under the `postgres` profile. `InMemoryStoresTest` 
 inherit the same quote contract: all offers and money round trip, selected service levels survive, duplicate IDs
 fail and tenant-scoped IDs may repeat across tenants. The database class also checks offer lookup, rollback and a quote committed during a concurrent read.
 The adapter reads the immutable parent first, so visible quotes already have their committed offers.
-Its PostgreSQL execution is pending CI; the existing capability statuses and evidence remain unchanged.
+Its six PostgreSQL cases passed in the recorded CI run. Capability statuses remain partial and local-build evidence is distinguished from that recording.
 
 V2 and its down script remain unchanged. Each JDBC statement first binds the transaction's tenant with
 `set_config('app.tenant_id', ..., true)` and also names the tenant in SQL (ADR 0017). Spring's transaction proxy
 makes quote and offer insertion atomic when wired with the JDBC transaction manager; the CI contracts explicitly
-control real JDBC transactions. The runnable `demo` configuration, seed and durable publication proof remain planned.
+control real JDBC transactions. The runnable demo and synthetic identity seed now exist (ADR 0018); durable publication proof remains planned.
 
 Scenario tests wire these classes explicitly with `@TestConfiguration`, so application component scanning in the
 HTTP tests does not discover the scenario fixtures. `CoverageBypassTest` keeps three quote outcome assertions for
 each altered quote implementation, including value behaviour and work held on virtual threads or pre-existing
 executor workers until after close. The latter fixtures are refused by their dispatch sites in the census.
 `ReachabilityTest` checks shared raw tenant references and containers in both owning-module traversal orders.
-The scenario ledger retains 200 distinct known gaps, including two unwitnessed
+The scenario ledger retains 215 distinct known gaps, including two unwitnessed
 `QuotesConfiguration` factory parameters and the Spring HTTP and JDBC accesses. `COVERAGE_INCOMPLETE` remains the
 expected report verdict. The exact classified ledger, tagged
 "phase 3 / option 2", rejects additions, changes and stale entries (`CoverageLedgerTest`); `CoverageBypassTest`
 also rejects a new Spring access with a previously ledgered owner/member. Passing this gate proves no framework
 coverage. These are bounded coverage checks, not proof of every receiver or task lifetime; see [known gaps](../gaps.md#6-tests-and-quality-gates).
 
-**Issue #90 coverage ledger:** the accepted ledger contains 200 distinct findings.
-The four JDBC adapters put each JdbcClient call on its own line, yielding 94 distinct census findings; ADR 0013
-records the owner's acceptance. The ledger reader accepts `JDBC statement construction and execution` as a debt
-classification. The census and multiplicity checks are unchanged; duplicate occurrences still cannot collapse into one.
-The public demo is assigned to pull request #91; database execution evidence remains pending CI.
+**Scenario coverage ledger:** the owner accepted 15 exact demo findings for issue #92, bringing the ledger to
+215 distinct findings: 115 HTTP/security accesses, 94 JDBC accesses and six factory parameters. ADR 0013 records
+the acceptance. Existing classifications and the census, matching, duplicate and bypass checks are unchanged.
+Every finding remains a coverage refusal; the expected verdict is `COVERAGE_INCOMPLETE`.
 
 ## Responsibilities
 

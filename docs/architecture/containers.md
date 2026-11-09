@@ -65,7 +65,7 @@ The same definition is in [containers.mmd](containers.mmd).
 | 3 | Webshop | Software System |  | external | A merchant's online shop (simulated). Source of the orders that need shipping. |
 | 4 | Carrier (simulated) | Software System |  | external, simulated | A fictional parcel carrier. v0.1 simulates its tariff, tracking numbers and labels inside the API; no network calls. |
 | 6 | Web app | Container | Plain TypeScript SPA (no framework), TypeScript 5.9.3 | Planned; not covered by module conformance | Shipping workbench for clerks: parcel form, comparable quote cards, shipment list and detail drawer. |
-| 13 | API | Container | Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient) | Not covered by module conformance | Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. |
+| 13 | API | Container | Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient) | Not covered by module conformance | Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. The demo profile serves a configured static directory from this origin, with memory stores or opt-in postgres. |
 | 21 | Database | Container | PostgreSQL 18.6 | Not covered by module conformance | One schema per v0.1 module plus the event publication registry, with forced row-level security on tenant data. Built: the schemas tenants, quotes and shipments (migrations V1 to V3; CI verification pending), with JDBC adapters selected by the postgres profile. Planned: audit and the registry. |
 
 ## Relationships

@@ -159,11 +159,8 @@ final class StartPages {
     }
 
     private static String flowPage(SiteContext context) {
-        List<DocFile> flows = context.sources().docsUnder("docs/flows/");
-        if (flows.isEmpty()) {
-            throw SiteContext.missing("a flow under docs/flows/ for the COO's reading path");
-        }
-        return context.map().site(flows.getFirst().path()).orElseThrow();
+        String mainFlow = "docs/flows/quote-book-label.md";
+        return context.map().site(mainFlow).orElseThrow(() -> SiteContext.missing(mainFlow));
     }
 
     private static String componentView(SiteContext context) {

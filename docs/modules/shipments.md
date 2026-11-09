@@ -15,6 +15,11 @@ bookings and personal data (recipient names and addresses, synthetic only).
 
 ## Implementation state
 
+The attended `demo` runtime now supplies disposable memory storage; `demo,postgres` selects the existing JDBC
+adapter with standard datasource environment variables. `DemoSmokeTest` exercises the real HTTP quote-to-label
+flow with memory storage; the matching `DemoPostgresSmokeIntegrationTest` passed all three cases in [recorded CI evidence](../flows/attended-demo.md#recorded-database-evidence) (run `42612173809`). See the
+[runbook](../flows/attended-demo.md) and [ADR 0018](../adr/0018-attended-demo-runtime.md).
+
 Built: booking, listing, reading and simulated labels over HTTP. `ShipmentsController` maps the existing
 `BookShipment` outcomes; `ShipmentsConfiguration` wires `GetShipment`, `ListShipments` and `RenderLabel` through application ports.
 `ShipmentsHttpContractTest` starts the application with in-memory quote and shipment stores, deterministic IDs and
@@ -33,23 +38,22 @@ statement binds the transaction-local tenant before its SQL. The unchanged HTTP 
 use in-memory stores. Spring's JDBC transaction manager must enclose the whole `BookShipment.handle` call, at
 PostgreSQL's default READ COMMITTED isolation. The adapters' transaction annotations also cover standalone port calls.
 `ShipmentListingIntegrationTest` shares its exact store contract with `InMemoryStoresTest`.
-`BookingIdempotencyIntegrationTest` covers real overlapping transactions; execution is pending CI.
+`BookingIdempotencyIntegrationTest` covers real overlapping transactions; all four cases passed in that recorded CI run.
 
-Planned: `ShipmentCancelled`, cancellation, the runnable demo configuration and durable event publication.
+Planned: `ShipmentCancelled`, cancellation and durable event publication.
 The migration reserves cancellation and version columns, but the application still writes and reads BOOKED only.
 No new event publication claim is made.
 
 `TenantDenialScenarioTest` separately asserts Beta's booking rejection, no stored shipment for Beta, and Alpha's
-still-bookable offer. Two declared API calls are evaluated, but the ledger retains 200 distinct known coverage gaps
+still-bookable offer. Two declared API calls are evaluated, but the ledger retains 215 distinct known coverage gaps
 from the HTTP edge, JDBC adapters and quotes/shipments factories. The expected verdict is `COVERAGE_INCOMPLETE`.
 Exact ledger matching is build acceptance with known debt, not proof of conformance. Closing the classified gaps
 is phase 3 / option 2 (ADR 0013).
 
-**Issue #90 coverage ledger:** the accepted ledger contains 200 distinct findings.
-The four JDBC adapters put each JdbcClient call on its own line, yielding 94 distinct census findings; ADR 0013
-records the owner's acceptance. The ledger reader accepts `JDBC statement construction and execution` as a debt
-classification. The census and multiplicity checks are unchanged; duplicate occurrences still cannot collapse into one.
-The public demo is assigned to pull request #91; database execution evidence remains pending CI.
+**Scenario coverage ledger:** the owner accepted 15 exact demo findings for issue #92, bringing the ledger to
+215 distinct findings: 115 HTTP/security accesses, 94 JDBC accesses and six factory parameters. ADR 0013 records
+the acceptance. Existing classifications and the census, matching, duplicate and bypass checks are unchanged.
+Every finding remains a coverage refusal; the expected verdict is `COVERAGE_INCOMPLETE`.
 
 ## Responsibilities
 
@@ -254,13 +258,13 @@ columns `not null`.
 | S2 | Booking checks run in the documented order and map to the documented rejections. | `BookShipmentTest` |
 | S3 | An offer is bookable only while `now < expiresAt`. | `BookShipmentTest`, `QuoteExpiryTest` |
 | S4 | The recipient's country and postcode equal the quote's destination. | `BookShipmentTest` |
-| S5 | Same tenant, key and body give the same shipment (`201` then `200`); a different body gives `422`; concurrent duplicates create one row. | `ShipmentsHttpContractTest` (sequential HTTP), `BookingIdempotencyIntegrationTest` (implemented; CI pending) |
-| S6 | One shipment per quote; a second key for the same quote gives `409`. | `ShipmentsHttpContractTest` (sequential HTTP), `BookingIdempotencyIntegrationTest` (implemented; CI pending) |
+| S5 | Same tenant, key and body give the same shipment (`201` then `200`); a different body gives `422`; concurrent duplicates create one row. | `ShipmentsHttpContractTest` (sequential HTTP), `BookingIdempotencyIntegrationTest` (passed in recorded CI) |
+| S6 | One shipment per quote; a second key for the same quote gives `409`. | `ShipmentsHttpContractTest` (sequential HTTP), `BookingIdempotencyIntegrationTest` (passed in recorded CI) |
 | S7 | The fingerprint changes when any field changes and distinguishes absent from present optional fields. | `RequestFingerprintTest` |
 | S8 | `ShipmentBooked` and `ShipmentCancelled` are published once on commit and never on rollback. | `ShipmentEventsIntegrationTest` |
 | S9 | Labels are byte-identical for the same shipment, escape all text, contain only allowed elements and attributes, carry the simulation banner; a cancelled shipment has no label. | `SvgLabelRendererTest`, `ShipmentsHttpContractTest` |
-| S10 | Listing is newest first, paginates without gaps or repeats, honours the status filter and rejects foreign cursors. | `ShipmentsHttpContractTest` (in memory), `ShipmentListingIntegrationTest` (implemented; CI pending) |
-| S11 | Shipments of another tenant are never visible or changeable. | `ShipmentsHttpContractTest` (detail/label, in memory); `CrossTenantAccessTest`, `RowLevelSecurityIntegrationTest` (implemented; CI pending) |
+| S10 | Listing is newest first, paginates without gaps or repeats, honours the status filter and rejects foreign cursors. | `ShipmentsHttpContractTest` (in memory), `ShipmentListingIntegrationTest` (passed in recorded CI) |
+| S11 | Shipments of another tenant are never visible or changeable. | `ShipmentsHttpContractTest` (detail/label, in memory); `RowLevelSecurityIntegrationTest` (passed in recorded CI); `CrossTenantAccessTest` remains planned |
 | S12 | HTTP responses match the contract. | `ShipmentsHttpContractTest` |
 | S13 | Recipient values are validated per the contract. | `RecipientTest` |
 | S14 | Tracking numbers retain the `SIM[0-9]{10}` format regardless of the server's default formatting locale. | `JdbcTrackingNumbersTest` (formatter only, no database) |

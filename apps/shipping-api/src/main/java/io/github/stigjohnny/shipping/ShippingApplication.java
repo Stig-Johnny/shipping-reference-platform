@@ -11,9 +11,9 @@ import tools.jackson.databind.type.LogicalType;
 
 /**
  * The application's entry point, and the root from which Spring Modulith finds the modules (ModularityTest). An
- * isolated class of the model: it uses no module, and no module uses it. The application starts in tests, with test
- * doubles for the ports that have no production adapter yet (the membership directory, quote/shipment stores and tracking numbers); the
- * demo profile with PostgreSQL and the JDBC adapters is planned, so outside tests it does not start yet.
+ * isolated class of the model: it uses no module, and no module uses it. The demo profile supplies memory ports,
+ * or selects the existing JDBC adapters with postgres; the attended launcher serves a configured static build.
+ * Tests may replace ports, clocks and identifier generators explicitly.
  */
 @SpringBootApplication
 public class ShippingApplication {

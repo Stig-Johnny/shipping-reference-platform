@@ -118,6 +118,12 @@ jobs:
         working-directory: candidate
         run: echo "3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  gradle/wrapper/gradle-wrapper.jar" | sha256sum --check --strict
 
+      - name: Test the attended demo launcher (JDK and bash)
+        working-directory: candidate
+        run: |
+          bash tools/demo/run-attended-demo-test.sh
+          java tools/demo/LoopbackPortCheckTest.java
+
       - name: Test the generated-password scan with negative fixtures
         working-directory: candidate
         run: bash tools/ci/check-generated-password-test.sh

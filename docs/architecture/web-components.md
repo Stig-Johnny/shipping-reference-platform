@@ -77,7 +77,7 @@ The same definition is in [web-components.mmd](web-components.mmd).
 | 10 | Quote feature | Component | TypeScript | planned; checked by the web import check | ParcelForm, QuoteCardList and QuoteCard: price a parcel and compare its offers. |
 | 11 | Shipment feature | Component | TypeScript | planned; checked by the web import check | BookingForm, ShipmentTable and ShipmentDrawer: book, list and open shipments and download their labels (LabelPreview is deferred). |
 | 12 | UI | Component | TypeScript, CSS | planned; checked by the web import check | Presentational components: Button, ProblemAlert, EmptyState, StatusBadge, Skeleton and ThemeToggle. |
-| 13 | API | Container | Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient) | Not covered by module conformance | Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. |
+| 13 | API | Container | Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient) | Not covered by module conformance | Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. The demo profile serves a configured static directory from this origin, with memory stores or opt-in postgres. |
 
 ## Relationships
 
