@@ -5,23 +5,25 @@
 # this run: it gets this run's JUnit reports through the test job's outputs, builds the site again from the same
 # commit, and requires the site the test job built, byte for byte.
 #
-#   send     (test job) writes the outputs reports (the JUnit XML reports of every project and of the shipping API's
-#            databaseTest task, as a gzipped tar in base64), reports-sha256 and site-sha256 (a digest over every file
-#            name and content of the site).
-#   receive  (build job) checks REPORTS against REPORTS_SHA256, accepts only regular files named
+#   send     (test job) writes reports-1 through reports-4 and reports-count (the complete JUnit XML archive, as
+#            base64 in bounded chunks), reports-sha256 and site-sha256 (a digest over every file name and content).
+#   receive  (build job) reassembles REPORTS_1 through REPORTS_4 using REPORTS_COUNT, checks the complete archive
+#            against REPORTS_SHA256, accepts only regular files named
 #            <apps|libs|tools>/<project>/build/test-results/test/TEST-<class>.xml or
 #            apps/shipping-api/build/test-results/databaseTest/TEST-<class>.xml, and unpacks them into the checkout,
 #            where no report may exist yet.
 #   compare  (build job) fails unless the site it built has the digest SITE_SHA256 from the test job.
 #
 # Run from the repository root. Every step is checked on its own, so that a command that fails stops the script
-# instead of reading as an empty answer (tools/ci/site-handover-test.sh). A job output is at most 1 MB and reaches the
-# next job as an environment variable, which Linux limits to 128 KiB; send refuses more than LIMIT characters, so a
-# growing test suite fails here, loudly, instead of losing evidence.
+# instead of reading as an empty answer (tools/ci/site-handover-test.sh). Linux limits each environment value to
+# 128 KiB; each chunk stays below that. The aggregate stays below GitHub's 1 MB per-job UTF-16 output budget,
+# including names, count and digests. Reports beyond that budget still fail loudly; nothing is truncated.
 set -euo pipefail
 
 readonly SITE="tools/docs/build/site"
-readonly LIMIT=100000
+readonly CHUNK_SIZE=100000
+readonly CHUNKS=4
+readonly LIMIT=$((CHUNK_SIZE * CHUNKS))
 # Every project's test reports, and the shipping API's database test reports (its databaseTest task).
 readonly REPORT='^((apps|libs|tools)/[a-z0-9-]+/build/test-results/test|apps/shipping-api/build/test-results/databaseTest)/TEST-[A-Za-z0-9_.$-]+\.xml$'
 readonly WORK="${RUNNER_TEMP:?RUNNER_TEMP is not set}"
@@ -43,7 +45,7 @@ site_digest() {
 }
 
 send() {
-  local reports links file encoded sum digest
+  local reports links file encoded sum digest count i
   reports="$(find apps libs tools \( -path '*/build/test-results/test/TEST-*.xml' \
     -o -path 'apps/shipping-api/build/test-results/databaseTest/TEST-*.xml' \) -type f | LC_ALL=C sort)" \
     || fail "the test reports cannot be listed"
@@ -61,18 +63,38 @@ send() {
   sum="$(sha256sum "$WORK/reports.tar.gz" | cut -d ' ' -f 1)" || fail "the reports' digest cannot be computed"
   site_digest "$WORK/site.sha256"
   digest="$(cat "$WORK/site.sha256")"
+  count=$(((${#encoded} + CHUNK_SIZE - 1) / CHUNK_SIZE))
   {
-    echo "reports=$encoded"
+    echo "reports-count=$count"
+    for ((i=1; i<=CHUNKS; i++)); do
+      echo "reports-$i=${encoded:$(((i - 1) * CHUNK_SIZE)):CHUNK_SIZE}"
+    done
     echo "reports-sha256=$sum"
     echo "site-sha256=$digest"
   } >> "${GITHUB_OUTPUT:?GITHUB_OUTPUT is not set}"
-  echo "Handed over $(grep -c . <<< "$reports") reports (${#encoded} characters) and the site's digest."
+  echo "Handed over $(grep -c . <<< "$reports") reports (${#encoded} characters in $count chunks) and the site's digest."
 }
 
 receive() {
-  [[ -n "${REPORTS:-}" && "$REPORTS" =~ ^[A-Za-z0-9+/]+={0,2}$ ]] || fail "the test job handed over no reports"
-  local archive="$WORK/reports.tar.gz" names name types
-  base64 --decode <<< "$REPORTS" > "$archive" || fail "the reports cannot be decoded"
+  [[ "${REPORTS_COUNT:-}" =~ ^[1-4]$ ]] || fail "invalid report chunk count"
+  local archive="$WORK/reports.tar.gz" names name types i key chunk encoded=""
+  for ((i=1; i<=CHUNKS; i++)); do
+    key="REPORTS_$i"
+    chunk="${!key:-}"
+    if (( i > REPORTS_COUNT )); then
+      [[ -z "$chunk" ]] || fail "unexpected report chunk beyond the declared count"
+      continue
+    fi
+    [[ -n "$chunk" && "$chunk" =~ ^[A-Za-z0-9+/]+={0,2}$ ]] \
+      || fail "the test job handed over no reports or an invalid chunk ($i)"
+    (( ${#chunk} <= CHUNK_SIZE )) || fail "a report chunk is too large"
+    if (( i < REPORTS_COUNT )); then
+      (( ${#chunk} == CHUNK_SIZE )) || fail "a non-final report chunk is incomplete"
+    fi
+    encoded+="$chunk"
+  done
+  [[ "$encoded" =~ ^[A-Za-z0-9+/]+={0,2}$ ]] || fail "the reports have invalid base64 framing"
+  base64 --decode <<< "$encoded" > "$archive" || fail "the reports cannot be decoded"
   echo "${REPORTS_SHA256:?REPORTS_SHA256 is not set}  $archive" | sha256sum --check --strict --quiet \
     || fail "the reports changed in transit"
   names="$(tar --list --gzip --file "$archive")" || fail "the reports cannot be listed"

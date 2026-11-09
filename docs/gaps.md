@@ -341,10 +341,12 @@ The public demo is assigned to pull request #91; database execution evidence rem
 - **The event check sees the engine's last 256 events.** After the tests, the workflow reads their window from the
   engine's event buffer to show that every container came from the reviewed image and nothing was copied into one.
   It fails when the window holds 256 events or more, because it could no longer show that it saw them all.
-- **The site's evidence passes between jobs as a job output.** The publishing job builds the site from the test job's
-  JUnit reports, the database tests' included, which travel as a job output of at most 100,000 characters (they
-  arrive as an environment variable, which Linux limits to 128 KiB). Reports that outgrow it fail the handover, and
-  another transport, such as an artifact download, needs its own review first.
+- **The site's evidence passes between jobs as bounded job outputs.** The publishing job builds the site from the
+  test job's complete JUnit reports, the database tests' included. The compressed archive travels in up to four
+  base64 chunks of at most 100,000 characters each, plus an explicit count and archive/site digests. Each value is
+  below Linux's 128 KiB environment limit, and the 400,000-character aggregate leaves margin below GitHub's 1 MB
+  per-job output limit, measured as UTF-16. A missing or altered part fails; no evidence is truncated. Reports
+  beyond the aggregate budget still fail the handover. An artifact download needs its own review before adoption.
 - axe-core finds a subset of accessibility problems; manual keyboard and screen reader checks are required and
   recorded by hand.
 - The web app's repository import gate is implemented: `WebArchitectureConformanceTest` holds `src`, the `e2e`

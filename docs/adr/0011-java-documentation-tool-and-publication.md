@@ -2,7 +2,7 @@
 title: "ADR 0011: A Java documentation tool, a static site and a scanned publication"
 description: "One Java tool generates the C4 view pages, the budgeted brain and a static documentation site, and fails on drift and on claims without evidence; the site is published on GitHub Pages from main after a fail-closed scan. Supersedes ADR 0010."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
@@ -155,7 +155,14 @@ SnakeYAML Engine 3.2.
   `:apps:shipping-api:databaseTest` alone in the reviewed engine window, shuts the engine down and proves CLI/socket
   denial, then runs `:tools:docs:check :tools:docs:site -x databaseTest -PdatabaseEvidence=true` with every project's
   ordinary tests. The database reports remain mandatory. It then hands this run's JUnit reports and the
-  site's digest to the build job as job outputs. The build job runs in the `github-pages` environment, whose secret is
+  site's digest to the build job as job outputs. The complete archive is split across at most four base64 chunks
+  of 100,000 characters, with an explicit count and the SHA-256 of the original archive. This keeps each environment
+  value below Linux's 128 KiB limit and the aggregate below GitHub's 1 MB per-job UTF-16 output budget, with margin
+  for names and digests. The receiver rejects missing, extra, oversized or malformed chunks before checking the
+  archive digest. More than 400,000 characters fails explicitly, without writing partial outputs. This replaces
+  the single-value limit that stopped publication when the reports grew beyond 100,000 characters; it introduces
+  no new Action, artifact download or permission. A larger transport needs a separate review.
+  The build job runs in the `github-pages` environment, whose secret is
   the dictionary, and may only read the repository. It unpacks those reports, refusing a wrong digest, a path outside
   the report directories, anything but regular files and an overwrite, builds the site again from the same commit
   with `:tools:docs:site -x test -x databaseTest -PdatabaseEvidence=true`, and fails unless the site is byte for byte
