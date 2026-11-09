@@ -42,6 +42,7 @@ export function renderShell(root: HTMLElement, paths: ShellPaths, onSwitchUser: 
   return {
     main,
     setUser(user) {
+      if (user === undefined) announcer.reset();
       links.hidden = user === undefined;
       replace(who, user === undefined ? el('p', { class: 'who__name' }, 'Not signed in')
         : el('p', {},

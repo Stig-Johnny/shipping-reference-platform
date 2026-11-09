@@ -17,3 +17,24 @@ test('the entry document declares the strict CSP before any resource is loaded',
   assert.ok(policy.index < html.indexOf('<link'));
   assert.ok(policy.index < html.indexOf('<script'));
 });
+
+test('every emitted module reachable from the entry stays outside the authenticated API namespace', () => {
+  const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
+  const entry = /<script type="module" src="([^"]+)"><\/script>/.exec(html)?.[1];
+  assert.ok(entry);
+  const pending = [new URL(entry, 'http://workbench.invalid')];
+  const seen = new Set<string>();
+  while (pending.length > 0) {
+    const url = pending.pop();
+    assert.ok(url);
+    if (seen.has(url.pathname)) continue;
+    seen.add(url.pathname);
+    assert.equal(url.origin, 'http://workbench.invalid');
+    assert.ok(!url.pathname.startsWith('/api/'), `module needs public static serving: ${url.pathname}`);
+    const js = readFileSync(new URL(`../../dist${url.pathname}`, import.meta.url), 'utf8');
+    for (const match of js.matchAll(/\bfrom\s+['"]([^'"]+)['"]/g)) {
+      pending.push(new URL(match[1], url));
+    }
+  }
+  assert.ok(seen.size > 20, 'walk the real workbench module graph, not just the entry');
+});

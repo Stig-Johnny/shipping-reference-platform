@@ -41,6 +41,12 @@ class SitePagesTest {
     }
 
     @Test
+    void theAttendedRunbookIsPublishedWithItsStorageModesAndLimits() {
+        assertThat(site.text("model/flow-attended-demo.html")).contains("M-10", "Memory mode", "PostgreSQL mode",
+                "SPRING_DATASOURCE_PASSWORD", "DemoPostgresSmokeIntegrationTest", "operator", "Ctrl-C");
+    }
+
+    @Test
     void theStartPageStatesThePurposeTheStateTheDataAndTwoReadingPaths() {
         String start = site.text("index.html");
 
@@ -63,17 +69,17 @@ class SitePagesTest {
                     "Verified evidence");
         }
         assertThat(site.text("brain/index.html")).contains("BrainGeneratorTest", "BrainCheckTest");
-        // quotes has passing tests for all five of its capabilities, shipments for two of its six and tenants for two
+        // quotes has passing tests for all five of its capabilities, shipments for four of its six and tenants for two
         // of its six.
         assertThat(site.text("modules/quotes.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
                 + "</span> 2 capabilities shipped, 3 capabilities partial.",
                 "<span class=\"badge badge-shipped\">Passing</span> 8 evidence test classes passed");
         assertThat(site.text("modules/shipments.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
-                + "</span> 2 capabilities partial, 4 capabilities planned.",
-                "<span class=\"badge badge-shipped\">Passing</span> 3 evidence test classes passed");
+                + "</span> 4 capabilities partial, 2 capabilities planned.",
+                "<span class=\"badge badge-shipped\">Passing</span> 6 evidence test classes passed");
         assertThat(site.text("modules/tenants.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
                 + "</span> 2 capabilities partial, 4 capabilities planned.",
-                "<span class=\"badge badge-shipped\">Passing</span> 3 evidence test classes passed");
+                "<span class=\"badge badge-shipped\">Passing</span> 5 evidence test classes passed");
     }
 
     @Test
@@ -430,12 +436,12 @@ class SitePagesTest {
 
         assertThat(repository).contains("<th>Implementation state</th>", "The planned v0.1 behaviour is: a shipping "
                 + "clerk", "<td>Minimal implementation planned for v0.1; no code yet</td>",
-                "<td>Built in part: booking from an offer, idempotent per tenant and key, without HTTP or a "
-                        + "database</td>",
+                "<td>Built in part: booking from an offer, idempotent per tenant and key, with HTTP listing, reading and SVG "
+                        + "labels; database execution recorded in CI; cancellation planned</td>",
                 "<td>Built in part: tariff, rating, quote creation and reading, and offer lookup, over HTTP in tests; "
-                        + "V2 schema exists, database execution evidence pending</td>",
+                        + "V2 schema and JDBC adapter have recorded CI evidence</td>",
                 "<td>Built in part: demo authentication over HTTP, <code>GET /api/v1/me</code> and the tenant bound "
-                        + "for each request; V1 schema exists, RLS execution evidence pending; database adapter and prototype flags planned"
+                        + "for each request; V1 schema exists, RLS execution recorded in CI; JDBC directory and attended demo built; prototype flags planned"
                         + "</td>")
                 .doesNotContain("<td>built</td>", "<td>built (minimal)</td>", "v0.1 target, not implemented");
     }
@@ -455,7 +461,7 @@ class SitePagesTest {
         }
         // The flow page keeps its own evidence: the quotes, shipments and tenants modules' tests that pass.
         assertThat(site.text("model/flow-quote-book-label.html"))
-                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> 14 "
+                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> 19 "
                         + "evidence test classes passed")
                 .doesNotContain("Checker tests passing", "Conformance tests passing");
         String index = site.text("model/index.html");
@@ -583,7 +589,7 @@ class SitePagesTest {
         // Scope the combined HTTP and web claims to the panel, not mentions in the record's body.
         String panel = record.substring(record.indexOf("<section class=\"status-panel\""));
         panel = panel.substring(0, panel.indexOf("</section>"));
-        assertThat(panel).contains("<span class=\"badge badge-shipped\">Passing</span> 7 evidence test classes passed "
+        assertThat(panel).contains("<span class=\"badge badge-shipped\">Passing</span> 8 evidence test classes passed "
                 + "in the build that generated this site. This verifies the structure of the built modules, their "
                 + "exercised HTTP responses and detected imports in the built web parts; persistence and browser "
                 + "behaviour remain unverified.")
@@ -593,17 +599,17 @@ class SitePagesTest {
                 "Each rule fails its synthetic negative fixture, and WebArchitectureConformanceTest runs the check "
                 + "on apps/shipping-web in every build, where a file under src in no part or in a planned part fails "
                 + "it; e2e tests are scanned and need declared and approved imports.",
-                "The shipments operations (ShipmentsHttpContractTest)", "PostgreSQL-backed application remain.",
+                "Shipment cancellation, cancelled-state replay/label denial", "PostgreSQL-backed application remain.",
                 "All six web parts are built and all ten REQUIRED relationships have production import evidence.",
                 "RowLevelSecurityCatalogTest", "RowLevelSecurityIntegrationTest", "CrossTenantAccessTest",
                 "MigrationsIntegrationTest", "TableOwnershipTest",
                 "contract-e2e: Playwright and axe-core");
         List<String> implemented = List.of("ModularityTest", "HexagonalLayeringTest", "ArchitectureConformanceTest",
-                "WebArchitectureConformanceTest", "QuotesHttpContractTest", "TenantsHttpContractTest",
+                "WebArchitectureConformanceTest", "QuotesHttpContractTest", "ShipmentsHttpContractTest", "TenantsHttpContractTest",
                 "ProblemDetailsHttpContractTest");
         String evidence = panel.substring(panel.indexOf("<details class=\"evidence-tests\""));
         evidence = evidence.substring(0, evidence.indexOf("</details>"));
-        assertThat(evidence).contains("Evidence test classes (7)");
+        assertThat(evidence).contains("Evidence test classes (8)");
         assertThat(evidence.substring(evidence.indexOf("<p>") + 3, evidence.indexOf("</p>")).split(", "))
                 .containsExactlyInAnyOrderElementsOf(implemented);
         String confirmation = record.substring(record.indexOf("<h3 id=\"confirmation\">Confirmation</h3>"));

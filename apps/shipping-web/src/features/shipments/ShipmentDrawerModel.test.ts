@@ -66,11 +66,11 @@ describe('the drawer', () => {
 });
 
 describe('the label download', () => {
-  test('saves the file under the name from the response and says so', () => {
+  test('reports the response filename without claiming the browser saved the file', () => {
     const label: Label = { blob: new Blob(['<svg/>'], { type: 'image/svg+xml' }), fileName: 'label-SIM0000000001.svg' };
     const state = labelSettled({ ok: true, value: label, status: 200, replayed: false });
-    assert.equal(state.kind, 'saved');
-    assert.equal(labelMessage(state), 'Label saved as label-SIM0000000001.svg.');
+    assert.equal(state.kind, 'ready');
+    assert.equal(labelMessage(state), 'Label ready: label-SIM0000000001.svg. Check your browser downloads.');
   });
 
   test('a cancelled shipment has no label; a network failure can be tried again', () => {

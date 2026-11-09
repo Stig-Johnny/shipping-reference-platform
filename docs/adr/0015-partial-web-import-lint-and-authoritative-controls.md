@@ -2,14 +2,14 @@
 title: "ADR 0015: Partial web import lint and planned authoritative controls"
 description: "The JDK web reader, conformance rules and repository gate ship as a labelled partial check with known spread-syntax bypasses; compiler-graph boundary enforcement and browser verification of the implemented CSP remain planned."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 date: 2026-11-08
 decision-makers: repository owner
 enforcedBy:
   - "java: WebArchitectureConformanceTest checks detected imports in the six built web parts; the control stays partial"
 plannedEnforcement:
   - "Web app pull request: import dependencies from the reviewed TypeScript compiler's tsc import graph"
-  - "Web app pull request: browser verification of strict Content-Security-Policy (policy text implemented and tested, ADR 0017)"
+  - "Web app pull request: browser verification of strict Content-Security-Policy (policy text implemented and tested, ADR 0019)"
 ---
 
 # ADR 0015: Partial web import lint and planned authoritative controls
@@ -58,7 +58,7 @@ this decision. Existing detections, refusals and assertions remain in place; no 
 - **Authoritative controls in the web app pull request.** Use the reviewed TypeScript compiler's `tsc` import graph
   for import dependencies, and a strict Content-Security-Policy in the web app, enforced by the browser, for runtime
   loading and execution.
-  Neither control is implemented by the reader, conformance library or repository gate. ADR 0017 records the
+  Neither control is implemented by the reader, conformance library or repository gate. ADR 0019 records the
   implemented policy text; compiler-graph comparison and browser evidence remain pending.
 
 ### Consequences
@@ -80,5 +80,5 @@ the repository's web-app integration or browser enforcement. Repository integrat
 `WebArchitectureConformanceTest`, including a fixture that rejects an unapproved import in the repository model's
 `e2e` root; it does not close reader misses. The known spread misses are review findings documented
 in `docs/gaps.md` and the pull requests #70, #71 and #72 demos; this decision adds no reader fixture or runtime
-control. The compiler now checks and emits the workbench, and ADR 0017 records the tested strict CSP text.
+control. The compiler now checks and emits the workbench, and ADR 0019 records the tested strict CSP text.
 Compiler-graph boundary enforcement and browser verification remain planned.

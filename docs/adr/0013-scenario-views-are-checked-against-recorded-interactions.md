@@ -2,7 +2,7 @@
 title: "ADR 0013: Scenario views are checked against recorded interactions"
 description: "Each executable scenario view has a validated sidecar; a test-only recorder observes module API calls and publications, bounded checks retain detected coverage gaps with an exact debt ledger, and a comparator checks the recording against the steps, with outcomes asserted separately."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 date: 2026-11-07
 decision-makers: repository owner
 enforcedBy:
@@ -164,7 +164,7 @@ Chosen option 1.
   Structurizr for the repository's dynamic views, and `ScenarioReportTest` holds each verdict to its claim.
 - `control.scenario-conformance` in `docs/capabilities/capabilities.yaml` records the status.
 
-## Implementation status (2026-11-08)
+## Implementation status (2026-11-09)
 
 What is built and what remains open under the temporary coverage-debt decision above.
 
@@ -179,13 +179,16 @@ What is built and what remains open under the temporary coverage-debt decision a
   shipments' `CurrentTenant.require()`, then `QuoteOffers.findOffer`. Its outcomes (the booking is rejected as for an
   unknown quote, nothing is stored for Beta, Alpha's offer stays bookable) are asserted by the test, apart from the
   steps. First booking, booking replay and label are planned.
-- **77 known gaps remain.** The full-main census includes the HTTP adapters even though the direct-use-case
-  scenarios do not instantiate them. It retains 75 Spring accesses and two `QuotesConfiguration` factory parameters;
-  both current scenarios say `COVERAGE_INCOMPLETE`. The factories are not witnessed by the scenario wiring.
-  Classes in the ledger are fixed constants (10), HTTP assembly (23), authentication construction/state (4),
-  credential erasure callback (1), filter superclass construction (1), security builders/callbacks (22), provider
+- **215 distinct known gaps remain in the accepted ledger.** The full-main census includes the HTTP and JDBC
+  adapters even though the direct-use-case scenarios do not instantiate them. The ledger contains 115 HTTP/security
+  Spring accesses, 94 JDBC accesses and six quotes/shipments factory parameters. `COVERAGE_INCOMPLETE` is the expected
+  report verdict; the ledger reader accepts the JDBC debt classification described below. The factories are not witnessed
+  by the scenario wiring.
+  Classes in the ledger are fixed constants (13), HTTP assembly (52), authentication construction/state (4),
+  credential erasure callback (1), filter superclass construction (1), security builders/callbacks (30), provider
   composition (1), environment dispatch (1), ambient security state (6), authentication/authority extraction (3),
-  framework dispatch to application callbacks (3), and foreign-service factory parameters (2). These labels describe
+  framework dispatch to application callbacks (3), foreign-service factory parameters (6), and JDBC
+  statement construction and execution (94). These labels describe
   the missing proof, not exemptions. Ambient state, inherited credential callbacks and unknown implementations
   remain unproved; closing them is phase 3 / option 2.
 - **Refused, not evaluated.** Evaluatable `AFTER_COMMIT` steps, task-capable dispatch found in the census, and repeated
@@ -197,3 +200,40 @@ What is built and what remains open under the temporary coverage-debt decision a
 - What a green scenario does not prove: `docs/gaps.md`, section 6.
 - Related: ADR 0002 (the static check), ADR 0006 (events and listeners), ADR 0012 (the modules, carried forward from
   ADR 0003).
+
+### Shipments HTTP coverage debt, issue #88 (historical)
+
+The new adapter adds 29 exact entries to the existing ledger: 24 HTTP response/problem assembly calls, one media-type
+constant, and four foreign-service factory parameters in `ShipmentsConfiguration` (the booking factory takes both
+`CurrentTenant` and `QuoteOffers`). The original 77 entries remain unchanged. Including the issue #90 JDBC addition
+below, all 200 distinct ledger findings remain coverage refusals under the existing phase 3 / option 2 decision;
+no receiver, matcher or comparison rule is broadened. The negative fixture still requires exactly one additional
+unledgered Spring call and pins the raw total at 201; these expectations do not override parsing or multiplicity.
+
+### JDBC coverage debt, issue #90 (historical)
+
+Owner acceptance: "accept #90 ledger 94 rows", recorded at `2026-11-09T08:36:06.479Z`.
+Each JdbcClient call in the four adapters now occupies its own source line, with no behavior change. The fresh
+census reports **94 occurrences and 94 distinct findings**. The ledger replaces the earlier 76-row addition with
+those 94 exact rows, classified as `JDBC statement construction and execution`, with follow-up `phase 3 / option 2`.
+At that acceptance, the original 106 rows remained byte-for-byte unchanged and the ledger contained 200 distinct findings. No duplicate
+rows, patterns or wildcards are added.
+
+The ledger reader's allowed classifications gain only `JDBC statement construction and execution`. The detector,
+census, duplicate checks, occurrence-sensitive matching, blocking and bypass logic are unchanged. The previous
+18 repeated occurrences in 16 duplicate groups shared source lines; formatting makes their locations distinct.
+Every finding remains a coverage refusal, and the extra-Spring-access fixture still requires exactly one blocker
+and 201 raw findings. Accepting these exact rows does not establish JDBC coverage.
+
+### Attended demo coverage debt, issue #92
+
+Owner acceptance: "accept #92 ledger 15 rows", recorded at `2026-11-09T11:43:10Z`.
+The exact proposal adds eight security configuration/building and callback findings, five HTTP response/problem
+assembly findings and two fixed HTTP/security constants. All use existing classifications and `phase 3 / option 2`.
+The proposal's SHA-256 is `b8793ae217d3c990df505f9a948b4742b40f12d5bdd1116b40a8bcb2f1cc8820`.
+
+The ledger now contains 215 distinct findings. Two existing security findings only moved source line and were
+updated in place; their targets and classifications are unchanged. No detector, census, duplicate, matching,
+blocking or bypass logic changed. The additional-access fixture still requires exactly one blocker and now
+216 raw findings. Smoke tests exercise the HTTP runtime separately; these accepted gaps do not make the
+scenario recorder observe HTTP, framework receivers or callback execution.

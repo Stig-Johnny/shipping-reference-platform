@@ -183,13 +183,13 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
                 }
             }
 
-            api = container "API" "Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals." "Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient)" {
+            api = container "API" "Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. The demo profile serves a configured static directory from this origin, with memory stores or opt-in postgres." "Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient)" {
                 properties {
                     "contract.root" "io.github.stigjohnny.shipping"
                     "contract.isolated" "io.github.stigjohnny.shipping.ShippingApplication,io.github.stigjohnny.shipping.CorrelationIdFilter,io.github.stigjohnny.shipping.FallbackProblemHandler"
                 }
 
-                quotes = component "Quotes" "Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes." "Spring Modulith module" {
+                quotes = component "Quotes" "Prices parcels with the synthetic tariff and issues quotes whose offers expire after 30 minutes; postgres selects its JDBC store." "Spring Modulith module" {
                     properties {
                         "contract.id" "quotes"
                         "contract.packages" "io.github.stigjohnny.shipping.quotes"
@@ -197,7 +197,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
                     }
                 }
 
-                shipments = component "Shipments" "Books shipments from quote offers with tenant-scoped idempotency, cancels them and renders simulated labels. Publishes ShipmentBooked and ShipmentCancelled." "Spring Modulith module" {
+                shipments = component "Shipments" "Books shipments with tenant-scoped idempotency and renders simulated labels; postgres selects its JDBC store and tracking sequence. Publishes ShipmentBooked. Cancellation is planned." "Spring Modulith module" {
                     properties {
                         "contract.id" "shipments"
                         "contract.packages" "io.github.stigjohnny.shipping.shipments"
@@ -205,7 +205,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
                     }
                 }
 
-                tenants = component "Tenants" "Authenticates synthetic users, derives the tenant from membership, binds it to every database transaction for row-level security, and evaluates prototype flags." "Spring Modulith module" {
+                tenants = component "Tenants" "Authenticates synthetic users and derives the tenant from membership; postgres selects the JDBC token directory; the demo web adapter serves local static assets with strict CSP. Prototype flags and event TenantScope are planned." "Spring Modulith module" {
                     properties {
                         "contract.id" "tenants"
                         "contract.packages" "io.github.stigjohnny.shipping.tenants"
@@ -246,7 +246,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
                 }
             }
 
-            db = container "Database" "One schema per v0.1 module plus the event publication registry, with forced row-level security on tenant data. Built: the schemas tenants and quotes (migrations V1 and V2; CI verification pending). Planned: shipments, audit and the registry." "PostgreSQL 18.6" "Database"
+            db = container "Database" "One schema per v0.1 module plus the event publication registry, with forced row-level security on tenant data. Built: the schemas tenants, quotes and shipments (migrations V1 to V3; CI verification pending), with JDBC adapters selected by the postgres profile. Planned: audit and the registry." "PostgreSQL 18.6" "Database"
         }
 
         // System context relationships.

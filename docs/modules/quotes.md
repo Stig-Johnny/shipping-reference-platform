@@ -2,7 +2,7 @@
 title: "Module: quotes"
 description: "Prices parcels with the synthetic tariff and issues tenant-scoped quotes whose offers expire after 30 minutes."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 module: quotes
 moduleStatus: built
 riskLevel: 3
@@ -15,34 +15,44 @@ all of its code is pricing.
 
 ## Implementation state
 
+The attended `demo` runtime now supplies disposable memory storage; `demo,postgres` selects the existing JDBC
+adapter with standard datasource environment variables. `DemoSmokeTest` exercises the real HTTP quote-to-label
+flow with memory storage; the matching `DemoPostgresSmokeIntegrationTest` passed all three cases in [recorded CI evidence](../flows/attended-demo.md#recorded-database-evidence) (run `42612173809`). See the
+[runbook](../flows/attended-demo.md) and [ADR 0018](../adr/0018-attended-demo-runtime.md).
+
 Built: the public API below, the domain model, the application layer (`CreateQuote`, `GetQuote`,
 `QuoteOffersService` and the port `QuoteStore`), and the web adapter with both operations. `QuotesConfiguration`
 makes the use cases Spring beans. `QuotesHttpContractTest` starts the whole application and validates every response
 it exercises against the contract, problems included.
 
-The application tests use a store in memory, a fixed clock and deterministic IDs: the `QuoteStore` port has no JDBC
-adapter yet. So `QuotesHttpContractTest` proves the HTTP edge, not persistence. `quotes.synthetic-tariff` and
-`quotes.quote-expiry` are shipped. `quotes.create-quote` stays partial although its three tests pass, since no quote
-is stored in PostgreSQL yet. `quotes.get-quote` and `quotes.offer-lookup` are partial too: `QuotesModuleIntegrationTest`
-is planned.
+The application and HTTP tests retain their in-memory store, fixed clock and deterministic IDs. `JdbcQuoteStore`
+now implements the same port under the `postgres` profile. `InMemoryStoresTest` and `QuotesModuleIntegrationTest`
+inherit the same quote contract: all offers and money round trip, selected service levels survive, duplicate IDs
+fail and tenant-scoped IDs may repeat across tenants. The database class also checks offer lookup, rollback and a quote committed during a concurrent read.
+The adapter reads the immutable parent first, so visible quotes already have their committed offers.
+Its six PostgreSQL cases passed in the recorded CI run. Capability statuses remain partial and local-build evidence is distinguished from that recording.
 
-Built: migration `V2__quotes.sql` and its down script (ADR 0016); their database verification is pending CI.
-
-Planned: the JDBC adapter and the demo fixture, and the `demo` profile that runs the application
-against PostgreSQL; until then the application starts in tests only. No transaction manager exists yet, so the
-`@Transactional` of `CreateQuote` and `GetQuote` has no effect, and nothing yet shows that `QuoteIssued` is published
-inside the quote's transaction.
+V2 and its down script remain unchanged. Each JDBC statement first binds the transaction's tenant with
+`set_config('app.tenant_id', ..., true)` and also names the tenant in SQL (ADR 0017). Spring's transaction proxy
+makes quote and offer insertion atomic when wired with the JDBC transaction manager; the CI contracts explicitly
+control real JDBC transactions. The runnable demo and synthetic identity seed now exist (ADR 0018); durable publication proof remains planned.
 
 Scenario tests wire these classes explicitly with `@TestConfiguration`, so application component scanning in the
 HTTP tests does not discover the scenario fixtures. `CoverageBypassTest` keeps three quote outcome assertions for
 each altered quote implementation, including value behaviour and work held on virtual threads or pre-existing
 executor workers until after close. The latter fixtures are refused by their dispatch sites in the census.
 `ReachabilityTest` checks shared raw tenant references and containers in both owning-module traversal orders.
-The scenario reports retain 77 known gaps as `COVERAGE_INCOMPLETE`, including two unwitnessed
-`QuotesConfiguration` factory parameters and the Spring HTTP accesses. The exact classified ledger, tagged
+The scenario ledger retains 215 distinct known gaps, including two unwitnessed
+`QuotesConfiguration` factory parameters and the Spring HTTP and JDBC accesses. `COVERAGE_INCOMPLETE` remains the
+expected report verdict. The exact classified ledger, tagged
 "phase 3 / option 2", rejects additions, changes and stale entries (`CoverageLedgerTest`); `CoverageBypassTest`
 also rejects a new Spring access with a previously ledgered owner/member. Passing this gate proves no framework
 coverage. These are bounded coverage checks, not proof of every receiver or task lifetime; see [known gaps](../gaps.md#6-tests-and-quality-gates).
+
+**Scenario coverage ledger:** the owner accepted 15 exact demo findings for issue #92, bringing the ledger to
+215 distinct findings: 115 HTTP/security accesses, 94 JDBC accesses and six factory parameters. ADR 0013 records
+the acceptance. Existing classifications and the census, matching, duplicate and bypass checks are unchanged.
+Every finding remains a coverage refusal; the expected verdict is `COVERAGE_INCOMPLETE`.
 
 ## Responsibilities
 
@@ -206,7 +216,7 @@ Worked example (the contract's example): `NO 0150` to `SE 11122`, 1200 g, 300 x 
   as the contract's conventions say: `OptionalMember` reads it, and an explicit `null` is `400 validation-failed`
   naming `/serviceLevel`. Every optional member of a request body is read that way. `QuotesConfiguration` wires the
   use cases with the application's clock and random UUIDs as the module's IDs.
-- `internal.adapter.out.jdbc`, planned: `JdbcQuoteStore` with Spring JDBC's `JdbcClient` (ADR 0012); it writes and
+- `internal.adapter.out.jdbc`, built under `postgres`: `JdbcQuoteStore` with Spring JDBC's `JdbcClient` (ADR 0012); it writes and
   reads a `Quote` as one aggregate (quote plus offers).
 
 ## Data: schema `quotes` (migration `V2__quotes.sql`)

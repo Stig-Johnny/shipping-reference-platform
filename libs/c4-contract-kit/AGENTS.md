@@ -17,7 +17,7 @@ container of the same model in both directions and reports file, line and specif
 conformance library are implemented and tested on synthetic fixtures; `WebArchitectureConformanceTest` runs the
 repository's web-app gate in every build. All six web parts are built, and all ten REQUIRED
 relationships have production import evidence. The authoritative compiler-graph boundary check in ADR 0015 and
-browser verification of ADR 0017's strict CSP remain planned.
+browser verification of ADR 0019's strict CSP remain planned.
 
 ## Boundaries
 

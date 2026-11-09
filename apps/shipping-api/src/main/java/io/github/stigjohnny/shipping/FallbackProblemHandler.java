@@ -28,6 +28,7 @@ import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpRequest;
 import org.springframework.security.web.firewall.RequestRejectedException;
 import org.springframework.validation.method.ParameterValidationResult;
+import org.springframework.validation.method.ParameterErrors;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -184,11 +185,16 @@ public final class FallbackProblemHandler extends ResponseEntityExceptionHandler
 
     /** The errors of one parameter of a handler method, named where the contract names them. */
     private static Stream<Map<String, String>> errors(ParameterValidationResult result) {
+        if (result instanceof ParameterErrors nested) {
+            return nested.getFieldErrors().stream().map(error -> error("body", pointer(error.getField()), message(error)));
+        }
         MethodParameter parameter = result.getMethodParameter();
         String in = parameter.hasParameterAnnotation(PathVariable.class) ? "path"
                 : parameter.hasParameterAnnotation(RequestParam.class) ? "query"
                 : parameter.hasParameterAnnotation(RequestHeader.class) ? "header" : "body";
-        String name = String.valueOf(parameter.getParameterName());
+        RequestHeader header = parameter.getParameterAnnotation(RequestHeader.class);
+        String name = header != null && !header.name().isEmpty() ? header.name()
+                : String.valueOf(parameter.getParameterName());
         return result.getResolvableErrors().stream().map(error -> error(in, name, message(error)));
     }
 

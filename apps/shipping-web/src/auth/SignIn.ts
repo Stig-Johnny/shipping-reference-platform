@@ -21,6 +21,7 @@ export interface SignInOptions {
 
 export function mountSignIn(container: HTMLElement, options: SignInOptions): SignInScreen {
   let disposed = false;
+  const viewController = new AbortController();
   const heading = el('h1', { id: 'sign-in-heading', tabindex: '-1' }, 'Sign in');
   const summary = el('div', {});
   const alert = el('div', {});
@@ -49,7 +50,7 @@ export function mountSignIn(container: HTMLElement, options: SignInOptions): Sig
     replace(alert);
     submit.disabled = true;
     submit.textContent = 'Signing in...';
-    void options.auth.signIn(chosen.value).then((outcome) => {
+    void options.auth.signIn(chosen.value, viewController.signal).then((outcome) => {
       if (disposed) {
         return;
       }
@@ -77,6 +78,7 @@ export function mountSignIn(container: HTMLElement, options: SignInOptions): Sig
     heading,
     dispose: () => {
       disposed = true;
+      viewController.abort();
     },
   };
 }

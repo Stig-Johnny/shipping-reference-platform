@@ -2,7 +2,7 @@
 title: "Documentation site: visual design"
 description: "How the documentation site is drawn: a drawing set with sheet codes, a title block on every sheet and a status ledger that keeps accepted design, planned implementation and verified evidence apart."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 ---
 
 # Documentation site: visual design
@@ -193,3 +193,11 @@ borders for planned elements and a dark drawing theme wait for a design decision
 
 WCAG 2.1 AA in both themes: 4.5:1 for text, 3:1 for controls and focus, a visible 2 px focus outline with a 2 px
 offset, reduced motion, 200 % text and 400 % zoom, reflow at 320 px, and every state in words.
+
+## Attended demo runbook
+
+The [attended runbook](../flows/attended-demo.md) uses the existing flow-document route in the Model section,
+with stable sheet code `M-10` and route `model/flow-attended-demo.html`. It describes launch preparation,
+synthetic identity, both storage modes, credential-free diagnostics and cleanup. `SitePagesTest` checks that the
+rendered page retains those instructions and the PostgreSQL evidence limit. The COO reading path continues to
+select the quote-book-label flow explicitly; adding a runbook does not redirect its main-flow link.

@@ -19,7 +19,7 @@
     "noUnusedParameters": true,
     "forceConsistentCasingInFileNames": true,
     "rootDir": "src",
-    "outDir": "dist",
+    "outDir": "dist/assets",
     "newLine": "lf"
   },
   "include": ["src"],

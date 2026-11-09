@@ -31,6 +31,14 @@ info:
       `application/problem+json`; labels are `image/svg+xml`.
     - Every response carries `Correlation-Id` and `Cache-Control: no-store`. A client may send its own
       `Correlation-Id` (8 to 64 characters from `A-Z a-z 0-9 -`); otherwise the server generates a UUID.
+    - In the `demo` profile, responses written through its security header filter carry `Content-Security-Policy: default-src 'self'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; frame-ancestors 'none'` unless an operation specifies a stricter
+      policy. The simulated label retains `default-src 'none'; sandbox`. Existing security headers remain.
+      Malformed-request JSON 400 responses produced before those chains (the correlation/path filter and
+      strict HTTP firewall), and outer fallback/reset responses, carry correlation and no-store headers but
+      do not retain these chain-written headers.
+
+    The demo profile may also serve a configured static directory outside `/api`; those public GET/HEAD
+    responses use the same origin and security headers. They are not API operations.
 
     ## Errors (RFC 9457)
 

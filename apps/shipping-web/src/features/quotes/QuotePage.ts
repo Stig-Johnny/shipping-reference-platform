@@ -68,7 +68,9 @@ export function mountQuotePage(container: HTMLElement, quoteId: string, context:
     const cardOptions = () => ({ expired: expired(), frozen: frozen(), selectedOfferId: record()?.target.offerId });
     const until = el('span', {});
     const relative = el('span', { class: 'validity__relative' });
-    const expiredNotice = el('div', {});
+    const expiredNotice = notice('warning',
+      el('p', {}, `This quote expired at ${formatTime(quote.expiresAt)}. Get a fresh quote to book.`),
+      el('div', { class: 'button-row' }, button('Get a fresh quote', 'primary', () => freshQuote(quote))));
     const bookingSlot = el('div', { class: 'booking-slot' });
     let booking: BookingFormView | undefined;
     let wasExpired = expired();
@@ -95,11 +97,7 @@ export function mountQuotePage(container: HTMLElement, quoteId: string, context:
       until.textContent = isExpired ? `Expired at ${formatTime(quote.expiresAt)}` : validity.until;
       relative.textContent = isExpired ? '' : validity.relative;
       cards.update(offerCards(quote, cardOptions()));
-      replace(expiredNotice, isExpired
-        ? notice('warning',
-          el('p', {}, `This quote expired at ${formatTime(quote.expiresAt)}. Get a fresh quote to book.`),
-          el('div', { class: 'button-row' }, button('Get a fresh quote', 'primary', () => freshQuote(quote))))
-        : null);
+      expiredNotice.hidden = !isExpired;
       booking?.setExpired(isExpired);
       if (isExpired && !wasExpired) {
         context.announce('This quote has expired.');

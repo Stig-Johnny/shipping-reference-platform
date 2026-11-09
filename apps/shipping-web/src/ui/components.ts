@@ -117,6 +117,8 @@ export interface Announcer {
   readonly element: HTMLElement;
   /** Says a completed action once, politely: "Offers ready", "Shipment booked". */
   announce(message: string): void;
+  /** Clears the old session and cancels its pending announcement. */
+  reset(): void;
 }
 
 /** The page's one role="status" region. */
@@ -125,6 +127,11 @@ export function createAnnouncer(): Announcer {
   let timer: number | undefined;
   return {
     element,
+    reset(): void {
+      clearTimeout(timer);
+      timer = undefined;
+      element.textContent = '';
+    },
     announce(message: string): void {
       element.textContent = '';
       if (timer !== undefined) {

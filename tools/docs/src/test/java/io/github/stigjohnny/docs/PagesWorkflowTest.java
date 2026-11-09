@@ -82,7 +82,11 @@ class PagesWorkflowTest {
         assertThat(TEST.string("runs-on")).isEqualTo("ubuntu-24.04");
         assertThat(steps(TEST)).allSatisfy(step -> assertThat(text(step)).doesNotContain("secrets."));
         assertThat(texts(TEST.map("outputs"))).containsExactlyInAnyOrderEntriesOf(Map.of(
-                "reports", "${{ steps.handover.outputs.reports }}",
+                "reports-count", "${{ steps.handover.outputs.reports-count }}",
+                "reports-1", "${{ steps.handover.outputs.reports-1 }}",
+                "reports-2", "${{ steps.handover.outputs.reports-2 }}",
+                "reports-3", "${{ steps.handover.outputs.reports-3 }}",
+                "reports-4", "${{ steps.handover.outputs.reports-4 }}",
                 "reports-sha256", "${{ steps.handover.outputs.reports-sha256 }}",
                 "site-sha256", "${{ steps.handover.outputs.site-sha256 }}"));
     }
@@ -146,7 +150,11 @@ class PagesWorkflowTest {
         assertThat(gradle).containsExactly(SITE_FROM_REPORTS,
                 "./gradlew --no-daemon --console=plain :tools:docs:scanSite");
         assertThat(texts(step(steps, "site-handover.sh receive").map("env"))).containsExactlyInAnyOrderEntriesOf(Map.of(
-                "REPORTS", "${{ needs.test.outputs.reports }}",
+                "REPORTS_COUNT", "${{ needs.test.outputs.reports-count }}",
+                "REPORTS_1", "${{ needs.test.outputs.reports-1 }}",
+                "REPORTS_2", "${{ needs.test.outputs.reports-2 }}",
+                "REPORTS_3", "${{ needs.test.outputs.reports-3 }}",
+                "REPORTS_4", "${{ needs.test.outputs.reports-4 }}",
                 "REPORTS_SHA256", "${{ needs.test.outputs.reports-sha256 }}"));
         assertThat(texts(step(steps, "site-handover.sh compare").map("env"))).containsExactly(
                 Map.entry("SITE_SHA256", "${{ needs.test.outputs.site-sha256 }}"));

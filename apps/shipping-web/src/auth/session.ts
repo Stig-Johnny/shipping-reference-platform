@@ -31,7 +31,7 @@ export type SessionChange = 'signed-in' | 'switched' | 'expired';
 
 export interface Auth {
   current(): Session | undefined;
-  signIn(handle: string): Promise<SignInOutcome>;
+  signIn(handle: string, viewSignal?: AbortSignal): Promise<SignInOutcome>;
   /** Ends the session, or the sign-in under way, and forgets token and membership. */
   switchUser(): void;
   onChange(listener: (session: Session | undefined, change: SessionChange) => void): () => void;
@@ -87,7 +87,7 @@ export function createAuth(options: AuthOptions = {}): Auth {
   return {
     current: () => session,
 
-    async signIn(handle: string): Promise<SignInOutcome> {
+    async signIn(handle: string, viewSignal?: AbortSignal): Promise<SignInOutcome> {
       if (end()) {
         notify('switched');
       }
@@ -110,7 +110,13 @@ export function createAuth(options: AuthOptions = {}): Auth {
           }
         },
       });
+      const cancelAttempt = (): void => {
+        if (attempt === generation && session === undefined) end();
+      };
+      viewSignal?.addEventListener('abort', cancelAttempt, { once: true });
+      if (viewSignal?.aborted === true) cancelAttempt();
       const result = await api.getCurrentMembership();
+      viewSignal?.removeEventListener('abort', cancelAttempt);
       if (attempt !== generation) {
         return { kind: 'superseded' };
       }

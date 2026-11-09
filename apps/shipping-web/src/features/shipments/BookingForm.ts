@@ -72,8 +72,9 @@ export function mountBookingForm(container: HTMLElement, options: BookingFormOpt
   const form = el('form', { class: 'form booking-form', novalidate: true, 'aria-labelledby': 'booking-heading' },
     summary, fields.name.root, fields.addressLine1.root, fields.addressLine2.root, fields.city.root, postcode.root,
     country.root, fields.reference.root, submitRow);
+  const heading = el('h2', { id: 'booking-heading', tabindex: '-1' }, 'Book shipment');
   const section = el('section', { class: 'booking', 'aria-labelledby': 'booking-heading' },
-    el('h2', { id: 'booking-heading' }, 'Book shipment'),
+    heading,
     options.reloadHint
       ? notice('info', el('p', {}, 'The page was reloaded, so a booking started before then is no longer tracked here. '
         + 'Check Shipments before you book this quote.'),
@@ -116,6 +117,8 @@ export function mountBookingForm(container: HTMLElement, options: BookingFormOpt
   };
 
   const render = (record: BookingRecord): void => {
+    const active = document.activeElement;
+    const restoreFocus = outcome.contains(active) || active === heading || active === submit;
     const frozen = isFrozen(record.phase);
     section.hidden = expired && !frozen;
     const errors = new Map(Object.entries(record.errors));
@@ -140,6 +143,9 @@ export function mountBookingForm(container: HTMLElement, options: BookingFormOpt
         title: view.heading ?? 'Booking failed', message: view.message, reference: view.reference, tone: view.tone,
         actions: view.actions.map((kind) => action(kind, record)),
       }));
+    }
+    if (restoreFocus && (pending || submitRow.hidden)) {
+      (outcome.querySelector<HTMLElement>('a, button') ?? heading).focus();
     }
   };
 
@@ -171,7 +177,7 @@ export function mountBookingForm(container: HTMLElement, options: BookingFormOpt
       expired = value;
       const record = bookings.peek(quoteId);
       if (record !== undefined) {
-        render(record);
+        section.hidden = expired && !isFrozen(record.phase);
       }
     },
     dispose: unsubscribe,

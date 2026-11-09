@@ -81,17 +81,17 @@ export function canDownloadLabel(load: DrawerLoad): boolean {
 export type LabelState =
   | { readonly kind: 'idle' }
   | { readonly kind: 'downloading' }
-  | { readonly kind: 'saved'; readonly fileName: string }
+  | { readonly kind: 'ready'; readonly fileName: string }
   | { readonly kind: 'failed'; readonly failure: ApiFailure };
 
 export function labelSettled(result: ApiResult<Label>): LabelState {
-  return result.ok ? { kind: 'saved', fileName: result.value.fileName } : { kind: 'failed', failure: result.failure };
+  return result.ok ? { kind: 'ready', fileName: result.value.fileName } : { kind: 'failed', failure: result.failure };
 }
 
 export function labelMessage(state: LabelState): string | undefined {
   switch (state.kind) {
-    case 'saved':
-      return `Label saved as ${state.fileName}.`;
+    case 'ready':
+      return `Label ready: ${state.fileName}. Check your browser downloads.`;
     case 'failed':
       return failureMessage(state.failure);
     case 'idle':

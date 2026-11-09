@@ -78,8 +78,12 @@ public final class Http {
     private static String exchange(String user, MockHttpServletRequest request, MockHttpServletResponse response)
             throws IOException {
         StringBuilder text = new StringBuilder();
-        text.append(request.getMethod()).append(' ').append(request.getRequestURI()).append('\n');
-        for (String header : List.of(HttpHeaders.CONTENT_TYPE, HttpHeaders.ACCEPT, "Correlation-Id")) {
+        text.append(request.getMethod()).append(' ').append(request.getRequestURI());
+        if (request.getQueryString() != null) {
+            text.append('?').append(request.getQueryString());
+        }
+        text.append('\n');
+        for (String header : List.of(HttpHeaders.CONTENT_TYPE, HttpHeaders.ACCEPT, "Correlation-Id", "Idempotency-Key")) {
             String value = request.getHeader(header);
             if (value != null) {
                 text.append(header).append(": ").append(value).append('\n');
@@ -96,7 +100,8 @@ public final class Http {
         for (String header : new TreeSet<>(response.getHeaderNames())) {
             text.append(header).append(": ").append(String.join(", ", response.getHeaders(header))).append('\n');
         }
-        text.append('\n').append(indented(response.getContentAsString(StandardCharsets.UTF_8))).append('\n');
+        String body = response.getContentAsString(StandardCharsets.UTF_8);
+        text.append('\n').append("image/svg+xml".equals(response.getContentType()) ? body : indented(body)).append('\n');
         return text.toString();
     }
 

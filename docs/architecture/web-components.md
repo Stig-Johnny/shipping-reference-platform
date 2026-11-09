@@ -2,7 +2,7 @@
 title: "C4 view: Components of the Web app"
 description: "Component view of the Web app. The six parts of the web app and the imports allowed between them: REQUIRED, PERMITTED or planned. The web import check holds apps/shipping-web/src to these lines; every part is planned until its code exists."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 ---
 
 > Generated—do not hand-edit. Source: `architecture/workspace.dsl`, view `WebComponents`. Regenerate with
@@ -75,7 +75,7 @@ The same definition is in [web-components.mmd](web-components.mmd).
 | 10 | Quote feature | Component | TypeScript | built; checked by the web import check | ParcelForm, QuoteCardList and QuoteCard: price a parcel and compare its offers. |
 | 11 | Shipment feature | Component | TypeScript | built; checked by the web import check | BookingForm, ShipmentTable and ShipmentDrawer: book, list and open shipments and download their labels (LabelPreview is deferred). |
 | 12 | UI | Component | TypeScript, CSS | built; checked by the web import check | Presentational components: Button, ProblemAlert, EmptyState, StatusBadge, Skeleton and ThemeToggle. |
-| 13 | API | Container | Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient) | Not covered by module conformance | Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. |
+| 13 | API | Container | Java 25, Spring Boot 4.1, Spring Modulith 2.1, Spring JDBC (JdbcClient) | Not covered by module conformance | Modular monolith exposing contracts/shipping.openapi.yaml. Modules are packages; each has a public api package and private internals. The demo profile serves a configured static directory from this origin, with memory stores or opt-in postgres. |
 
 ## Relationships
 

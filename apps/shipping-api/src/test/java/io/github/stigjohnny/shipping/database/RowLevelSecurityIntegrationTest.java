@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 class RowLevelSecurityIntegrationTest {
 
     private static final String QUOTES = "select quote_id::text from quotes.quote order by 1";
+    private static final String SHIPMENTS = "select shipment_id::text from shipments.shipment order by 1";
     private static final String OFFERS = "select offer_id::text from quotes.quote_offer order by 1";
     private static final String FLAGS = "select tenant_id::text || ' ' || flag_key || ' ' || enabled::text"
             + " from tenants.prototype_flag order by 1";
@@ -59,11 +60,13 @@ class RowLevelSecurityIntegrationTest {
         try (Connection app = database.app()) {
             app.setAutoCommit(false);
             Jdbc.bind(app, ALPHA);
+            Jdbc.update(app, Fixtures.shipment(ALPHA, ALPHA_QUOTE, "SIM0000000001"));
             Jdbc.update(app, Fixtures.alphaQuote(ALPHA, ALPHA_QUOTE));
             Jdbc.update(app, Fixtures.offer(ALPHA, ALPHA_QUOTE, ALPHA_ECONOMY, "ECONOMY", "15.05", 5, 8));
             Jdbc.update(app, Fixtures.offer(ALPHA, ALPHA_QUOTE, ALPHA_STANDARD, "STANDARD", "18.81", 3, 5));
             app.commit();
             Jdbc.bind(app, BETA);
+            Jdbc.update(app, Fixtures.shipment(BETA, BETA_QUOTE, "SIM0000000002"));
             Jdbc.update(app, Fixtures.betaQuote());
             Jdbc.update(app, Fixtures.offer(BETA, BETA_QUOTE, BETA_STANDARD, "STANDARD", "12.79", 1, 3));
             app.commit();
@@ -82,6 +85,7 @@ class RowLevelSecurityIntegrationTest {
                 connection.setAutoCommit(false);
                 Jdbc.bind(connection, ALPHA);
                 assertThat(Jdbc.strings(connection, QUOTES)).containsExactly(ALPHA_QUOTE);
+                assertThat(Jdbc.strings(connection, SHIPMENTS)).containsExactly(ALPHA_QUOTE);
                 assertThat(Jdbc.strings(connection, OFFERS)).containsExactly(ALPHA_ECONOMY, ALPHA_STANDARD);
                 assertThat(Jdbc.strings(connection, FLAGS)).containsExactly(ALPHA + " label-preview true");
                 // Naming Beta's rows does not reach them either.
@@ -92,6 +96,7 @@ class RowLevelSecurityIntegrationTest {
                 connection.commit();
                 Jdbc.bind(connection, BETA);
                 assertThat(Jdbc.strings(connection, QUOTES)).containsExactly(BETA_QUOTE);
+                assertThat(Jdbc.strings(connection, SHIPMENTS)).containsExactly(BETA_QUOTE);
                 assertThat(Jdbc.strings(connection, OFFERS)).containsExactly(BETA_STANDARD);
                 assertThat(Jdbc.strings(connection, FLAGS)).containsExactly(BETA + " label-preview false");
                 connection.commit();
@@ -119,7 +124,7 @@ class RowLevelSecurityIntegrationTest {
     }
 
     @Test
-    void theRuntimeRoleCannotChangeOrDeleteAnyRow() throws SQLException {
+    void theRuntimeRoleCannotChangeImmutableRowsOrDeleteAnyRow() throws SQLException {
         Map<String, String> outcomes = new LinkedHashMap<>();
         try (Connection app = database.app()) {
             app.setAutoCommit(false);
@@ -127,7 +132,7 @@ class RowLevelSecurityIntegrationTest {
                     "update quotes.quote_offer set amount = 0", "delete from quotes.quote_offer",
                     "delete from quotes.quote", "update tenants.prototype_flag set enabled = true",
                     "insert into tenants.prototype_flag values ('" + ALPHA + "', 'label-preview', true)",
-                    "delete from tenants.prototype_flag")) {
+                    "delete from tenants.prototype_flag", "delete from shipments.shipment")) {
                 outcomes.put(statement, asAlpha(app, statement));
             }
         }
@@ -140,7 +145,7 @@ class RowLevelSecurityIntegrationTest {
     void theOwnersQueriesObeyTheForcedPolicies() throws SQLException {
         try (Connection owner = database.owner()) {
             owner.setAutoCommit(false);
-            assertThat(counts(owner)).as("quotes, offers and flags without a bound tenant").containsExactly(0L, 0L, 0L);
+            assertThat(counts(owner)).as("quotes, offers and flags without a bound tenant").containsExactly(0L, 0L, 0L, 0L);
             assertThat(Jdbc.outcome(owner, Fixtures.alphaQuote(ALPHA, NEW_QUOTE))).as("an insert without a tenant")
                     .startsWith(REFUSED + "\"quote\"");
             owner.rollback();
@@ -186,12 +191,12 @@ class RowLevelSecurityIntegrationTest {
             app.setAutoCommit(false);
             assertThat(Jdbc.value(app, "select coalesce(current_setting('app.tenant_id', true), 'never set')"))
                     .isEqualTo("never set");
-            assertThat(counts(app)).as("quotes, offers and flags").containsExactly(0L, 0L, 0L);
+            assertThat(counts(app)).as("quotes, offers and flags").containsExactly(0L, 0L, 0L, 0L);
             assertThat(Jdbc.outcome(app, Fixtures.alphaQuote(ALPHA, NEW_QUOTE))).startsWith(REFUSED + "\"quote\"");
             app.rollback();
             for (String tenant : List.of("", Fixtures.NOBODY)) {
                 Jdbc.bind(app, tenant);
-                assertThat(counts(app)).as("bound to '%s'", tenant).containsExactly(0L, 0L, 0L);
+                assertThat(counts(app)).as("bound to '%s'", tenant).containsExactly(0L, 0L, 0L, 0L);
                 app.rollback();
             }
             // A malformed value fails the query instead of matching anything.
@@ -199,7 +204,7 @@ class RowLevelSecurityIntegrationTest {
             assertThat(Jdbc.outcome(app, QUOTES)).startsWith("22P02 ");
             app.rollback();
             Jdbc.bind(app, ALPHA);
-            assertThat(counts(app)).as("the same queries with Alpha bound").containsExactly(1L, 2L, 1L);
+            assertThat(counts(app)).as("the same queries with Alpha bound").containsExactly(1L, 2L, 1L, 1L);
             app.rollback();
         }
     }
@@ -216,12 +221,12 @@ class RowLevelSecurityIntegrationTest {
             pooled.commit();
             assertThat(Jdbc.value(pooled, "select coalesce(current_setting('app.tenant_id', true), '')"))
                     .as("the setting after commit").isEmpty();
-            assertThat(counts(pooled)).as("after commit").containsExactly(0L, 0L, 0L);
+            assertThat(counts(pooled)).as("after commit").containsExactly(0L, 0L, 0L, 0L);
             pooled.commit();
             Jdbc.bind(pooled, ALPHA);
             assertThat(Jdbc.strings(pooled, QUOTES)).containsExactly(ALPHA_QUOTE);
             pooled.rollback();
-            assertThat(counts(pooled)).as("after rollback").containsExactly(0L, 0L, 0L);
+            assertThat(counts(pooled)).as("after rollback").containsExactly(0L, 0L, 0L, 0L);
             pooled.commit();
             Jdbc.bind(pooled, BETA);
             assertThat(Jdbc.strings(pooled, QUOTES)).as("the next tenant's transaction").containsExactly(BETA_QUOTE);
@@ -229,12 +234,37 @@ class RowLevelSecurityIntegrationTest {
             // In auto-commit mode each statement is a transaction of its own: a binding is gone by the next one.
             pooled.setAutoCommit(true);
             Jdbc.bind(pooled, ALPHA);
-            assertThat(counts(pooled)).as("auto-commit").containsExactly(0L, 0L, 0L);
+            assertThat(counts(pooled)).as("auto-commit").containsExactly(0L, 0L, 0L, 0L);
             // A session-level setting, which the binding never uses, would carry over; the assertions above can fail.
             assertThat(Jdbc.value(pooled, "select set_config('app.tenant_id', ?, false)", ALPHA)).isEqualTo(ALPHA);
             assertThat(Jdbc.strings(pooled, QUOTES)).as("after a session-level setting").containsExactly(ALPHA_QUOTE);
             assertThat(Jdbc.value(pooled, "select pg_backend_pid()::text")).as("one session throughout")
                     .isEqualTo(session);
+        }
+    }
+
+    @Test
+    void shipmentWritesAndUpdatesObeyRlsEvenWithoutTenantPredicates() throws SQLException {
+        for (boolean asOwner : List.of(false, true)) {
+            try (Connection connection = asOwner ? database.owner() : database.app()) {
+                connection.setAutoCommit(false);
+                assertThat(Jdbc.outcome(connection, Fixtures.shipment(ALPHA, NEW_QUOTE, "SIM0000000009")))
+                        .startsWith(REFUSED + "\"shipment\"");
+                connection.rollback();
+                assertThat(asAlpha(connection, Fixtures.shipment(BETA, NEW_QUOTE, "SIM0000000009")))
+                        .startsWith(REFUSED + "\"shipment\"");
+                assertThat(asAlpha(connection, "update shipments.shipment set tenant_id = '" + BETA + "'"))
+                        .startsWith(REFUSED + "\"shipment\"");
+                Jdbc.bind(connection, ALPHA);
+                assertThat(Jdbc.update(connection, "update shipments.shipment set reference = 'ALPHA'"
+                        + " where shipment_id = ?::uuid", BETA_QUOTE)).isZero();
+                assertThat(Jdbc.update(connection, "update shipments.shipment set reference = 'ALPHA'"))
+                        .isEqualTo(1);
+                Jdbc.bind(connection, BETA);
+                assertThat(Jdbc.value(connection, "select coalesce(reference, '') from shipments.shipment"))
+                        .isEmpty();
+                connection.rollback();
+            }
         }
     }
 
@@ -248,6 +278,6 @@ class RowLevelSecurityIntegrationTest {
 
     private static List<Long> counts(Connection connection) throws SQLException {
         return List.of(Jdbc.count(connection, "quotes.quote"), Jdbc.count(connection, "quotes.quote_offer"),
-                Jdbc.count(connection, "tenants.prototype_flag"));
+                Jdbc.count(connection, "tenants.prototype_flag"), Jdbc.count(connection, "shipments.shipment"));
     }
 }

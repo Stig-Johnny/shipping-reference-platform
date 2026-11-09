@@ -5,6 +5,10 @@ import io.github.stigjohnny.shipping.shipments.internal.domain.IdempotencyKey;
 import io.github.stigjohnny.shipping.shipments.internal.domain.Shipment;
 import io.github.stigjohnny.shipping.tenants.api.TenantId;
 import java.util.ArrayList;
+import java.util.Comparator;
+import org.jspecify.annotations.Nullable;
+import io.github.stigjohnny.shipping.shipments.api.ShipmentId;
+import io.github.stigjohnny.shipping.shipments.internal.domain.ShipmentCursor;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -40,6 +44,28 @@ public final class InMemoryShipmentStore implements ShipmentStore {
     @Override
     public Optional<Shipment> findByQuote(TenantId tenant, QuoteId quote) {
         return find(tenant, shipment -> shipment.quoteId().equals(quote));
+    }
+
+    @Override
+    public Optional<Shipment> findById(TenantId tenant, ShipmentId id) {
+        return find(tenant, shipment -> shipment.id().equals(id));
+    }
+
+    @Override
+    public List<Shipment> page(TenantId tenant, int limit, @Nullable ShipmentCursor after, @Nullable String status) {
+        Comparator<Shipment> order = Comparator.comparing(Shipment::bookedAt)
+                .thenComparing(shipment -> shipment.id().value().toString());
+        return shipments.stream().filter(shipment -> shipment.tenantId().equals(tenant))
+                .filter(shipment -> status == null || shipment.status().name().equals(status))
+                .filter(shipment -> after == null || shipment.bookedAt().isBefore(after.bookedAt())
+                        || (shipment.bookedAt().equals(after.bookedAt())
+                            && shipment.id().value().toString().compareTo(after.shipmentId().value().toString()) < 0))
+                .sorted(order.reversed()).limit(limit).toList();
+    }
+
+    /** Clear the HTTP fixture between requests of separate tests. */
+    public void clear() {
+        shipments.clear();
     }
 
     /** Every stored shipment, in insertion order. */

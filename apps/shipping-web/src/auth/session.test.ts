@@ -153,3 +153,36 @@ describe('switching user', () => {
     assert.equal(sessionEndMessage('switched'), undefined);
   });
 });
+
+test('disposing a sign-in view invalidates its pending response and a replacement can sign in', async () => {
+  let finish: ((response: Response) => void) | undefined;
+  let first = true;
+  const normal = server();
+  const auth = createAuth({ fetch: (input, init) => {
+    if (first) {
+      first = false;
+      // Deliberately ignores abort: the generation check must reject the late response too.
+      return new Promise((resolve) => { finish = resolve; });
+    }
+    return normal.fetch(input, init);
+  } });
+  const view = new AbortController();
+  const pending = auth.signIn('clerk-alpha', view.signal);
+  view.abort();
+  assert.ok(finish);
+  finish(new Response(JSON.stringify(memberships['demo-clerk-alpha']), {
+    status: 200, headers: { 'Content-Type': 'application/json' },
+  }));
+  assert.equal((await pending).kind, 'superseded');
+  assert.equal(auth.current(), undefined);
+  assert.equal((await auth.signIn('clerk-beta')).kind, 'signed-in');
+  assert.equal(auth.current()?.user.handle, 'clerk-beta');
+});
+
+test('disposing a completed sign-in view does not end the successful session', async () => {
+  const auth = createAuth(server());
+  const view = new AbortController();
+  assert.equal((await auth.signIn('clerk-alpha', view.signal)).kind, 'signed-in');
+  view.abort();
+  assert.equal(auth.current()?.user.handle, 'clerk-alpha');
+});

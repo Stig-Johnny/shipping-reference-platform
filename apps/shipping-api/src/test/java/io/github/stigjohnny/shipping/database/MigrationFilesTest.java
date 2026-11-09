@@ -25,6 +25,13 @@ class MigrationFilesTest {
             "(?im)^\\s*(begin|commit|rollback|start\\s+transaction|savepoint)\\b\\s*;");
 
     @Test
+    void shipmentsHasItsVersionThreeMigrationAndDownScript() {
+        assertThat(Scripts.migrations().stream().map(Migration::version).toList()).contains(3);
+        assertThat(Scripts.files(Scripts.DOWN_SCRIPTS).stream().map(path -> path.getFileName().toString()).toList())
+                .contains("V3__shipments.down.sql");
+    }
+
+    @Test
     void theMigrationLocationHoldsVersionedSqlMigrationsAndNothingElse() {
         List<Path> entries = Scripts.files(Scripts.MIGRATIONS);
 

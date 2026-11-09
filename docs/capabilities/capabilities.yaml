@@ -41,16 +41,14 @@
 # are partial: their in-process scenarios and negative fixtures pass, while the first booking, replay and label
 # scenarios and the observation of HTTP and SQL are planned. Of the product, the
 # synthetic tariff and quote expiry are shipped. Creating and reading a quote, the offer lookup, demo authentication
-# and the current membership are partial: their HTTP contract tests run the whole application with test doubles for
-# the ports that have no database adapter yet, so they prove the HTTP edge, not persistence. That is why creating a
-# quote, demo authentication and the current membership stay partial although every test they name passes: no quote
-# or token reaches PostgreSQL yet, and prototype flags are planned. The shipments module's booking tests pass too:
-# booking from an offer and idempotent booking are partial, since their HTTP and database tests are planned.
-# ShipmentTest passes, but it asserts only what booking produces, not cancellation, so shipments.cancel-shipment stays
-# planned. The HTTP contract control is partial, since the shipments operations are planned. The dependency control
-# is partial, with runtime workflow evidence; check 8 is a PARTIAL static lint. The migration control is partial:
-# MigrationFilesTest checks paired SQL files, while up/down execution and RLS await CI database evidence.
-# Every other status is planned and its evidence is "none yet".
+# and the current membership remain partial. Ordinary local evidence covers the memory/HTTP implementation.
+# Recorded CI run 42612173809 separately proves all ten PostgreSQL classes (45 tests, no failures/skips),
+# including the demo HTTP flow, migrations, RLS and adapter/concurrency contracts; see docs/demos/94-demo-profile.md.
+# Database reports are deliberately not read by an ordinary local build. Keep this build's evidence distinct
+# from that recording; do not import a previous CI report as current-build evidence.
+# Cancellation, durable publication, flags and workbench behavior remain planned. ShipmentTest proves booking,
+# not cancellation. The HTTP contract and dependency controls remain partial; check 8 is a PARTIAL static lint.
+# MigrationFilesTest supplies local file-pairing evidence; CI additionally ran migration and runtime-role proofs.
 
 schemaVersion: 1
 
@@ -108,8 +106,8 @@ capabilities:
     title: Book one shipment per quote from an unexpired offer whose destination matches the recipient.
     status: partial
     target: v0.1
-    evidence: [BookShipmentTest, RecipientTest]
-    acceptanceTests: [BookShipmentTest, RecipientTest, ShipmentsHttpContractTest]
+    evidence: [BookShipmentTest, RecipientTest, ShipmentsHttpContractTest, JdbcTrackingNumbersTest]
+    acceptanceTests: [BookShipmentTest, RecipientTest, ShipmentsHttpContractTest, JdbcTrackingNumbersTest]
     docs: docs/modules/shipments.md
     actors: [clerk]
   - id: shipments.idempotent-booking
@@ -117,8 +115,8 @@ capabilities:
     title: The same tenant, Idempotency-Key and body return the same shipment; a reused key with another body is refused.
     status: partial
     target: v0.1
-    evidence: [RequestFingerprintTest]
-    acceptanceTests: [BookingIdempotencyIntegrationTest, RequestFingerprintTest]
+    evidence: [RequestFingerprintTest, BookShipmentTest, ShipmentsHttpContractTest]
+    acceptanceTests: [BookingIdempotencyIntegrationTest, RequestFingerprintTest, BookShipmentTest, ShipmentsHttpContractTest]
     docs: docs/modules/shipments.md
     actors: [clerk]
   - id: shipments.cancel-shipment
@@ -133,18 +131,18 @@ capabilities:
   - id: shipments.list-and-read
     module: shipments
     title: List the tenant's shipments newest first with cursor pagination and a status filter; read one shipment.
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [ShipmentsHttpContractTest]
     acceptanceTests: [ShipmentListingIntegrationTest, ShipmentsHttpContractTest]
     docs: docs/modules/shipments.md
     actors: [clerk]
   - id: shipments.simulated-label
     module: shipments
     title: Download a deterministic, clearly marked simulated SVG label for a booked shipment.
-    status: planned
+    status: partial
     target: v0.1
-    evidence: none yet
+    evidence: [SvgLabelRendererTest, ShipmentsHttpContractTest]
     acceptanceTests: [SvgLabelRendererTest, ShipmentsHttpContractTest]
     docs: docs/modules/shipments.md
     actors: [clerk, carrier]
@@ -164,8 +162,8 @@ capabilities:
     title: Authenticate synthetic users with demo bearer tokens; never derive tenant identity from client-supplied tenant hints.
     status: partial
     target: v0.1
-    evidence: [DemoTokenTest, DemoTokenAuthenticationTest]
-    acceptanceTests: [DemoTokenTest, DemoTokenAuthenticationTest]
+    evidence: [DemoTokenTest, DemoTokenAuthenticationTest, DemoSecurityHeadersTest, DemoSmokeTest]
+    acceptanceTests: [DemoTokenTest, DemoTokenAuthenticationTest, DemoSecurityHeadersTest, DemoSmokeTest, MembershipDirectoryIntegrationTest, DemoPostgresSmokeIntegrationTest]
     docs: docs/modules/tenants.md
     actors: [clerk]
   - id: tenants.current-membership
@@ -180,8 +178,8 @@ capabilities:
   - id: tenants.row-level-security
     module: tenants
     title: Forced PostgreSQL row-level security on every tenant-owned table, with a runtime role that cannot bypass it.
-    # Tests for V1/V2 are implemented and mandatory in databaseTest; CI evidence for this merged tree is pending.
-    # Application tenant binding and the tables of shipments and audit remain planned.
+    # Tests for V1/V2/V3 passed in recorded CI; they remain outside ordinary local-build evidence.
+    # Adapter binding exists; the audit schema and event TenantScope remain planned.
     status: planned
     target: v0.1
     evidence: none yet
@@ -245,7 +243,7 @@ capabilities:
     docs: docs/modules/audit.md
     actors: []
 
-  # web app: sources and 125 Node logic tests exist, including CSP text. These are not the named
+  # web app: sources and 130 Node tests exist, including CSP text. These are not the named
   # component/e2e acceptance tests, and tools/docs cannot consume Node results. Keep all four planned.
   - id: web.quote-workbench
     module: web
@@ -404,8 +402,8 @@ controls:
     evidence: [QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, ReachabilityTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest, CoverageLedgerTest]
     acceptanceTests: [QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, ReachabilityTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest, CoverageLedgerTest, FirstBookingScenarioTest, BookingReplayScenarioTest, LabelScenarioTest]
     negativeFixture: CoverageLedgerTest rejects new Spring accesses, removed ledger entries, changed descriptors, disappeared gaps and duplicates; CoverageBypassTest rejects an additional Spring access with an already ledgered owner/member. Altered implementations in ScenarioFixturesTest, a removed call that keeps the outcome (missing step), an added call along a permitted relationship (unexpected interaction), two swapped interactions (order violation), a disabled call observer and a disabled publication observer (coverage gaps), an AFTER_COMMIT publication that runs before any commit (coverage gap), and two interleaved runs that must pass; nine implementations in CoverageBypassTest (coverage gaps), including virtual-thread and pre-existing-executor work released after close; shared receivers and containers in both module traversal orders in ReachabilityTest; a repeated signature with a varying cardinality in SidecarValidationTest (refused).
-    enforcedSubset: In process on the built modules, four declared steps of the quote and tenant-denial scenarios are verified against recorded interactions (three module API calls and one event publication); the other eight steps are counted as not evaluated. Reports say COVERAGE_INCOMPLETE with 77 known gaps (75 Spring accesses and two factory parameters), retained as refusals; an exact classified ledger tagged phase 3 / option 2 rejects new, changed, duplicate and disappeared findings, while all other bounded refusals remain build blockers; unexamined code, transient receivers, driver-supplied references and work after close remain limits (docs/gaps.md section 6). The tenant-denial outcome (rejected as an unknown quote, nothing stored for the other tenant) is asserted by the test apart from step verification.
-    plannedRemainder: Phase 3 / option 2 closes the 77 known gaps through production factory witnesses and concrete Spring receiver/callback coverage; the first booking, booking replay and label scenarios, HTTP exchanges, database steps observed through JDBC, listener executions, and commits observed so that AFTER_COMMIT steps are evaluated instead of refused.
+    enforcedSubset: In process on the built modules, four declared steps of the quote and tenant-denial scenarios are verified against recorded interactions (three module API calls and one event publication); the other eight steps are counted as not evaluated. The accepted ledger has 215 distinct known gaps (115 HTTP/security Spring accesses, 94 JDBC accesses and six factory parameters), retained as refusals; the expected report is COVERAGE_INCOMPLETE, with the JDBC debt classification accepted by the ledger reader (ADR 0013); an exact classified ledger tagged phase 3 / option 2 rejects new, changed, duplicate and disappeared findings, while all other bounded refusals remain build blockers; unexamined code, transient receivers, driver-supplied references and work after close remain limits (docs/gaps.md section 6). The tenant-denial outcome (rejected as an unknown quote, nothing stored for the other tenant) is asserted by the test apart from step verification.
+    plannedRemainder: Phase 3 / option 2 closes the 215 distinct known gaps through production factory witnesses and concrete Spring receiver/callback coverage; the first booking, booking replay and label scenarios, HTTP exchanges, database steps observed through JDBC, listener executions, and commits observed so that AFTER_COMMIT steps are evaluated instead of refused.
     docs: docs/adr/0013-scenario-views-are-checked-against-recorded-interactions.md
   - id: control.external-imports
     title: External dependencies reported by ArchUnit 1.5.1 from API main or test outputs have an approved provider or a verified repository-owned project provider, and are on the caller's layer whitelist.
@@ -433,11 +431,11 @@ controls:
     title: Migrations apply cleanly to an empty database as the owner role, each down script restores the previous catalog, and the runtime role cannot run DDL.
     where: apps/shipping-api
     check: java
-    # Only file pairing is local evidence; the implemented database proofs await CI.
+    # Only file pairing is local evidence; database proofs passed in the separately recorded CI run.
     status: partial
     target: v0.1
     evidence: [MigrationFilesTest]
-    evidenceLabel: Paired SQL files only; up/down execution and runtime-role DDL denial await CI.
+    evidenceLabel: Local paired-file checks; up/down execution and runtime-role DDL denial are separately recorded CI evidence.
     acceptanceTests: [MigrationFilesTest, MigrationsIntegrationTest, MigrationRoundTripTest]
     negativeFixture: DDL statements attempted as shipping_app; an applied migration edited afterwards; a down script without its last statement.
     docs: docs/adr/0016-down-scripts-proven-in-ci-production-rolls-forward.md
@@ -447,11 +445,11 @@ controls:
     check: java
     status: partial
     target: v0.1
-    evidence: [QuotesHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest]
+    evidence: [QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest]
     acceptanceTests: [QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest]
     negativeFixture: A response with an undocumented member, an impossible date-time, an invalid header or a problem title that is not its type's, and a status that the operation does not document and no path may give, fails validation (ContractTest).
-    enforcedSubset: Every response that the HTTP tests exercise, of GET /api/v1/me, both quote operations and the problems that any path can give, is validated against the contract in java, on the application with test doubles for its database adapters.
-    plannedRemainder: The shipments operations (ShipmentsHttpContractTest) and the same responses from the PostgreSQL-backed application remain.
+    enforcedSubset: Every response that the HTTP tests exercise, of GET /api/v1/me, both quote operations, shipment booking/list/detail/label and the problems that any path can give, is validated against the contract in java, on the application with test doubles for its database adapters.
+    plannedRemainder: Shipment cancellation, cancelled-state replay/label denial and the same responses from the PostgreSQL-backed application remain.
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.web-import-boundaries
     title: Partial lint of detected web app imports for boundaries, cycles and a detected direct import for each REQUIRED relationship whose endpoints are built; every package and Node.js built-in a detected import names is whitelisted in the model and approved in the allowlist (ADR 0015).
@@ -464,7 +462,7 @@ controls:
     negativeFixture: One synthetic web app per rule fails with exactly that violation (divergence, absence, a test that bridges parts, a production import of a test, unowned file, planned part with code, bypassed entry, undeclared or unapproved package, Node.js built-in in browser code, cycle, resolution override, unsupported syntax or file).
     evidenceLabel: the web import check's tests
     enforcedSubset: Each rule fails its synthetic negative fixture, and WebArchitectureConformanceTest runs the check on apps/shipping-web in every build, where a file under src in no part or in a planned part fails it; e2e tests are scanned and need declared and approved imports. This is partial lint over detected imports and reported refusals only; silent misses prevent complete boundary or cycle coverage.
-    plannedRemainder: All six web parts are built and all ten REQUIRED relationships have production import evidence. Comparisons remain limited to detected imports; known spread-syntax bypasses remain open for literal and computed imports, require and unsupported import.meta. Compiler-graph boundary enforcement and browser verification of the strict CSP remain planned (ADRs 0015 and 0017); the web job compiles and tests policy text only.
+    plannedRemainder: All six web parts are built and all ten REQUIRED relationships have production import evidence. Comparisons remain limited to detected imports; known spread-syntax bypasses remain open for literal and computed imports, require and unsupported import.meta. Compiler-graph boundary enforcement and browser verification of the strict CSP remain planned (ADRs 0015 and 0019); the web job compiles and tests policy text only.
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.dependency-allowlist
     title: Reviewed dependencies and runtime CI engine guards; check 8 is PARTIAL lint with blocking container findings and non-blocking launch warnings.

@@ -12,8 +12,9 @@ A plain TypeScript single-page app with no UI framework (ADR 0012).
 - TypeScript 5.9.3 (`tsc`) type-checks the sources and emits browser ES modules; there is no bundler. Its review is
   approved with the reviewed lock (issues #59 and #80). Install only with `npm ci --ignore-scripts`.
   Node 26.13.0, bundled npm 11.20.0.
-- Serving the emitted assets from the Java application on loopback (`127.0.0.1`) is planned; the API currently
-  serves no static files. Do not claim an integrated browser flow.
+- The attended Java demo serves staged assets from loopback (`127.0.0.1`), including known workbench page routes.
+  Compile into `dist/assets` and stage the entry page and CSS as documented in `README.md`; never serve modules
+  under the authenticated `/api` namespace. The recorded browser flow uses disposable memory, not PostgreSQL.
 - Tests: `node --test`, Node's built-in runner, for logic; Playwright 1.65.0 with axe-core 4.14.0 for end-to-end and
   accessibility tests, in the `contract-e2e` CI job only. Their reviews approve no local or headed browser use: do not
   run them on a developer machine.
@@ -70,9 +71,9 @@ API stay outside the check; the end-to-end tests are their evidence for the oper
 
 Per the owner's decision of 2026-11-08 (ADR 0015), this reader ships as a labelled partial lint. Authoritative
 compiler-graph boundary enforcement remains planned. The reviewed compiler now type-checks and emits browser modules.
-The entry page declares ADR 0017's strict same-origin CSP, tested as text by `src/app/csp.test.ts`; browser enforcement
-is not yet exercised. Keep the policy before all resource elements, without unsafe-inline, unsafe-eval or external
-origins. Any future repository-owned asset server must also send it as a response header. Passing partial lint or
+The entry page declares ADR 0019's strict same-origin CSP, tested as text by `src/app/csp.test.ts`; browser enforcement
+has an attended browser walkthrough but no adversarial enforcement test. Keep the policy before all resource elements, without unsafe-inline, unsafe-eval or external
+origins. The demo server sends the policy as a response header with frame-ancestors none; retain that coverage. Passing partial lint or
 this text test is not proof of runtime safety.
 
 ## Rules
@@ -110,7 +111,7 @@ No extra options, test paths, loaders or build/copy shell chains in package scri
 
 | File | Kind |
 |---|---|
-| `src/**/<module>.test.ts` | Logic tests, beside the module they test: `node --test` runs them from the TypeScript sources with Node's type stripping, without a DOM |
+| `src/**/<module>.test.ts` | Logic tests, beside the module they test: `node --test` runs them from the TypeScript sources with Node's type stripping, without a browser (minimal DOM sinks may be doubled) |
 | `e2e/*.spec.ts` | Playwright with axe-core in the `contract-e2e` CI job, against the real API started with the `demo` profile on PostgreSQL |
 | `src/**/<Component>.test.tsx` | Deferred with Vitest and Testing Library: component tests, API mocked at the adapter boundary |
 

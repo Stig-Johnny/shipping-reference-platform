@@ -28,7 +28,7 @@ The review reported no other open bypass class in its probe set, which was not e
 describe recognized forms and tested cases, not complete enforcement.
 
 Compiler-graph boundary enforcement and browser verification remain planned. The web job type-checks and emits
-with the reviewed compiler; the entry document carries ADR 0017's strict CSP, tested as text. Neither is implemented by this library. Passing this check does not prove a complete import graph
+with the reviewed compiler; the entry document carries ADR 0019's strict CSP, tested as text. Neither is implemented by this library. Passing this check does not prove a complete import graph
 or runtime safety; see
 [`docs/gaps.md`](../../docs/gaps.md#6-tests-and-quality-gates) and
 [ADR 0015](../../docs/adr/0015-partial-web-import-lint-and-authoritative-controls.md).

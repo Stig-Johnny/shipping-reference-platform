@@ -140,20 +140,27 @@ class UseCasePageTest {
                 "<span class=\"badge badge-shipped\">All passed</span> All 3 named tests passed in this build.",
                 "RatingTest: passed", "CreateQuoteTest: passed", "QuotesHttpContractTest: passed",
                 "<span class=\"badge badge-partial\">Partial</span>", "Started by Shipping clerk");
-        // Two of its three tests passed; ShipmentsHttpContractTest is not written yet.
+        // Shipment HTTP evidence now exists; implementation remains partial until persistence/cancellation.
         assertThat(row("use-cases", "shipments.book-from-offer")).contains(
-                "<span class=\"badge badge-none\">Not run or missing</span> 2 of 3 named tests passed in this build; 1 "
-                        + "not in the repository yet.", "ShipmentsHttpContractTest: not in the repository yet",
+                "<span class=\"badge badge-shipped\">All passed</span> All 4 named tests passed in this build.",
+                "BookShipmentTest: passed", "RecipientTest: passed", "ShipmentsHttpContractTest: passed",
+                "JdbcTrackingNumbersTest: passed",
                 "<span class=\"badge badge-partial\">Partial</span>", "Started by Shipping clerk")
-                .doesNotContain("badge-shipped");
+                .doesNotContain(">Shipped</span>");
         assertThat(row("use-cases", "quotes.get-quote")).contains(
                 "<span class=\"badge badge-none\">Not run or missing</span> 1 of 2 named tests passed in this build; 1 "
-                        + "not in the repository yet.", "QuotesModuleIntegrationTest: not in the repository yet",
+                        + "not run in this build.", "QuotesModuleIntegrationTest: no report in this build",
                 "QuotesHttpContractTest: passed", "<span class=\"badge badge-partial\">Partial</span>")
                 .doesNotContain("badge-shipped");
-        assertThat(row("use-cases", "shipments.list-and-read")).contains("<span class=\"badge badge-none\">No tests "
-                + "yet</span> None of its 2 named tests is in the repository yet.",
-                "<span class=\"badge badge-planned\">Planned</span>");
+        assertThat(row("use-cases", "shipments.list-and-read")).contains(
+                "<span class=\"badge badge-none\">Not run or missing</span> 1 of 2 named tests passed in this build; 1 "
+                        + "not run in this build.", "ShipmentListingIntegrationTest: no report in this build",
+                "ShipmentsHttpContractTest: passed", "<span class=\"badge badge-partial\">Partial</span>")
+                .doesNotContain("badge-shipped");
+        // Preserve the no-tests-yet assertion for a use case whose acceptance test still does not exist.
+        assertThat(row("use-cases", "shipments.publish-events")).contains("<span class=\"badge badge-none\">No tests "
+                + "yet</span> Its one named test is not in the repository yet.",
+                "<span class=\"badge badge-planned\">Planned</span>").doesNotContain("badge-shipped");
     }
 
     @Test

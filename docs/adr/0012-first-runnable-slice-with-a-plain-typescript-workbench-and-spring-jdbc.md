@@ -2,7 +2,7 @@
 title: "ADR 0012: First runnable slice with a plain TypeScript workbench and Spring JDBC"
 description: "Supersedes ADRs 0003, 0004, 0005 and 0009. Their modules, contract-first API and PostgreSQL design carry forward unchanged, except that adapters use Spring JDBC's JdbcClient; the workbench is plain TypeScript with a hand-written typed HTTP adapter, and React and the generated client are deferred."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 date: 2026-11-07
 decision-makers: repository owner
 enforcedBy:
@@ -10,15 +10,14 @@ enforcedBy:
   - "java: HexagonalLayeringTest (ArchUnit)"
   - "java: ArchitectureConformanceTest (C4 edges)"
   - "java: compilation with Error Prone and NullAway"
-  - "java: QuotesHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest (HTTP contract, with test doubles for the database adapters)"
+  - "java: QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest (HTTP contract, with test doubles for the database adapters)"
   - "java: WebArchitectureConformanceTest, partial JDK lint over detected imports in apps/shipping-web: boundaries, cycles, a detected direct import for each REQUIRED relationship whose endpoints are built, and every detected package and Node.js built-in import whitelisted in the model and approved in security/allowlist.json (ADR 0015). It scans src, e2e, public and app configuration in every build; with all six parts built, it checks real production imports for all ten REQUIRED relationships (control.web-import-boundaries, partial)"
-  - "web: type check and emit with TypeScript 5.9.3, and the logic tests under node --test; strict CSP text in csp.test.ts (ADR 0017), no browser evidence"
+  - "web: type check and emit with TypeScript 5.9.3, and the logic tests under node --test; strict CSP text in csp.test.ts (ADR 0019), no browser evidence"
 plannedEnforcement:
-  - "java: ShipmentsHttpContractTest"
   - "java: RowLevelSecurityCatalogTest, RowLevelSecurityIntegrationTest, CrossTenantAccessTest"
   - "java: MigrationsIntegrationTest, and TableOwnershipTest on the SQL of each module's adapters"
   - "web app pull request: authoritative import dependencies from the reviewed TypeScript compiler's tsc import graph"
-  - "web app pull request: browser verification of strict Content-Security-Policy for runtime loading and execution, enforced by the browser (policy text implemented, ADR 0017)"
+  - "web app pull request: browser verification of strict Content-Security-Policy for runtime loading and execution, enforced by the browser (policy text implemented, ADR 0019)"
   - "contract-e2e: Playwright and axe-core against the API started with the demo profile on PostgreSQL"
 ---
 
@@ -41,7 +40,7 @@ Parenthesizing the operand restores detection in the reviewed control but does n
 numeric-token defect was fixed; the review's probe set was not exhaustive (details in `docs/gaps.md`, section 6).
 
 The reviewed TypeScript compiler now checks and emits the workbench, and its entry page carries a strict CSP
-(ADR 0017). Compiler-graph boundary enforcement and browser verification of the policy remain planned.
+(ADR 0019). Compiler-graph boundary enforcement and browser verification of the policy remain planned.
 Neither is implemented in this gate. The compiler graph does not prove general
 runtime behaviour, and CSP does not enforce module boundaries. This clarification leaves this record's
 application design and existing Java evidence intact.
@@ -128,6 +127,9 @@ one.
   HTTP relationship from the web app to the API stays outside the check; the end-to-end tests are its evidence, for
   the operations they run. This changes ADR 0009, which claimed import boundaries and cycles only and deferred
   required frontend edges: the frontend gets both failure directions over the detected imports.
+
+ADR 0019 refines synchronous transaction binding and booking serialization for the JDBC adapter implementation;
+the custom tenant-binding manager described below is superseded for those adapters. Event TenantScope remains planned.
 
 ### Persistence through Spring JDBC
 
@@ -288,11 +290,11 @@ one.
   `package-info.java` annotated `@NullMarked` in every package; each rule also fails on a fixture that breaks it) and
   `ArchitectureConformanceTest` (ADR 0002). Compilation fails on Error Prone errors and NullAway findings;
   `@SuppressWarnings("NullAway")` is a level 3 behaviour signal in `policy/risk.json`.
-- `java` runs `QuotesHttpContractTest` and `TenantsHttpContractTest`, which validate every response they exercise
+- `java` runs `QuotesHttpContractTest`, `ShipmentsHttpContractTest` and `TenantsHttpContractTest`, which validate every response they exercise
   against the contract, and `ProblemDetailsHttpContractTest`, which covers an unknown path, a wrong method, a wrong
   media type, malformed JSON, an unknown member, a request refused before routing and an unexpected exception: the
   correct type, no stack trace, a correlation ID. They start the application with test doubles for the adapters to
-  the database, so they prove the HTTP edge, not persistence. Planned, `java`: `ShipmentsHttpContractTest`.
+  the database, so they prove the HTTP edge, not persistence. Shipment cancellation and PostgreSQL-backed HTTP evidence remain planned.
 - Implemented, CI evidence pending for V1/V2, `java` through `databaseTest`: `RowLevelSecurityCatalogTest` queries `pg_class`, `pg_policy` and `pg_roles`: every table with a
   `tenant_id` column has row-level security enabled and forced and at least one policy, except the four identity
   tables, on which `shipping_app` has no privileges; `shipping_app` is not superuser, lacks `BYPASSRLS` and owns
@@ -326,3 +328,10 @@ one.
 - Node.js and TypeScript: <https://nodejs.org/api/typescript.html>; the compiler option `erasableSyntaxOnly`:
   <https://www.typescriptlang.org/tsconfig/#erasableSyntaxOnly>.
 - Screens, states and accessibility: `docs/ui/workbench.md`. Module data: `docs/modules/<module>.md`.
+
+### Attended runtime follow-up, issue #92
+
+[ADR 0018](0018-attended-demo-runtime.md) now supplies the runnable demo profile, default memory ports,
+configured static directory with strict CSP, operator-prepared JDBC mode and synthetic identity seed.
+`DemoSmokeTest` passes over real sockets with memory storage; `DemoPostgresSmokeIntegrationTest` compiles and
+awaits CI. Durable events and browser behavior remain unproved.

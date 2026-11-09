@@ -35,7 +35,11 @@ export function openShipmentDrawer(host: HTMLElement, shipmentId: string, option
   const heading = el('h2', { id: 'drawer-heading', class: 'drawer__heading', tabindex: '-1' }, 'Shipment');
   const content = el('div', { class: 'drawer__body' });
   const labelArea = el('div', { class: 'drawer__label' });
-  const actions = el('div', { class: 'button-row drawer__actions' });
+  const downloadButton = button('Download label (SVG)', 'primary', () => {
+    if (label.kind !== 'downloading') void download();
+  });
+  const closeButton = button('Close', 'secondary', options.onClose);
+  const actions = el('div', { class: 'button-row drawer__actions' }, downloadButton, closeButton);
   const dialog = el('dialog', { class: 'drawer', 'aria-labelledby': 'drawer-heading' },
     el('div', { class: 'drawer__header' }, heading), content, labelArea, actions);
 
@@ -65,16 +69,16 @@ export function openShipmentDrawer(host: HTMLElement, shipmentId: string, option
     label = labelSettled(result);
     if (result.ok) {
       save(result.value.blob, result.value.fileName);
-      options.announce(labelMessage(label) ?? 'Label saved.');
+      options.announce(labelMessage(label) ?? 'Label ready. Check your browser downloads.');
     }
     render();
   };
 
   const renderLabel = (): void => {
     const message = labelMessage(label);
-    if (label.kind === 'saved' && objectUrl !== undefined && message !== undefined) {
+    if (label.kind === 'ready' && objectUrl !== undefined && message !== undefined) {
       replace(labelArea, notice('success', el('p', {}, message, ' ',
-        el('a', { href: objectUrl, download: label.fileName }, 'Save it again'))));
+        el('a', { href: objectUrl, download: label.fileName }, 'Download again'))));
     } else if (label.kind === 'failed' && message !== undefined) {
       const failure = label.failure;
       replace(labelArea, problemAlert({
@@ -132,13 +136,10 @@ export function openShipmentDrawer(host: HTMLElement, shipmentId: string, option
       }
     }
     const downloading = label.kind === 'downloading';
-    const downloadButton = canDownloadLabel(load)
-      ? button(downloading ? 'Downloading label...' : 'Download label (SVG)', 'primary', () => void download())
-      : null;
-    if (downloadButton !== null) {
-      downloadButton.disabled = downloading;
-    }
-    replace(actions, downloadButton, button('Close', 'secondary', options.onClose));
+    downloadButton.hidden = !canDownloadLabel(load);
+    downloadButton.textContent = downloading ? 'Downloading label...' : 'Download label (SVG)';
+    // Keep the focused control mounted while refusing repeat activation during the request.
+    downloadButton.setAttribute('aria-disabled', String(downloading));
     renderLabel();
   };
 

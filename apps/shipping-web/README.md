@@ -34,6 +34,8 @@ reviewed lock and compile with TypeScript 5.9.3 from `node_modules/.bin` on PATH
 ```sh
 npm ci --ignore-scripts
 tsc -p apps/shipping-web
+cp apps/shipping-web/index.html apps/shipping-web/dist/index.html
+cp apps/shipping-web/public/workbench.css apps/shipping-web/dist/workbench.css
 ```
 
 With working directory `apps/shipping-web`, run exactly:
@@ -44,9 +46,11 @@ node --test
 
 The only manifest scripts are root `build:web` = `tsc -p apps/shipping-web` and workspace `test:unit` =
 `node --test`, matching the reviewed forms. No bundler, test loader or runtime dependency is used.
-`tsc` emits modules under `dist/`, without copying `index.html` or `public/workbench.css`. It does not compile
+`tsc` emits modules under `dist/assets/`, without copying `index.html` or `public/workbench.css`. It does not compile
 or type-check logic tests: Node runs their erasable TypeScript directly, and Node type declarations are not reviewed.
-The 125 logic tests run without a DOM. No Playwright e2e, axe or manual accessibility evidence exists yet.
+The 130 Node tests run without a browser; the announcer tests use a minimal text sink and mocked clock.
+The entry test walks emitted module imports to prevent collisions with authenticated `/api` paths. Compile first.
+No Playwright e2e or axe evidence is claimed; the attended browser recording is in `docs/demos/87-web-workbench-slice.md`.
 
 ## Content security and serving
 
@@ -57,14 +61,15 @@ default-src 'self'; script-src 'self'; connect-src 'self'; style-src 'self'; img
 ```
 
 `src/app/csp.test.ts` asserts its exact text and placement. The app uses same-origin `/api/v1`, external module files
-and an external stylesheet; no external origin, inline script/style or evaluated string is allowed. ADR 0017 records
+and an external stylesheet; no external origin, inline script/style or evaluated string is allowed. ADR 0019 records
 the owner's decision. The test proves the declaration, not browser enforcement or general runtime safety.
 
-The API currently disables static-resource serving. Wiring the emitted modules, `index.html`, the stylesheet and
-History API route fallbacks into the same-origin Java application remains pending. There is no app server in this
-slice and no live end-to-end flow. A future repository-owned server must repeat the policy as a response header,
-add `frame-ancestors 'none'` in that header, serve only on loopback for the demo, and test the delivered response.
-Do not make API paths fall back to HTML.
+After staging the files above, start `bash tools/demo/run-attended-demo.sh memory` with the reviewed JDK on PATH.
+The API serves `dist` on loopback. Modules live under `/assets/` so the API adapter's file cannot collide with
+protected `/api` routes. Only documented page routes (including UUID detail routes) serve `index.html`; unknown
+assets/paths remain 404 and API paths never fall back to HTML. Demo responses repeat the meta policy with
+`frame-ancestors 'none'`. `DemoSmokeTest` tests direct routes, strict headers and containment; its PostgreSQL
+subclass runs only in CI. See `docs/flows/attended-demo.md`.
 
 ## Evidence limits
 
