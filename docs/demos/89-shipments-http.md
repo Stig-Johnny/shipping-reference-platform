@@ -2,7 +2,7 @@
 title: "Book, browse and download a simulated shipment label"
 description: "A clerk can book an offer once, safely retry it, browse only their tenant's shipments and download an escaped SVG label."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 pr: 89
 kind: feature
 recorded: 2026-11-08
@@ -250,5 +250,6 @@ tracking numbers are test doubles. This does not prove PostgreSQL persistence, r
 concurrent booking, durable event publication, cancellation, cancelled-state replay/label denial or browser behavior.
 `CANCELLED` is accepted as a list filter and currently returns no matches. The label is explicitly simulated and its
 bars are decorative. U+FFFE and U+FFFF display as visible code-point placeholders because XML cannot contain them;
-booking values and contract bounds are unchanged. Scenario reports remain `COVERAGE_INCOMPLETE` with 106 exact known
-gaps.
+booking values and contract bounds are unchanged. The scenario ledger now has 200 exact distinct known gaps.
+`COVERAGE_INCOMPLETE` is the expected report verdict; the ledger reader accepts the JDBC debt classification
+(ADR 0013). This update does not change the recorded HTTP exchanges.

@@ -2,7 +2,7 @@
 title: "Module: tenants"
 description: "Demo authentication for synthetic users, tenant derivation from membership, tenant binding for row-level security, and tenant-scoped prototype flags."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 module: tenants
 moduleStatus: built
 riskLevel: 3
@@ -28,29 +28,36 @@ Built:
   request; `GET /api/v1/me` answers from the authenticated membership (`DemoTokenAuthenticationTest`,
   `TenantsHttpContractTest`).
 
-These tests start the whole application, but the `MembershipDirectory` port has no database adapter yet: a test
-double holds the synthetic users below. So they prove the HTTP edge, the 401 and 403 problems and that the tenant
-comes from the membership only, not the lookup in PostgreSQL. That is why `tenants.demo-authentication` and
-`tenants.current-membership` are partial although every test they name passes.
+The HTTP tests start the whole application with an in-memory directory. `JdbcMembershipDirectory` now implements
+the port under the `postgres` profile. `MembershipDirectoryIntegrationTest` shares its exact membership contract
+with `InMemoryStoresTest`: Alpha, Beta, a known user without a membership and an unknown token. The database run
+is pending CI, so the two authentication capabilities remain partial and their HTTP evidence proves no SQL execution.
 
 In the scenario coverage fixtures, `ReachabilityTest` shares one raw `ThreadTenantContext` between tenant-owned and
 quote-owned roots, directly and through shared containers, and requires a bypass gap in both traversal orders.
 Visits track object identity and owning module. This checks boundary snapshots, not every runtime reference
 ([known gaps](../gaps.md#6-tests-and-quality-gates)). Scenario configurations use `@TestConfiguration` and are wired
 explicitly, so the HTTP tests do not discover them through application component scanning.
-Both scenarios retain the full-main census and report `COVERAGE_INCOMPLETE`, "coverage incomplete: 106 known gaps".
-The exact ledger includes the Spring authentication/security accesses and six quotes and shipments factory parameters; each is
-classified and tagged "phase 3 / option 2". Ambient security state and framework callbacks remain unproved.
+Both scenarios retain the full-main census. Their expected report is `COVERAGE_INCOMPLETE`, "coverage incomplete:
+200 known gaps". The exact ledger includes the Spring authentication/security
+accesses, 94 distinct JDBC findings and six quotes and shipments factory parameters; each is classified and tagged
+"phase 3 / option 2". Ambient security state and framework callbacks remain unproved.
 Only exact reviewed debt can pass the build; new, changed or disappeared findings require an explicit ledger update
 (ADR 0013). Separate HTTP tests do not make scenario HTTP exchanges observed.
 
-Planned: the JDBC adapter `JdbcMembershipDirectory` that calls `tenants.resolve_demo_token`, the `demo` profile's
-database configuration (until then the application starts in tests only), `TenantScope`, the transaction manager
-that sets `app.tenant_id`, prototype flags (until then every flag is off and `enabledFlags` is empty) and the demo seed.
+Built: `JdbcMembershipDirectory` calls `tenants.resolve_demo_token`. It sets an empty transaction-local tenant
+before this pre-authentication query, since the token lookup is what discovers the tenant (ADR 0017).
+Planned: the `demo` profile's database configuration, `TenantScope`, prototype flags (until then every flag is off and `enabledFlags` is empty) and the demo seed.
 The V1 schema, role bootstrap and database RLS tests exist; their execution against the merged tree is pending CI.
 Until that evidence exists, `tenants.row-level-security` remains planned.
 `tenants.cross-tenant-denial`, `tenants.tenant-scope-for-events` and
 `tenants.prototype-flags` are planned.
+
+**Issue #90 coverage ledger:** the accepted ledger contains 200 distinct findings.
+The four JDBC adapters put each JdbcClient call on its own line, yielding 94 distinct census findings; ADR 0013
+records the owner's acceptance. The ledger reader accepts `JDBC statement construction and execution` as a debt
+classification. The census and multiplicity checks are unchanged; duplicate occurrences still cannot collapse into one.
+The public demo is assigned to pull request #91; database execution evidence remains pending CI.
 
 ## Responsibilities
 
@@ -135,15 +142,16 @@ These tokens are public, guessable test fixtures, not secrets. Rules:
 2. Spring Security's chain (stateless; CSRF protection disabled because the API uses no cookies and accepts only
    bearer tokens) runs `DemoTokenAuthenticationFilter`. It hands the token to the module's `AuthenticationManager`,
    whose `DemoTokenAuthenticationProvider` resolves it through `ResolveMembership`: the SHA-256 goes to the
-   `MembershipDirectory` port, whose planned JDBC adapter calls `tenants.resolve_demo_token`. The filter sets the
+   `MembershipDirectory` port, whose JDBC adapter calls `tenants.resolve_demo_token`. The filter sets the
    `SecurityContext` with a `TenantPrincipal(Membership)` and runs the rest of the request inside
    `ThreadTenantContext.runAs(tenant, ...)`, so the binding ends when the request returns or throws. A member has the
    authority `TENANT_MEMBER`, which every `/api/**` path requires; a user without a tenant has none and gets `403`.
    The entry point and the access-denied handler hand their exceptions to the MVC exception resolvers, where
    `AuthenticationProblems` writes the `401` and `403` problems.
-3. Every transaction starts through `TenantBindingTransactionManager` (extends Spring's `JdbcTransactionManager`),
-   whose `prepareTransactionalConnection` runs `select set_config('app.tenant_id', ?, true)` with the bound tenant,
-   or with `''` when none is bound. The value is transaction-local and vanishes at commit or rollback.
+3. Under `postgres`, Spring JDBC transactions enclose adapter calls. Each adapter sets `app.tenant_id` locally
+   before every SQL statement, using the tenant supplied by its application port; authentication sets it empty.
+   The setting vanishes on commit or rollback. ADR 0017 replaces the planned custom transaction manager for these
+   synchronous adapters; event `TenantScope` remains planned.
 4. Listeners call `TenantScope.runAs(event.tenantId(), ...)` inside their transaction.
 
 ## Prototype flags
@@ -178,8 +186,7 @@ Items marked built exist; the rest is planned.
   `AuthenticationManager`, so Spring Boot never generates a user), `DemoTokenAuthenticationFilter`,
   `DemoTokenAuthenticationProvider`, `DemoTokenAuthentication`, `TenantPrincipal`, `MeController`
   (`getCurrentMembership`) and `AuthenticationProblems`, which maps `unauthenticated` and `no-tenant-membership`.
-- `internal.adapter.out.jdbc`: `TenantBindingTransactionManager`, `JdbcMembershipDirectory` (calls the function),
-  `JdbcFlagSettings`.
+- `internal.adapter.out.jdbc`: `JdbcMembershipDirectory` is built (calls the function); `JdbcFlagSettings` is planned.
 
 ## Data: schema `tenants` (migration `V1__tenants.sql`; seed `db/demo/V1000__synthetic_tenants.sql`)
 

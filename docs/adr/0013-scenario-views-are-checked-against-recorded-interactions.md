@@ -2,7 +2,7 @@
 title: "ADR 0013: Scenario views are checked against recorded interactions"
 description: "Each executable scenario view has a validated sidecar; a test-only recorder observes module API calls and publications, bounded checks retain detected coverage gaps with an exact debt ledger, and a comparator checks the recording against the steps, with outcomes asserted separately."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-09
 date: 2026-11-07
 decision-makers: repository owner
 enforcedBy:
@@ -164,7 +164,7 @@ Chosen option 1.
   Structurizr for the repository's dynamic views, and `ScenarioReportTest` holds each verdict to its claim.
 - `control.scenario-conformance` in `docs/capabilities/capabilities.yaml` records the status.
 
-## Implementation status (2026-11-08)
+## Implementation status (2026-11-09)
 
 What is built and what remains open under the temporary coverage-debt decision above.
 
@@ -179,13 +179,16 @@ What is built and what remains open under the temporary coverage-debt decision a
   shipments' `CurrentTenant.require()`, then `QuoteOffers.findOffer`. Its outcomes (the booking is rejected as for an
   unknown quote, nothing is stored for Beta, Alpha's offer stays bookable) are asserted by the test, apart from the
   steps. First booking, booking replay and label are planned.
-- **106 known gaps remain.** The full-main census includes the HTTP adapters even though the direct-use-case
-  scenarios do not instantiate them. It retains 100 Spring accesses and six quotes/shipments factory parameters;
-  both current scenarios say `COVERAGE_INCOMPLETE`. The factories are not witnessed by the scenario wiring.
+- **200 distinct known gaps remain in the accepted ledger.** The full-main census includes the HTTP and JDBC
+  adapters even though the direct-use-case scenarios do not instantiate them. The ledger contains 100 HTTP/security
+  Spring accesses, 94 JDBC accesses and six quotes/shipments factory parameters. `COVERAGE_INCOMPLETE` is the expected
+  report verdict; the ledger reader accepts the JDBC debt classification described below. The factories are not witnessed
+  by the scenario wiring.
   Classes in the ledger are fixed constants (11), HTTP assembly (47), authentication construction/state (4),
   credential erasure callback (1), filter superclass construction (1), security builders/callbacks (22), provider
   composition (1), environment dispatch (1), ambient security state (6), authentication/authority extraction (3),
-  framework dispatch to application callbacks (3), and foreign-service factory parameters (6). These labels describe
+  framework dispatch to application callbacks (3), foreign-service factory parameters (6), and JDBC
+  statement construction and execution (94). These labels describe
   the missing proof, not exemptions. Ambient state, inherited credential callbacks and unknown implementations
   remain unproved; closing them is phase 3 / option 2.
 - **Refused, not evaluated.** Evaluatable `AFTER_COMMIT` steps, task-capable dispatch found in the census, and repeated
@@ -202,6 +205,22 @@ What is built and what remains open under the temporary coverage-debt decision a
 
 The new adapter adds 29 exact entries to the existing ledger: 24 HTTP response/problem assembly calls, one media-type
 constant, and four foreign-service factory parameters in `ShipmentsConfiguration` (the booking factory takes both
-`CurrentTenant` and `QuoteOffers`). The original 77 entries remain unchanged. All 106 remain coverage refusals under
-the existing phase 3 / option 2 decision; no receiver, matcher or comparison rule is broadened. The negative fixture
-still rejects its one additional unledgered Spring call, now alongside 106 known gaps (107 raw refusals).
+`CurrentTenant` and `QuoteOffers`). The original 77 entries remain unchanged. Including the issue #90 JDBC addition
+below, all 200 distinct ledger findings remain coverage refusals under the existing phase 3 / option 2 decision;
+no receiver, matcher or comparison rule is broadened. The negative fixture still requires exactly one additional
+unledgered Spring call and pins the raw total at 201; these expectations do not override parsing or multiplicity.
+
+### JDBC coverage debt, issue #90
+
+Owner acceptance: "accept #90 ledger 94 rows", recorded at `2026-11-09T08:36:06.479Z`.
+Each JdbcClient call in the four adapters now occupies its own source line, with no behavior change. The fresh
+census reports **94 occurrences and 94 distinct findings**. The ledger replaces the earlier 76-row addition with
+those 94 exact rows, classified as `JDBC statement construction and execution`, with follow-up `phase 3 / option 2`.
+The original 106 rows remain byte-for-byte unchanged; the ledger now contains 200 distinct findings. No duplicate
+rows, patterns or wildcards are added.
+
+The ledger reader's allowed classifications gain only `JDBC statement construction and execution`. The detector,
+census, duplicate checks, occurrence-sensitive matching, blocking and bypass logic are unchanged. The previous
+18 repeated occurrences in 16 duplicate groups shared source lines; formatting makes their locations distinct.
+Every finding remains a coverage refusal, and the extra-Spring-access fixture still requires exactly one blocker
+and 201 raw findings. Accepting these exact rows does not establish JDBC coverage.

@@ -142,18 +142,19 @@ class UseCasePageTest {
                 "<span class=\"badge badge-partial\">Partial</span>", "Started by Shipping clerk");
         // Shipment HTTP evidence now exists; implementation remains partial until persistence/cancellation.
         assertThat(row("use-cases", "shipments.book-from-offer")).contains(
-                "<span class=\"badge badge-shipped\">All passed</span> All 3 named tests passed in this build.",
+                "<span class=\"badge badge-shipped\">All passed</span> All 4 named tests passed in this build.",
                 "BookShipmentTest: passed", "RecipientTest: passed", "ShipmentsHttpContractTest: passed",
+                "JdbcTrackingNumbersTest: passed",
                 "<span class=\"badge badge-partial\">Partial</span>", "Started by Shipping clerk")
                 .doesNotContain(">Shipped</span>");
         assertThat(row("use-cases", "quotes.get-quote")).contains(
                 "<span class=\"badge badge-none\">Not run or missing</span> 1 of 2 named tests passed in this build; 1 "
-                        + "not in the repository yet.", "QuotesModuleIntegrationTest: not in the repository yet",
+                        + "not run in this build.", "QuotesModuleIntegrationTest: no report in this build",
                 "QuotesHttpContractTest: passed", "<span class=\"badge badge-partial\">Partial</span>")
                 .doesNotContain("badge-shipped");
         assertThat(row("use-cases", "shipments.list-and-read")).contains(
                 "<span class=\"badge badge-none\">Not run or missing</span> 1 of 2 named tests passed in this build; 1 "
-                        + "not in the repository yet.", "ShipmentListingIntegrationTest: not in the repository yet",
+                        + "not run in this build.", "ShipmentListingIntegrationTest: no report in this build",
                 "ShipmentsHttpContractTest: passed", "<span class=\"badge badge-partial\">Partial</span>")
                 .doesNotContain("badge-shipped");
         // Preserve the no-tests-yet assertion for a use case whose acceptance test still does not exist.

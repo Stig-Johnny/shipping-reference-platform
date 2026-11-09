@@ -20,7 +20,8 @@ final class CoverageLedger {
             "Credential erasure callback", "Framework filter superclass construction",
             "Security configuration/building and callbacks", "Authentication-provider composition",
             "Environment/profile dispatch", "Ambient security state", "Authentication/authority extraction",
-            "Framework dispatch to application callbacks", "Foreign-service factory parameters");
+            "Framework dispatch to application callbacks", "Foreign-service factory parameters",
+            "JDBC statement construction and execution");
 
     record Entry(String classification, String followUp, String finding) {
     }

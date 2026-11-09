@@ -70,7 +70,7 @@ class SitePagesTest {
                 "<span class=\"badge badge-shipped\">Passing</span> 8 evidence test classes passed");
         assertThat(site.text("modules/shipments.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
                 + "</span> 4 capabilities partial, 2 capabilities planned.",
-                "<span class=\"badge badge-shipped\">Passing</span> 5 evidence test classes passed");
+                "<span class=\"badge badge-shipped\">Passing</span> 6 evidence test classes passed");
         assertThat(site.text("modules/tenants.html")).contains("<span class=\"badge badge-partial\">Partly shipped"
                 + "</span> 2 capabilities partial, 4 capabilities planned.",
                 "<span class=\"badge badge-shipped\">Passing</span> 3 evidence test classes passed");
@@ -456,7 +456,7 @@ class SitePagesTest {
         }
         // The flow page keeps its own evidence: the quotes, shipments and tenants modules' tests that pass.
         assertThat(site.text("model/flow-quote-book-label.html"))
-                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> 16 "
+                .contains("<dt>Verified evidence</dt><dd><span class=\"badge badge-shipped\">Passing</span> 17 "
                         + "evidence test classes passed")
                 .doesNotContain("Checker tests passing", "Conformance tests passing");
         String index = site.text("model/index.html");

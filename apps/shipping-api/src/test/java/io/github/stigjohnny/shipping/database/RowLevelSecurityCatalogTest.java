@@ -27,13 +27,14 @@ import org.junit.jupiter.api.Test;
 class RowLevelSecurityCatalogTest {
 
     private static final List<String> TENANT_TABLES = List.of("quotes.quote", "quotes.quote_offer",
-            "tenants.prototype_flag");
+            "shipments.shipment", "tenants.prototype_flag");
     private static final List<String> IDENTITY_TABLES = List.of("tenants.app_user", "tenants.demo_token",
             "tenants.membership", "tenants.tenant");
     /** What the runtime role may do on each table; on everything else, nothing. */
     private static final Map<String, List<String>> RUNTIME_GRANTS = Map.of(
             "quotes.quote", List.of("SELECT", "INSERT"),
             "quotes.quote_offer", List.of("SELECT", "INSERT"),
+            "shipments.shipment", List.of("SELECT", "INSERT", "UPDATE"),
             "tenants.prototype_flag", List.of("SELECT"),
             "tenants.app_user", List.of(),
             "tenants.demo_token", List.of(),
@@ -78,7 +79,7 @@ class RowLevelSecurityCatalogTest {
             assertThat(Jdbc.strings(catalog, TABLES_IN_APPLICATION_SCHEMAS + """
                     and exists (select from pg_attribute a where a.attrelid = c.oid and a.attname = 'tenant_id'
                         and not a.attisdropped) order by 1""")).containsExactly("quotes.quote", "quotes.quote_offer",
-                    "tenants.membership", "tenants.prototype_flag", "tenants.tenant");
+                    "shipments.shipment", "tenants.membership", "tenants.prototype_flag", "tenants.tenant");
             for (String table : TENANT_TABLES) {
                 assertThat(Jdbc.strings(catalog, """
                         select a.attname from pg_index i join pg_attribute a on a.attrelid = i.indrelid
@@ -157,10 +158,25 @@ class RowLevelSecurityCatalogTest {
                         has_schema_privilege(?::name, s, 'CREATE')::text,
                         exists (select from pg_namespace n, aclexplode(n.nspacl) e where n.nspname = s
                             and e.grantee = 0)::text
-                    from unnest(array['flyway', 'quotes', 'tenants']) s order by 1""", ShippingDatabase.APP,
+                    from unnest(array['flyway', 'quotes', 'shipments', 'tenants']) s order by 1""", ShippingDatabase.APP,
                     ShippingDatabase.APP)).as("schema, usage, create, granted to PUBLIC").containsExactly(
                     "flyway | false | false | false", "quotes | true | false | false",
+                    "shipments | true | false | false",
                     "tenants | true | false | false");
+        }
+    }
+
+    @Test
+    void theTrackingSequenceGrantsUsageOnlyAndCannotCycle() throws SQLException {
+        try (Connection catalog = database.superuser()) {
+            assertThat(Jdbc.rows(catalog, """
+                    select pg_get_userbyid(c.relowner), s.seqmin::text, s.seqmax::text, s.seqcycle::text,
+                        has_sequence_privilege('shipping_app', c.oid, 'USAGE')::text,
+                        has_sequence_privilege('shipping_app', c.oid, 'SELECT')::text,
+                        has_sequence_privilege('shipping_app', c.oid, 'UPDATE')::text
+                    from pg_sequence s join pg_class c on c.oid = s.seqrelid
+                    where c.oid = 'shipments.tracking_number_seq'::regclass
+                    """)).containsExactly("shipping_owner | 1 | 9999999999 | false | true | false | false");
         }
     }
 
