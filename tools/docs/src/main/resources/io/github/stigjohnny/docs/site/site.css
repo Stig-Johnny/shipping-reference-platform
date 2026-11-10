@@ -873,6 +873,11 @@ tr.group th {
   padding-left: 20px;
 }
 
+.dependency-usage {
+  max-width: min(64ch, calc(100vw - 80px));
+  overflow-wrap: anywhere;
+}
+
 .dependency-usage a,
 .usage-source h3,
 .usage-source p {

@@ -44,6 +44,18 @@ calls or allowance changes belong to this work. Implementation revisions, actual
 inspection are recorded in the PR. Final independent review and the separate exercise of standing merge
 delegation name the exact final head in durable PR receipts; these initial phases make no approval claim.
 
+### Revision and validation receipt added on 2026-11-10
+
+Issue 109 is [PR 110](https://github.com/Stig-Johnny/shipping-reference-platform/pull/110), starting at
+[ae140d35b45346f664c00951b7554acc442d9cf4](https://github.com/Stig-Johnny/shipping-reference-platform/commit/ae140d35b45346f664c00951b7554acc442d9cf4).
+Generation passed with 4,485 ordinary tests and no failures, errors or skips; the complete ordinary check passed,
+including 22 current generated files and 102 site files before its numbered demo was added. The unchanged
+519-entry accepted set passed PolicyCheck. Independent draft review found an Action subpath identity error; a
+regression failed before the correction and the final focused suite passed all 31 tests. The coordinator inspected
+Maven, npm, Action and bundled-carrier evidence links, empty states and keyboard disclosures at desktop and narrow
+widths. The numbered demo records those limits. Final exact-head approval and exercised delegation remain separate
+PR receipts.
+
 ## Issue 106
 
 **A direct human demo route.** Lead README readers to the deck, staged memory workbench and visual Brain; label
