@@ -11,6 +11,11 @@ The tooling that judges it exists too: a checker that holds compiled Java classe
 a labelled partial check of detected TypeScript imports in the web app, a dependency allowlist check and a
 documentation tool.
 
+**Start the demo:** open the [milestone deck](https://stig-johnny.github.io/shipping-reference-platform/demos/deck-milestone.html),
+run the [memory workbench](docs/flows/attended-demo.md#memory-mode), then explore the
+[visual Brain](https://stig-johnny.github.io/shipping-reference-platform/brain/index.html).
+The deck and Brain are documentation; the workbench runs locally with synthetic data.
+
 **Scenario coverage ledger:** the owner accepted 15 exact demo findings for issue #92, bringing the ledger to
 215 distinct findings: 115 HTTP/security accesses, 94 JDBC accesses and six factory parameters. ADR 0013 records
 the acceptance. Existing classifications and the census, matching, duplicate and bypass checks are unchanged.
@@ -408,13 +413,25 @@ code, configuration, models, specifications, ADRs, security reviews and document
 
 ## Attended demo
 
-Run `bash tools/demo/run-attended-demo.sh memory 8080 tools/demo/fixture` with the reviewed JDK.
+Prepare the reviewed JDK, Node and installed compiler using the [memory-mode runbook](docs/flows/attended-demo.md#memory-mode).
+Set `JAVA_HOME` to the reviewed JDK and put its `bin` first on `PATH`; Bash and curl are also required.
+From the repository root, compile and stage the workbench, then launch it:
+
+```sh
+tsc -p apps/shipping-web
+cp apps/shipping-web/index.html apps/shipping-web/dist/index.html
+cp apps/shipping-web/public/workbench.css apps/shipping-web/dist/workbench.css
+bash tools/demo/run-attended-demo.sh memory 8080
+```
+
 The root `bootJar` task produces a thin executable archive and sibling runtime libraries without a new plugin.
-The fixture is a static page. For the workbench, compile and stage the files as described in
-`apps/shipping-web/README.md`, then omit the fixture argument. The launcher prints its loopback
-URL and synthetic user hint and cleans up on interruption. `postgres` mode uses an already migrated/seeded database
+The launcher prints the workbench's loopback URL and synthetic user hint and cleans up on interruption.
+Memory mode forgets its data when stopped. `postgres` mode uses an already migrated/seeded database
 and standard Spring datasource environment variables; it never prints them. Follow the
 [runbook](docs/flows/attended-demo.md) for preparation, commands, tests and limits.
+
+For an optional static-serving check, replace the launch command with
+`bash tools/demo/run-attended-demo.sh memory 8080 tools/demo/fixture`. This fixture has no quote or booking UI.
 
 `DemoSmokeTest` proves the full real-HTTP memory flow and static containment/CSP. The database-tagged
 `DemoPostgresSmokeIntegrationTest` shares those assertions: its three tests passed without failures or skips in [recorded CI evidence](docs/flows/attended-demo.md#recorded-database-evidence) (run `42612173809`). All ten database classes passed (45 tests, zero failures/skips). The owner accepted exactly 15 new demo framework findings for issue #92; the 215-row scenario ledger
