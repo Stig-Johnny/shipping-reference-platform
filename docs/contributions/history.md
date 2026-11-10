@@ -25,6 +25,26 @@ Known phases below identify their receipts and actual work dates. The table's da
 precision the receipt supports. No receipt here establishes a resolved provider checkpoint. Private source logs
 are not published. Model provenance, review outcome, owner approval and passing tests are different evidence.
 
+## Issue 102
+
+**Shipment implementation claims.** Clarify booking, recorded PostgreSQL evidence and the in-process event publisher,
+while marking cancellation, durable publication and audit consumption as planned. PR and initial implementation
+revision are appended once available.
+
+[Issue 102](https://github.com/Stig-Johnny/shipping-reference-platform/issues/102) ·
+[settings and scope receipt 6755198869](https://github.com/Stig-Johnny/shipping-reference-platform/issues/102#issuecomment-6755198869).
+
+| Phase / role | Work date (UTC) | Tool and observed settings | Verification and scope |
+|---|---|---|---|
+| 102-1 editorial proposal | 2026-11-09 23:54–23:56 | Codex editorial agent; configured `gpt-6-astra`; checkpoint `unknown`; effort `xhigh` | Receipt 6755198869 records a November 10 clarification based on parent runtime metadata and inheritance without override. Source-based documentation proposal only; no separate backend introspection or DeepSeek implementation. |
+| 102-2 integration and validation | 2026-11-10 | Codex coordinator; configured `gpt-6-astra`; checkpoint `unknown`; effort `xhigh` | Receipt 6755198869 identifies the continuing-session settings and role: source date, contribution history, Brain generation, numbered demo and existing checks. Actual results and revision follow in the PR. |
+
+The coordinator also labelled the existing shipment mutation-testing target as planned; its threshold is unchanged.
+
+No runtime, model relationship, contract, acceptance status or historical evidence changes belong to this issue.
+Final independent review and exercise of the owner's standing merge delegation remain separate PR receipts.
+This checkpoint is not approval or a claim of passing CI; no individual human SHA approval is implied.
+
 ## Issue 100
 
 **Current milestone deck.** Correct stale application and persistence claims, retain the ten main/four appendix
