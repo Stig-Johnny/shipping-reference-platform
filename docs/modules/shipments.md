@@ -1,8 +1,8 @@
 ---
 title: "Module: shipments"
-description: "Books shipments from quote offers with tenant-scoped idempotency, cancels them, renders simulated SVG labels and publishes shipment events."
+description: "Books shipments from quote offers with tenant-scoped idempotency and simulated SVG labels. Cancellation and durable event delivery are planned."
 status: accepted
-updated: 2026-11-09
+updated: 2026-11-10
 module: shipments
 moduleStatus: built
 riskLevel: 3
@@ -28,8 +28,9 @@ including raw SVG. It proves sequential replay after expiry, all booking rejecti
 labels, newest-first keyset pages including tied timestamps, tenant/filter-bound cursors and input validation.
 `SvgLabelRendererTest` checks exact golden bytes, escaping, the allowed XML vocabulary and the decorative bars.
 
-The four built shipment capabilities remain partial: persistence, transactional publication, concurrent booking and
-cancellation are unproven. `ShipmentTest` covers booking only. `ShipmentStatus` still has `BOOKED` only; the HTTP
+The four implemented shipment capabilities remain `partial`. Their evidence covers memory/HTTP behavior and the
+recorded PostgreSQL storage and concurrent-booking cases below; it does not establish cancellation or durable
+event delivery. `ShipmentTest` covers booking only. `ShipmentStatus` still has `BOOKED` only; the HTTP
 `CANCELLED` list filter is accepted and returns no matches until cancellation exists. There is no cancellation route,
 no cancelled state to replay and no `409 shipment-cancelled` label outcome yet.
 
@@ -40,9 +41,14 @@ PostgreSQL's default READ COMMITTED isolation. The adapters' transaction annotat
 `ShipmentListingIntegrationTest` shares its exact store contract with `InMemoryStoresTest`.
 `BookingIdempotencyIntegrationTest` covers real overlapping transactions; all four cases passed in that recorded CI run.
 
-Planned: `ShipmentCancelled`, cancellation and durable event publication.
-The migration reserves cancellation and version columns, but the application still writes and reads BOOKED only.
-No new event publication claim is made.
+`BookShipment` emits `ShipmentBooked` through Spring's in-process `ApplicationEventPublisher` after inserting a new
+booking, but not on replay or rejection. Both attended profiles (`demo` and `demo,postgres`) disable the durable
+publication registry. The planned `shipments.publish-events` capability also requires `ShipmentCancelled` and
+publication once on commit, never on rollback; the current publisher call does not establish those guarantees.
+Audit consumption and replay remain planned.
+
+Cancellation remains planned. The migration reserves cancellation and version columns, but the application still
+writes and reads BOOKED only.
 
 `TenantDenialScenarioTest` separately asserts Beta's booking rejection, no stored shipment for Beta, and Alpha's
 still-bookable offer. Two declared API calls are evaluated, but the ledger retains 215 distinct known coverage gaps
@@ -60,10 +66,10 @@ Every finding remains a coverage refusal; the expected verdict is `COVERAGE_INCO
 - Book exactly one shipment per quote, from one of its offers, only while the offer is unexpired, and only for the
   quote's tenant.
 - Make booking idempotent per tenant and `Idempotency-Key`: the same key and body return the same shipment.
-- Cancel booked shipments (v0.1 lifecycle `BOOKED -> CANCELLED`).
+- Planned: cancel booked shipments (v0.1 lifecycle `BOOKED -> CANCELLED`).
 - List and read shipments of the caller's tenant.
 - Render a simulated, clearly marked SVG label on request.
-- Publish `ShipmentBooked` and `ShipmentCancelled` in the transaction that changes the shipment.
+- Planned: durably publish `ShipmentBooked` and `ShipmentCancelled` in the transaction that changes the shipment.
 
 Not its job: pricing (quotes), carrier integration, tracking states (planned tracking module), returns (planned),
 invoicing.
@@ -74,7 +80,7 @@ invoicing.
 |---|---|---|---|
 | shipments -> quotes | quotes | REQUIRED | Books only against an existing, unexpired offer (`QuoteOffers.findOffer`). |
 | shipments -> tenants | tenants | REQUIRED | Resolves the caller's tenant (`CurrentTenant`, `TenantId`). |
-| audit -> shipments | audit | REQUIRED | Audit records `ShipmentBooked` and `ShipmentCancelled`. |
+| audit -> shipments | audit | REQUIRED | Planned: Audit records `ShipmentBooked` and `ShipmentCancelled`. |
 | orders, tracking, returns -> shipments | planned | PERMITTED | Not evaluated while those modules are planned. |
 
 ## Public API: `io.github.stigjohnny.shipping.shipments.api`
@@ -85,7 +91,7 @@ Annotated `@NamedInterface("api")` and `@NullMarked`. Kept deliberately small: o
 |---|---|
 | `ShipmentId` | `record ShipmentId(UUID value)` |
 | `ShipmentBooked` | `record ShipmentBooked(UUID eventId, TenantId tenantId, ShipmentId shipmentId, Instant occurredAt)` |
-| `ShipmentCancelled` | `record ShipmentCancelled(UUID eventId, TenantId tenantId, ShipmentId shipmentId, Instant occurredAt)` |
+| `ShipmentCancelled` (planned) | `record ShipmentCancelled(UUID eventId, TenantId tenantId, ShipmentId shipmentId, Instant occurredAt)` |
 
 Event payloads contain no recipient data and no quotes types, so a consumer of these events does not gain a
 dependency on quotes (this keeps the PERMITTED `audit -> quotes` edge free of evidence). Event rules: ADR 0006.
@@ -97,15 +103,15 @@ dependency on quotes (this keeps the PERMITTED `audit -> quotes` edge free of ev
 | `bookShipment` | `POST /api/v1/shipments` (header `Idempotency-Key`) | `201` `Shipment`; `200` replay with `Idempotency-Replayed: true` | `404 quote-not-found`, `404 offer-not-found`, `409 quote-already-booked`, `422 quote-expired`, `422 recipient-does-not-match-quote`, `422 idempotency-key-reused` |
 | `listShipments` | `GET /api/v1/shipments?limit&cursor&status` | `200` `ShipmentPage` | `400 validation-failed` for a bad cursor |
 | `getShipment` | `GET /api/v1/shipments/{shipmentId}` | `200` `Shipment` | `404 shipment-not-found` |
-| `cancelShipment` | `POST /api/v1/shipments/{shipmentId}/cancellation` | `200` `Shipment` | `404 shipment-not-found` |
-| `getShipmentLabel` | `GET /api/v1/shipments/{shipmentId}/label` | `200` `image/svg+xml` | `404 shipment-not-found`, `409 shipment-cancelled` |
+| `cancelShipment` (planned) | `POST /api/v1/shipments/{shipmentId}/cancellation` | `200` `Shipment` | `404 shipment-not-found` |
+| `getShipmentLabel` | `GET /api/v1/shipments/{shipmentId}/label` | `200` `image/svg+xml` | `404 shipment-not-found`; planned: `409 shipment-cancelled` |
 
 ## Events
 
-| Event | Published when | Consumers in v0.1 |
+| Event | Current behavior / planned design | Consumers in v0.1 |
 |---|---|---|
-| `ShipmentBooked` | In `BookShipment`'s transaction, after the insert. Not on a replay or a rejection. | `audit` (`ShipmentAuditListener`) |
-| `ShipmentCancelled` | In `CancelShipment`'s transaction, only for `BOOKED -> CANCELLED`. Not when already cancelled. | `audit` (`ShipmentAuditListener`) |
+| `ShipmentBooked` | Emitted in process after the insert, not on replay or rejection. Durable commit/rollback guarantees are planned. | Planned: `audit` (`ShipmentAuditListener`) |
+| `ShipmentCancelled` (planned) | In `CancelShipment`'s transaction, only for `BOOKED -> CANCELLED`. Not when already cancelled. | Planned: `audit` (`ShipmentAuditListener`) |
 
 Consumes: none.
 
@@ -116,14 +122,16 @@ The order of checks is part of the contract (description of `bookShipment`):
 1. Tenant from `CurrentTenant.require()`.
 2. Validate the key (`^[A-Za-z0-9_-]{16,64}$`) and the body.
 3. Look up `(tenant, key)`. Same fingerprint: return `Replayed` with the current state of that shipment, even if the
-   quote has expired or the shipment has been cancelled since. Different fingerprint: `IDEMPOTENCY_KEY_REUSED`.
+   quote has expired. Replay of a later cancelled state is planned with cancellation. Different fingerprint:
+   `IDEMPOTENCY_KEY_REUSED`.
 4. `quoteOffers.findOffer(tenant, quoteId, offerId, clock.instant())`: `QuoteNotFound`, `OfferNotFound`, `Expired`
    map to the matching rejection.
 5. The recipient's `countryCode` and `postcode` must equal the offer's destination (exact, case-sensitive; both are
    upper case by contract).
 6. An existing shipment for the quote under another key gives `QUOTE_ALREADY_BOOKED`.
-7. Create the shipment in `BOOKED`, assign the next tracking number, insert it with the key and fingerprint, publish
-   `ShipmentBooked`, all in one transaction.
+7. Create the shipment in `BOOKED`, assign the next tracking number, insert it with the key and fingerprint, and emit
+   `ShipmentBooked` in process. Under `postgres`, the insert and publisher call run in the booking transaction;
+   durable publication remains planned.
 
 A rejected request stores nothing, so the same key sent again after a rejection is evaluated again from step 4.
 
@@ -154,6 +162,9 @@ left-padded with ASCII zeros to 10 ASCII digits (the first is `SIM0000000001`). 
 upper bound, without a database; it restores the default formatting locale after each case.
 
 ## Lifecycle
+
+The diagram shows the v0.1 target. Only `BOOKED` and its in-process booking event are implemented; both
+cancellation transitions and the cancellation event are planned.
 
 ```mermaid
 stateDiagram-v2
@@ -191,10 +202,10 @@ identical input.
 
 - `Shipment` (aggregate): `ShipmentId`, `TenantId`, `QuoteId`, `OfferId`, `ServiceLevel`, `Money price`,
   `ShipmentStatus`, `TrackingNumber`, `Place origin`, `Recipient`, `@Nullable ShipmentReference`, `IdempotencyKey`,
-  `RequestFingerprint`, `Instant bookedAt`, `@Nullable Instant cancelledAt`, `int version`.
-  `static Shipment book(...)` creates a `BOOKED` shipment; `CancellationResult cancel(Instant at)` returns
-  `Cancelled(Shipment)` or `AlreadyCancelled(Shipment)`.
-- `ShipmentStatus`: `BOOKED`, `CANCELLED`; `boolean canBecome(ShipmentStatus next)` allows only `BOOKED -> CANCELLED`.
+  `RequestFingerprint`, `Instant bookedAt`. `static Shipment book(...)` creates a `BOOKED` shipment.
+  Planned with cancellation: `@Nullable Instant cancelledAt`, `int version` and `CancellationResult cancel(Instant at)`,
+  returning `Cancelled(Shipment)` or `AlreadyCancelled(Shipment)`.
+- `ShipmentStatus`: `BOOKED`. Planned: `CANCELLED` and `boolean canBecome(ShipmentStatus next)`, allowing only `BOOKED -> CANCELLED`.
 - Values with validating constructors: `Recipient`, `ShipmentReference`, `TrackingNumber` (`^SIM[0-9]{10}$`),
   `IdempotencyKey`, `RequestFingerprint` (64 lower-case hex characters; `static RequestFingerprint of(BookingCommand)`).
 - `BookingCommand(QuoteId, OfferId, Recipient, @Nullable ShipmentReference)`.
@@ -206,9 +217,9 @@ identical input.
 ## Application: `internal.application`
 
 - `BookShipment.handle(IdempotencyKey, BookingCommand) -> BookingOutcome` (`@Transactional`).
-- CancelShipment.handle runs transactionally and returns Cancelled, AlreadyCancelled or NotFound. After an
+- Planned: CancelShipment.handle runs transactionally and returns Cancelled, AlreadyCancelled or NotFound. After an
   optimistic-lock conflict, resolve the current state in a fresh transaction; an already-cancelled shipment returns
-  unchanged. Publish ShipmentCancelled only for the committed transition. ShipmentEventsIntegrationTest verifies
+  unchanged. Publish ShipmentCancelled only for the committed transition. ShipmentEventsIntegrationTest will verify
   concurrent cancellations return the same cancelled shipment and create one cancellation publication.
 - `GetShipment.handle(ShipmentId) -> Optional<Shipment>`.
 - `ListShipments.handle(ShipmentQuery) -> ListingOutcome` (`Listed(ShipmentSlice)` or `InvalidCursor`); keyset pagination on `(booked_at desc, shipment_id desc)`;
@@ -248,28 +259,29 @@ columns `not null`.
 - Row-level security enabled and forced, policy `tenant_isolation`. Grants to `shipping_app`: `SELECT, INSERT,
   UPDATE` on the table, `USAGE` on the sequence. No `DELETE`.
 - No foreign key to `quotes`; the quote's existence is checked through `QuoteOffers` in the same transaction.
-- Event publications go to Spring Modulith's `event_publication` table (`V5__event_publication.sql`, ADR 0006).
+- Planned: event publications go to Spring Modulith's `event_publication` table (`V5__event_publication.sql`, ADR 0006).
 
 ## Invariants and the tests that assert them
 
 | # | Invariant | Tests |
 |---|---|---|
-| S1 | Only `BOOKED -> CANCELLED` is allowed; cancelling twice changes nothing and publishes once. | `ShipmentTest`, `CancelShipmentTest` |
+| S1 | Only `BOOKED -> CANCELLED` is allowed; cancelling twice changes nothing and publishes once. | Planned: cancellation cases in `ShipmentTest` and `CancelShipmentTest`; current `ShipmentTest` covers booking only |
 | S2 | Booking checks run in the documented order and map to the documented rejections. | `BookShipmentTest` |
 | S3 | An offer is bookable only while `now < expiresAt`. | `BookShipmentTest`, `QuoteExpiryTest` |
 | S4 | The recipient's country and postcode equal the quote's destination. | `BookShipmentTest` |
 | S5 | Same tenant, key and body give the same shipment (`201` then `200`); a different body gives `422`; concurrent duplicates create one row. | `ShipmentsHttpContractTest` (sequential HTTP), `BookingIdempotencyIntegrationTest` (passed in recorded CI) |
 | S6 | One shipment per quote; a second key for the same quote gives `409`. | `ShipmentsHttpContractTest` (sequential HTTP), `BookingIdempotencyIntegrationTest` (passed in recorded CI) |
 | S7 | The fingerprint changes when any field changes and distinguishes absent from present optional fields. | `RequestFingerprintTest` |
-| S8 | `ShipmentBooked` and `ShipmentCancelled` are published once on commit and never on rollback. | `ShipmentEventsIntegrationTest` |
-| S9 | Labels are byte-identical for the same shipment, escape all text, contain only allowed elements and attributes, carry the simulation banner; a cancelled shipment has no label. | `SvgLabelRendererTest`, `ShipmentsHttpContractTest` |
+| S8 | `ShipmentBooked` and `ShipmentCancelled` are published once on commit and never on rollback. | Planned: `ShipmentEventsIntegrationTest` |
+| S9 | Labels are byte-identical for the same shipment, escape all text, contain only allowed elements and attributes, carry the simulation banner; a cancelled shipment has no label. | `SvgLabelRendererTest`, `ShipmentsHttpContractTest` (booked labels); cancelled-shipment label denial remains planned |
 | S10 | Listing is newest first, paginates without gaps or repeats, honours the status filter and rejects foreign cursors. | `ShipmentsHttpContractTest` (in memory), `ShipmentListingIntegrationTest` (passed in recorded CI) |
 | S11 | Shipments of another tenant are never visible or changeable. | `ShipmentsHttpContractTest` (detail/label, in memory); `RowLevelSecurityIntegrationTest` (passed in recorded CI); `CrossTenantAccessTest` remains planned |
 | S12 | HTTP responses match the contract. | `ShipmentsHttpContractTest` |
 | S13 | Recipient values are validated per the contract. | `RecipientTest` |
 | S14 | Tracking numbers retain the `SIM[0-9]{10}` format regardless of the server's default formatting locale. | `JdbcTrackingNumbersTest` (formatter only, no database) |
 
-Mutation testing: at least 80 % killed mutants on changed lines.
+Planned mutation-testing target: at least 80 % killed mutants on changed lines. Shipment mutation testing is not
+configured yet.
 
 ## Risk levels of its paths (`policy/risk.json`)
 
