@@ -21,7 +21,7 @@ no verified runtime settings receipt recovered for this backfill. Independent AI
 also `unknown` unless separately recorded. Unknown means missing evidence, not that no AI or human contributed.
 Merge timestamps below are UTC and are never substituted for work dates. Product footers were not used as settings.
 
-Known phases below use receipts recorded on 2026-11-09. The table's date is the observed work date/time at the
+Known phases below identify their receipts and actual work dates. The table's date is the observed work date/time at the
 precision the receipt supports. No receipt here establishes a resolved provider checkpoint. Private source logs
 are not published. Model provenance, review outcome, owner approval and passing tests are different evidence.
 
@@ -42,6 +42,17 @@ revision are appended once available.
 DeepSeek is paused at its retained request limit and has no implementation phase in this issue. Independent
 exact-head review and exercised owner delegation will be separate PR receipts. Standing delegation is not an
 individual human SHA approval. Do not treat this initial contribution checkpoint as approval or passing CI.
+
+### Revision and validation receipt added on 2026-11-10
+
+Issue 100 is [PR 104](https://github.com/Stig-Johnny/shipping-reference-platform/pull/104), starting at
+[1e86bacdd5073be7c0a851c2a2867eba41bcfd12](https://github.com/Stig-Johnny/shipping-reference-platform/commit/1e86bacdd5073be7c0a851c2a2867eba41bcfd12).
+The coordinator's integration also restored the complete fixture in the existing real-deck test after its actual
+missing-link failure, preserving every assertion and negative fixture. After the source-date regeneration, the
+full check passed with 4464 ordinary test reports, zero failures/errors/skips and 22 generated files current.
+Rendered slides and notes were read at laptop size; the evidence-heavy second slide still scrolls at 720 pixels.
+These are validation results, not final independent approval. Final-head review and exercised delegation stay in
+separate PR receipts.
 
 ## Issue 101
 
