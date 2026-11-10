@@ -171,6 +171,8 @@ not-applicable values stay in words. API-equivalent estimates are the preferred 
 work; display their tier/rate assumptions and usage scope. Billed amounts, historical metered estimates and unknown
 subscription allocation remain distinct; reservations appear only as limitations, never as spending. An aggregate
 window is shown once with its cutoff and coverage limits. Show no combined total or ranking.
+The shared site labels specify synthetic shipping data. Model-run measurements and repository evidence are
+recorded observations, so the header, footer and landing page must not label all site content synthetic.
 
 The status distinguishes validated structure from authored measurements: records are read on each site build, but
 the build does not authenticate receipts or prove every change and phase was recorded. The coverage statement

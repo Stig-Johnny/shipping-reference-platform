@@ -61,7 +61,8 @@ Configuration cache entry reused.
 
 The build setup and task listing are omitted from these excerpts. Independent draft review also found and
 prompted fixes for missing-marker receipts and correction labels; their failing cases were retained before
-the fixes. Pull request #112 carries the final-head review and validation receipts separately. The named tests
+the fixes. Review also narrowed the site's synthetic-data labels to shipping data, preserving the distinction
+from measured model-run evidence. Pull request #112 carries the final-head review and validation receipts separately. The named tests
 in this sheet count as current-build evidence only when they pass in the publishing build.
 
 ## Limits

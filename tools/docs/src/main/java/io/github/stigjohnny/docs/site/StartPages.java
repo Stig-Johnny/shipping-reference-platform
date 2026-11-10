@@ -85,7 +85,7 @@ final class StartPages {
                         + "line and box means."))
                 .append("</div>\n");
         body.append("<h2 id=\"the-data\">The data</h2>\n<p class=\"prose\">The domain is generic webshop parcel ")
-                .append("shipping: quote a parcel, book it, download a label. Everything on this site is synthetic: ")
+                .append("shipping: quote a parcel, book it, download a label. The shipping data is synthetic: ")
                 .append("the tenants, users, recipients and addresses are invented, and the carrier is simulated. The ")
                 .append("demo tokens in the module documents are public test fixtures, not credentials.</p>\n")
                 .append("<h2 id=\"public-site\">What this site publishes</h2>\n<p class=\"prose\">The documentation ")
