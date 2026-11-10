@@ -49,7 +49,7 @@ This checkpoint is not approval or a claim of passing CI; no individual human SH
 
 Issue 102 is [PR 105](https://github.com/Stig-Johnny/shipping-reference-platform/pull/105), starting at
 [e3396de31b39ca532bd60aba31cf7c5a4ea59a82](https://github.com/Stig-Johnny/shipping-reference-platform/commit/e3396de31b39ca532bd60aba31cf7c5a4ea59a82).
-The initial ordinary check passed with 4464 valid test reports, zero failures/errors/skips, 22 generated files
+The initial ordinary check passed with 4464 tests across the valid ordinary reports, zero failures/errors/skips, 22 generated files
 current and 100 site files. A subsequent preview build included the coordinator's mutation-target clarification.
 The full rendered reference was read, its laptop summary inspected and its recorded-evidence link followed.
 These are validation results, not final independent approval; final-head review and exercised delegation stay in
