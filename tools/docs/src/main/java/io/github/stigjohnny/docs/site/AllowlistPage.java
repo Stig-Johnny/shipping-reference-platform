@@ -59,7 +59,11 @@ final class AllowlistPage {
                     digest(acceptance.reviewedSetSha256()), digest(acceptance.entriesSha256()));
         }
         body.append(previous.html());
-        body.append("<h2 id=\"entries\">Entries</h2>\n").append(counts(allowlist)).append(entries(context));
+        body.append("<h2 id=\"entries\">Entries</h2>\n")
+                .append("<p class=\"prose\">Open Current declarations beneath a component to follow its source ")
+                .append("evidence. Approved scope records permission; declarations record this build's inputs. ")
+                .append("No match is not proof of non-use.</p>\n")
+                .append(counts(allowlist)).append(entries(context)).append(UsageEvidence.appendix(context));
         for (String id : List.of("current-acceptance", "previous-acceptances", "entries")) {
             context.map().anchor(PAGE, id);
         }
@@ -69,9 +73,10 @@ final class AllowlistPage {
         contents.add(new SitePage.Contents("current-acceptance", "Current acceptance"));
         contents.add(new SitePage.Contents("previous-acceptances", "Previous acceptances"));
         contents.add(new SitePage.Contents("entries", "Entries"));
+        contents.add(new SitePage.Contents("usage-evidence", "Current usage evidence"));
         return new SitePage(PAGE, readme.title(), readme.navLabel(), SiteSection.TRUST, readme.summary(),
                 readme.status(), contents, readme.body(), readme.related(), Sources.SECURITY_README + " and "
-                        + Allowlist.PATH, false);
+                        + Allowlist.PATH + "; usage from committed locks, workflows, wrapper and vendored bytes", false);
     }
 
     private static List<Capability> control(Sources sources) {
@@ -103,7 +108,7 @@ final class AllowlistPage {
         }
         HtmlTable table = HtmlTable.of("All " + allowlist.entries().size() + " entries of " + Allowlist.PATH
                 + ", approved and rejected, grouped by review record", "Allowlist entries, scrolls sideways",
-                "Component and version", "Kind", "Scope", "Verdict", "Expires", "Conditions");
+                "Component and version", "Kind", "Approved scope", "Verdict", "Expires", "Conditions");
         List<Map.Entry<String, List<AllowlistEntry>>> groups = new ArrayList<>(byReview.entrySet());
         groups.sort(Comparator.comparing((Map.Entry<String, List<AllowlistEntry>> g) -> g.getValue().getFirst().kind())
                 .thenComparing(Map.Entry::getKey));
@@ -121,7 +126,8 @@ final class AllowlistPage {
             for (AllowlistEntry entry : entries) {
                 table.row(entry.rejected() ? "entry rejected" : "entry", List.of(
                         "<code>" + Html.escape(entry.coordinate()) + "</code> <span class=\"version\">"
-                                + Html.escape(entry.version()) + "</span>",
+                                + Html.escape(entry.version()) + "</span>"
+                                + UsageEvidence.entry(sources.dependencyUsage(), entry),
                         Html.escape(entry.kind()), Html.escape(entry.scope()), verdict(entry),
                         "<time datetime=\"" + Html.escape(entry.expiresAt()) + "\">" + Html.escape(entry.expiresAt())
                                 + "</time>", conditions(context, entry)));

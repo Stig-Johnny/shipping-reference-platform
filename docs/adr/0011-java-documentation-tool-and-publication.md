@@ -2,7 +2,7 @@
 title: "ADR 0011: A Java documentation tool, a static site and a scanned publication"
 description: "One Java tool generates the C4 view pages, the budgeted brain and a static documentation site, and fails on drift and on claims without evidence; the site is published on GitHub Pages from main after a fail-closed scan. Supersedes ADR 0010."
 status: accepted
-updated: 2026-11-09
+updated: 2026-11-10
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
@@ -115,6 +115,12 @@ SnakeYAML Engine 3.2.
   not a runtime trace; an accepted ADR is not an implemented capability. The existing script enhances these records
   with SVG, filtering and selection under the strict CSP, without a library, storage or markup injection. The
   design exception and keyboard/no-script behavior are recorded in the site specification.
+- Issue #109 adds current dependency declaration evidence to the allowlist sheet, kept separate from approved
+  scope and review history. Exact supported lock, workflow and wrapper inputs are read on each build;
+  file-and-line or field-location links open escaped evidence on the same sheet. Missing observations and unsupported kinds are
+  labelled separately, never proof of non-use or execution. The [site specification](../ui/documentation-site.md#dependency-usage-evidence)
+  records coverage, bundled-carrier semantics and the unchanged unit-test input-cache limitation. Publication
+  links and the reviewed-set integrity check keep their existing boundaries.
 - Issue #96 publishes the contribution convention and per-issue history as two authored Trust pages (T-07/T-08),
   linked from Brain and indexed by the existing search. Their neutral status separates recorded provenance from
   current-build test evidence. Existing Markdown/link/publication checks apply; no automated provenance,
@@ -235,6 +241,10 @@ SnakeYAML Engine 3.2.
   README documents them) and `DemoPagesTest` (the register and its order, the sheet with its facts, the ledger's
   evidence that counts only tests that passed, a recording without the double rule, See it links that reach pages,
   the empty register).
+- `DependencyUsageTest` checks exact declarations, bundle carriers, supported inputs, stable ordering and fresh
+  reads after removal/version changes. `DependencyUsagePageTest` checks evidence links, rebuilding without stale
+  locations and separate approval/rejection/observation states. These tests do not establish runtime use or local
+  installation; the coverage and explicit rerun requirement are recorded in the site specification.
 - `SearchPageTest` proves complete published-sheet coverage, ownership of every indexed field, escaped title
   markup and publication scanning through entities. `BrainMapTest` proves typed source-backed relations, model
   changes flowing into the map and the absence of evidence arrows for missing or failed reports.

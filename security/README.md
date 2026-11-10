@@ -2,7 +2,7 @@
 title: "The dependency allowlist"
 description: "How third-party code gets into this repository: a recorded security review per component, an allowlist the build enforces before anything runs, and the owner's acceptance."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-10
 ---
 
 # The dependency allowlist
@@ -23,6 +23,23 @@ without a review record and an allowlist entry, and both of those files belong t
 | `allowlist.json` | Every component the repository may use, with its exact version, checksum or pinned commit, verdict, review record and expiry date. Rejected components are listed too, so the check can name them. |
 | `verifications/` | Records of checks done before first use: checksums, signatures and code signing of the toolchain. |
 | `AGENTS.md` | What an AI agent must do before it proposes a new dependency. |
+
+## Where a reviewed package is declared
+
+On the public allowlist, **Approved scope** says where the review permits a component. **Current declarations**
+says where the documentation build found that exact package version or pinned Action. Open the disclosure beneath
+a component, then follow a file-and-line or field-location link to its source evidence on the same sheet. The excerpt, context and
+site revision belong to the same build. A declaration does not prove installation, execution or approved scope.
+
+The generator reads the committed Gradle lockfiles, npm lockfile, workflow Action declarations and wrapper
+properties, and checks the vendored diagram bundle. It also identifies the current locked carriers named by
+supported bundled-component review metadata; the contents of those archives are not re-inspected by the site.
+The [site specification](../docs/ui/documentation-site.md#dependency-usage-evidence) describes the coverage and limits.
+
+Each site build reads those files again. Removing or changing a declaration updates the locations automatically;
+a successful Pages deployment publishes that new snapshot. Reviews and rejected versions remain in the register
+as history. **No declaration found in the scanned inputs** is not proof a component is unused everywhere.
+**Evidence not collected for this kind** covers local tools and other sources this reader does not inspect.
 
 ## How it is enforced
 

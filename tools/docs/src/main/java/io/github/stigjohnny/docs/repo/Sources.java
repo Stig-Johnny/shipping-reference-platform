@@ -29,7 +29,7 @@ import java.util.stream.Stream;
 public record Sources(Path repo, String readme, List<DocFile> docs, DocFile securityReadme, Capabilities capabilities,
         ApiContract contract, RiskPolicy risk, Allowlist allowlist, Map<String, ReviewRecord> reviews,
         Map<String, byte[]> reviewBytes, ParsedWorkspace workspace, Map<String, Set<String>> workflowJobs,
-        TestEvidence evidence) {
+        TestEvidence evidence, DependencyUsage dependencyUsage) {
 
     public static final String WORKSPACE = "architecture/workspace.dsl";
     public static final String SECURITY_README = "security/README.md";
@@ -72,7 +72,8 @@ public record Sources(Path repo, String readme, List<DocFile> docs, DocFile secu
         return new Sources(root, text(root, README), docs, DocFile.parse(SECURITY_README, text(root, SECURITY_README)),
                 Capabilities.parse(text(root, Capabilities.PATH)), ApiContract.parse(text(root, ApiContract.PATH)),
                 RiskPolicy.parse(text(root, RiskPolicy.PATH)), allowlist, reviews, reviewBytes,
-                Workspaces.read(root.resolve(WORKSPACE), WORKSPACE), jobs, TestEvidence.read(root, testReports));
+                Workspaces.read(root.resolve(WORKSPACE), WORKSPACE), jobs, TestEvidence.read(root, testReports),
+                DependencyUsage.read(root));
     }
 
     public Optional<DocFile> doc(String path) {

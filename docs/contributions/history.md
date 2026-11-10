@@ -25,6 +25,25 @@ Known phases below identify their receipts and actual work dates. The table's da
 precision the receipt supports. No receipt here establishes a resolved provider checkpoint. Private source logs
 are not published. Model provenance, review outcome, owner approval and passing tests are different evidence.
 
+## Issue 109
+
+**Current dependency declarations.** Add evidence locations and clickable source excerpts to the allowlist,
+regenerated from repository inputs when declarations change or disappear. Preserve review history and separate
+approved scope from observed declarations and runtime execution.
+
+[Issue 109](https://github.com/Stig-Johnny/shipping-reference-platform/issues/109).
+
+| Phase / role | Work date (UTC) | Tool and observed settings | Verification and scope |
+|---|---|---|---|
+| 109-1 reader implementation | 2026-11-10 | Separate Codex implementation agent; configured model `unknown`; checkpoint `unknown`; effort `unknown` | Reader, exact identity and removal tests, narrow fixture inputs. No model override was requested; this receipt does not independently establish inherited runtime settings. |
+| 109-2 integration and presentation | 2026-11-10 | Codex coordinator; configured model `unknown`; checkpoint `unknown`; effort `unknown` | Source integration, allowlist evidence links, documentation, generated Brain and validation. The prior handoff records configuration for earlier work; this phase has no fresh runtime-settings receipt. |
+| 109-3 independent design review | 2026-11-10 | Separate Codex reviewer; configured model `unknown`; checkpoint `unknown`; effort `unknown` | Read-only review of identity semantics, source-link policy and pinned build-input constraints. This is design advice, not final code approval. |
+
+DeepSeek performed no work on this issue because its specific request allowance remains exhausted. No provider
+calls or allowance changes belong to this work. Implementation revisions, actual red/green results and rendered
+inspection are recorded in the PR. Final independent review and the separate exercise of standing merge
+delegation name the exact final head in durable PR receipts; these initial phases make no approval claim.
+
 ## Issue 106
 
 **A direct human demo route.** Lead README readers to the deck, staged memory workbench and visual Brain; label

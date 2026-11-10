@@ -862,6 +862,34 @@ tr.group th {
   overflow-wrap: anywhere;
 }
 
+.dependency-usage,
+.usage-note {
+  margin-top: 8px;
+  font-weight: 400;
+  font-size: 14px;
+}
+
+.dependency-usage ul {
+  padding-left: 20px;
+}
+
+.dependency-usage a,
+.usage-source h3,
+.usage-source p {
+  overflow-wrap: anywhere;
+}
+
+.usage-source {
+  border-top: 1px solid var(--rule);
+  padding-top: 16px;
+  margin-top: 24px;
+}
+
+.usage-source pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .conditions {
   margin: 0;
   padding-left: 16px;
