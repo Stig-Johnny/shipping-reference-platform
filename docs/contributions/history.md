@@ -45,6 +45,16 @@ No runtime, model relationship, contract, acceptance status or historical eviden
 Final independent review and exercise of the owner's standing merge delegation remain separate PR receipts.
 This checkpoint is not approval or a claim of passing CI; no individual human SHA approval is implied.
 
+### Revision and validation receipt added on 2026-11-10
+
+Issue 102 is [PR 105](https://github.com/Stig-Johnny/shipping-reference-platform/pull/105), starting at
+[e3396de31b39ca532bd60aba31cf7c5a4ea59a82](https://github.com/Stig-Johnny/shipping-reference-platform/commit/e3396de31b39ca532bd60aba31cf7c5a4ea59a82).
+The initial ordinary check passed with 4464 valid test reports, zero failures/errors/skips, 22 generated files
+current and 100 site files. A subsequent preview build included the coordinator's mutation-target clarification.
+The full rendered reference was read, its laptop summary inspected and its recorded-evidence link followed.
+These are validation results, not final independent approval; final-head review and exercised delegation stay in
+separate PR receipts. The numbered demo preserves the earlier check's scope explicitly.
+
 ## Issue 100
 
 **Current milestone deck.** Correct stale application and persistence claims, retain the ten main/four appendix
