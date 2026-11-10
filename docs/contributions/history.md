@@ -28,8 +28,8 @@ are not published. Model provenance, review outcome, owner approval and passing 
 ## Issue 106
 
 **A direct human demo route.** Lead README readers to the deck, staged memory workbench and visual Brain; label
-planned registry and audit messages in the existing PostgreSQL target sequence. PR and initial implementation
-revision are appended once available.
+planned registry and audit messages in the existing PostgreSQL target sequence. The same editorial agent also
+corrected the existing Mermaid note separator after native GitHub preview exposed a parse error.
 
 [Issue 106](https://github.com/Stig-Johnny/shipping-reference-platform/issues/106) ·
 [settings and scope receipt 6755557744](https://github.com/Stig-Johnny/shipping-reference-platform/issues/106#issuecomment-6755557744).

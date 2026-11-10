@@ -60,7 +60,7 @@ sequenceDiagram
 
     Clerk->>Web: Enter parcel, origin, destination
     Web->>Quotes: POST /api/v1/quotes
-    Note over Tenants,Quotes: Filter binds Tenant Alpha; each JDBC statement sets app.tenant_id locally
+    Note over Tenants,Quotes: Filter binds Tenant Alpha, each JDBC statement sets app.tenant_id locally
     Quotes->>Quotes: Rating with SyntheticTariff (zone, band, level, surcharge, rounding)
     Quotes->>DB: insert quote and offers (RLS with check)
     Quotes->>Quotes: publish QuoteIssued (no listener in v0.1, so no publication row)

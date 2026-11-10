@@ -17,7 +17,8 @@ fixture remains an optional serving check.
 
 The main flow's authored sequence labels its planned publication and audit steps. Its new caption explains that
 the PostgreSQL target includes work the attended memory demo does not execute. All 29 messages and their order
-are preserved, as are the acceptance tests and historical evidence.
+are preserved, as are the acceptance tests and historical evidence. A semicolon in an existing Mermaid note
+caused GitHub to reject the diagram; replacing it with a comma preserves the note and fixes its syntax.
 
 ## See it
 
@@ -34,6 +35,10 @@ On 2026-11-10, the coordinator read the rendered flow page in the Codex in-app b
 pixels, the new caption and source disclosure were readable with no horizontal page overflow. The source contained
 two planned participant labels and five planned message labels. The memory-demo link opened the intended runbook
 section, and the console query returned no warnings or errors.
+
+GitHub preview exposed the existing Mermaid parse error at the tenant-binding note. The note separator was
+changed from a semicolon to a comma. The rendered README route and its memory-workbench link were also checked.
+The final GitHub diagram render is recorded separately in the PR against the corrected revision.
 
 On macOS with Temurin 25.0.5+8, Brain generation wrote 22 files without drift. The subsequent ordinary check exited 0:
 
