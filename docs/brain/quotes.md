@@ -2,7 +2,7 @@
 title: "Brain: quotes"
 description: "Generated summary of module quotes for agents: status, dependencies, HTTP operations, capabilities with their evidence, decisions, flows and gaps."
 status: accepted
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 > Generated—do not hand-edit. Sources: `architecture/workspace.dsl`, `docs/modules/quotes.md`, `docs/capabilities/capabilities.yaml`, `contracts/shipping.openapi.yaml` and `docs/`.

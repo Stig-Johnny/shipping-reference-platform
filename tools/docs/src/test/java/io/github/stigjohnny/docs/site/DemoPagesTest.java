@@ -514,7 +514,7 @@ class DemoPagesTest {
 
     @Test
     void theRepositorysOwnDeckIsPublishedWithTenMainSlidesAndFourInTheAppendix() {
-        fixture.write(Decks.PATH, Repository.read(Decks.PATH));
+        fixture = Fixture.copy(dir).passingEvidence();
 
         BuiltSite site = build();
         String deck = site.text(DECK);
