@@ -103,6 +103,14 @@ from implementation status. An evidence view draws only tests that passed in the
 Every edge has a named meaning and source in the HTML records. REQUIRED/PERMITTED and planned are explicit text;
 map arrows are code dependencies, never runtime flow. The web component map remains on its existing Model sheet.
 
+Issue #101 groups a module's named decisions and declared capabilities into native disclosures with dynamic counts.
+The selected panel starts those two groups closed; the complete HTML records start them open for readers without
+script. Identical relationship explanations and sources appear once per group, while differing values remain with
+their own targets. Dependency modes and descriptions, module status, capability counts and specification links
+stay visible. Capability and control evidence stays visible too. Every typed edge retains its own meaning for the
+map; grouping changes no declaration or evidence. Native summaries support keyboard toggling and visible focus,
+nested links retain selection context, and expanded groups use the page's scroll instead of nested list scrollers.
+
 At 1280 pixels the map and selected record share the available width; at 390 and 360 they stack. All controls have
 keyboard paths and visible focus. Small satellites may hide on mobile; the searchable record list keeps the same
 capabilities available. The map and selected details come first. Source metadata, the existing status ledger and the contents list follow

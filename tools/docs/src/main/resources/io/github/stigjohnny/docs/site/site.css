@@ -1638,7 +1638,14 @@ blockquote {
 .brain-relations li { padding: 12px 0; border-bottom: 1px solid var(--rule); }
 .brain-relations .brain-meaning { margin: 4px 0; }
 .brain-relations small, .brain-source { color: var(--ink-muted); font-size: 12px; overflow-wrap: anywhere; }
-#brain-detail .brain-relations { max-height: 300px; overflow: auto; padding: 4px; }
+#brain-detail .brain-relations { padding: 4px; }
+.brain-relation-group { margin: 12px 0; border-top: 1px solid var(--rule); }
+.brain-relation-group > summary { padding: 12px 4px; cursor: pointer; font-weight: 600; }
+.brain-relation-group > summary:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.brain-relation-group .brain-relations { margin: 0; }
+.brain-relation-group .brain-relations li { padding: 8px 0; }
+.brain-group-meaning { margin: 4px 0; }
+.brain-group-source { margin: 4px 0 12px; color: var(--ink-muted); font-size: 12px; overflow-wrap: anywhere; }
 #brain-records { margin: 20px 0; }
 #brain-records article { border-top: 1px solid var(--rule); padding: 12px 0; }
 #brain-journey { padding: 24px; }
