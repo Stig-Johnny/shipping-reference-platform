@@ -27,8 +27,9 @@ normal checked Pages deployment succeeds; prose does not create architecture dep
 `BRAIN.md` and module brains remain the agent entry points.
 [Contribution records](docs/contributions.md) and [model runs](docs/contributions/runs.md) record the models, costs
 and outcomes behind each change, including unsuccessful work, integration and review. The aim is to compare
-model-assisted delivery under the same security and quality controls. Missing measurements stay unknown;
-different tasks and incomplete costs do not establish a model ranking.
+model-assisted delivery under the same security and quality controls. Prefer API-equivalent estimates from
+recorded usage and dated API prices, including subscription work; keep actual billed cost separate. Missing
+measurements stay unknown, and different tasks and incomplete costs do not establish a model ranking.
 
 ## What exists today
 

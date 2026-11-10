@@ -20,8 +20,8 @@ Contribution record: <durable record reference for this issue, linked to this PR
 Model-run records: <IDs in docs/contributions/runs.md; record every change, failed/rejected attempt, remediation, integration, validation, independent review and actual human decision>
 
 - Fixed task/base, acceptance criteria, tools/rules, environment and known comparability differences:
-- Usage and cost receipts: <reported/estimated/unknown usage; billed/metered-estimate/estimate/unknown cost; scope, currency, rate date and method where relevant>
-- Missing or shared costs: <subscription allocation, coordinator/reviewer work, human time, infrastructure; unknown is not zero; reservations are not spending>
+- Usage and cost receipts: <prefer api-equivalent-estimate from reported/estimated usage and dated API prices, even for subscription work; keep billed/metered-estimate/estimate/unknown bases distinct; scope, currency, tier/cache assumptions, rate date and method>
+- Missing or shared costs: <actual subscription/billed allocation, coordinator/reviewer work, human time, infrastructure; unknown is not zero; reservations are not spending; aggregate windows are not repeated across phases>
 - Reviewer completeness check: <missing attempts/phases and preservation of earlier records checked; valid schema alone does not establish completeness>
 
 Contribution phases (append a row for each phase and whenever model or reasoning effort changes):

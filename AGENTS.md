@@ -36,8 +36,9 @@ as the code. An agent that makes a check pass by weakening it has failed the tas
    `docs/contributions/history.md` and append structured phases to `docs/contributions/runs.md` for planning,
    implementation, failed attempts and remediation, integration, validation, independent review and actual human
    decisions. Record model, effort, base, outcome, usage, cost basis and public-safe receipts; missing measurements
-   are `unknown`, never zero. Separate billed cost, rate-derived estimates and unallocated subscription cost;
-   reservations are not spending. Start a record when work starts and append corrections instead of overwriting
+   are `unknown`, never zero. Prefer API-equivalent estimates from recorded usage and dated API prices even for
+   subscription work; keep actual billed cost and its unknown allocation separate. Preserve historical metered
+   estimates; reservations are not spending. Start a record when work starts and append corrections instead of overwriting
    earlier assertions. Reviewers check missing phases and history preservation: schema validation cannot prove
    every change was recorded. Keep final-head review and owner approval in separate durable PR receipts, naming
    the exact head; later reviewed backfills may append them. Never publish raw/private logs.

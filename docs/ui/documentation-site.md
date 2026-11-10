@@ -167,8 +167,10 @@ publication scanning apply; no new dependency or data-fetching path is introduce
 Issue #111 adds T-09, `trust/model-runs.html`, from the structured frontmatter and public-safe receipt summary in
 [model runs](../contributions/runs.md). Keep each run's issue, role, model, outcome and cost basis visible; use
 native disclosures for scope, usage, method and receipts instead of a wide accounting table. Unknown and
-not-applicable values stay in words. Billed amounts, metered estimates and unknown subscription allocation are
-different bases; reservations appear only as limitations, never as spending. Show no combined total or ranking.
+not-applicable values stay in words. API-equivalent estimates are the preferred comparison, including subscription
+work; display their tier/rate assumptions and usage scope. Billed amounts, historical metered estimates and unknown
+subscription allocation remain distinct; reservations appear only as limitations, never as spending. An aggregate
+window is shown once with its cutoff and coverage limits. Show no combined total or ranking.
 
 The status distinguishes validated structure from authored measurements: records are read on each site build, but
 the build does not authenticate receipts or prove every change and phase was recorded. The coverage statement

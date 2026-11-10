@@ -121,7 +121,8 @@ public record ModelRuns(String coverage, List<Run> records) {
     private static Cost cost(YMap map) {
         keys(map, Set.of("basis", "amount", "currency", "scope", "method", "receipt"));
         String basis = text(map, "basis");
-        choice(basis, Set.of("billed", "metered-estimate", "estimate", "unknown", "not-applicable"), "cost.basis");
+        choice(basis, Set.of("billed", "metered-estimate", "api-equivalent-estimate", "estimate", "unknown",
+                "not-applicable"), "cost.basis");
         String amount = text(map, "amount");
         String currency = text(map, "currency");
         if (basis.equals("unknown") || basis.equals("not-applicable")) {

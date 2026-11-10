@@ -49,6 +49,23 @@ attribution limits. Reservations are excluded from metered amounts; shared or mi
 infrastructure costs stay unknown. The DeepSeek request allowance remains exhausted; its proposed increase is
 unapproved and does not authorize worker calls for this issue.
 
+### API-equivalent snapshot added on 2026-11-10
+
+The user's comparison rule now prefers estimated API cost even for subscription work. One
+[root-window record and method](runs.md#root-window-api-comparison) captures the issue #111 coordinator interval
+from **11:38:31.342Z to 12:11:49.024Z UTC** on 2026-11-10: configured `gpt-6-astra`, effort `xhigh`, resolved
+checkpoint unknown. The reported 6,936,470 input tokens include 6,738,304 cached tokens; output is 38,095 tokens.
+Using the published Standard API rates checked that day gives **USD 10.624714**. Actual tier is unknown, so Standard
+is a stated comparison assumption; actual billed/subscription cost remains unknown. The amount covers model
+tokens only, omitting tool, infrastructure and human charges.
+
+The metadata snapshot hash is `0ec37af8ebbdd27604b899986a14d666049c9ce586df87d628bd17e0fabc280d`.
+The 55 reconciled usage increments are all below 272,000 input tokens. This fixed in-progress aggregate is recorded
+once, without rewriting earlier unknown-cost phases or allocating its cost among them. It excludes later work;
+child-agent inclusion, exclusive issue attribution and full delivery cost are not established. Historical DeepSeek
+estimates retain their original accounting basis. No new shared repository, provider call or allowance change is
+part of this documentation follow-up.
+
 ## Issue 109
 
 **Current dependency declarations.** Add evidence locations and clickable source excerpts to the allowlist,

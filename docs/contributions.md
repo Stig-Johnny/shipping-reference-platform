@@ -23,7 +23,7 @@ observations of real work, not a controlled benchmark or a model ranking. A comp
 | Which model and effort? | The implementation or integration phase, with its verification receipt. |
 | Was it independently reviewed? | A separate review phase naming the reviewed head and review receipt. |
 | Did the owner approve it? | A separate human phase naming the approved head and approval receipt. |
-| What did it cost? | The run's basis, amount, currency, accounting scope and receipt; unallocated or unavailable cost stays unknown. |
+| What did it cost? | Prefer the API-equivalent comparison with dated rates and usage, including subscription work; keep actual billed cost separate and unknown where unallocated. |
 | What did the attempt achieve? | Its outcome, validation/review result and limitations, including failed work and later remediation. |
 
 A configured model identifier is what the tool requested. It does not establish the provider's resolved checkpoint.
@@ -47,7 +47,7 @@ independent review and actual human decisions. Use these fields:
 | Reasoning effort | Observed setting, or `unknown` with the missing evidence explained. |
 | Verification | A public, sanitized receipt or reference identifying which fields it establishes and its limits. |
 | Usage | Reported or estimated input/output counts, or explicit unknown/not-applicable values, with the measurement boundary. |
-| Cost | Billed, metered-estimate, estimate, unknown or not-applicable basis; exact decimal amount/currency where known, scope, method and receipt. |
+| Cost | Prefer api-equivalent-estimate; retain billed, metered-estimate, estimate, unknown and not-applicable bases distinctly, with exact decimal amount/currency, scope, method and receipt. |
 | Outcome | Completed, partial, rejected, failed, blocked or abandoned, with the actual result and remaining limits. |
 
 Append a phase when the model, effort or role changes, including handoffs and worker contributions. Human-only
@@ -75,28 +75,39 @@ approval of a particular head.
    without charging a shared account counter to several phases. Preserve failed and rejected output in the record.
 3. Record tests, independent findings, corrections, accepted scope and subsequent defects separately. Same rules
    and a passing check do not establish equal task difficulty or one combined quality score.
-4. Compare only evidenced scopes with their limitations. This slice publishes per-run records without totals,
-   currency conversion, automatic billing collection, subscription allocation or rankings.
+4. Prefer API-equivalent estimates using recorded usage and dated API prices, even when the work ran under a
+   subscription. State the comparison tier, cache treatment and per-request prompt-size thresholds; distinguish
+   assumptions from observed settings. State omitted tool, infrastructure and human charges when the estimate
+   covers only model tokens. Actual billed cost remains separate and may be unknown.
+5. Compare only evidenced scopes with their limitations. A bounded coordinator-window record may span phases;
+   retain it once, label its coverage and do not repeat its cost in phase records or assume child-agent inclusion.
+   This slice computes no cross-record totals, currency conversions, subscription allocations or rankings.
 
 ## Structured source and accounting
 
 `docs/contributions/runs.md` contains schemaVersion `1`, a nonempty coverage statement and a records list in its
-frontmatter. Each stable record ID names one phase/attempt; `correctionOf` is `none` or an earlier ID for the same
-issue. Dates are quoted ISO dates or `unknown`; bases are full lower-case commit hashes or `unknown`. Text fields
+frontmatter. Each stable record ID names one phase/attempt or one explicitly bounded aggregate usage window;
+`correctionOf` is `none` or an earlier ID for the same issue. Dates are quoted ISO dates or `unknown`; bases are
+full lower-case commit hashes or `unknown`. Text fields
 are quoted strings, at most 2,000 characters each. Use only the keys and enums in the existing records; the reader
 rejects extra/missing fields, invalid identities, incompatible states and malformed numeric values.
 
 Usage states are `reported`, `estimated`, `unknown`, `not-applicable`; input/output values are nonnegative integers
-or the corresponding quoted marker. Cost bases are `billed`, `metered-estimate`, `estimate`, `unknown`,
-`not-applicable`; numeric amounts are quoted nonnegative decimals with at most six places and a three-letter
-uppercase currency. Known values need receipts; estimates need a method and rate date. Unknown values need a
+or the corresponding quoted marker. Cost bases are `api-equivalent-estimate`, `billed`, `metered-estimate`,
+`estimate`, `unknown`, `not-applicable`; numeric amounts are quoted nonnegative decimals with at most six places
+and a three-letter uppercase currency. Known values need receipts; estimates need a method and rate date. Unknown values need a
 reason. Human model settings can be not applicable while human economic cost remains unknown.
 
 Reservations and budgets are exposure/permission limits, not incurred cost. Describe them separately in scope or
 limitations; never put them in the cost amount. Metered estimates use recorded rates and may differ from invoices,
-particularly for cache discounts. Subscription or shared-session cost is unknown until an allocation is evidenced.
-Zero needs evidence of zero for that exact basis; a tool's placeholder zero is not a billing receipt. Cached input
-and reasoning tokens may be subsets of provider totals: do not add them again.
+particularly for cache discounts. An API-equivalent estimate prices an evidenced usage scope at stated API rates;
+it does not claim that an API invoice was issued or allocate subscription charges. Missing usage/rate evidence
+keeps the estimate unknown. Actual subscription or shared-session billed cost is unknown until an allocation is
+evidenced. Preserve historical metered estimates with their original rate basis. Zero needs evidence of zero for
+that exact basis; a tool's placeholder zero is not a billing receipt. Cached input and reasoning tokens may be
+subsets of provider totals: do not add them again. If an aggregate window is all the receipt supports, do not
+fabricate phase costs or infer that other agents are included. Keep an actual-bill record separately scoped and
+labelled if one later becomes available; never add it to the comparison estimate as though they were different work.
 
 [ADR 0020](adr/0020-model-run-evidence-and-cost-boundaries.md) records this boundary.
 
@@ -106,8 +117,9 @@ Backfill from actual session metadata, review receipts and owner-approval record
 a commit author is not a model identifier, and a product footer is not evidence of reasoning effort. Use `unknown`
 where no reliable receipt is available; do not attribute an entire issue to one observed continuation session.
 The history's initial inventory covers merged work through PR #97, including the partial issue #66 slice.
-The 2026-11-10 usage/cost backfill covers only the named DeepSeek jobs for issues #69, #37 and #101. Their work
-dates remain 2026-11-09. It is not a reconstruction of every phase or total delivery cost. The exhausted DeepSeek
+The historical 2026-11-10 usage/cost backfill covers only the named DeepSeek jobs for issues #69, #37 and #101. Their
+work dates remain 2026-11-09. A separate issue #111 root-window snapshot records an API-equivalent estimate for
+2026-11-10; neither receipt set reconstructs every phase or total delivery cost. The exhausted DeepSeek
 request allowance blocks further worker work; the proposed increase remains unapproved and this feature makes
 no provider calls.
 

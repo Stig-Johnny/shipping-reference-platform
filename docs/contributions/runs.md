@@ -4,7 +4,7 @@ description: "Recorded models, usage, cost bases and outcomes, with unsuccessful
 status: accepted
 updated: 2026-11-10
 schemaVersion: 1
-coverage: "Partial record set: 14 historical DeepSeek rounds for issues 69, 37 and 101, four supported historical Codex phases, and seven current issue 111 phases. Work dates and backfill dates differ. Missing phases, unallocated subscription costs and incomplete delivery costs remain unknown; this is not complete benchmark or billing coverage."
+coverage: "Partial record set: 14 historical DeepSeek rounds for issues 69, 37 and 101, four supported historical Codex phases, seven current issue 111 phases, and one separate root-window API comparison snapshot. Work and backfill dates differ. API-equivalent estimates do not establish actual billed cost; missing phases, subscription allocation, child-agent inclusion and complete delivery cost remain unknown."
 records:
   - id: "issue-69-build-round-1"
     issue: 69
@@ -731,6 +731,35 @@ records:
       scope: "This named phase only; provider/subscription allocation, human and infrastructure costs are not established."
       method: "No task-specific bill or evidenced subscription/shared-session allocation is available. Missing cost is unknown, not zero; no rate is assumed."
       receipt: "Retained contribution receipts establish work and selected settings, not a phase-specific bill or monetary allocation."
+  - id: "issue-111-root-window-api-comparison"
+    issue: 111
+    date: "2026-11-10"
+    role: "integration"
+    tool: "Codex root coordinator"
+    model: "gpt-6-astra"
+    checkpoint: "unknown"
+    effort: "xhigh"
+    base: "unknown"
+    outcome: "partial"
+    scope: "One aggregate coordinator-session window: 2026-11-10 11:38:31.342Z through 12:11:49.024Z. The integration role groups the coordinator window; it does not allocate usage across contributing phases."
+    environment: "Local Codex session. Standard API pricing is a comparison assumption; actual service tier and allocated subscription/billed cost are unknown."
+    result: "Fixed in-progress snapshot: 55 nonzero usage increments reconcile with cumulative counters after excluding 11 unchanged reports. Every increment is below the 272000-input-token threshold; maximum input is 187773. API-equivalent estimate: USD 10.624714."
+    limitations: "This is not complete issue or all-agent coverage, exclusive issue attribution, phase cost allocation, an API invoice or final delivery. Later work is excluded; child-agent inclusion is unresolved. Tool, infrastructure and human charges are omitted: this is a model-token comparison only. Configured model/effort are recorded, backend checkpoint and precise window checkout base are unknown. Prior unknown phase records are retained; this amount must not be repeated across them."
+    evidence: "Sanitized numeric metadata snapshot SHA-256 0ec37af8ebbdd27604b899986a14d666049c9ce586df87d628bd17e0fabc280d. Contexts at 11:38:31.320Z and 11:48:01.536Z establish gpt-6-astra/xhigh; one compaction preserves cumulative counters. Public-safe reconciliation and rate method appear below."
+    correctionOf: "none"
+    usage:
+      state: "reported"
+      input: 6936470
+      output: 38095
+      scope: "Aggregate root window only: input includes 6738304 cached tokens; uncached difference 198166. Output includes 13601 reasoning tokens; do not add that subset again. Cache-write count is reported as 0; no backend accounting guarantee is inferred."
+      receipt: "Latest pre-request baseline 2026-11-10 11:34:13.716Z; cutoff 12:11:49.024Z. All 55 nonzero cumulative deltas equal last_token_usage; 11 duplicate cumulative reports excluded, no resets. Metadata SHA-256 0ec37af8ebbdd27604b899986a14d666049c9ce586df87d628bd17e0fabc280d."
+    cost:
+      basis: "api-equivalent-estimate"
+      amount: "10.624714"
+      currency: "USD"
+      scope: "One root-window model-token API comparison, retained once across phases. Tool, infrastructure and human charges are omitted; actual billed/subscription allocation, other agents and complete delivery cost are unknown."
+      method: "Published GPT-6 Astra Standard API rates checked 2026-11-10: USD 10/M uncached input, 1/M cached input, 50/M output. ((6936470-6738304)*10 + 6738304*1 + 38095*50)/1000000 = 1.981660 + 6.738304 + 1.904750 = USD 10.624714. All observed increment inputs <=272000; no long-context premium applied. Standard is assumed for comparison because actual tier is absent."
+      receipt: "Official rate sources checked 2026-11-10: https://developers.openai.com/api/docs/models/gpt-6-astra and https://developers.openai.com/api/docs/pricing. Numeric metadata snapshot SHA-256 0ec37af8ebbdd27604b899986a14d666049c9ce586df87d628bd17e0fabc280d; this is not a provider invoice."
 ---
 
 # Model runs and cost evidence
@@ -768,8 +797,9 @@ not invoice-grade proof of exclusive ownership. Shared earlier ledger work is no
 
 The rate-derived cost amount includes only usage-settled charges in that window. Unresolved reservations stay in
 limitations and are excluded from the amount; their actual charge and tokens are unknown. No missing Codex,
-reviewer, human or infrastructure cost is treated as zero. Subscription cost is unallocated unless a receipt
-establishes an allocation. This page computes no totals across phases or currencies.
+reviewer, human or infrastructure cost is treated as zero. Actual subscription cost is unallocated unless a
+receipt establishes an allocation. These historical metered amounts retain their original basis; the separate
+API-equivalent snapshot below is a comparison estimate. This page computes no totals across records or currencies.
 
 ### Rates and source integrity
 
@@ -793,10 +823,62 @@ settled gateway calls have no retained step-finish event; ledger token counts in
 only visible model steps. Cached input and reasoning subdivisions are not added to provider totals again.
 A configured model alias does not establish a provider checkpoint or reasoning effort.
 
+## Root-window API comparison
+
+The issue #111 root coordinator snapshot covers **2026-11-10 11:38:31.342Z through 12:11:49.024Z**. Its configured
+model is `gpt-6-astra`, effort `xhigh`; the resolved checkpoint is unknown. This is one aggregate window spanning
+coordinator phases. It is recorded once, separate from the earlier unknown-cost phase records, without assigning
+them a share. It is not complete issue coverage or proof that other agents are included. Work after the cutoff is
+excluded, and session metadata alone does not establish exclusive attribution to this issue.
+
+The latest usage event before the request, at **11:34:13.716Z**, is the baseline. Across the window, 66 numeric
+usage events contain 55 nonzero increments and 11 unchanged cumulative reports. Each nonzero cumulative delta
+matches its last-usage report; their sum equals final counters minus the baseline. There are no negative deltas
+or resets, including across one compaction. Duplicate reports are excluded. These are observed usage increments,
+not independently verified transport request counts.
+
+| Reported or derived usage | Tokens |
+|---|---:|
+| Input, including cached input | 6,936,470 |
+| Cached input subset | 6,738,304 |
+| Uncached input difference | 198,166 |
+| Output, including reasoning | 38,095 |
+| Reasoning subset of output | 13,601 |
+| Reported cache-write input | 0 |
+
+The largest input increment is **187,773 tokens**. All 55 increments have at most 272,000 input tokens; no
+observed increment is above that threshold. A sum of many prompts is not a long individual prompt. Cached input
+and reasoning are subsets, not extra tokens. A cache-write zero is what this schema reports, not an independent
+backend cache accounting guarantee.
+
+[GPT-6 Astra model prices](https://developers.openai.com/api/docs/models/gpt-6-astra) and
+[API pricing](https://developers.openai.com/api/docs/pricing), checked **2026-11-10**, provide the Standard
+comparison rates: **USD 10 per million uncached input**, **USD 1 per million cached input** and **USD 50 per million
+output tokens**. The actual service tier is absent from the receipt; Standard is an explicit comparison assumption.
+No long-context premium is applied because no observed increment crosses 272,000 input tokens.
+
+`((6,936,470 - 6,738,304) * 10 + 6,738,304 * 1 + 38,095 * 50) / 1,000,000`
+
+`= USD 1.981660 + USD 6.738304 + USD 1.904750 = USD 10.624714`.
+
+This is an **API-equivalent estimate**, preferred for comparison even when the work is performed under a
+subscription. This amount covers model tokens only; tool, infrastructure and human charges are omitted and
+unknown. Actual billed cost and subscription allocation remain unknown. Do not add this aggregate amount
+to its constituent phase records, another differently priced view of the same work, or child-agent measurements
+without establishing nonoverlapping scopes. It is not an invoice or a complete delivery total.
+
+The sanitized metadata snapshot SHA-256 is
+`0ec37af8ebbdd27604b899986a14d666049c9ce586df87d628bd17e0fabc280d`. It hashes only the boundary timestamp/type,
+configured contexts, numeric baseline and usage events, compaction timestamp/type and fixed cutoff, serialized as
+UTF-8 JSON with sorted keys, compact separators and no trailing newline. Conversation content, identifiers and
+raw private logs are excluded. This is a fixed in-progress receipt, not a hash of a changing full transcript.
+The publishing build validates the authored record's structure, not the receipt's authenticity or API bill.
+
 ## Current coverage and next records
 
 The DeepSeek request allowance is exhausted; a proposed increase remains unapproved. Current issue111 work is
-performed with Codex, whose fresh per-phase settings, usage and allocated cost are unknown where no receipt exists.
+performed with Codex. One fresh root-window receipt supports the API-equivalent snapshot above; per-phase usage,
+actual billed allocation and other agents remain unknown where no separate receipt exists.
 This feature performs no provider calls, billing fetches, controller restart or allowance change.
 
 Append planning, implementation, remediation, integration, validation, independent review and actual human

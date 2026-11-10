@@ -176,6 +176,22 @@ class ModelRunsTest {
     }
 
     @Test
+    void apiEquivalentEstimatePublishesItsBasisWithoutClaimingAnInvoice() {
+        String comparison = RECORD.replace("basis: metered-estimate", "basis: api-equivalent-estimate")
+                .replace("amount: \"0.000324\"", "amount: \"10.624714\"")
+                .replace("synthetic-meter-123; not an invoice", "synthetic-rate-snapshot; actual bill unknown");
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write(SOURCE, document(comparison));
+        Sources sources = read(fixture);
+        assertThatCode(() -> Consistency.check(sources)).doesNotThrowAnyException();
+        SitePage page = ModelRunsPage.of(new SiteContext(sources, SiteMap.of(sources), List.of(), HEAD));
+        assertThat(page.body()).contains("10.624714 USD (api-equivalent-estimate)",
+                "synthetic-rate-snapshot; actual bill unknown", "Estimates are not invoices");
+        assertThatThrownBy(() -> ModelRuns.parse(DocFile.parse(SOURCE, document(comparison
+                .replace("synthetic-rate-snapshot; actual bill unknown", "unknown")))))
+                .isInstanceOf(DocsException.class).hasMessageContaining("cost.receipt");
+    }
+
+    @Test
     void humanNotApplicableAndEvidencedZeroRemainDifferentFromUnknown() {
         String human = RECORD.replace("role: implementation", "role: human-decision")
                 .replace("model: \"sample-model\"", "model: \"not-applicable\"")
@@ -213,6 +229,7 @@ class ModelRunsTest {
                 coverage: "Partial synthetic records; no completeness or billing assertion"
                 records:
                 """ + (records.isEmpty() ? "  []\n" : records)
-                + "---\n\n# Model runs\n\nFixture only.\n\n## Backfill method\n\nSynthetic fixture only.\n";
+                + "---\n\n# Model runs\n\nFixture only.\n\n## Backfill method\n\nSynthetic fixture only.\n"
+                + "\n## Root-window API comparison\n\nSynthetic fixture only.\n";
     }
 }

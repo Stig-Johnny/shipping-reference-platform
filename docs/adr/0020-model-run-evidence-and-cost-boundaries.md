@@ -19,7 +19,8 @@ Issue #111 asks for model and cost evidence for every repository change, includi
 coordination and review. The existing contribution history records settings and approval phases but has no strict
 usage/cost schema. A cheap worker response can exclude expensive remediation; a shared account counter cannot
 establish a task's bill. The repository needs comparable evidence without inventing complete costs or weakening
-the security and quality gates used to judge delivery.
+the security and quality gates used to judge delivery. Subscription work also needs a comparable API-rate
+estimate when usage is evidenced, without presenting it as an actual subscription allocation or invoice.
 
 ## Considered Options
 
@@ -38,6 +39,12 @@ outcome, scope, environment, result, limitations and sanitized evidence. Usage h
 input/output scope. Cost retains its basis, amount, currency, scope, method and receipt. Missing evidence is
 unknown, never zero. Budgets and unresolved reservations belong in limitations, not the cost amount.
 
+Prefer the `api-equivalent-estimate` basis for comparison, including work performed under a subscription. Apply
+dated published API prices to a recorded usage scope and state tier, cache and per-request prompt-size assumptions.
+Keep actual billed cost separate and unknown where it is not evidenced. Preserve historical metered estimates
+and their original rate basis. An aggregate coordinator window is recorded once, with phase allocation and
+child-agent inclusion left unresolved where receipts do not establish them; never duplicate that cost across phases.
+
 Record failed/rejected attempts, remediation, integration, validation, independent review and actual human
 decisions as well as successful implementation. Append corrections referencing an earlier same-issue ID;
 preserve the earlier assertion. Final-head reviews and approval remain separate durable PR receipts, with later
@@ -45,7 +52,8 @@ reviewed backfills, so recording approval does not itself change the approved he
 
 Validate submitted structure and state/value consistency through the existing safe parser and documentation
 build. Keep the build script, dependency set and publication controls unchanged. No provider call, pricing lookup,
-billing import, subscription allocation, cross-phase total or ranking is part of this slice.
+billing import, subscription allocation, computed cross-record total or ranking is part of this slice. A
+contributor may record one reconciled usage-window estimate spanning phases, with an explicit cutoff and limits.
 
 ### Consequences
 
@@ -53,7 +61,8 @@ Readers can inspect per-run evidence and unsuccessful work without mistaking a c
 checkpoint, an estimate for an invoice, or a completed attempt for accepted secure delivery. Costs from unlike
 tasks, environments and incomplete phases do not establish a fair model comparison.
 
-Contributors must provide dated rate assumptions for estimates and reasons for unknowns. Structural validation
+Contributors must provide dated rate assumptions, measured usage boundaries and exact arithmetic for estimates,
+plus reasons for unknowns. API-equivalent cost is a comparison assumption, not actual spend. Structural validation
 does not authenticate those statements. Reviewers still check missing changes/phases, receipt credibility,
 accounting overlap and preservation of earlier records against the base. Present-record validity cannot prove
 history immutability or complete billing/benchmark coverage.
