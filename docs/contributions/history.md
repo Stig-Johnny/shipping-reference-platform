@@ -25,6 +25,35 @@ Known phases below identify their receipts and actual work dates. The table's da
 precision the receipt supports. No receipt here establishes a resolved provider checkpoint. Private source logs
 are not published. Model provenance, review outcome, owner approval and passing tests are different evidence.
 
+## Issue 106
+
+**A direct human demo route.** Lead README readers to the deck, staged memory workbench and visual Brain; label
+planned registry and audit messages in the existing PostgreSQL target sequence. The same editorial agent also
+corrected the existing Mermaid note separator after native GitHub preview exposed a parse error.
+
+[Issue 106](https://github.com/Stig-Johnny/shipping-reference-platform/issues/106) ·
+[settings and scope receipt 6755557744](https://github.com/Stig-Johnny/shipping-reference-platform/issues/106#issuecomment-6755557744).
+
+| Phase / role | Work date (UTC) | Tool and observed settings | Verification and scope |
+|---|---|---|---|
+| 106-1 editorial implementation | 2026-11-10 | Separate Codex editorial agent; configured `gpt-6-astra`; checkpoint `unknown`; effort `xhigh` | Receipt 6755557744 identifies parent runtime metadata and inheritance without override. README route, existing staging commands and planned sequence labels; no independent backend checkpoint introspection or DeepSeek contribution. |
+| 106-2 integration and validation | 2026-11-10 | Codex coordinator; configured `gpt-6-astra`; checkpoint `unknown`; effort `xhigh` | Receipt 6755557744 identifies continuing-session configuration and the integration role: contribution record, generation, numbered demo, existing checks and rendered inspection. Actual results and revision follow in the PR. |
+
+All 29 sequence messages and their order are preserved. No runtime, model, contract, capability status, dependency,
+policy or historical recording changes belong to this issue. DeepSeek remains paused at its retained request limit.
+Final independent review and exercise of standing merge delegation remain separate exact-head PR receipts; this
+initial checkpoint is not approval, a passing-CI claim or an individual human SHA approval.
+
+### Revision and validation receipt added on 2026-11-10
+
+Issue 106 is [PR 107](https://github.com/Stig-Johnny/shipping-reference-platform/pull/107), starting at
+[28f2884be6b6fd948074f44b935ef5aea9fd15ba](https://github.com/Stig-Johnny/shipping-reference-platform/commit/28f2884be6b6fd948074f44b935ef5aea9fd15ba).
+The initial generator run passed, followed by the ordinary check with 22 generated files current and 101 site
+files. Test tasks were reused from the generator's successful dependencies. The rendered flow caption and authored
+sequence disclosure were inspected at laptop size, including the five planned-message labels and memory-demo link.
+The model-derived Pages diagram is unchanged; the authored sequence remains source there. These are validation
+results, not final independent approval. Final-head review and exercised delegation remain separate PR receipts.
+
 ## Issue 102
 
 **Shipment implementation claims.** Clarify booking, recorded PostgreSQL evidence and the in-process event publisher,

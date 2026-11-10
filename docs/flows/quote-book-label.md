@@ -2,7 +2,7 @@
 title: "Flow: quote, book and download a simulated label"
 description: "The main v0.1 flow from parcel form to label, step by step, with the acceptance tests for each step and their status."
 status: accepted
-updated: 2026-11-09
+updated: 2026-11-10
 modules: [tenants, quotes, shipments, audit]
 ---
 
@@ -36,6 +36,11 @@ See the [runbook](../flows/attended-demo.md).
 
 ## Sequence
 
+**PostgreSQL target design.** This sequence includes planned durable publication and Audit steps.
+The [attended memory demo](attended-demo.md#memory-mode) uses disposable stores and does not execute the PostgreSQL
+or registry/Audit calls shown here. Both attended storage modes disable durable publication; booking currently
+emits `ShipmentBooked` in process. The planned participants and messages below remain design targets.
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -45,8 +50,8 @@ sequenceDiagram
     participant Quotes as quotes
     participant Shipments as shipments
     participant DB as PostgreSQL
-    participant Registry as Publication registry
-    participant Audit as audit
+    participant Registry as Publication registry (planned)
+    participant Audit as audit (planned)
 
     Clerk->>Web: Choose synthetic user clerk-alpha
     Web->>Tenants: GET /api/v1/me (Bearer demo-clerk-alpha)
@@ -55,7 +60,7 @@ sequenceDiagram
 
     Clerk->>Web: Enter parcel, origin, destination
     Web->>Quotes: POST /api/v1/quotes
-    Note over Tenants,Quotes: Filter binds Tenant Alpha; each JDBC statement sets app.tenant_id locally
+    Note over Tenants,Quotes: Filter binds Tenant Alpha, each JDBC statement sets app.tenant_id locally
     Quotes->>Quotes: Rating with SyntheticTariff (zone, band, level, surcharge, rounding)
     Quotes->>DB: insert quote and offers (RLS with check)
     Quotes->>Quotes: publish QuoteIssued (no listener in v0.1, so no publication row)
@@ -67,7 +72,7 @@ sequenceDiagram
     Shipments->>Quotes: QuoteOffers.findOffer(tenant, quote, offer, now)
     Quotes-->>Shipments: Bookable(offer)
     Shipments->>DB: Lock tenant/quote, recheck, insert BOOKED with K and fingerprint
-    Shipments->>Registry: ShipmentBooked (same transaction)
+    Shipments->>Registry: Planned: ShipmentBooked (same transaction)
     Shipments-->>Web: 201 Shipment (SIM tracking number)
 
     Clerk->>Web: Book again (retry, same K and body)
@@ -75,10 +80,10 @@ sequenceDiagram
     Shipments->>DB: find by (tenant, K): fingerprint matches
     Shipments-->>Web: 200 same Shipment, Idempotency-Replayed: true
 
-    Registry-)Audit: ShipmentBooked after commit (async)
-    Audit->>Tenants: TenantScope.runAs(event.tenantId)
-    Audit->>DB: insert audit entry on conflict (tenant, eventId) do nothing
-    Audit-->>Registry: listener returned: publication complete
+    Registry-)Audit: Planned: ShipmentBooked after commit (async)
+    Audit->>Tenants: Planned: TenantScope.runAs(event.tenantId)
+    Audit->>DB: Planned: insert audit entry on conflict (tenant, eventId) do nothing
+    Audit-->>Registry: Planned: listener returned: publication complete
 
     Clerk->>Web: Open shipment drawer, Download label
     Web->>Shipments: GET /api/v1/shipments/{id}/label
