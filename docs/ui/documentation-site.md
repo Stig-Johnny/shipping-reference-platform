@@ -2,7 +2,7 @@
 title: "Documentation site: visual design"
 description: "How the documentation site is drawn: a drawing set with sheet codes, a title block on every sheet and a status ledger that keeps accepted design, planned implementation and verified evidence apart."
 status: accepted
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Documentation site: visual design
@@ -129,6 +129,32 @@ Both views rebuild through the existing checked generation and Pages deployment.
 published text and search; changing model/registry declarations updates the corresponding graph relations.
 Free-form prose cannot invent a code dependency. Detail is available on demand so the first screen prioritizes
 the map and the reader's next action.
+
+## Dependency usage evidence
+
+Issue #109 separates approval from observed declarations on Trust sheet T-01. The existing Scope heading becomes
+**Approved scope**; its values, verdicts, conditions and review groups remain unchanged. Beneath each component,
+a native **Current declarations** disclosure gives its location count and links to evidence on the same sheet.
+No match and unsupported kinds have different visible explanations. This adds detail on demand without another
+wide table column or script. The evidence section names each source file, line, context and escaped excerpt, with
+a link back to the entries. The sheet's full revision identifies the snapshot. No GitHub source-link exception is
+introduced; external repository links remain separate work.
+
+The reader matches exact Maven module coordinates and versions in the four committed Gradle locks; these show
+resolved configurations, not direct dependency ancestry, artifact variants or runtime use. npm evidence comes
+from structured package-lock entries, including the resolved archive; Action evidence comes from structured
+workflow jobs and steps at their full commit SHA. Wrapper evidence identifies the distribution declaration;
+vendored evidence identifies the checked bytes. Supported bundled entries link through their explicitly reviewed
+carrier to its current npm lock declaration, labelled as a carrier observation, not a fresh archive inspection.
+Approved scopes and arbitrary documentation mentions never count as observed use. Local installations, browser
+binaries, container execution and toolchains without a supported declaration reader remain unverified here.
+
+The site reads these inputs afresh on every build and validates supported input structure. Removal or a version
+change removes the old locations while retaining review history. Publication requires the ordinary successful
+Pages build; the live page is a revisioned snapshot, not a runtime monitor. The existing hash-pinned Gradle script
+is unchanged: site/generate tasks execute each time, but lock-only edits do not automatically invalidate the docs
+unit-test task. Explicitly rerun docs tests when validating changes to these newly read inputs. Hermetic reader
+fixtures and same-process rebuild tests cover removal and version changes independently of that cache limitation.
 
 ## Contribution records
 

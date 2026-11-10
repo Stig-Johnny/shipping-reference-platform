@@ -28,7 +28,9 @@ public final class Fixture {
             "security/AGENTS.md",
             "architecture/workspace.dsl", "contracts", "policy/risk.json", "security/allowlist.json",
             "security/README.md", "security/reviews", ".github/workflows", "tools/docs/vendor",
-            "tools/docs/publication-scan-exceptions.json");
+            "tools/docs/publication-scan-exceptions.json", "settings-gradle.lockfile", "apps/shipping-api/gradle.lockfile",
+            "libs/c4-contract-kit/gradle.lockfile", "tools/docs/gradle.lockfile", "package-lock.json",
+            "gradle/wrapper/gradle-wrapper.properties");
 
     private final Path root;
     private final Path reports;

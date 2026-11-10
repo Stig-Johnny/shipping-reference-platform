@@ -91,7 +91,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 
 ## Third-party components
 
-519 entries in `security/allowlist.json` (504 approved, 15 rejected), each with its review record in `security/reviews/`. The owner accepted this reviewed set for pull request #54: `reviewedSetSha256 03d8223632a17e66bf31d5b2d0c0bdbc7d5f3837a7f3a032080343bb46517e8d`. How it works and what it cannot stop: [security/README.md](security/README.md).
+519 entries in `security/allowlist.json` (504 approved, 15 rejected), each with its review record in `security/reviews/`. The owner accepted this reviewed set for pull request #54: `reviewedSetSha256 03d8223632a17e66bf31d5b2d0c0bdbc7d5f3837a7f3a032080343bb46517e8d`. How it works and what it cannot stop: [security/README.md](security/README.md). Current declarations and source evidence regenerate on the allowlist sheet; they do not prove runtime use.
 
 ## Flows
 

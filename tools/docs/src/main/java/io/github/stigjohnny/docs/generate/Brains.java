@@ -131,7 +131,8 @@ public final class Brains {
             out.append(" for ").append(accepted.record());
         }
         out.append(": ").append(code("reviewedSetSha256 " + accepted.reviewedSetSha256())).append(". How it works "
-                + "and what it cannot stop: [security/README.md](security/README.md).\n\n");
+                + "and what it cannot stop: [security/README.md](security/README.md). Current declarations and "
+                + "source evidence regenerate on the allowlist sheet; they do not prove runtime use.\n\n");
         out.append("## Flows\n\n");
         for (DocFile flow : sources.docsUnder("docs/flows/")) {
             out.append("- [").append(flow.title()).append("](").append(flow.path()).append("): modules ")

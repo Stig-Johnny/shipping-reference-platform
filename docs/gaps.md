@@ -2,7 +2,7 @@
 title: "Known gaps and limits"
 description: "What v0.1 does not do, what each control cannot prove, and which decisions are still unverified. Read this before trusting a green build."
 status: accepted
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Known gaps and limits
@@ -226,6 +226,11 @@ The [attended runbook](flows/attended-demo.md#recorded-database-evidence) record
   explicitly listed Testcontainers and docker-java classes. The exact database test package has its own JDBC,
   fixture and assertion types; this grants no container-library access to ordinary tests or production code.
   `ExternalImportPolicyTest` checks these boundaries and rejects unused whitelist entries.
+- **Usage documentation shows declarations, not execution.** The allowlist's current locations are regenerated
+  from supported repository inputs; they do not prove installation, runtime reachability or scope compliance.
+  Bundled entries can identify a currently locked carrier without re-inspecting its contents. No matching
+  declaration and unsupported evidence are distinct states, neither proof of non-use. Reviews persist after
+  removal. See [the coverage and build-cache limits](ui/documentation-site.md#dependency-usage-evidence).
 - **Scope is recorded, and enforced only for the classes the API uses.** The allowlist check matches coordinate,
   version and checksum. Which projects and configurations a review approved is a condition the code owner checks in
   review: a reviewed library added to a project its review does not cover passes `preflight`. `ExternalImportPolicyTest`
