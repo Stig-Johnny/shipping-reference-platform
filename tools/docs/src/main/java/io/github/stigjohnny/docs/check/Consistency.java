@@ -8,6 +8,7 @@ import io.github.stigjohnny.docs.model.C4Model;
 import io.github.stigjohnny.docs.model.ModelElement;
 import io.github.stigjohnny.docs.repo.Capability;
 import io.github.stigjohnny.docs.repo.DocFile;
+import io.github.stigjohnny.docs.repo.ModelRuns;
 import io.github.stigjohnny.docs.repo.RepositoryLinks;
 import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.repo.TestEvidence;
@@ -69,6 +70,11 @@ public final class Consistency {
         capabilities(sources, problems);
         links(sources, problems);
         DemoCheck.check(sources, problems);
+        try {
+            ModelRuns.read(sources);
+        } catch (DocsException e) {
+            problems.add(e.getMessage());
+        }
         problems.throwIfAny("the documentation sources are inconsistent");
     }
 

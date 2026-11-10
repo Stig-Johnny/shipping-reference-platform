@@ -20,6 +20,7 @@ A reference monorepo that shows how a Java and TypeScript product can be built w
 - [AGENTS.md](AGENTS.md): rules for agents, with scoped files in `apps/*`, `libs/*` and `security/`.
 - [docs/gaps.md](docs/gaps.md): what a green build does not prove.
 - [Contribution records](docs/contributions.md): per-issue models, reasoning effort, receipts and separate review/owner approval phases.
+- [Model runs and costs](docs/contributions/runs.md): include failed attempts, usage and cost basis; unknown is not zero. Structure validation does not prove completeness.
 - [Human site design](docs/ui/documentation-site.md): generated page search and a visual map of API modules, decisions and passing evidence; prose does not create dependency arrows.
 - [docs/risk-levels.md](docs/risk-levels.md) and `policy/risk.json`: who approves what.
 
@@ -88,6 +89,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | [ADR 0017: Bind JDBC statements locally and serialize booking keys and quotes](docs/adr/0017-jdbc-transaction-binding-and-booking-locks.md) | accepted | java |
 | [ADR 0018: An attended demo on one origin with selectable storage](docs/adr/0018-attended-demo-runtime.md) | accepted | java, databaseTest |
 | [ADR 0019: Strict same-origin content security for the workbench](docs/adr/0019-strict-same-origin-workbench-csp.md) | accepted | web, java |
+| [ADR 0020: Record model runs with explicit cost and coverage boundaries](docs/adr/0020-model-run-evidence-and-cost-boundaries.md) | accepted | java |
 
 ## Third-party components
 

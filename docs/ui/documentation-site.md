@@ -164,6 +164,19 @@ Search finds stable issue headings. Records use neutral provenance status: setti
 from receipts, not verified by the publishing build. Existing safe rendering, relative links, source labels and
 publication scanning apply; no new dependency or data-fetching path is introduced.
 
+Issue #111 adds T-09, `trust/model-runs.html`, from the structured frontmatter and public-safe receipt summary in
+[model runs](../contributions/runs.md). Keep each run's issue, role, model, outcome and cost basis visible; use
+native disclosures for scope, usage, method and receipts instead of a wide accounting table. Unknown and
+not-applicable values stay in words. Billed amounts, metered estimates and unknown subscription allocation are
+different bases; reservations appear only as limitations, never as spending. Show no combined total or ranking.
+
+The status distinguishes validated structure from authored measurements: records are read on each site build, but
+the build does not authenticate receipts or prove every change and phase was recorded. The coverage statement
+and receipt limitations remain visible. Preserve failed, rejected and corrected records; a correction links to
+the earlier same-issue ID. Stable run headings and anchors support search, keyboard navigation and no-script
+reading. Existing escaping, relative links and publication scanning apply to all new fields. No raw logs,
+provider fetch, price lookup or repository-link exception is introduced.
+
 ## The Demos section
 
 Demos is the second section of the register, after Start. It shows a reader who does not read code what each pull

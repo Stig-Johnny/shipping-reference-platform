@@ -25,6 +25,30 @@ Known phases below identify their receipts and actual work dates. The table's da
 precision the receipt supports. No receipt here establishes a resolved provider checkpoint. Private source logs
 are not published. Model provenance, review outcome, owner approval and passing tests are different evidence.
 
+## Issue 111
+
+**Model runs and cost evidence.** Add structured per-run usage, cost bases and outcomes beside the preserved
+contribution history. The narrow slice validates records that exist; reviewers remain responsible for missing
+changes/phases, receipt credibility and history preservation. No provider calls, billing collection, allowance
+increase, complete delivery total or model ranking is claimed.
+
+[Model-run records and public-safe backfill](runs.md) contain the current implementation, separate accounting
+audit, documentation and independent design-review phases. Their fresh settings, usage and allocated costs remain
+unknown where no phase receipt exists. The design review is advice, not implementation or final-head approval.
+Implementation revisions, checks, rendered inspection, final independent review and the exercised merge authority
+will be appended through the normal PR receipts; this initial entry grants no approval.
+
+### Usage and cost backfill recorded on 2026-11-10
+
+The structured record adds 14 DeepSeek rounds for issues #69, #37 and #101, including interrupted runs and later
+rejected worker proposals, plus four historical Codex phases supported by the existing history. Original work
+dates remain 2026-11-09. This supplements the legacy narrative without changing its earlier assertions.
+
+[The backfill method](runs.md#backfill-method) names receipt hashes, historical rates and timestamp-window
+attribution limits. Reservations are excluded from metered amounts; shared or missing Codex, human and
+infrastructure costs stay unknown. The DeepSeek request allowance remains exhausted; its proposed increase is
+unapproved and does not authorize worker calls for this issue.
+
 ## Issue 109
 
 **Current dependency declarations.** Add evidence locations and clickable source excerpts to the allowlist,

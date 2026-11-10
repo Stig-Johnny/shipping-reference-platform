@@ -32,6 +32,7 @@ final class BrainPage {
                         + "data-status=\"copy-status\" hidden>Copy agent context</button>\n")
                 .append(SiteContext.link(PAGE, SiteMap.BRAIN_DOWNLOAD, "Download BRAIN.md")).append('\n')
                 .append(SiteContext.link(PAGE, "trust/contributions.html", "Contribution records")).append('\n')
+                .append(SiteContext.link(PAGE, ModelRunsPage.PAGE, "Model runs and costs")).append('\n')
                 .append(SiteContext.link(PAGE, "trust/allowlist.html#entries", "Dependency declarations")).append('\n')
                 .append("<p id=\"copy-status\" class=\"copy-status\" role=\"status\"></p>\n</div>\n");
         body.append("<details class=\"brain-catalogue\"><summary>Full capability and control catalogue</summary>\n")
