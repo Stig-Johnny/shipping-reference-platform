@@ -101,6 +101,7 @@ final class SiteMap {
             case "docs/gaps.md" -> "trust/gaps.html";
             case "docs/contributions.md" -> "trust/contributions.html";
             case "docs/contributions/history.md" -> "trust/contribution-history.html";
+            case "docs/contributions/runs.md" -> ModelRunsPage.PAGE;
             default -> throw new DocsException(docPath + " has no page on the site; give it one in "
                     + "tools/docs (SiteMap) before publishing it");
         };

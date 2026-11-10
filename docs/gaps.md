@@ -485,9 +485,17 @@ The [attended runbook](flows/attended-demo.md#recorded-database-evidence) record
 
 ## 7. Documentation
 
-- [Contribution records](contributions.md) are manually maintained provenance. Publication tests check their
-  routes, links and discoverability; they do not verify model settings, receipt truth, completeness or append-only
-  history. Historical gaps remain `unknown`. AI review and human approval need separate exact-head receipts.
+- [Contribution records](contributions.md) and [model runs](contributions/runs.md) remain receipt-backed authored
+  evidence. The build validates submitted run structure, state/value consistency, correction references and safe
+  publication. It does not discover missing changes, authenticate settings/billing, enforce history immutability
+  against a base revision or measure complete delivery cost. Reviewers check missing attempts and coordination,
+  remediation, independent review and human phases. API-equivalent estimates use recorded usage and dated API
+  prices even for subscription work; they do not establish actual spend. Unallocated subscription bills and
+  historical gaps stay `unknown`, never zero; reservations stay separate from spending. Aggregate windows are
+  recorded once without invented phase allocation or assumed child-agent inclusion. No model ranking or
+  cross-record total is published.
+  Automatic telemetry, billing collection, trusted missing-PR enforcement and fair benchmark coverage are outside
+  this slice. AI review and human approval still need separate exact-head receipts.
 
 - The visual Brain maps API module dependencies, capability ownership, named decisions and passing evidence.
   It is a declaration/evidence view, not a runtime trace, and does not yet combine the separate web component map.

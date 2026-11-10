@@ -17,13 +17,22 @@ Size reason: <required above 500 authored lines>
 
 Contribution record: <durable record reference for this issue, linked to this PR and the relevant commits; complete before claiming the issue implemented>
 
+Model-run records: <IDs in docs/contributions/runs.md; record every change, failed/rejected attempt, remediation, integration, validation, independent review and actual human decision>
+
+- Fixed task/base, acceptance criteria, tools/rules, environment and known comparability differences:
+- Usage and cost receipts: <prefer api-equivalent-estimate from reported/estimated usage and dated API prices, even for subscription work; keep billed/metered-estimate/estimate/unknown bases distinct; scope, currency, tier/cache assumptions, rate date and method>
+- Missing or shared costs: <actual subscription/billed allocation, coordinator/reviewer work, human time, infrastructure; unknown is not zero; reservations are not spending; aggregate windows are not repeated across phases>
+- Reviewer completeness check: <missing attempts/phases and preservation of earlier records checked; valid schema alone does not establish completeness>
+
 Contribution phases (append a row for each phase and whenever model or reasoning effort changes):
 
 | Phase | Date (UTC) | Tool/agent | Configured model identifier | Verified resolved checkpoint | Reasoning effort | Role | Verification source/receipt |
 |---|---|---|---|---|---|---|---|
 | <n> | <YYYY-MM-DD> | <tool/agent> | <exact identifier> | <checkpoint or unknown> | <effort or unknown> | <implementation, integration, independent review> | <evidence reference> |
 
-- Corrections are new dated rows identifying the earlier row and corrected value. Keep all earlier rows unchanged.
+- Corrections are new dated records with correctionOf naming the earlier same-issue ID; keep all earlier rows unchanged.
+- A completed run is not acceptance of its patch or proof of secure delivery; link validation, review findings and later remediation separately.
+- Final-head reviews and human/delegated approval stay in durable PR comments; do not change an approved head to record its own approval.
 - Mark missing evidence `unknown` and explain what is missing. Never infer settings from product names or defaults; a configured alias does not establish a resolved checkpoint.
 - Retain human-only phases; their model, checkpoint and reasoning-effort fields are `not applicable`.
 - Keep credentials, raw transcripts, private names and machine paths out of the public record.

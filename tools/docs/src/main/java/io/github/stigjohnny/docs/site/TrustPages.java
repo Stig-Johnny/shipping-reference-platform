@@ -42,6 +42,7 @@ final class TrustPages {
         pages.add(NoticesPage.of(context));
         pages.add(contributions(context, "docs/contributions.md", "Contribution records"));
         pages.add(contributions(context, "docs/contributions/history.md", "Contribution history"));
+        pages.add(ModelRunsPage.of(context));
         return pages;
     }
 
@@ -69,6 +70,8 @@ final class TrustPages {
                 + "serves, and what it contains.");
         card(body, "trust/contributions.html", "Contribution records", "Which model and effort contributed to each "
                 + "issue, with receipts and explicit unknowns.");
+        card(body, ModelRunsPage.PAGE, "Model runs and costs", "Attempts, outcomes, usage and cost evidence. "
+                + "Estimates and unknowns remain visible, including failed work.");
         body.append("</div>\n");
         return new SitePage(INDEX, "Trust", "Overview", SiteSection.TRUST, "How this repository decides what code may "
                 + "run, who approves what, and what its checks cannot prove.", new StatusPanel(

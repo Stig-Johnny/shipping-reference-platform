@@ -25,8 +25,11 @@ The human Brain offers a generated visual map of API modules, their capabilities
 and their passing test evidence. Site search finds published titles, summaries and headings. Both update when the
 normal checked Pages deployment succeeds; prose does not create architecture dependency arrows. The generated
 `BRAIN.md` and module brains remain the agent entry points.
-[Contribution records](docs/contributions.md) link each implemented issue to its model/effort phases and receipts;
-missing historical settings stay unknown, and AI review and human approval are recorded separately.
+[Contribution records](docs/contributions.md) and [model runs](docs/contributions/runs.md) record the models, costs
+and outcomes behind each change, including unsuccessful work, integration and review. The aim is to compare
+model-assisted delivery under the same security and quality controls. Prefer API-equivalent estimates from
+recorded usage and dated API prices, including subscription work; keep actual billed cost separate. Missing
+measurements stay unknown, and different tasks and incomplete costs do not establish a model ranking.
 
 ## What exists today
 

@@ -25,6 +25,47 @@ Known phases below identify their receipts and actual work dates. The table's da
 precision the receipt supports. No receipt here establishes a resolved provider checkpoint. Private source logs
 are not published. Model provenance, review outcome, owner approval and passing tests are different evidence.
 
+## Issue 111
+
+**Model runs and cost evidence.** Add structured per-run usage, cost bases and outcomes beside the preserved
+contribution history. The narrow slice validates records that exist; reviewers remain responsible for missing
+changes/phases, receipt credibility and history preservation. No provider calls, billing collection, allowance
+increase, complete delivery total or model ranking is claimed.
+
+[Model-run records and public-safe backfill](runs.md) contain the current implementation, separate accounting
+audit, documentation and independent design-review phases. Their fresh settings, usage and allocated costs remain
+unknown where no phase receipt exists. The design review is advice, not implementation or final-head approval.
+Implementation revisions, checks, rendered inspection, final independent review and the exercised merge authority
+will be appended through the normal PR receipts; this initial entry grants no approval.
+
+### Usage and cost backfill recorded on 2026-11-10
+
+The structured record adds 14 DeepSeek rounds for issues #69, #37 and #101, including interrupted runs and later
+rejected worker proposals, plus four historical Codex phases supported by the existing history. Original work
+dates remain 2026-11-09. This supplements the legacy narrative without changing its earlier assertions.
+
+[The backfill method](runs.md#backfill-method) names receipt hashes, historical rates and timestamp-window
+attribution limits. Reservations are excluded from metered amounts; shared or missing Codex, human and
+infrastructure costs stay unknown. The DeepSeek request allowance remains exhausted; its proposed increase is
+unapproved and does not authorize worker calls for this issue.
+
+### API-equivalent snapshot added on 2026-11-10
+
+The user's comparison rule now prefers estimated API cost even for subscription work. One
+[root-window record and method](runs.md#root-window-api-comparison) captures the issue #111 coordinator interval
+from **11:38:31.342Z to 12:11:49.024Z UTC** on 2026-11-10: configured `gpt-6-astra`, effort `xhigh`, resolved
+checkpoint unknown. The reported 6,936,470 input tokens include 6,738,304 cached tokens; output is 38,095 tokens.
+Using the published Standard API rates checked that day gives **USD 10.624714**. Actual tier is unknown, so Standard
+is a stated comparison assumption; actual billed/subscription cost remains unknown. The amount covers model
+tokens only, omitting tool, infrastructure and human charges.
+
+The metadata snapshot hash is `0ec37af8ebbdd27604b899986a14d666049c9ce586df87d628bd17e0fabc280d`.
+The 55 reconciled usage increments are all below 272,000 input tokens. This fixed in-progress aggregate is recorded
+once, without rewriting earlier unknown-cost phases or allocating its cost among them. It excludes later work;
+child-agent inclusion, exclusive issue attribution and full delivery cost are not established. Historical DeepSeek
+estimates retain their original accounting basis. No new shared repository, provider call or allowance change is
+part of this documentation follow-up.
+
 ## Issue 109
 
 **Current dependency declarations.** Add evidence locations and clickable source excerpts to the allowlist,

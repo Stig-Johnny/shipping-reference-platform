@@ -164,6 +164,23 @@ Search finds stable issue headings. Records use neutral provenance status: setti
 from receipts, not verified by the publishing build. Existing safe rendering, relative links, source labels and
 publication scanning apply; no new dependency or data-fetching path is introduced.
 
+Issue #111 adds T-09, `trust/model-runs.html`, from the structured frontmatter and public-safe receipt summary in
+[model runs](../contributions/runs.md). Keep each run's issue, role, model, outcome and cost basis visible; use
+native disclosures for scope, usage, method and receipts instead of a wide accounting table. Unknown and
+not-applicable values stay in words. API-equivalent estimates are the preferred comparison, including subscription
+work; display their tier/rate assumptions and usage scope. Billed amounts, historical metered estimates and unknown
+subscription allocation remain distinct; reservations appear only as limitations, never as spending. An aggregate
+window is shown once with its cutoff and coverage limits. Show no combined total or ranking.
+The shared site labels specify synthetic shipping data. Model-run measurements and repository evidence are
+recorded observations, so the header, footer and landing page must not label all site content synthetic.
+
+The status distinguishes validated structure from authored measurements: records are read on each site build, but
+the build does not authenticate receipts or prove every change and phase was recorded. The coverage statement
+and receipt limitations remain visible. Preserve failed, rejected and corrected records; a correction links to
+the earlier same-issue ID. Stable run headings and anchors support search, keyboard navigation and no-script
+reading. Existing escaping, relative links and publication scanning apply to all new fields. No raw logs,
+provider fetch, price lookup or repository-link exception is introduced.
+
 ## The Demos section
 
 Demos is the second section of the register, after Start. It shows a reader who does not read code what each pull

@@ -51,7 +51,7 @@ final class PageShell {
                 .append("<div class=\"site" + (page.path().equals(BrainPage.PAGE) ? " brain-site" : "")
                         + "\">\n<header class=\"site-header\">\n<p class=\"site-name\"><a href=\"")
                 .append(url.apply(StartPages.INDEX)).append("\">").append(SITE_NAME).append("</a></p>\n")
-                .append("<p class=\"site-tagline\">Generated from the repository. Synthetic data only.</p>\n")
+                .append("<p class=\"site-tagline\">Generated from the repository. Synthetic shipping data only.</p>\n")
                 .append("<details class=\"site-nav-disclosure\" open>\n<summary>Site navigation</summary>\n")
                 .append("<p class=\"site-search-link\"><a href=\"").append(url.apply(SearchPage.PAGE))
                 .append("\">Search all pages</a></p>\n")
@@ -103,7 +103,7 @@ final class PageShell {
         out.append("<p class=\"page-source\">Source: ").append(Html.escape(page.source())).append(". ")
                 .append(revision(revision)).append("</p>\n</div>\n</main>\n")
                 .append("<footer class=\"site-footer\">\n<p>Generated from the repository's sources by its documentation "
-                        + "tool. All data is synthetic. <a href=\"").append(url.apply(LegalPages.LICENSE_PAGE))
+                        + "tool. All shipping data is synthetic. <a href=\"").append(url.apply(LegalPages.LICENSE_PAGE))
                 .append("\">Repository licence</a>, <a href=\"").append(url.apply(LegalPages.NOTICE_PAGE))
                 .append("\">Repository NOTICE</a> and <a href=\"").append(url.apply(NoticesPage.PAGE))
                 .append("\">Third-party notices</a>.</p>\n</footer>\n</div>\n</body>\n</html>\n");
