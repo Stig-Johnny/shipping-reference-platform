@@ -2,7 +2,7 @@
 title: "Milestone: from slides to code"
 description: "The milestone deck: what is built and checked, what is still planned, one change the gate rejects, who approves what, and a proposed first 30 days with a new team."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-10
 kind: deck
 lang: en
 milestone: 2026-11-10
@@ -16,7 +16,7 @@ appendixSlides: 4
 
 The aim is to deliver more useful changes, with clear responsibility for each change and the decisions behind it.
 
-- Agents write the code and the tests
+- Agents implement changes and a separate reviewer checks them
 - Required checks must be green before merging
 - A person owns the decisions that cannot be undone
 
@@ -28,19 +28,21 @@ The aim is to deliver more useful changes, with clear responsibility for each ch
 
 ## The promises, and what you can check today
 
-The checker and the dependency gate run; the shipping app has its first code, and most of it is planned.
+The checker and dependency gate run. The attended shipping workbench now prices, books and opens a shipment.
 
 | Promise | Today |
 |---|---|
 | The model governs the structure | Built and tested: the checker |
 | The gate stops unreviewed dependencies | Declared dependencies are checked in the approved CI run |
-| The shipping app itself | Planned: 16 of 27 capabilities |
+| The shipping app itself | A runnable demo; 16 of 27 capabilities still planned |
 
 ### Notes
 
-- Say it early: most of the application is not written yet, and none of it runs outside its tests
-- What exists are the controls that judge it, and its first code, which they now check
-- This proves part of the method; delivering product is the next evidence I owe
+- This is a local, attended demonstration with synthetic users and disposable memory. The documentation site hosts the evidence pages, not the API.
+- Clerk Alpha → quote → book Standard → replay the same request → shipment → simulated label. Use the [attended runbook](../flows/attended-demo.md) and [screen specification](../ui/workbench.md).
+- The 2026-11-09 memory rehearsal passed sign-in, quote, booking, replay, list, detail and tenant denials. It reached "Label ready" but did not establish a freshly saved file. Earlier Chrome SVG proof remains a separate historical recording.
+- The acceptance ledger is 27 capabilities: 2 shipped, 9 partial and 16 planned. Planned means its named acceptance evidence is missing, even where implementation exists.
+- If the app is unavailable, show the [workbench recording](87-web-workbench-slice.md) and this deck's recorded gate failure. Keep a local copy of the documentation available for a network failure. Memory data disappears when the launcher stops.
 
 ## One change the gate rejects
 
@@ -58,10 +60,10 @@ Recorded output — not rerun by this site build. Full record in the notes.
 
 ### Notes
 
-- The demo runs in a separate copy of the repository, so nothing is shared by accident
+- This recorded demonstration used a separate copy of the repository. Present the excerpt without changing the model during the meeting.
 - First the business meaning: an agreed rule about which part may use which
 - Then the error message: which classes, which calls, which line
-- If the network fails: switch to the recording at once
+- The excerpt below is the immediate fallback if the live demonstration is unavailable.
 - Recorded output — not rerun by this site build. Recorded 2026-11-07T14:56:19Z on revision 44ef312, macOS with Temurin 25.0.5+8: `./gradlew :libs:c4-contract-kit:test --rerun --tests '*SelfConformanceTest'` exited 1 with the relationship `report -> model` removed from `libs/c4-contract-kit/architecture/self.dsl`, and 0 before and after. Excerpt from the checker's report; the report's other headings are left out:
 
 ```text
@@ -82,35 +84,41 @@ Each claim needs the right kind of evidence.
 
 - The checker sees compiled code, not what happens when it runs
 - An arrow that touches a planned module is not evaluated yet
-- So: the architecture check, tests and human judgement, each on its own
+- Type-pattern switches remain an importer blind spot. A green architecture report covers the direct references the checker detects.
+- The attended browser flow is separate from automated browser acceptance. Named Playwright tests and a full keyboard or screen-reader audit remain planned.
 
 ## Who approves each change
 
-Every level requires green checks and a documented AI approval.
+Every level requires green checks and a recorded independent AI review.
 
 - 0: document text. 1: appearance, and prototypes without sensitive functionality, off by default.
 - 2: ordinary functionality.
-- 3: sensitive changes and the controls; the owner must also approve the exact version by hand before merging.
+- 3: sensitive changes and the controls, under the owner's approval authority.
 
 ### Notes
 
 - Level 3 covers money, booking, personal data, sign-in, the separation of the webshops' data, the database structure, third-party code and the controls
-- Automatic enforcement of the AI and owner approvals is planned
+- The baseline policy requires owner approval for level 3. For this demo work, the owner has delegated review and merge to Codex after checks and separate review of the exact head, without another per-merge confirmation.
+- Implementation, editorial work, integration and independent review are recorded as separate phases. Delegation does not imply an individual human approval of every commit.
+- Automatic AI-review and risk/owner-approval gates remain planned
 - Changes to SQL code, migrations and the processing of personal data are level 3
 - At your company I propose that a person also checks the intent at level 2, as I promised last time
 
 ## A workflow your team owns
 
-Issue, tests, change, review, demo: every time.
+Issue → tests and change → independent review → demo.
 
-- Brain: a generated summary that the agents are to read first; the build fails when it is out of date
+- [Brain](../../BRAIN.md) connects modules, decisions and passing evidence. The build checks its generated sources.
 - We demonstrate every delivery to you
-- The checks are open; the README describes the setup and the limits
+- [Contribution records](../contributions/history.md) separate implementation, integration and review
 
 ### Notes
 
 - The method must be transferable: clear who maintains the checks, the reviews and the settings
-- Brain is a summary of the sources, not a replacement for them
+- In Brain, select Shipments and its Quotes dependency, then Decisions and Evidence. Map arrows describe declared relationships, not runtime traffic.
+- Site search finds published titles, summaries and headings. It does not search every paragraph.
+- Open [Issue 69](../contributions/history.md#issue-69) for distinct DeepSeek and Codex phases. Model and effort receipts establish provenance, not quality. Missing settings stay unknown.
+- Brain is a summary of the sources. Finish with the [known gaps](../gaps.md) and the [dependency gate](../../security/README.md).
 
 ## Working with your Java lead
 
@@ -118,12 +126,14 @@ I own the delivery and the technical decisions; the Java lead challenges the tec
 
 - I learned Java at university and have 17 years of experience with C# and .NET
 - I make uncertainty explicit.
-- This repository specifies Spring JDBC (JdbcClient); its persistence code is still planned. We will make any JPA decisions together.
+- Spring JDBC (`JdbcClient`) adapters exist for tenants, quotes and shipments. We will make any JPA decisions together.
 
 ### Notes
 
 - State the Java background once, then move on to responsibility and collaboration
-- The tooling in the repository is real: strict builds, static analysis, mutation testing in CI
+- JDBC adapters, paired V1–V3 migrations, forced row-level security and booking concurrency cases have [recorded PostgreSQL CI evidence](../flows/attended-demo.md#recorded-database-evidence).
+- The meeting uses memory. No local PostgreSQL rehearsal is claimed.
+- The repository has strict builds and static analysis. Checker mutation tests run in CI, with the limits in the appendix.
 
 ## A proposal for the first 30 days
 
@@ -149,6 +159,7 @@ Every Friday, you see working software and the evidence needed to judge our prog
 ### Notes
 
 - Examples in the public repository are synthetic; your own numbers stay internal
+- This is a proposed reporting cadence. Separate what we demonstrated live, recorded checks and acceptance evidence still missing.
 
 ## The decision
 
@@ -168,12 +179,12 @@ Agree on the first slice, how you will judge my contribution, and when we will r
 Declared dependencies in the approved CI run are checked against recorded reviews before the build starts.
 
 - The check runs from the main branch against the change's files, as data
-- 308 reviewed entries: 293 approved, 15 rejected
+- 519 product allowlist entries: 504 approved, 15 rejected
 - A review can be wrong; conditions are not enforced everywhere
 
 ### Notes
 
-- The details are on the site's Trust pages
+- The [Trust record](../../security/README.md) explains review conditions and limits. These counts describe the product repository's allowlist.
 
 ## Appendix: evidence that the gates fail
 
@@ -193,11 +204,12 @@ I say this before you ask.
 
 - Broaden the model, or weaken tests and workflows in its own change
 - Recompute the checksum of the reviewed set
-- The dependency check runs from the main branch; level 3 needs the owner's approval by hand, which is not yet enforced automatically
+- The dependency check runs from the main branch. Owner authorization and independent review remain separate responsibilities.
 
 ### Notes
 
-- Enforced approval and a separate AI-review check are planned
+- Current owner delegation permits Codex to merge this demo work after required checks and independent review of the exact head.
+- The baseline level 3 policy retains human accountability. Automated risk/owner approval and a separate AI-review gate remain planned.
 - The controls are not a certification
 
 ## Appendix: tools and versions
@@ -210,4 +222,6 @@ Java 25, strict builds and static analysis.
 
 ### Notes
 
-- The API runs in tests. Paired migrations for tenants and quotes exist; their merged-tree PostgreSQL evidence awaits CI
+- The API runs in the attended demo with memory stores. JDBC adapters and paired V1–V3 migrations have separate [recorded PostgreSQL evidence](../flows/attended-demo.md#recorded-database-evidence).
+- The historical [runtime recording](94-demo-profile.md) belongs to its stated CI run. A later passing run does not rewrite that record or become the publishing build's own evidence.
+- Pricing and booking modules are not mutation-tested. Browser acceptance, adversarial CSP checks and a full accessibility audit remain planned.

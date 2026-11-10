@@ -2,7 +2,7 @@
 title: "Contribution history"
 description: "Per-issue implementation, integration, review and human approval records, with exact settings where evidenced and unknowns where receipts are missing."
 status: accepted
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Contribution history
@@ -24,6 +24,24 @@ Merge timestamps below are UTC and are never substituted for work dates. Product
 Known phases below use receipts recorded on 2026-11-09. The table's date is the observed work date/time at the
 precision the receipt supports. No receipt here establishes a resolved provider checkpoint. Private source logs
 are not published. Model provenance, review outcome, owner approval and passing tests are different evidence.
+
+## Issue 100
+
+**Current milestone deck.** Correct stale application and persistence claims, retain the ten main/four appendix
+structure, and provide an attended demo path with explicitly recorded evidence. Initial PR and implementation
+revision are appended once available.
+
+[Issue 100](https://github.com/Stig-Johnny/shipping-reference-platform/issues/100) ·
+[settings and scope receipt 6754890833](https://github.com/Stig-Johnny/shipping-reference-platform/issues/100#issuecomment-6754890833).
+
+| Phase / role | Work date (UTC) | Tool and observed settings | Verification and scope |
+|---|---|---|---|
+| 100-1 editorial proposal | 2026-11-09 about 23:58 | Codex editorial agent; configured `gpt-6-astra`; checkpoint `unknown`; effort `xhigh` | Receipt 6754890833 records inherited parent settings without override. Compared the deck with source facts and prepared the text correction. This is neither DeepSeek implementation nor independent final review. |
+| 100-2 integration and validation | 2026-11-10 | Codex coordinator; configured `gpt-6-astra`; checkpoint `unknown`; effort `xhigh` | Receipt 6754890833 identifies continuing-session settings and the integration role: date, contribution history, numbered demo, existing checks and rendered review. Actual results and revision follow in the PR. |
+
+DeepSeek is paused at its retained request limit and has no implementation phase in this issue. Independent
+exact-head review and exercised owner delegation will be separate PR receipts. Standing delegation is not an
+individual human SHA approval. Do not treat this initial contribution checkpoint as approval or passing CI.
 
 ## Issue 101
 

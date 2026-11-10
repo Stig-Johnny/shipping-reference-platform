@@ -2,7 +2,7 @@
 title: "C4 view: Executable scenario: quote a parcel"
 description: "Dynamic view of the API. Executable scenario: quote a parcel. QuoteScenarioTest runs it on the code and checks its steps (architecture/scenarios/scenario-quote.json)."
 status: accepted
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 > Generated—do not hand-edit. Source: `architecture/workspace.dsl`, view `ScenarioQuote`. Regenerate with
