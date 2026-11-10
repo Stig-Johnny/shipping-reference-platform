@@ -44,6 +44,16 @@ policy or historical recording changes belong to this issue. DeepSeek remains pa
 Final independent review and exercise of standing merge delegation remain separate exact-head PR receipts; this
 initial checkpoint is not approval, a passing-CI claim or an individual human SHA approval.
 
+### Revision and validation receipt added on 2026-11-10
+
+Issue 106 is [PR 107](https://github.com/Stig-Johnny/shipping-reference-platform/pull/107), starting at
+[28f2884be6b6fd948074f44b935ef5aea9fd15ba](https://github.com/Stig-Johnny/shipping-reference-platform/commit/28f2884be6b6fd948074f44b935ef5aea9fd15ba).
+The initial generator run passed, followed by the ordinary check with 22 generated files current and 101 site
+files. Test tasks were reused from the generator's successful dependencies. The rendered flow caption and authored
+sequence disclosure were inspected at laptop size, including the five planned-message labels and memory-demo link.
+The model-derived Pages diagram is unchanged; the authored sequence remains source there. These are validation
+results, not final independent approval. Final-head review and exercised delegation remain separate PR receipts.
+
 ## Issue 102
 
 **Shipment implementation claims.** Clarify booking, recorded PostgreSQL evidence and the in-process event publisher,
