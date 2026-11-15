@@ -73,7 +73,7 @@ class ContainerEngineWorkflowTest {
         assertThat(step.has("uses")).isFalse();
         assertThat(step.has("continue-on-error")).isFalse();
         assertThat(step.string("run")).contains("# engine-guard: begin", "set -euo pipefail",
-                "systemctl stop", "systemctl mask --runtime", "rm -f /var/run/", "nc -z -U -w 2",
+                "systemctl stop", "systemctl mask --runtime", "rm -f /var/run/", "if timeout 30 ", "nc -z -U -w 2",
                 "exit 1", "# engine-guard: end");
     }
 
