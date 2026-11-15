@@ -756,3 +756,11 @@ seven earlier run records edited in place instead of corrected) and two P3 (the 
 repository jargon). It confirmed the three curl blocks, all four excerpts and all 114 links. Claude Opus 5.5
 restored the seven records byte for byte, kept `issue-114-settings-backfill` as their correction row, and fixed
 the three sentences. Records: `issue-114-independent-review` and `issue-114-review-fixes` in [model runs](runs.md).
+
+**Phase 114-11 — second review and fixes, 2026-11-15:** a read-only Codex re-review at
+`ab583e7009825b4b1956e5f31ba17f918677c860` stopped without a verdict when Codex credits ran out. A fresh-context Claude
+subagent then approved with changes: all four earlier findings fixed, one P2 (the closing sentence overclaimed what
+the README's try-it commands check) and record-wording P3s. Claude Opus 5.5 fixed the sentence, appended correction
+rows for the settings backfill and the first review fixes, and noted in the PR that only the first corrected row
+renders an Amended-by link. Records: `issue-114-codex-rereview-incomplete`, `issue-114-independent-review-2`,
+`issue-114-backfill-correction`, `issue-114-review-fixes-correction` and `issue-114-review-2-fixes`.

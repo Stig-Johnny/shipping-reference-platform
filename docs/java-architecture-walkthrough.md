@@ -291,8 +291,9 @@ in CI ([API build][api-build], [Java workflow][ci]).
   ([domain](gaps.md#4-domain-simplifications), [personal-data gaps](gaps.md#3-personal-data)).
 
 The code was written with AI coding agents and held to the same checks as any contribution; the
-[contribution records](contributions.md) and [issue history](contributions/history.md) record that work, and
-the [local check commands](../README.md#try-it) reproduce its verification.
+[contribution records](contributions.md) and [issue history](contributions/history.md) record that work.
+[Running it](../README.md#running-it) lists the checks: `./gradlew check` runs locally with the JDK alone, while
+the database and mutation tests run in CI.
 
 [app]: ../apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/ShippingApplication.java
 [get-quote]: ../apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/quotes/internal/application/GetQuote.java
