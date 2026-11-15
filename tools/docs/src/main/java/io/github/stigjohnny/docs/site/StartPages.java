@@ -35,7 +35,9 @@ final class StartPages {
         DocFile walkthrough = context.sources().doc(JAVA_WALKTHROUGH_SOURCE)
                 .orElseThrow(() -> SiteContext.missing(JAVA_WALKTHROUGH_SOURCE));
         return List.of(start(context), readme(context),
-                DocPages.of(context, walkthrough, SiteSection.START, "Java architecture walkthrough", "", List.of()),
+                // The walkthrough covers the whole application, so it shows the README's evidence: every capability.
+                DocPages.of(context, walkthrough, SiteSection.START, "Java architecture walkthrough", "",
+                        context.sources().capabilities().all()),
                 DocPages.of(context, design, SiteSection.START, "How this site is drawn", "", List.of()));
     }
 

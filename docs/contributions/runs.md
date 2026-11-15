@@ -1398,6 +1398,35 @@ records:
       scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
       method: "unknown: no measured usage or billed allocation; no costs inferred"
       receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-114-evidence-panel"
+    issue: 114
+    date: "2026-11-15"
+    role: "implementation"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "xhigh"
+    base: "78dd2ae46278092fd7309b76dfb93e30b3c74f36"
+    outcome: "completed"
+    scope: "Make the walkthrough page show the same verified evidence as the README page on the site."
+    environment: "PR 115 issue branch; macOS and reviewed Temurin 25.0.5+8; docs tool and its test."
+    result: "The rendered walkthrough said Verified evidence: None yet, because StartPages built it with an empty capability list. SitePagesTest.theWalkthroughShowsTheSameVerifiedEvidenceAsTheReadme failed first (README: Passing, 59 evidence test classes; walkthrough: None yet), then passed after StartPages passed every capability, as the README page does. All 35 SitePagesTest cases pass."
+    limitations: "The page now also shows the README's implementation status line. Visual review of the published page follows after merge."
+    evidence: "Red and green JUnit XML for SitePagesTest saved in the orchestrator's evidence folder, 2026-11-15; this PR's diff."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "Make the walkthrough page show the same verified evidence as the README page on the site."
+      receipt: "unknown: no phase-scoped usage measurement available"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
 ---
 
 # Model runs and cost evidence

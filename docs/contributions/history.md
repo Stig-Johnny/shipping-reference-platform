@@ -764,3 +764,8 @@ the README's try-it commands check) and record-wording P3s. Claude Opus 5.5 fixe
 rows for the settings backfill and the first review fixes, and noted in the PR that only the first corrected row
 renders an Amended-by link. Records: `issue-114-codex-rereview-incomplete`, `issue-114-independent-review-2`,
 `issue-114-backfill-correction`, `issue-114-review-fixes-correction` and `issue-114-review-2-fixes`.
+
+**Phase 114-12 — evidence panel, 2026-11-15:** the rendered walkthrough showed "Verified evidence: None yet"
+because its start sheet was built with no capabilities. A new site test failed first (the README page showed 59
+passing evidence test classes; the walkthrough showed none), then passed once the sheet used every capability, as
+the README page does. Record: `issue-114-evidence-panel` in [model runs](runs.md).

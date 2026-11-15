@@ -56,6 +56,19 @@ class SitePagesTest {
     }
 
     @Test
+    void theWalkthroughShowsTheSameVerifiedEvidenceAsTheReadme() {
+        String walkthrough = verifiedEvidence(site.text("start/java-architecture-walkthrough.html"));
+        assertThat(walkthrough).isEqualTo(verifiedEvidence(site.text("start/repository.html")));
+    }
+
+    private static String verifiedEvidence(String html) {
+        String start = "Verified evidence</dt><dd>";
+        int from = html.indexOf(start);
+        assertThat(from).as("a verified-evidence row").isNotNegative();
+        return html.substring(from + start.length(), html.indexOf("</dd>", from));
+    }
+
+    @Test
     void theAttendedRunbookIsPublishedWithItsStorageModesAndLimits() {
         assertThat(site.text("model/flow-attended-demo.html")).contains("M-10", "Memory mode", "PostgreSQL mode",
                 "SPRING_DATASOURCE_PASSWORD", "DemoPostgresSmokeIntegrationTest", "operator", "Ctrl-C");
