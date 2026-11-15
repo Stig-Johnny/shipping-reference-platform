@@ -16,6 +16,8 @@ run the [memory workbench](docs/flows/attended-demo.md#memory-mode), then explor
 [visual Brain](https://stig-johnny.github.io/shipping-reference-platform/brain/index.html).
 The deck and Brain are documentation; the workbench runs locally with synthetic data.
 
+For a Java/Spring tour of the implementation, read the [Java architecture walkthrough](docs/java-architecture-walkthrough.md).
+
 **Scenario coverage ledger:** the owner accepted 15 exact demo findings for issue #92, bringing the ledger to
 215 distinct findings: 115 HTTP/security accesses, 94 JDBC accesses and six factory parameters. ADR 0013 records
 the acceptance. Existing classifications and the census, matching, duplicate and bypass checks are unchanged.

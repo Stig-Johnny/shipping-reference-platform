@@ -695,3 +695,118 @@ settings receipt. Claude Opus 5.5 made the fake accept any bound with a separate
 the workflow test, proved both by mutation, and cited the settings receipt. Implementation commit:
 `be2908d7ebec82118a3e9c66af29541256deca7c`. Records: `issue-117-settings-receipt`, `issue-117-independent-review` and
 `issue-117-review-fixes` in [model runs](runs.md).
+
+## Issue 114
+
+A Java architecture walkthrough for an experienced Java/Spring developer, part of epic 113.
+
+[Issue 114](https://github.com/Stig-Johnny/shipping-reference-platform/issues/114) ·
+[epic 113](https://github.com/Stig-Johnny/shipping-reference-platform/issues/113).
+Base: `9cd0774b731f7edf20b30de5f4bf06cd3f0f0f76`; no implementation commit or PR number yet.
+
+**Phase 114-1 — planning, 2026-11-15:** Codex read the issues and repository documentation conventions.
+Scope is one source-checked walkthrough, its site registration, a local memory run and the requested checks.
+The user excludes git writes, containers, PIT, dependencies and security changes. Configured model, checkpoint,
+effort, usage, API-equivalent estimate and actual billed allocation remain unknown without a receipt.
+The structured record is `issue-114-planning` in [model runs](runs.md).
+Independent review and final-head approval have not happened in this session.
+
+**Phase 114-2 — implementation and site integration, 2026-11-15:** the
+[walkthrough](../java-architecture-walkthrough.md) follows source and existing tests, with exact port, tenant-binding,
+RLS and replay-assertion excerpts. Start sheet S-04, README, navigation and search expose it. The local memory
+launcher reached readiness; synthetic HTTP quote/book/replay/list/detail/label and tenant denial passed. Ctrl-C
+exited 130 and the port check exited 0. No PostgreSQL or browser acceptance execution is inferred.
+
+**Phase 114-3 — failed attempts and remediation, 2026-11-15:** the new navigation test first failed because the
+page link did not exist. Its first wired run failed because the docs fixture copied tests but omitted linked main
+sources; the fixture now includes those real inputs. The next run exposed a search assertion using the wrong
+relative path; it now resolves the URL before checking its destination. Link validation and all existing
+assertions remain. A sandbox-denied parent-process inspection during cleanup was replaced by interrupting the
+owned launcher session. The source review corrected a test attribution: QuoteExpiryTest covers expiry; the
+PostgreSQL offer-lookup test covers foreign tenants. Structured phases: `issue-114-implementation` and
+`issue-114-wiring-remediation` in [model runs](runs.md).
+
+**Phase 114-4 — validation failure and correction, 2026-11-15:** the first full generation rejected a new run
+record with an unsupported role value; 94 docs test failures shared that metadata diagnostic. The record now uses
+the existing implementation role and describes remediation in its scope. No schema rule changed. The failure is
+retained as `issue-114-validation-attempt-1` in [model runs](runs.md).
+
+**Phase 114-5 — integration and validation, 2026-11-15:** generation, the full requested Gradle check including
+checkGenerated, and PolicyCheck each exited 0 before the demo-number placeholder was added. JUnit results were
+1,508 API tests, 2,226 architecture-library tests and 759 documentation tests, with no failures, errors or skips.
+The generated HTML contains the walkthrough sections and exact excerpts; the test verifies Start, navigation and
+search reachability. Source links remain repository links in Markdown and plain labels on the site under its
+existing publication rules. Computer-use exposed no browser and denied access to Safari; visual browser review
+is therefore pending, not asserted. The temporary HTML preview was stopped. Structured records are
+`issue-114-site-integration` and `issue-114-validation-before-demo-number` in [model runs](runs.md).
+
+**Handoff, 2026-11-15:** the user explicitly requested a demo with `pr: 0` for later orchestrator numbering.
+The docs tool rejects that placeholder; the numbered demo must be rendered and reviewed before merge. No git
+writes, container runs, PIT, dependency changes or security-file edits were made. Independent final-head review
+and the owner's decision remain outstanding, with no approval inferred from implementation or passing tests.
+
+**Phase 114-6 — placeholder validation, 2026-11-15:** after adding the explicitly requested zero-number demo,
+generation and the full check each exited 1. All 48 docs-test failures trace to two diagnostics for that file:
+the filename must carry a positive PR number, and `pr` must be positive. No other source-consistency diagnostic
+appeared; PolicyCheck and whitespace checks passed. A final prose audit initially matched the word fragment
+"control" in Java Controller identifiers; word-boundary matching passed without a page edit. These attempts are
+retained in `issue-114-validation-placeholder` in [model runs](runs.md). The actual PR number, a fresh passing
+build and visual review of the numbered demo remain the handoff steps.
+
+**Phase 114-7 — draft review and revision, 2026-11-15:** PR #115 now holds the draft at
+`d57d7bd71df73fcb17ef20da378d99c2afdabbea`. The user supplied Claude Opus 5.5 (`claude-opus-5-5`)'s
+orchestrator review: changes requested for demo numbering, a linked design overview, shorter confident prose,
+concrete JDBC reasoning, tested curl calls and complete records. The review is separate from final-head approval.
+The supplied Codex CLI 0.167.0 banner establishes `gpt-6-astra`, effort `xhigh`, for the earlier issue-114 phases;
+checkpoint, usage and cost remain unknown. Their original receipt gaps and failed attempts remain recorded.
+The revision targets `docs/demos/115-java-architecture-walkthrough.md` and preserves every source link and
+excerpt. See the review, settings-backfill and revision phases in [model runs](runs.md).
+
+**Phase 114-8 — remediation and validation, 2026-11-15:** the first numbered build exposed literal bearer-header
+scan findings and a history link into demos removed by fixtures. Reusing the public token through a shell variable
+and recording the demo path as text resolved both, without changing checks. The final three curl calls returned
+201/201/200; cleanup and all requested checks passed. Generated S-04/X-115 HTML was read; visual browser review
+remains pending because access was unavailable. Failures, fixes and validation are retained in [model runs](runs.md).
+
+**Phase 114-9 — orchestrator integration, 2026-11-15:** Claude Opus 5.5 read the revised page in full and accepted
+it with two wording edits: the launcher's JDK rule in one sentence, and a closing sentence that the code was written
+with AI coding agents held to the same checks. The record is `issue-114-orchestrator-integration` in
+[model runs](runs.md). A separate review and the owner's final-head decision follow.
+
+**Phase 114-10 — independent review and fixes, 2026-11-15:** a separate read-only Codex session (gpt-6-astra,
+xhigh) requested changes at `bb2132f8cc394b173bc889fce8812d22a5fbb8f7`: two P2 (an overstated cleanup-test claim;
+seven earlier run records edited in place instead of corrected) and two P3 (the contract-implementation sentence;
+repository jargon). It confirmed the three curl blocks, all four excerpts and all 114 links. Claude Opus 5.5
+restored the seven records byte for byte, kept `issue-114-settings-backfill` as their correction row, and fixed
+the three sentences. Records: `issue-114-independent-review` and `issue-114-review-fixes` in [model runs](runs.md).
+
+**Phase 114-11 — second review and fixes, 2026-11-15:** a read-only Codex re-review at
+`ab583e7009825b4b1956e5f31ba17f918677c860` stopped without a verdict when Codex credits ran out. A fresh-context Claude
+subagent then approved with changes: all four earlier findings fixed, one P2 (the closing sentence overclaimed what
+the README's try-it commands check) and record-wording P3s. Claude Opus 5.5 fixed the sentence, appended correction
+rows for the settings backfill and the first review fixes, and noted in the PR that only the first corrected row
+renders an Amended-by link. Records: `issue-114-codex-rereview-incomplete`, `issue-114-independent-review-2`,
+`issue-114-backfill-correction`, `issue-114-review-fixes-correction` and `issue-114-review-2-fixes`.
+
+**Phase 114-12 — evidence panel, 2026-11-15:** the rendered walkthrough showed "Verified evidence: None yet"
+because its start sheet was built with no capabilities. A new site test failed first (the README page showed 59
+passing evidence test classes; the walkthrough showed none), then passed once the sheet used every capability, as
+the README page does. Record: `issue-114-evidence-panel` in [model runs](runs.md).
+
+**Phase 114-13 — status panel, 2026-11-15:** the rendered page then showed the README's whole capability
+paragraph, process terms included, as its own planned implementation. The site test now also requires that row to
+say Not applicable; it failed first and passes since the page shows the README's evidence without a capability
+status of its own. Record: `issue-114-status-panel` in [model runs](runs.md), a correction of
+`issue-114-evidence-panel`.
+
+**Phase 114-14 — final-head review, 2026-11-15:** a fresh-context Claude subagent reviewed
+`0d568112079019bd656ffc4a4eee7ae05bdd4cf2` and approved with changes. Its P2, the capability paragraph under the title,
+is the one Phase 114-13 fixes. For its P3s, the coverage sentence at the top of [model runs](runs.md) now counts the
+issue-114 rows (a changed header line, not a changed record), and the PR description no longer claims screenshots on
+the PR. Record: `issue-114-independent-review-3`.
+
+**Phase 114-15 — main merge, 2026-11-15:** PR #119 (issue 117, the engine guard's 30-second bound) merged first,
+as `239f5dd3fd8c1e3f0cdfce94f8e05a2e9cb5e896`. Claude Opus 5.5 merged main into this branch with a merge commit.
+The only conflicts were the appended entries in this history and in [model runs](runs.md); both sides are kept
+unchanged, main's first. The coverage sentence there now also counts the five issue 117 rows and this phase's row.
+Generation, the full check and PolicyCheck passed before push. Record: `issue-114-main-merge`.

@@ -23,11 +23,25 @@ final class DocPages {
     /** A page from a document whose Markdown the site has adapted, such as a flow with its dynamic view. */
     static SitePage of(SiteContext context, DocFile doc, SiteSection section, String navLabel, String extraBody,
             List<Capability> capabilities, String markdown) {
+        return page(context, doc, section, navLabel, extraBody, markdown, capabilities, capabilities);
+    }
+
+    /**
+     * A page from a document that specifies no capability of its own but shows the passing evidence of the given
+     * capabilities, such as a walkthrough of the whole application.
+     */
+    static SitePage withEvidenceOf(SiteContext context, DocFile doc, SiteSection section, String navLabel,
+            List<Capability> evidenceOf) {
+        return page(context, doc, section, navLabel, "", doc.body(), List.of(), evidenceOf);
+    }
+
+    private static SitePage page(SiteContext context, DocFile doc, SiteSection section, String navLabel,
+            String extraBody, String markdown, List<Capability> specified, List<Capability> evidenceOf) {
         String page = context.map().site(doc.path()).orElseThrow(() -> SiteContext.missing("a page for " + doc.path()));
         RenderedMarkdown rendered = context.render(markdown, doc.path(), page, true);
         return new SitePage(page, doc.title(), navLabel, section, doc.description(),
-                new StatusPanel(Statuses.design(doc), Statuses.implementation(capabilities),
-                        Statuses.evidence(capabilities, context.sources().evidence())),
+                new StatusPanel(Statuses.design(doc), Statuses.implementation(specified),
+                        Statuses.evidence(evidenceOf, context.sources().evidence())),
                 contents(rendered.headings()), rendered.html() + extraBody, context.mentioned(doc.body(), page),
                 doc.path(), false);
     }

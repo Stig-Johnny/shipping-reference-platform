@@ -97,6 +97,7 @@ final class SiteMap {
         return switch (docPath) {
             case "docs/ui/workbench.md" -> "modules/web-workbench.html";
             case "docs/ui/documentation-site.md" -> "start/site-design.html";
+            case "docs/java-architecture-walkthrough.md" -> StartPages.JAVA_WALKTHROUGH;
             case "docs/risk-levels.md" -> "trust/risk-levels.html";
             case "docs/gaps.md" -> "trust/gaps.html";
             case "docs/contributions.md" -> "trust/contributions.html";
