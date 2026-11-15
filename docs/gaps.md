@@ -2,7 +2,7 @@
 title: "Known gaps and limits"
 description: "What v0.1 does not do, what each control cannot prove, and which decisions are still unverified. Read this before trusting a green build."
 status: accepted
-updated: 2026-11-10
+updated: 2026-11-15
 ---
 
 # Known gaps and limits
@@ -488,8 +488,8 @@ The [attended runbook](flows/attended-demo.md#recorded-database-evidence) record
 - [Contribution records](contributions.md) and [model runs](contributions/runs.md) remain receipt-backed authored
   evidence. The build validates submitted run structure, state/value consistency, correction references and safe
   publication. It does not discover missing changes, authenticate settings/billing, enforce history immutability
-  against a base revision or measure complete delivery cost. Reviewers check missing attempts and coordination,
-  remediation, independent review and human phases. API-equivalent estimates use recorded usage and dated API
+  against a base revision or measure complete delivery cost. Reviewers check that each merged pull request has its
+  record, that merged records and history entries stay unchanged, and the review and merge decision in its comments. API-equivalent estimates use recorded usage and dated API
   prices even for subscription work; they do not establish actual spend. Unallocated subscription bills and
   historical gaps stay `unknown`, never zero; reservations stay separate from spending. Aggregate windows are
   recorded once without invented phase allocation or assumed child-agent inclusion. No model ranking or

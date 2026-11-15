@@ -6,7 +6,7 @@ updated: 2026-11-15
 pr: 122
 kind: docs
 recorded: 2026-11-15
-tests: [ModelRunsTest]
+tests: []
 ---
 
 ## What changed
@@ -43,8 +43,10 @@ docs: the 22 generated files are up to date
 docs: wrote the site, 111 files
 ```
 
-The rendered convention, ADR 0021, model runs and history pages were read in the generated site. Review: pull
-request #122. `ModelRunsTest` validates every submitted record in each build, this pull request's record included.
+The rendered [convention](../contributions.md), ADR 0021, model runs and history pages were read in the generated
+site. Review: pull request #122. Every documentation build validates the real records through its consistency check:
+in the review's mutation check, one record with an unsupported role failed 94 documentation tests. `ModelRunsTest`
+tests that validator with synthetic records, so no test class is named as this change's evidence.
 
 ## Limits
 

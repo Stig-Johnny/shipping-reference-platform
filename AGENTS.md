@@ -37,8 +37,9 @@ as the code. An agent that makes a check pass by weakening it has failed the tas
    Name every tool and model that did the work with its reasoning effort, the base, the outcome, what was validated
    and the limits; summarise failed attempts and fixes in the result. Missing measurements are `unknown`, never
    zero; prefer API-equivalent estimates from recorded usage. Edit the record while the pull request is open; once
-   merged it is frozen, and a correction goes in a later pull request. Keep final-head reviews and the merge
-   decision as durable PR comments naming the exact head. Never publish raw or private logs.
+   merged it is frozen. Besides its own record, a pull request appends only correction records, one for each merged
+   record it corrects. Keep final-head reviews, naming the reviewer's model and effort, and the merge decision as
+   durable PR comments naming the exact head. Never publish raw or private logs.
 7. **Run the checks locally** that exist for the area (commands in `README.md`), then open the pull request.
 
 ## Pull requests and commits

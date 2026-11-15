@@ -4,7 +4,7 @@ description: "Recorded models, usage, cost bases and outcomes, with unsuccessful
 status: accepted
 updated: 2026-11-15
 schemaVersion: 1
-coverage: "Partial record set: 14 historical DeepSeek rounds for issues 69, 37 and 101, four supported historical Codex phases, seven current issue 111 phases, one separate root-window API comparison snapshot, 26 issue 114 rows covering planning, implementation, integration, reviews, corrections and validation, and five issue 117 rows covering diagnosis, implementation, a settings correction, independent review and review fixes. From issue 121 on, each pull request has one record (ADR 0021). Work and backfill dates differ. API-equivalent estimates do not establish actual billed cost; missing phases, subscription allocation, child-agent inclusion and complete delivery cost remain unknown."
+coverage: "Partial record set: 14 historical DeepSeek rounds for issues 69, 37 and 101, four supported historical Codex phases, seven current issue 111 phases, one separate root-window API comparison snapshot, 26 issue 114 rows covering planning, implementation, integration, reviews, corrections and validation, and five issue 117 rows covering diagnosis, implementation, a settings correction, independent review and review fixes. From PR #122 on, each pull request has one record, plus correction records for merged records it corrects (ADR 0021). Work and backfill dates differ. API-equivalent estimates do not establish actual billed cost; missing phases, subscription allocation, child-agent inclusion and complete delivery cost remain unknown."
 records:
   - id: "issue-69-build-round-1"
     issue: 69
@@ -1669,11 +1669,11 @@ records:
     effort: "xhigh"
     base: "90af9163a3cd7c44e1eb6e47adde34a168a2e4ed"
     outcome: "completed"
-    scope: "Issue 121, part of epic 113, PR 122: one contribution record per pull request. ADR 0021 supersedes ADR 0020; the rule in docs/contributions.md, AGENTS.md rule 6, the README, the pull request template, the generated Brain line and this page's closing paragraph; the demo, this record and the history entry. The first record under the new rule."
+    scope: "Issue 121, part of epic 113, PR 122: one contribution record per pull request. ADR 0021 supersedes ADR 0020; the rule in docs/contributions.md, AGENTS.md rule 6, the README, the pull request template and docs/gaps.md; the generated Brain line, the Trust card and two Javadoc comments in tools/docs; docs/ui/documentation-site.md; this page's coverage sentence and closing paragraph; the history intro; the demo, this record and the history entry. The first record under the new rule."
     environment: "PR 122 issue branch; macOS and reviewed Temurin 25.0.5+8; documentation, records and documentation-tool wording only."
-    result: "Generation, the full check including checkGenerated, and PolicyCheck exited 0 before push. The rendered rule, ADR, demo and model-runs pages were read. The independent review of the final head and the merge decision are comments on PR 122."
+    result: "Generation, the full check including checkGenerated, and PolicyCheck exited 0 before each push, and the rendered rule, ADR, demo, model-runs and history pages were read. An independent review of the first head, 197ad54, approved with changes. Its four P2s were the missing room for correction records, a cut-over by issue number instead of pull request, a claim that ModelRunsTest reads the real records (it uses synthetic ones; the documentation build's consistency check validates the real file), and a template line the ADR named but the template lacked. They and its P3s were fixed in this pull request, except the milestone deck's wording, left for epic 113's step that retires the deck. The review of the final head and the merge decision are comments on PR 122."
     limitations: "Nothing checks that a merged pull request has its record or that a frozen record stays unchanged; reviewers check both. Usage and cost are unknown."
-    evidence: "Session effort setting from the Claude Code /effort output, 2026-11-15 ('Effort stays xhigh'); the orchestrator's settings receipt on PR 119; this pull request's diff."
+    evidence: "Settings receipt on PR 122 (comment of 2026-11-15): configured model claude-opus-5-5, effort xhigh from the session's /effort output ('Effort stays xhigh', 2026-11-15T14:39:49Z); this pull request's diff and review comments."
     correctionOf: "none"
     usage:
       state: "unknown"
@@ -1804,13 +1804,13 @@ The publishing build validates the authored record's structure, not the receipt'
 
 ## Current coverage and next records
 
-The DeepSeek request allowance is exhausted; a proposed increase remains unapproved. Current issue111 work is
+The DeepSeek request allowance is exhausted; a proposed increase remains unapproved. Issue 111's work was
 performed with Codex. One fresh root-window receipt supports the API-equivalent snapshot above; per-phase usage,
 actual billed allocation and other agents remain unknown where no separate receipt exists.
 This feature performs no provider calls, billing fetches, controller restart or allowance change.
 
-Since issue 121 ([ADR 0021](../adr/0021-one-contribution-record-per-pull-request.md)), each pull request appends one
-record, edited while it is open and frozen once merged, with failed attempts and fixes summarised in its result. The
-records before it keep one record per phase, with their failed, rejected, blocked and abandoned attempts and their
-appended corrections. A later correction is a new record naming the earlier one. Final-head review and merge-decision
-receipts stay in durable PR comments.
+Since PR #122 ([ADR 0021](../adr/0021-one-contribution-record-per-pull-request.md)), each pull request appends one
+record, edited while it is open and frozen once merged, with failed attempts and fixes summarised in its result.
+Besides it, a pull request appends only correction records, one for each merged record it corrects. The records added
+before PR #122 keep one record per phase, with their failed, rejected, blocked and abandoned attempts and their
+appended corrections. Final-head review and merge-decision receipts stay in durable PR comments.

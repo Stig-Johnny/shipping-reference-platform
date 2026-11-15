@@ -20,9 +20,9 @@ observations of real work, not a controlled benchmark or a model ranking. A comp
 | Question | Where to look |
 |---|---|
 | What was implemented? | The issue's scope, PR and relevant commit references. A partial slice is labelled partial. |
-| Which model and effort? | The pull request's record, with its verification receipt. Issues before 121 have one record per phase instead. |
-| Was it independently reviewed? | The pull request's review comments, each naming the reviewed head. Earlier issues also have review records. |
-| Did the owner approve it? | The pull request's approval or delegated-decision comment, naming the head. Earlier issues also have human records. |
+| Which model and effort? | The pull request's record, with its verification receipt. Records added before PR #122 have one record per phase instead. |
+| Was it independently reviewed? | The pull request's review comments, each naming the reviewed head and the reviewer's model and effort. Records before PR #122 also include review records. |
+| Did the owner approve it? | The pull request's approval or delegated-decision comment, naming the head. Records before PR #122 also include human records. |
 | What did it cost? | Prefer the API-equivalent comparison with dated rates and usage, including subscription work; keep actual billed cost separate and unknown where unallocated. |
 | What did the attempt achieve? | Its outcome, validation/review result and limitations, including failed work and later remediation. |
 
@@ -32,23 +32,32 @@ Neither a known model nor a merged PR proves correctness, independent review or 
 
 ## Record each pull request once
 
-Each pull request appends one record to [model runs](contributions/runs.md) and one short entry for its issue to
-[the history](contributions/history.md). Issues before 121 kept one record per phase; those records stay unchanged
-as the historical log. [ADR 0021](adr/0021-one-contribution-record-per-pull-request.md) records this decision.
+From PR #122 on, each pull request appends one record to [model runs](contributions/runs.md) and one short entry for
+its issue to [the history](contributions/history.md). Records added before it keep one record per phase and stay
+unchanged as the historical log. [ADR 0021](adr/0021-one-contribution-record-per-pull-request.md) records this
+decision.
 
-- The record covers the whole pull request: scope, base, outcome, what was validated and what remains limited. It
-  names every tool and model that did the work, with its reasoning effort, for example `tool: "Codex; Claude Code"`
-  and `model: "gpt-6-astra; claude-opus-5-5"`. A setting without a receipt is `unknown`, with the reason.
+- The record covers the whole pull request: scope, base, outcome, what was validated and what remains limited. Its
+  `role` is `implementation`, or `integration` when the pull request mainly integrates work done elsewhere. `tool`,
+  `model`, `checkpoint` and `effort` list every contributor in the same order, separated by semicolons, for example
+  `tool: "Codex; Claude Code"`, `model: "gpt-6-astra; claude-opus-5-5"` and `effort: "xhigh; xhigh"`. A setting
+  without a receipt is `unknown`, with the reason. A usage window the pull request measured goes inside its record.
 - Failed attempts, retries and review fixes are summarised in the record's result; they get no records of their own.
-- While the pull request is open, edit its record and history entry rather than appending corrections. The branch's
-  commits keep every version, and force-pushing is not used. Once merged, both are frozen. A later correction is a
-  new record for the same issue, added by a later pull request, with `correctionOf` naming the record it corrects.
+- Besides its own record, a pull request appends only correction records: one for each merged record it corrects,
+  with that record's issue and `correctionOf` naming it. A correction to a merged history entry is stated in the
+  correcting pull request's own entry.
+- While the pull request is open, edit its record and history entry rather than appending corrections. Every pushed
+  version stays in the pull request's commits as long as nobody force-pushes, which is a rule rather than a check;
+  main keeps only the squashed final version. Once merged, the record and the entry are frozen.
+- The history entry is headed `## Issue N`. A pull request for an issue that already has an entry adds its own entry,
+  headed `## Issue N, PR #M`.
 - Independent reviews of the final head and the merge decision come after the last commit, so they stay as durable
-  pull request comments naming that head. The history entry says where they are. A standing delegation to merge is
-  not a personal approval of a particular head.
+  pull request comments naming that head. A review comment also names the reviewer's tool, model and effort, or
+  `unknown`. The history entry says where they are. A standing delegation to merge is not a personal approval of a
+  particular head.
 - Human-only work keeps model, checkpoint and effort `not-applicable`. Usage and cost stay `unknown` unless measured,
   as the accounting rules below describe. The build validates each record's structure, not whether a pull request
-  has one or whether a merged record changed; reviewers check both.
+  has one or whether a merged record changed; reviewers check both, and the pull request template asks for it.
 
 ## Repeatable comparison protocol
 
@@ -56,21 +65,23 @@ as the historical log. [ADR 0021](adr/0021-one-contribution-record-per-pull-requ
    the configured model/effort, tools, environment, rules and available allowance, or the missing evidence.
 2. Summarise every attempt, interruption, security refusal, retry and handoff in the pull request's record. Record
    receipt-scoped usage and cost without charging a shared account counter to several records.
-3. Record tests, independent findings, corrections, accepted scope and subsequent defects separately. Same rules
-   and a passing check do not establish equal task difficulty or one combined quality score.
+3. State tests, independent findings, corrections, accepted scope and subsequent defects separately in the record.
+   Same rules and a passing check do not establish equal task difficulty or one combined quality score.
 4. Prefer API-equivalent estimates using recorded usage and dated API prices, even when the work ran under a
    subscription. State the comparison tier, cache treatment and per-request prompt-size thresholds; distinguish
    assumptions from observed settings. State omitted tool, infrastructure and human charges when the estimate
    covers only model tokens. Actual billed cost remains separate and may be unknown.
-5. Compare only evidenced scopes with their limitations. A bounded coordinator-window record may span phases;
-   retain it once, label its coverage and do not repeat its cost in phase records or assume child-agent inclusion.
+5. Compare only evidenced scopes with their limitations. A bounded coordinator usage window is recorded once, in
+   the pull request's record, with its coverage labelled; do not repeat its cost elsewhere or assume child-agent
+   inclusion.
    This slice computes no cross-record totals, currency conversions, subscription allocations or rankings.
 
 ## Structured source and accounting
 
 `docs/contributions/runs.md` contains schemaVersion `1`, a nonempty coverage statement and a records list in its
-frontmatter. Each stable record ID names one pull request (one phase or attempt before issue 121), or one explicitly
-bounded aggregate usage window; `correctionOf` is `none` or an earlier ID for the same issue. Dates are quoted ISO
+frontmatter. Each stable record ID names one pull request or a correction of a merged record; records added before
+PR #122 name one phase or attempt, or one explicitly bounded aggregate usage window. `correctionOf` is `none` or an
+earlier ID for the same issue. Dates are quoted ISO
 dates or `unknown`; bases are full lower-case commit hashes or `unknown`. Text fields are quoted strings, at most
 2,000 characters each. Use only the keys and enums in the existing records; the reader
 rejects extra/missing fields, invalid identities, incompatible states and malformed numeric values.
@@ -89,11 +100,12 @@ keeps the estimate unknown. Actual subscription or shared-session billed cost is
 evidenced. Preserve historical metered estimates with their original rate basis. Zero needs evidence of zero for
 that exact basis; a tool's placeholder zero is not a billing receipt. Cached input and reasoning tokens may be
 subsets of provider totals: do not add them again. If an aggregate window is all the receipt supports, do not
-fabricate phase costs or infer that other agents are included. Keep an actual-bill record separately scoped and
+fabricate per-contributor costs or infer that other agents are included. Keep an actual-bill record separately scoped and
 labelled if one later becomes available; never add it to the comparison estimate as though they were different work.
 
-[ADR 0020](adr/0020-model-run-evidence-and-cost-boundaries.md) records this boundary. ADR 0021 supersedes it only to
-make the record one per pull request; the schema and these accounting rules carry forward unchanged.
+[ADR 0020](adr/0020-model-run-evidence-and-cost-boundaries.md) records this boundary. ADR 0021 supersedes it to make
+the record one per pull request, edited while the pull request is open and frozen once merged; the schema and these
+accounting rules carry forward unchanged.
 
 ## Backfill and privacy
 
