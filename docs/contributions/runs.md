@@ -2,7 +2,7 @@
 title: "Model runs and cost evidence"
 description: "Recorded models, usage, cost bases and outcomes, with unsuccessful work and explicit limits on attribution and coverage."
 status: accepted
-updated: 2026-11-10
+updated: 2026-11-15
 schemaVersion: 1
 coverage: "Partial record set: 14 historical DeepSeek rounds for issues 69, 37 and 101, four supported historical Codex phases, seven current issue 111 phases, and one separate root-window API comparison snapshot. Work and backfill dates differ. API-equivalent estimates do not establish actual billed cost; missing phases, subscription allocation, child-agent inclusion and complete delivery cost remain unknown."
 records:
@@ -760,6 +760,64 @@ records:
       scope: "One root-window model-token API comparison, retained once across phases. Tool, infrastructure and human charges are omitted; actual billed/subscription allocation, other agents and complete delivery cost are unknown."
       method: "Published GPT-6 Astra Standard API rates checked 2026-11-10: USD 10/M uncached input, 1/M cached input, 50/M output. ((6936470-6738304)*10 + 6738304*1 + 38095*50)/1000000 = 1.981660 + 6.738304 + 1.904750 = USD 10.624714. All observed increment inputs <=272000; no long-context premium applied. Standard is assumed for comparison because actual tier is absent."
       receipt: "Official rate sources checked 2026-11-10: https://developers.openai.com/api/docs/models/gpt-6-astra and https://developers.openai.com/api/docs/pricing. Numeric metadata snapshot SHA-256 0ec37af8ebbdd27604b899986a14d666049c9ce586df87d628bd17e0fabc280d; this is not a provider invoice."
+  - id: "issue-117-diagnosis"
+    issue: 117
+    date: "2026-11-15"
+    role: "planning"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "xhigh"
+    base: "9cd0774b731f7edf20b30de5f4bf06cd3f0f0f76"
+    outcome: "completed"
+    scope: "Diagnose the engine guard's exit 124 failures on hosted runners."
+    environment: "Branch ci/engine-guard-cli-timeout from main; macOS with bash; no container engine."
+    result: "Six jobs on PR 115 between 19:15 and 20:20 UTC on 2026-11-15 failed at the first step with exit 124 from timeout 5 docker info after the engine was stopped and masked; jobs on the same runner image passed the same guard, and none found the engine reachable. Likely cause: docker info starts every CLI plugin to list it, which can exceed 5 seconds on a freshly booted VM. The owner asked for a recommendation; the recommendation was a 30-second bound with the same requirement."
+    limitations: "The cause is inferred from the docker CLI's behaviour, not traced on a runner."
+    evidence: "GitHub Actions runs 43751406882, 43751408440, 43756275516 and 43756279822, quoted on issue 117."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "Diagnose the engine guard's exit 124 failures on hosted runners."
+      receipt: "unknown: no phase-scoped usage measurement available"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-117-implementation"
+    issue: 117
+    date: "2026-11-15"
+    role: "implementation"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "xhigh"
+    base: "9cd0774b731f7edf20b30de5f4bf06cd3f0f0f76"
+    outcome: "completed"
+    scope: "Raise the guard's docker info bound from 5 to 30 seconds in all nine inline guards, test-first."
+    environment: "Branch ci/engine-guard-cli-timeout from main; macOS with bash; no container engine."
+    result: "A slow-cli fixture (a stopped engine whose CLI answers after 10 seconds) failed against the 5-second guards with exit 124, then passed with 30 seconds; all 90 fixture cases pass, and a CLI that never answers still fails. ADR 0007 states the bound and why."
+    limitations: "Hosted runs of this change are the evidence that 30 seconds suffices."
+    evidence: "tools/ci/engine-guard-test.sh red and green output, 2026-11-15, quoted in the demo record for pull request 119."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "Raise the guard's docker info bound from 5 to 30 seconds in all nine inline guards, test-first."
+      receipt: "unknown: no phase-scoped usage measurement available"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
 ---
 
 # Model runs and cost evidence

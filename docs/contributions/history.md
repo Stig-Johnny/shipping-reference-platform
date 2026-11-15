@@ -2,7 +2,7 @@
 title: "Contribution history"
 description: "Per-issue implementation, integration, review and human approval records, with exact settings where evidenced and unknowns where receipts are missing."
 status: accepted
-updated: 2026-11-10
+updated: 2026-11-15
 ---
 
 # Contribution history
@@ -672,3 +672,18 @@ Specification first: the C4 model, the API contract and the decisions.
 Merge commit: [7e947cd3ad682d5b44a946fbd2942ff7165d3d30](https://github.com/Stig-Johnny/shipping-reference-platform/commit/7e947cd3ad682d5b44a946fbd2942ff7165d3d30).
 
 **Phase 1-1 — historical implementation:** [unknown settings under the backfill rule](#backfill-rule).
+
+## Issue 117
+
+The engine guard's `docker info` probe gets 30 seconds on freshly booted hosted runners.
+
+[Issue 117](https://github.com/Stig-Johnny/shipping-reference-platform/issues/117) ·
+[pull request 119](https://github.com/Stig-Johnny/shipping-reference-platform/pull/119).
+Base: `9cd0774b731f7edf20b30de5f4bf06cd3f0f0f76`.
+
+**Phase 117-1 — diagnosis, 2026-11-15:** six jobs failed closed at the first-step guard with exit 124 from
+`timeout 5 docker info`, never with an engine found reachable. Record: `issue-117-diagnosis` in [model runs](runs.md).
+
+**Phase 117-2 — implementation, 2026-11-15:** Claude Opus 5.5 added a slow-CLI fixture, saw it fail against the
+5-second guards, raised the bound to 30 seconds in all nine guards, and saw all 90 fixture cases pass. Record:
+`issue-117-implementation` in [model runs](runs.md). Independent review and the owner's decision follow.
