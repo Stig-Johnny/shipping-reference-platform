@@ -8,7 +8,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-/** Compact phase disclosures; monetary values are never summed across accounting boundaries. */
+/**
+ * Compact record disclosures, one per pull request or per earlier phase; monetary values are never summed across
+ * accounting boundaries.
+ */
 final class ModelRunsPage {
 
     static final String PAGE = "trust/model-runs.html";

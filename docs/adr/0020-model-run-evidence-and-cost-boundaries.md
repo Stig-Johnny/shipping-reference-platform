@@ -1,8 +1,9 @@
 ---
 title: "ADR 0020: Record model runs with explicit cost and coverage boundaries"
 description: "Keep structured per-run model, usage, cost and outcome evidence while leaving receipt truth, missing work and delivery completeness to review."
-status: accepted
-updated: 2026-11-10
+status: superseded
+supersededBy: "0021"
+updated: 2026-11-15
 date: 2026-11-10
 decision-makers: repository owner
 enforcedBy:

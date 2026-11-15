@@ -32,16 +32,13 @@ as the code. An agent that makes a check pass by weakening it has failed the tas
    the flow, `docs/capabilities/capabilities.yaml` (status and evidence only when the tests exist and pass),
    `docs/gaps.md`, and an ADR for a changed decision. Bump `updated:` in the frontmatter of every document you touch.
    If no document needs changing, say why under "Docs: none needed because" in the pull request body.
-6. **Record every change and attempt.** Follow `docs/contributions.md`: retain the issue narrative in
-   `docs/contributions/history.md` and append structured phases to `docs/contributions/runs.md` for planning,
-   implementation, failed attempts and remediation, integration, validation, independent review and actual human
-   decisions. Record model, effort, base, outcome, usage, cost basis and public-safe receipts; missing measurements
-   are `unknown`, never zero. Prefer API-equivalent estimates from recorded usage and dated API prices even for
-   subscription work; keep actual billed cost and its unknown allocation separate. Preserve historical metered
-   estimates; reservations are not spending. Start a record when work starts and append corrections instead of overwriting
-   earlier assertions. Reviewers check missing phases and history preservation: schema validation cannot prove
-   every change was recorded. Keep final-head review and owner approval in separate durable PR receipts, naming
-   the exact head; later reviewed backfills may append them. Never publish raw/private logs.
+6. **Record each pull request once.** Follow `docs/contributions.md` (ADR 0021): append one record for the pull
+   request to `docs/contributions/runs.md` and one short entry for its issue to `docs/contributions/history.md`.
+   Name every tool and model that did the work with its reasoning effort, the base, the outcome, what was validated
+   and the limits; summarise failed attempts and fixes in the result. Missing measurements are `unknown`, never
+   zero; prefer API-equivalent estimates from recorded usage. Edit the record while the pull request is open; once
+   merged it is frozen, and a correction goes in a later pull request. Keep final-head reviews and the merge
+   decision as durable PR comments naming the exact head. Never publish raw or private logs.
 7. **Run the checks locally** that exist for the area (commands in `README.md`), then open the pull request.
 
 ## Pull requests and commits
