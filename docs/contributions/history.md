@@ -12,9 +12,9 @@ Initial backfill recorded on **2026-11-09** from 41 merged PRs through #97, cove
 scope, plus current issue #96. PR #71 closes both #63 and #85. PR #77 implements only phase 1 of #66.
 PR #86's reference to future #82 work is excluded. A record is not a claim that the whole issue is complete.
 
-From PR #122 on, each pull request adds one short entry here, at the end, and one record to [model runs](runs.md)
-([ADR 0021](../adr/0021-one-contribution-record-per-pull-request.md)). Entries through issue 111 run newest first from
-the top; issues 117 and 114 follow issue 1 with their phase-by-phase detail.
+From PR #122 on, each pull request adds one short entry here, at the end, and one record of its own to
+[model runs](runs.md) ([ADR 0021](../adr/0021-one-contribution-record-per-pull-request.md)). Entries through issue
+111 run newest first from the top; issues 117 and 114 follow issue 1 with their phase-by-phase detail.
 
 ## Backfill rule
 
@@ -826,6 +826,7 @@ under [ADR 0021](../adr/0021-one-contribution-record-per-pull-request.md).
 
 Claude Code, the orchestrator (`claude-opus-5-5`, effort `xhigh`), wrote ADR 0021, the rule in
 [the convention](../contributions.md), AGENTS.md rule 6, the README step, the pull request template, the generated
-Brain line, the demo, this entry and the record. An independent review of the first head approved with changes; its
-findings were fixed in this pull request, except the milestone deck's wording, which epic 113's step that retires the
-deck replaces. The independent review of the final head and the merge decision are comments on PR #122.
+Brain line, the demo, this entry and the record. Independent reviews of heads `197ad54` and `145d48b` approved with
+changes; their findings were fixed in this pull request, except the milestone deck's wording, which epic 113's step
+that retires the deck replaces. The independent review of the final head and the merge decision are comments on
+PR #122.

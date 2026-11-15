@@ -1,6 +1,6 @@
 ---
 title: "ADR 0021: One contribution record per pull request"
-description: "Supersedes ADR 0020. Its record schema, cost bases and evidence rules carry forward unchanged; each pull request now has one record instead of one per phase, edited while it is open and frozen once merged."
+description: "Supersedes ADR 0020. Its record schema, cost bases and evidence rules carry forward unchanged; each pull request now has one record of its own instead of one per phase, edited while it is open and frozen once merged."
 status: accepted
 updated: 2026-11-15
 date: 2026-11-15

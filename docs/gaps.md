@@ -489,11 +489,11 @@ The [attended runbook](flows/attended-demo.md#recorded-database-evidence) record
   evidence. The build validates submitted run structure, state/value consistency, correction references and safe
   publication. It does not discover missing changes, authenticate settings/billing, enforce history immutability
   against a base revision or measure complete delivery cost. Reviewers check that each merged pull request has its
-  record, that merged records and history entries stay unchanged, and the review and merge decision in its comments. API-equivalent estimates use recorded usage and dated API
-  prices even for subscription work; they do not establish actual spend. Unallocated subscription bills and
-  historical gaps stay `unknown`, never zero; reservations stay separate from spending. Aggregate windows are
-  recorded once without invented phase allocation or assumed child-agent inclusion. No model ranking or
-  cross-record total is published.
+  record, that merged records and history entries stay unchanged, and the review and merge decision in its comments.
+  API-equivalent estimates use recorded usage and dated API prices even for subscription work; they do not establish
+  actual spend. Unallocated subscription bills and historical gaps stay `unknown`, never zero; reservations stay
+  separate from spending. Aggregate windows are recorded once without invented phase or per-contributor allocation
+  or assumed child-agent inclusion. No model ranking or cross-record total is published.
   Automatic telemetry, billing collection, trusted missing-PR enforcement and fair benchmark coverage are outside
   this slice. AI review and human approval still need separate exact-head receipts.
 

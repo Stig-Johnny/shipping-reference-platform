@@ -81,10 +81,10 @@ decision.
 `docs/contributions/runs.md` contains schemaVersion `1`, a nonempty coverage statement and a records list in its
 frontmatter. Each stable record ID names one pull request or a correction of a merged record; records added before
 PR #122 name one phase or attempt, or one explicitly bounded aggregate usage window. `correctionOf` is `none` or an
-earlier ID for the same issue. Dates are quoted ISO
-dates or `unknown`; bases are full lower-case commit hashes or `unknown`. Text fields are quoted strings, at most
-2,000 characters each. Use only the keys and enums in the existing records; the reader
-rejects extra/missing fields, invalid identities, incompatible states and malformed numeric values.
+earlier ID for the same issue. Dates are quoted ISO dates or `unknown`; bases are full lower-case commit hashes or
+`unknown`. Text fields are quoted strings, at most 2,000 characters each. Use only the keys and enums in the
+existing records; the reader rejects extra/missing fields, invalid identities, incompatible states and malformed
+numeric values.
 
 Usage states are `reported`, `estimated`, `unknown`, `not-applicable`; input/output values are nonnegative integers
 or the corresponding quoted marker. Cost bases are `api-equivalent-estimate`, `billed`, `metered-estimate`,
@@ -94,13 +94,13 @@ reason. Human model settings can be not applicable while human economic cost rem
 
 Reservations and budgets are exposure/permission limits, not incurred cost. Describe them separately in scope or
 limitations; never put them in the cost amount. Metered estimates use recorded rates and may differ from invoices,
-particularly for cache discounts. An API-equivalent estimate prices an evidenced usage scope at stated API rates;
-it does not claim that an API invoice was issued or allocate subscription charges. Missing usage/rate evidence
-keeps the estimate unknown. Actual subscription or shared-session billed cost is unknown until an allocation is
-evidenced. Preserve historical metered estimates with their original rate basis. Zero needs evidence of zero for
-that exact basis; a tool's placeholder zero is not a billing receipt. Cached input and reasoning tokens may be
-subsets of provider totals: do not add them again. If an aggregate window is all the receipt supports, do not
-fabricate per-contributor costs or infer that other agents are included. Keep an actual-bill record separately scoped and
+particularly for cache discounts. An API-equivalent estimate prices an evidenced usage scope at stated API rates; it
+does not claim that an API invoice was issued or allocate subscription charges. Missing usage/rate evidence keeps
+the estimate unknown. Actual subscription or shared-session billed cost is unknown until an allocation is evidenced.
+Preserve historical metered estimates with their original rate basis. Zero needs evidence of zero for that exact
+basis; a tool's placeholder zero is not a billing receipt. Cached input and reasoning tokens may be subsets of
+provider totals: do not add them again. If an aggregate window is all the receipt supports, do not fabricate
+per-contributor costs or infer that other agents are included. Keep an actual-bill record separately scoped and
 labelled if one later becomes available; never add it to the comparison estimate as though they were different work.
 
 [ADR 0020](adr/0020-model-run-evidence-and-cost-boundaries.md) records this boundary. ADR 0021 supersedes it to make
