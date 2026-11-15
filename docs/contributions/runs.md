@@ -4,7 +4,7 @@ description: "Recorded models, usage, cost bases and outcomes, with unsuccessful
 status: accepted
 updated: 2026-11-15
 schemaVersion: 1
-coverage: "Partial record set: 14 historical DeepSeek rounds for issues 69, 37 and 101, four supported historical Codex phases, seven current issue 111 phases, one separate root-window API comparison snapshot, 26 issue 114 rows covering planning, implementation, integration, reviews, corrections and validation, and five issue 117 rows covering diagnosis, implementation, a settings correction, independent review and review fixes. Work and backfill dates differ. API-equivalent estimates do not establish actual billed cost; missing phases, subscription allocation, child-agent inclusion and complete delivery cost remain unknown."
+coverage: "Partial record set: 14 historical DeepSeek rounds for issues 69, 37 and 101, four supported historical Codex phases, seven current issue 111 phases, one separate root-window API comparison snapshot, 26 issue 114 rows covering planning, implementation, integration, reviews, corrections and validation, and five issue 117 rows covering diagnosis, implementation, a settings correction, independent review and review fixes. From issue 121 on, each pull request has one record (ADR 0021). Work and backfill dates differ. API-equivalent estimates do not establish actual billed cost; missing phases, subscription allocation, child-agent inclusion and complete delivery cost remain unknown."
 records:
   - id: "issue-69-build-round-1"
     issue: 69
@@ -1659,11 +1659,40 @@ records:
       scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
       method: "unknown: no measured usage or billed allocation; no costs inferred"
       receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-121-pull-request"
+    issue: 121
+    date: "2026-11-15"
+    role: "implementation"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "xhigh"
+    base: "90af9163a3cd7c44e1eb6e47adde34a168a2e4ed"
+    outcome: "completed"
+    scope: "Issue 121, part of epic 113, PR 122: one contribution record per pull request. ADR 0021 supersedes ADR 0020; the rule in docs/contributions.md, AGENTS.md rule 6, the README, the pull request template, the generated Brain line and this page's closing paragraph; the demo, this record and the history entry. The first record under the new rule."
+    environment: "PR 122 issue branch; macOS and reviewed Temurin 25.0.5+8; documentation, records and documentation-tool wording only."
+    result: "Generation, the full check including checkGenerated, and PolicyCheck exited 0 before push. The rendered rule, ADR, demo and model-runs pages were read. The independent review of the final head and the merge decision are comments on PR 122."
+    limitations: "Nothing checks that a merged pull request has its record or that a frozen record stays unchanged; reviewers check both. Usage and cost are unknown."
+    evidence: "Session effort setting from the Claude Code /effort output, 2026-11-15 ('Effort stays xhigh'); the orchestrator's settings receipt on PR 119; this pull request's diff."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "The orchestrator's work on PR 122."
+      receipt: "unknown: no usage measurement available for this pull request"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
 ---
 
 # Model runs and cost evidence
 
-[Contribution protocol](../contributions.md) · [Preserved issue history](history.md) · [Decision and limits](../adr/0020-model-run-evidence-and-cost-boundaries.md)
+[Contribution protocol](../contributions.md) · [Preserved issue history](history.md) · [Decision](../adr/0021-one-contribution-record-per-pull-request.md) · [Earlier decision and limits](../adr/0020-model-run-evidence-and-cost-boundaries.md)
 
 This is a partial, receipt-backed record of model-assisted work. The build validates the structure of submitted
 records; reviewers check missing changes, history preservation and receipt credibility. No complete delivery
@@ -1780,7 +1809,8 @@ performed with Codex. One fresh root-window receipt supports the API-equivalent 
 actual billed allocation and other agents remain unknown where no separate receipt exists.
 This feature performs no provider calls, billing fetches, controller restart or allowance change.
 
-Append planning, implementation, remediation, integration, validation, independent review and actual human
-decision records as the work occurs. Preserve failed, rejected, blocked and abandoned attempts. Corrections name
-an earlier same-issue ID and leave the earlier assertion visible. Final-head review and approval receipts stay in
-durable PR comments; a later reviewed backfill may append them without changing an already approved head.
+Since issue 121 ([ADR 0021](../adr/0021-one-contribution-record-per-pull-request.md)), each pull request appends one
+record, edited while it is open and frozen once merged, with failed attempts and fixes summarised in its result. The
+records before it keep one record per phase, with their failed, rejected, blocked and abandoned attempts and their
+appended corrections. A later correction is a new record naming the earlier one. Final-head review and merge-decision
+receipts stay in durable PR comments.
