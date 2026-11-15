@@ -14,13 +14,13 @@ for workflow in "$here"/../../.github/workflows/*.yml; do
     awk -v wanted="$n" '/# engine-guard: begin/ { n++; active=(n==wanted); next }
       /# engine-guard: end/ { active=0 } active { sub(/^          /, ""); print }' "$workflow" > "$work/guard.sh"
     guards=$((guards + 1))
-    for scenario in stopped cli-reachable socket-reachable stop-failed mask-failed unlink-failed cli-error socket-error cli-timeout; do
+    for scenario in stopped slow-cli cli-reachable socket-reachable stop-failed mask-failed unlink-failed cli-error socket-error cli-timeout; do
       : > "$FAKE_GUARD_LOG"
       export FAKE_GUARD_SCENARIO="$scenario"
       status=0
       bash "$work/guard.sh" > "$work/output" 2>&1 || status=$?
       case "$scenario" in
-        stopped)
+        stopped|slow-cli)
           expected_status=0
           ;;
         cli-reachable|socket-reachable)
@@ -63,4 +63,4 @@ if [[ "$guards" != 9 ]]; then
   echo "FAIL expected 9 engine guards, found $guards"
   exit 1
 fi
-echo "$passed passed: 9 workflow guards reject reachable CLI/socket, failed stop/mask/unlink and probe errors/timeouts; shutdown precedes probes; stopped passes"
+echo "$passed passed: 9 workflow guards reject reachable CLI/socket, failed stop/mask/unlink and probe errors/timeouts; shutdown precedes probes; stopped and slow-CLI stopped pass"
