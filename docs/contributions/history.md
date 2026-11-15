@@ -749,3 +749,10 @@ remains pending because access was unavailable. Failures, fixes and validation a
 it with two wording edits: the launcher's JDK rule in one sentence, and a closing sentence that the code was written
 with AI coding agents held to the same checks. The record is `issue-114-orchestrator-integration` in
 [model runs](runs.md). A separate review and the owner's final-head decision follow.
+
+**Phase 114-10 — independent review and fixes, 2026-11-15:** a separate read-only Codex session (gpt-6-astra,
+xhigh) requested changes at `bb2132f8cc394b173bc889fce8812d22a5fbb8f7`: two P2 (an overstated cleanup-test claim;
+seven earlier run records edited in place instead of corrected) and two P3 (the contract-implementation sentence;
+repository jargon). It confirmed the three curl blocks, all four excerpts and all 114 links. Claude Opus 5.5
+restored the seven records byte for byte, kept `issue-114-settings-backfill` as their correction row, and fixed
+the three sentences. Records: `issue-114-independent-review` and `issue-114-review-fixes` in [model runs](runs.md).

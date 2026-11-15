@@ -74,9 +74,9 @@ printf 'Demo files: %s\n' "$demo_dir"
 ```
 
 Recorded on 2026-11-15 with these exact commands: quote `201`, booking `201`, label `200 image/svg+xml`.
-Stop the launcher with Ctrl-C; memory data disappears. [Shell fixtures][launcher-test], [port tests][port-test]
-and [DemoSmokeTest.java][smoke] cover startup, cleanup and real HTTP; [ADR 0018](adr/0018-attended-demo-runtime.md)
-records runtime packaging.
+Stop the launcher with Ctrl-C; memory data disappears. [Shell fixtures][launcher-test] test the launcher's
+refusals, [port tests][port-test] its port check, and [DemoSmokeTest.java][smoke] the application over real HTTP;
+[ADR 0018](adr/0018-attended-demo-runtime.md) records runtime packaging.
 
 ## Project and package layout
 
@@ -163,8 +163,8 @@ These are the mechanics a reviewer can inspect directly.
 
 [ADR 0012](adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md) chose `JdbcClient`
 from the already reviewed `spring-boot-starter-jdbc` in the [API build][api-build], replacing
-[ADR 0005's Spring Data JDBC choice](adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md), which required
-a new dependency review and maintenance lock PR.
+[ADR 0005's Spring Data JDBC choice](adr/0005-postgresql-spring-data-jdbc-flyway-and-forced-rls.md): it reuses the
+JDBC stack already in the build instead of adding a dependency.
 
 [QuotesModuleIntegrationTest.java][quote-db] runs [QuoteStoreContract.java][quote-contract] for round trips,
 tenant separation and duplicate IDs, plus rollback and concurrent reads. [ShipmentListingIntegrationTest.java][shipment-db]
@@ -213,7 +213,8 @@ and checks equal/changed bodies, competing keys, rollback and expiry.
 ## HTTP API
 
 [shipping.openapi.yaml](../contracts/shipping.openapi.yaml) defines OpenAPI 3.1.2 and RFC 9457 problems.
-Hand-written Spring MVC controllers implement it; the web adapter uses hand-written [types.ts][web-types].
+Hand-written Spring MVC controllers implement every operation except shipment cancellation, which is not built
+yet; the web adapter uses hand-written [types.ts][web-types].
 [ShipmentsController.java][shipment-controller] returns `201` for booking, `200` with `Idempotency-Replayed: true`
 for replay and `422` for a key reused with changed content. [ShipmentsHttpContractTest.java][shipment-http]
 asserts replay after expiry:
