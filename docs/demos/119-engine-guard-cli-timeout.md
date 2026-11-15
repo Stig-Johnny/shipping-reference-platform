@@ -4,7 +4,7 @@ description: "The first-step guard gives docker info 30 seconds instead of 5; th
 status: accepted
 updated: 2026-11-15
 pr: 119
-kind: build
+kind: gate
 recorded: 2026-11-15
 tests: [ContainerEngineWorkflowTest]
 ---
@@ -34,14 +34,22 @@ CI job.
 
 Recorded output — not rerun by this site build.
 
-Captured on 2026-11-15 on macOS with bash. A new fixture models a stopped engine whose CLI needs 10 seconds to
-answer. Against the 5-second guards it failed:
+Captured on 2026-11-15 on macOS with bash, by running `bash tools/ci/engine-guard-test.sh` from the repository root;
+the local path prefix before `tools/` is removed from the excerpts. The fake `timeout` accepts any whole-second bound,
+and a `slow-cli` fixture models a stopped engine whose CLI answers after 10 seconds. With all nine guards set back to
+the old 5-second bound, in a scratch copy, the run exited 1:
 
 ```text
-FAIL .github/workflows/java.yml guard 1: slow-cli exited 124, expected 0
+FAIL tools/ci/../../.github/workflows/java.yml guard 1: slow-cli exited 124, expected 0
 ```
 
-With the 30-second guards, every fixture passed, including a CLI that never answers, which must still fail:
+With a bound of 15 seconds in every guard, it exited 1 on the pin instead:
+
+```text
+FAIL tools/ci/../../.github/workflows/java.yml guard 1: the docker info probe must have exactly the reviewed 30-second bound
+```
+
+At this pull request's head, with 30 seconds in every guard, it exited 0. A CLI that never answers still fails:
 
 ```text
 90 passed: 9 workflow guards reject reachable CLI/socket, failed stop/mask/unlink and probe errors/timeouts; shutdown precedes probes; stopped and slow-CLI stopped pass
@@ -50,8 +58,9 @@ With the 30-second guards, every fixture passed, including a CLI that never answ
 The hosted failures that prompted this are recorded on issue #117: six jobs between 19:15 and 20:20 UTC on
 2026-11-15 failed with exit 124 at this probe, never with an engine found reachable.
 
-Review reference: pull request #119, issue #117. `ContainerEngineWorkflowTest` is current-build evidence only when
-it passes in the publishing build; the shell regression's output above is a recording.
+Review reference: pull request #119, issue #117. `ContainerEngineWorkflowTest` checks that every guard carries the
+30-second bound; it is current-build evidence only when it passes in the publishing build. The shell regression's
+output above is a recording.
 
 ## Limits
 

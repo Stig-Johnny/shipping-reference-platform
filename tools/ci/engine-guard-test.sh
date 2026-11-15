@@ -57,6 +57,11 @@ for workflow in "$here"/../../.github/workflows/*.yml; do
       diff -u "$work/expected" "$FAKE_GUARD_LOG"
       passed=$((passed + 1))
     done
+    # The reviewed bound for the CLI probe (#117): 30 seconds, in every guard.
+    if [[ "$(grep -c 'if timeout 30 docker info >/dev/null 2>&1; then' "$work/guard.sh")" != 1 ]]; then
+      echo "FAIL $workflow guard $n: the docker info probe must have exactly the reviewed 30-second bound"
+      exit 1
+    fi
   done
 done
 if [[ "$guards" != 9 ]]; then

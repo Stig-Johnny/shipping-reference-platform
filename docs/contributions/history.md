@@ -687,3 +687,11 @@ Base: `9cd0774b731f7edf20b30de5f4bf06cd3f0f0f76`.
 **Phase 117-2 — implementation, 2026-11-15:** Claude Opus 5.5 added a slow-CLI fixture, saw it fail against the
 5-second guards, raised the bound to 30 seconds in all nine guards, and saw all 90 fixture cases pass. Record:
 `issue-117-implementation` in [model runs](runs.md). Independent review and the owner's decision follow.
+
+**Phase 117-3 — independent review and fixes, 2026-11-15:** a fresh-context Claude subagent approved
+`fd5625e169bf36e7a9592e04c2da5fd0f0e93aef` with changes: the guard is not weakened, but the slow-CLI fixture could not
+run while the fake accepted only one bound, the workflow test did not check the bound, and the records lacked a
+settings receipt. Claude Opus 5.5 made the fake accept any bound with a separate 30-second pin, added the bound to
+the workflow test, proved both by mutation, and cited the settings receipt. Implementation commit:
+`be2908d7ebec82118a3e9c66af29541256deca7c`. Records: `issue-117-settings-receipt`, `issue-117-independent-review` and
+`issue-117-review-fixes` in [model runs](runs.md).

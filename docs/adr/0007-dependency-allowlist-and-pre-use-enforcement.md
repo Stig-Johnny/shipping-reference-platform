@@ -180,8 +180,8 @@ What is built, and where it differs from the decision above. The decision stands
   `mutation`, Pages `build` and `deploy` never open a window. No dependency or Action pin changes.
 
   `tools/ci/engine-guard-test.sh` runs the actual inline blocks with fake commands in the Java CI job. Reachable
-  CLI/socket fixtures and stop/mask/unlink/probe failures, including a timeout, must fail, while the stopped fixture
-  passes. The regression checks call order and immediate termination after a failed operation. No real engine
+  CLI/socket fixtures and stop/mask/unlink/probe failures, including a timeout, must fail, while the stopped and
+  slow-CLI fixtures pass. The regression checks call order and immediate termination after a failed operation. No real engine
   is used by this regression. `ContainerEngineWorkflowTest` checks ordering and the window, and `PagesWorkflowTest`
   retains the publication separation and evidence-handover checks. Hosted service behaviour still needs a CI run.
 
