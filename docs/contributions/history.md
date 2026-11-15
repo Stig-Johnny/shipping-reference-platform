@@ -729,3 +729,23 @@ appeared; PolicyCheck and whitespace checks passed. A final prose audit initiall
 "control" in Java Controller identifiers; word-boundary matching passed without a page edit. These attempts are
 retained in `issue-114-validation-placeholder` in [model runs](runs.md). The actual PR number, a fresh passing
 build and visual review of the numbered demo remain the handoff steps.
+
+**Phase 114-7 — draft review and revision, 2026-11-15:** PR #115 now holds the draft at
+`d57d7bd71df73fcb17ef20da378d99c2afdabbea`. The user supplied Claude Opus 5.5 (`claude-opus-5-5`)'s
+orchestrator review: changes requested for demo numbering, a linked design overview, shorter confident prose,
+concrete JDBC reasoning, tested curl calls and complete records. The review is separate from final-head approval.
+The supplied Codex CLI 0.167.0 banner establishes `gpt-6-astra`, effort `xhigh`, for the earlier issue-114 phases;
+checkpoint, usage and cost remain unknown. Their original receipt gaps and failed attempts remain recorded.
+The revision targets `docs/demos/115-java-architecture-walkthrough.md` and preserves every source link and
+excerpt. See the review, settings-backfill and revision phases in [model runs](runs.md).
+
+**Phase 114-8 — remediation and validation, 2026-11-15:** the first numbered build exposed literal bearer-header
+scan findings and a history link into demos removed by fixtures. Reusing the public token through a shell variable
+and recording the demo path as text resolved both, without changing checks. The final three curl calls returned
+201/201/200; cleanup and all requested checks passed. Generated S-04/X-115 HTML was read; visual browser review
+remains pending because access was unavailable. Failures, fixes and validation are retained in [model runs](runs.md).
+
+**Phase 114-9 — orchestrator integration, 2026-11-15:** Claude Opus 5.5 read the revised page in full and accepted
+it with two wording edits: the launcher's JDK rule in one sentence, and a closing sentence that the code was written
+with AI coding agents held to the same checks. The record is `issue-114-orchestrator-integration` in
+[model runs](runs.md). A separate review and the owner's final-head decision follow.
