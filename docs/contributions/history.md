@@ -769,3 +769,9 @@ renders an Amended-by link. Records: `issue-114-codex-rereview-incomplete`, `iss
 because its start sheet was built with no capabilities. A new site test failed first (the README page showed 59
 passing evidence test classes; the walkthrough showed none), then passed once the sheet used every capability, as
 the README page does. Record: `issue-114-evidence-panel` in [model runs](runs.md).
+
+**Phase 114-13 — status panel, 2026-11-15:** the rendered page then showed the README's whole capability
+paragraph, process terms included, as its own planned implementation. The site test now also requires that row to
+say Not applicable; it failed first and passes since the page shows the README's evidence without a capability
+status of its own. Record: `issue-114-status-panel` in [model runs](runs.md), a correction of
+`issue-114-evidence-panel`.

@@ -1427,6 +1427,35 @@ records:
       scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
       method: "unknown: no measured usage or billed allocation; no costs inferred"
       receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-114-status-panel"
+    issue: 114
+    date: "2026-11-15"
+    role: "implementation"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "xhigh"
+    base: "0d568112079019bd656ffc4a4eee7ae05bdd4cf2"
+    outcome: "completed"
+    scope: "Keep the walkthrough page's own status to Not applicable while it shows the README's passing evidence."
+    environment: "PR 115 issue branch; macOS and reviewed Temurin 25.0.5+8; docs tool and its test."
+    result: "The orchestrator's visual review at 0d568112079019bd656ffc4a4eee7ae05bdd4cf2 found that passing every capability also filled the page's Planned implementation row with the README's full capability paragraph, process terms included. SitePagesTest now also requires that row to say Not applicable and name no capabilities; it failed first, then passed after DocPages.withEvidenceOf separated the specified capabilities (none) from the capabilities whose evidence the page shows (all). All 35 SitePagesTest cases pass."
+    limitations: "Visual review of the published page follows after merge."
+    evidence: "Red and green JUnit XML for SitePagesTest saved in the orchestrator's evidence folder, 2026-11-15; this PR's diff."
+    correctionOf: "issue-114-evidence-panel"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "Keep the walkthrough page's own status to Not applicable while it shows the README's passing evidence."
+      receipt: "unknown: no phase-scoped usage measurement available"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
 ---
 
 # Model runs and cost evidence

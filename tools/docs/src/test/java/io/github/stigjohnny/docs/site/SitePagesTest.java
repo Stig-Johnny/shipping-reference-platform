@@ -56,15 +56,18 @@ class SitePagesTest {
     }
 
     @Test
-    void theWalkthroughShowsTheSameVerifiedEvidenceAsTheReadme() {
-        String walkthrough = verifiedEvidence(site.text("start/java-architecture-walkthrough.html"));
-        assertThat(walkthrough).isEqualTo(verifiedEvidence(site.text("start/repository.html")));
+    void theWalkthroughShowsTheReadmeEvidenceButNoCapabilityStatusOfItsOwn() {
+        String walkthrough = site.text("start/java-architecture-walkthrough.html");
+        assertThat(statusRow(walkthrough, "Verified evidence"))
+                .isEqualTo(statusRow(site.text("start/repository.html"), "Verified evidence"));
+        assertThat(statusRow(walkthrough, "Planned implementation")).contains("Not applicable")
+                .doesNotContain("capabilities");
     }
 
-    private static String verifiedEvidence(String html) {
-        String start = "Verified evidence</dt><dd>";
+    private static String statusRow(String html, String label) {
+        String start = label + "</dt><dd>";
         int from = html.indexOf(start);
-        assertThat(from).as("a verified-evidence row").isNotNegative();
+        assertThat(from).as("a status row: " + label).isNotNegative();
         return html.substring(from + start.length(), html.indexOf("</dd>", from));
     }
 
