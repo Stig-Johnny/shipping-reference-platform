@@ -30,7 +30,11 @@ public final class Fixture {
             "security/README.md", "security/reviews", ".github/workflows", "tools/docs/vendor",
             "tools/docs/publication-scan-exceptions.json", "settings-gradle.lockfile", "apps/shipping-api/gradle.lockfile",
             "libs/c4-contract-kit/gradle.lockfile", "tools/docs/gradle.lockfile", "package-lock.json",
-            "gradle/wrapper/gradle-wrapper.properties");
+            "gradle/wrapper/gradle-wrapper.properties",
+            // The Java walkthrough links to real application sources and its launcher, not only test sources.
+            "settings.gradle.kts", "apps/shipping-api/build.gradle.kts", "apps/shipping-api/src/main",
+            "apps/shipping-api/postgres", "apps/shipping-web/src/api/types.ts",
+            "libs/c4-contract-kit/build.gradle.kts", "tools/demo");
 
     private final Path root;
     private final Path reports;

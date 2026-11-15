@@ -29,6 +29,7 @@ final class Sheets {
             Map.entry(SearchPage.PAGE, "S-03"),
             Map.entry(StartPages.README, "S-01"),
             Map.entry(StartPages.SITE_DESIGN, "S-02"),
+            Map.entry(StartPages.JAVA_WALKTHROUGH, "S-04"),
             Map.entry(DemoPages.INDEX, "X-00"),
             Map.entry(DemoPages.HOW_TO, "X-GUIDE"),
             Map.entry("demos/deck-milestone.html", "X-D01"),

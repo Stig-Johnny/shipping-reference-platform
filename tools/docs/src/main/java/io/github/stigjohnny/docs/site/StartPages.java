@@ -23,6 +23,8 @@ final class StartPages {
     static final String README = "start/repository.html";
     static final String SITE_DESIGN = "start/site-design.html";
     static final String SITE_DESIGN_SOURCE = "docs/ui/documentation-site.md";
+    static final String JAVA_WALKTHROUGH = "start/java-architecture-walkthrough.html";
+    static final String JAVA_WALKTHROUGH_SOURCE = "docs/java-architecture-walkthrough.md";
 
     private StartPages() {
     }
@@ -30,7 +32,10 @@ final class StartPages {
     static List<SitePage> of(SiteContext context) {
         DocFile design = context.sources().doc(SITE_DESIGN_SOURCE)
                 .orElseThrow(() -> SiteContext.missing(SITE_DESIGN_SOURCE));
+        DocFile walkthrough = context.sources().doc(JAVA_WALKTHROUGH_SOURCE)
+                .orElseThrow(() -> SiteContext.missing(JAVA_WALKTHROUGH_SOURCE));
         return List.of(start(context), readme(context),
+                DocPages.of(context, walkthrough, SiteSection.START, "Java architecture walkthrough", "", List.of()),
                 DocPages.of(context, design, SiteSection.START, "How this site is drawn", "", List.of()));
     }
 
@@ -59,6 +64,7 @@ final class StartPages {
                         step(INDEX, DemoPages.INDEX, "Demos: what each change did, with its evidence"))));
         body.append(path("path-java", "Reading path for a Java lead", "How the structure is written down and "
                 + "checked, from the model to the dependencies.", List.of(
+                        step(INDEX, JAVA_WALKTHROUGH, "Java architecture walkthrough: run it and follow the code"),
                         step(INDEX, componentView(context), "The API's components and their dependencies"),
                         step(INDEX, "modules/index.html", "Modules: what each one must do"),
                         step(INDEX, "api/index.html", "API: the HTTP contract"),

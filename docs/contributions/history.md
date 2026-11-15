@@ -2,7 +2,7 @@
 title: "Contribution history"
 description: "Per-issue implementation, integration, review and human approval records, with exact settings where evidenced and unknowns where receipts are missing."
 status: accepted
-updated: 2026-11-10
+updated: 2026-11-15
 ---
 
 # Contribution history
@@ -672,3 +672,60 @@ Specification first: the C4 model, the API contract and the decisions.
 Merge commit: [7e947cd3ad682d5b44a946fbd2942ff7165d3d30](https://github.com/Stig-Johnny/shipping-reference-platform/commit/7e947cd3ad682d5b44a946fbd2942ff7165d3d30).
 
 **Phase 1-1 — historical implementation:** [unknown settings under the backfill rule](#backfill-rule).
+
+## Issue 114
+
+A Java architecture walkthrough for an experienced Java/Spring developer, part of epic 113.
+
+[Issue 114](https://github.com/Stig-Johnny/shipping-reference-platform/issues/114) ·
+[epic 113](https://github.com/Stig-Johnny/shipping-reference-platform/issues/113).
+Base: `9cd0774b731f7edf20b30de5f4bf06cd3f0f0f76`; no implementation commit or PR number yet.
+
+**Phase 114-1 — planning, 2026-11-15:** Codex read the issues and repository documentation conventions.
+Scope is one source-checked walkthrough, its site registration, a local memory run and the requested checks.
+The user excludes git writes, containers, PIT, dependencies and security changes. Configured model, checkpoint,
+effort, usage, API-equivalent estimate and actual billed allocation remain unknown without a receipt.
+The structured record is `issue-114-planning` in [model runs](runs.md).
+Independent review and final-head approval have not happened in this session.
+
+**Phase 114-2 — implementation and site integration, 2026-11-15:** the
+[walkthrough](../java-architecture-walkthrough.md) follows source and existing tests, with exact port, tenant-binding,
+RLS and replay-assertion excerpts. Start sheet S-04, README, navigation and search expose it. The local memory
+launcher reached readiness; synthetic HTTP quote/book/replay/list/detail/label and tenant denial passed. Ctrl-C
+exited 130 and the port check exited 0. No PostgreSQL or browser acceptance execution is inferred.
+
+**Phase 114-3 — failed attempts and remediation, 2026-11-15:** the new navigation test first failed because the
+page link did not exist. Its first wired run failed because the docs fixture copied tests but omitted linked main
+sources; the fixture now includes those real inputs. The next run exposed a search assertion using the wrong
+relative path; it now resolves the URL before checking its destination. Link validation and all existing
+assertions remain. A sandbox-denied parent-process inspection during cleanup was replaced by interrupting the
+owned launcher session. The source review corrected a test attribution: QuoteExpiryTest covers expiry; the
+PostgreSQL offer-lookup test covers foreign tenants. Structured phases: `issue-114-implementation` and
+`issue-114-wiring-remediation` in [model runs](runs.md).
+
+**Phase 114-4 — validation failure and correction, 2026-11-15:** the first full generation rejected a new run
+record with an unsupported role value; 94 docs test failures shared that metadata diagnostic. The record now uses
+the existing implementation role and describes remediation in its scope. No schema rule changed. The failure is
+retained as `issue-114-validation-attempt-1` in [model runs](runs.md).
+
+**Phase 114-5 — integration and validation, 2026-11-15:** generation, the full requested Gradle check including
+checkGenerated, and PolicyCheck each exited 0 before the demo-number placeholder was added. JUnit results were
+1,508 API tests, 2,226 architecture-library tests and 759 documentation tests, with no failures, errors or skips.
+The generated HTML contains the walkthrough sections and exact excerpts; the test verifies Start, navigation and
+search reachability. Source links remain repository links in Markdown and plain labels on the site under its
+existing publication rules. Computer-use exposed no browser and denied access to Safari; visual browser review
+is therefore pending, not asserted. The temporary HTML preview was stopped. Structured records are
+`issue-114-site-integration` and `issue-114-validation-before-demo-number` in [model runs](runs.md).
+
+**Handoff, 2026-11-15:** the user explicitly requested a demo with `pr: 0` for later orchestrator numbering.
+The docs tool rejects that placeholder; the numbered demo must be rendered and reviewed before merge. No git
+writes, container runs, PIT, dependency changes or security-file edits were made. Independent final-head review
+and the owner's decision remain outstanding, with no approval inferred from implementation or passing tests.
+
+**Phase 114-6 — placeholder validation, 2026-11-15:** after adding the explicitly requested zero-number demo,
+generation and the full check each exited 1. All 48 docs-test failures trace to two diagnostics for that file:
+the filename must carry a positive PR number, and `pr` must be positive. No other source-consistency diagnostic
+appeared; PolicyCheck and whitespace checks passed. A final prose audit initially matched the word fragment
+"control" in Java Controller identifiers; word-boundary matching passed without a page edit. These attempts are
+retained in `issue-114-validation-placeholder` in [model runs](runs.md). The actual PR number, a fresh passing
+build and visual review of the numbered demo remain the handoff steps.

@@ -41,6 +41,21 @@ class SitePagesTest {
     }
 
     @Test
+    void aJavaReaderCanReachTheWalkthroughFromStartNavigationAndSearch() {
+        String page = "start/java-architecture-walkthrough.html";
+        assertThat(site.text("index.html")).contains("href=\"" + page + "\"");
+        assertThat(site.text("start/repository.html")).contains("href=\"java-architecture-walkthrough.html\"");
+        assertThat(site.urls(SearchPage.PAGE).stream().map(url -> BuiltSite.resolve(SearchPage.PAGE, url)))
+                .contains(page);
+        assertThat(site.text(page)).contains("S-04", "Run it locally", "What a production system would still add",
+                "run-attended-demo.sh memory 8080 tools/demo/fixture", "JdbcQuoteStore.java",
+                "RowLevelSecurityIntegrationTest.java", "href=\"../decisions/0017-");
+        String navigation = site.text(page).substring(site.text(page).indexOf("<nav class=\"site-nav\""));
+        assertThat(navigation.substring(0, navigation.indexOf("</nav>")))
+                .contains("href=\"java-architecture-walkthrough.html\" aria-current=\"page\"");
+    }
+
+    @Test
     void theAttendedRunbookIsPublishedWithItsStorageModesAndLimits() {
         assertThat(site.text("model/flow-attended-demo.html")).contains("M-10", "Memory mode", "PostgreSQL mode",
                 "SPRING_DATASOURCE_PASSWORD", "DemoPostgresSmokeIntegrationTest", "operator", "Ctrl-C");
