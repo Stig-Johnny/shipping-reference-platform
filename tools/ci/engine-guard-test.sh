@@ -14,13 +14,13 @@ for workflow in "$here"/../../.github/workflows/*.yml; do
     awk -v wanted="$n" '/# engine-guard: begin/ { n++; active=(n==wanted); next }
       /# engine-guard: end/ { active=0 } active { sub(/^          /, ""); print }' "$workflow" > "$work/guard.sh"
     guards=$((guards + 1))
-    for scenario in stopped cli-reachable socket-reachable stop-failed mask-failed unlink-failed cli-error socket-error cli-timeout; do
+    for scenario in stopped slow-cli cli-reachable socket-reachable stop-failed mask-failed unlink-failed cli-error socket-error cli-timeout; do
       : > "$FAKE_GUARD_LOG"
       export FAKE_GUARD_SCENARIO="$scenario"
       status=0
       bash "$work/guard.sh" > "$work/output" 2>&1 || status=$?
       case "$scenario" in
-        stopped)
+        stopped|slow-cli)
           expected_status=0
           ;;
         cli-reachable|socket-reachable)
@@ -57,10 +57,15 @@ for workflow in "$here"/../../.github/workflows/*.yml; do
       diff -u "$work/expected" "$FAKE_GUARD_LOG"
       passed=$((passed + 1))
     done
+    # The reviewed bound for the CLI probe (#117): 30 seconds, in every guard.
+    if [[ "$(grep -c 'if timeout 30 docker info >/dev/null 2>&1; then' "$work/guard.sh")" != 1 ]]; then
+      echo "FAIL $workflow guard $n: the docker info probe must have exactly the reviewed 30-second bound"
+      exit 1
+    fi
   done
 done
 if [[ "$guards" != 9 ]]; then
   echo "FAIL expected 9 engine guards, found $guards"
   exit 1
 fi
-echo "$passed passed: 9 workflow guards reject reachable CLI/socket, failed stop/mask/unlink and probe errors/timeouts; shutdown precedes probes; stopped passes"
+echo "$passed passed: 9 workflow guards reject reachable CLI/socket, failed stop/mask/unlink and probe errors/timeouts; shutdown precedes probes; stopped and slow-CLI stopped pass"

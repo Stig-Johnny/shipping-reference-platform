@@ -40,7 +40,7 @@ jobs:
           sudo rm -f /var/run/docker.sock
           command -v nc >/dev/null
           command -v timeout >/dev/null
-          if timeout 5 docker info >/dev/null 2>&1; then
+          if timeout 30 docker info >/dev/null 2>&1; then
             echo "::error::Container engine is reachable outside the reviewed harness window"
             exit 1
           else
@@ -113,7 +113,7 @@ jobs:
           sudo rm -f /var/run/docker.sock
           command -v nc >/dev/null
           command -v timeout >/dev/null
-          if timeout 5 docker info >/dev/null 2>&1; then
+          if timeout 30 docker info >/dev/null 2>&1; then
             echo "::error::Container engine is reachable outside the reviewed harness window"
             exit 1
           else
@@ -268,7 +268,7 @@ jobs:
           sudo rm -f /var/run/docker.sock
           command -v nc >/dev/null
           command -v timeout >/dev/null
-          if timeout 5 docker info >/dev/null 2>&1; then
+          if timeout 30 docker info >/dev/null 2>&1; then
             echo "::error::Container engine is reachable outside the reviewed harness window"
             exit 1
           else
@@ -348,7 +348,7 @@ jobs:
           sudo rm -f /var/run/docker.sock
           command -v nc >/dev/null
           command -v timeout >/dev/null
-          if timeout 5 docker info >/dev/null 2>&1; then
+          if timeout 30 docker info >/dev/null 2>&1; then
             echo "::error::Container engine is reachable outside the reviewed harness window"
             exit 1
           else

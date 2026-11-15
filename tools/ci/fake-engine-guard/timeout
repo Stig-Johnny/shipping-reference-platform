@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
-[[ "$*" == '5 docker info' ]] || exit 99
+# Any whole-second bound is accepted here, so slow-cli exercises the bound; engine-guard-test.sh pins its value.
+[[ $# == 3 && "$1" =~ ^[0-9]+$ && "$2 $3" == 'docker info' ]] || exit 99
 if [[ "$FAKE_GUARD_SCENARIO" == cli-timeout ]]; then
+  echo cli-timeout >> "$FAKE_GUARD_LOG"
+  exit 124
+fi
+# slow-cli: a stopped engine whose CLI needs 10 seconds to answer, as on a freshly booted runner where docker info
+# starts every CLI plugin to list it (#117). A bound below that times out.
+if [[ "$FAKE_GUARD_SCENARIO" == slow-cli ]] && (( $1 < 10 )); then
   echo cli-timeout >> "$FAKE_GUARD_LOG"
   exit 124
 fi

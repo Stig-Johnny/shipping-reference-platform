@@ -2,7 +2,7 @@
 title: "ADR 0007: Dependency allowlist with pre-use enforcement"
 description: "Every third-party component is reviewed and listed in security/allowlist.json before any build can download or run it; a base-branch preflight enforces this."
 status: accepted
-updated: 2026-11-08
+updated: 2026-11-15
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
@@ -167,7 +167,9 @@ What is built, and where it differs from the decision above. The decision stands
   checkout or any action, stops `docker.service` and `docker.socket`, masks both units for the runner's lifetime and
   removes `/var/run/docker.sock`. Any failure stops the job. The same step requires `docker info` to fail and a
   direct Unix-socket connection with `nc` to fail; success of either refuses the job. Missing probe tools, timeouts
-  and unexpected probe exit codes fail too. Inline guards need no candidate checkout or additional action.
+  and unexpected probe exit codes fail too. Inline guards need no candidate checkout or additional action. The
+  `docker info` probe has 30 seconds: on freshly booted hosted runners it took longer than the earlier 5 seconds
+  while the engine was stopped (#117), and a CLI that has not answered within the limit still fails the job.
 
   Only `java` and Pages `test` open a reviewed harness window: compile test classes with the engine off, unmask in
   the preparation step, then prepare, stage the reviewed image, run only `:apps:shipping-api:databaseTest`, and verify
@@ -178,8 +180,8 @@ What is built, and where it differs from the decision above. The decision stands
   `mutation`, Pages `build` and `deploy` never open a window. No dependency or Action pin changes.
 
   `tools/ci/engine-guard-test.sh` runs the actual inline blocks with fake commands in the Java CI job. Reachable
-  CLI/socket fixtures and stop/mask/unlink/probe failures, including a timeout, must fail, while the stopped fixture
-  passes. The regression checks call order and immediate termination after a failed operation. No real engine
+  CLI/socket fixtures and stop/mask/unlink/probe failures, including a timeout, must fail, while the stopped and
+  slow-CLI fixtures pass. The regression checks call order and immediate termination after a failed operation. No real engine
   is used by this regression. `ContainerEngineWorkflowTest` checks ordering and the window, and `PagesWorkflowTest`
   retains the publication separation and evidence-handover checks. Hosted service behaviour still needs a CI run.
 

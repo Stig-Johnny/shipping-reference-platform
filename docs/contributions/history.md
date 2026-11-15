@@ -673,6 +673,29 @@ Merge commit: [7e947cd3ad682d5b44a946fbd2942ff7165d3d30](https://github.com/Stig
 
 **Phase 1-1 — historical implementation:** [unknown settings under the backfill rule](#backfill-rule).
 
+## Issue 117
+
+The engine guard's `docker info` probe gets 30 seconds on freshly booted hosted runners.
+
+[Issue 117](https://github.com/Stig-Johnny/shipping-reference-platform/issues/117) ·
+[pull request 119](https://github.com/Stig-Johnny/shipping-reference-platform/pull/119).
+Base: `9cd0774b731f7edf20b30de5f4bf06cd3f0f0f76`.
+
+**Phase 117-1 — diagnosis, 2026-11-15:** six jobs failed closed at the first-step guard with exit 124 from
+`timeout 5 docker info`, never with an engine found reachable. Record: `issue-117-diagnosis` in [model runs](runs.md).
+
+**Phase 117-2 — implementation, 2026-11-15:** Claude Opus 5.5 added a slow-CLI fixture, saw it fail against the
+5-second guards, raised the bound to 30 seconds in all nine guards, and saw all 90 fixture cases pass. Record:
+`issue-117-implementation` in [model runs](runs.md). Independent review and the owner's decision follow.
+
+**Phase 117-3 — independent review and fixes, 2026-11-15:** a fresh-context Claude subagent approved
+`fd5625e169bf36e7a9592e04c2da5fd0f0e93aef` with changes: the guard is not weakened, but the slow-CLI fixture could not
+run while the fake accepted only one bound, the workflow test did not check the bound, and the records lacked a
+settings receipt. Claude Opus 5.5 made the fake accept any bound with a separate 30-second pin, added the bound to
+the workflow test, proved both by mutation, and cited the settings receipt. Implementation commit:
+`be2908d7ebec82118a3e9c66af29541256deca7c`. Records: `issue-117-settings-receipt`, `issue-117-independent-review` and
+`issue-117-review-fixes` in [model runs](runs.md).
+
 ## Issue 114
 
 A Java architecture walkthrough for an experienced Java/Spring developer, part of epic 113.
@@ -781,3 +804,9 @@ status of its own. Record: `issue-114-status-panel` in [model runs](runs.md), a 
 is the one Phase 114-13 fixes. For its P3s, the coverage sentence at the top of [model runs](runs.md) now counts the
 issue-114 rows (a changed header line, not a changed record), and the PR description no longer claims screenshots on
 the PR. Record: `issue-114-independent-review-3`.
+
+**Phase 114-15 — main merge, 2026-11-15:** PR #119 (issue 117, the engine guard's 30-second bound) merged first,
+as `239f5dd3fd8c1e3f0cdfce94f8e05a2e9cb5e896`. Claude Opus 5.5 merged main into this branch with a merge commit.
+The only conflicts were the appended entries in this history and in [model runs](runs.md); both sides are kept
+unchanged, main's first. The coverage sentence there now also counts the five issue 117 rows and this phase's row.
+Generation, the full check and PolicyCheck passed before push. Record: `issue-114-main-merge`.
