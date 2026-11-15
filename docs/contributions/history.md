@@ -775,3 +775,9 @@ paragraph, process terms included, as its own planned implementation. The site t
 say Not applicable; it failed first and passes since the page shows the README's evidence without a capability
 status of its own. Record: `issue-114-status-panel` in [model runs](runs.md), a correction of
 `issue-114-evidence-panel`.
+
+**Phase 114-14 — final-head review, 2026-11-15:** a fresh-context Claude subagent reviewed
+`0d568112079019bd656ffc4a4eee7ae05bdd4cf2` and approved with changes. Its P2, the capability paragraph under the title,
+is the one Phase 114-13 fixes. For its P3s, the coverage sentence at the top of [model runs](runs.md) now counts the
+issue-114 rows (a changed header line, not a changed record), and the PR description no longer claims screenshots on
+the PR. Record: `issue-114-independent-review-3`.

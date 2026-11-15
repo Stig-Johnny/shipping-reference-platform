@@ -4,7 +4,7 @@ description: "Recorded models, usage, cost bases and outcomes, with unsuccessful
 status: accepted
 updated: 2026-11-15
 schemaVersion: 1
-coverage: "Partial record set: 14 historical DeepSeek rounds for issues 69, 37 and 101, four supported historical Codex phases, seven current issue 111 phases, and one separate root-window API comparison snapshot. Work and backfill dates differ. API-equivalent estimates do not establish actual billed cost; missing phases, subscription allocation, child-agent inclusion and complete delivery cost remain unknown."
+coverage: "Partial record set: 14 historical DeepSeek rounds for issues 69, 37 and 101, four supported historical Codex phases, seven current issue 111 phases, one separate root-window API comparison snapshot, and 25 issue 114 rows covering planning, implementation, reviews, corrections and validation. Work and backfill dates differ. API-equivalent estimates do not establish actual billed cost; missing phases, subscription allocation, child-agent inclusion and complete delivery cost remain unknown."
 records:
   - id: "issue-69-build-round-1"
     issue: 69
@@ -1448,6 +1448,35 @@ records:
       input: "unknown"
       output: "unknown"
       scope: "Keep the walkthrough page's own status to Not applicable while it shows the README's passing evidence."
+      receipt: "unknown: no phase-scoped usage measurement available"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-114-independent-review-3"
+    issue: 114
+    date: "2026-11-15"
+    role: "independent-review"
+    tool: "Claude Code subagent (fresh context, read-only)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "unknown"
+    base: "0d568112079019bd656ffc4a4eee7ae05bdd4cf2"
+    outcome: "completed"
+    scope: "Independent final-head review of PR 115 at 0d568112079019bd656ffc4a4eee7ae05bdd4cf2 by a fresh-context subagent."
+    environment: "PR 115 issue branch; macOS and reviewed Temurin 25.0.5+8; SitePagesTest run only."
+    result: "Approve with changes. The closing sentence matches README Running it; the StartPages change and its test are correct and the test can fail; records are append-only and valid. P2: passing every capability also put the README's capability paragraph under the walkthrough's title, which issue-114-status-panel already fixes. P3: the coverage sentence at the top of this file omitted the issue-114 rows; the PR description claimed screenshots that were not posted on the PR."
+    limitations: "The fix for its P2 was made in parallel and reviewed only by the orchestrator. The subagent's effort setting was not separately confirmed."
+    evidence: "Subagent report, 2026-11-15, quoted in a PR 115 comment; it ran SitePagesTest: 35 tests, no failures."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "Independent final-head review of PR 115 at 0d568112079019bd656ffc4a4eee7ae05bdd4cf2 by a fresh-context subagent."
       receipt: "unknown: no phase-scoped usage measurement available"
     cost:
       basis: "unknown"
