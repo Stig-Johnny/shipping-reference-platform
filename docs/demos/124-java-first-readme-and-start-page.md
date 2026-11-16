@@ -16,8 +16,10 @@ records, and the site's first reading path was the COO's. A Java reader met the 
 
 Now the README opens with what the application is in Java terms, then "The Java architecture" in eight points linked
 to the walkthrough, then "Run it" with the one command that starts the API. "What exists today" lists the shipping API
-and its migrations first, and the former opening paragraphs sit under "How this was built" after it. The start page's
-purpose line is the README's new first sentence, and its first reading path is the Java lead's.
+and its migrations first, and the former opening paragraphs sit under "How this was built" after it; the opening's
+"Start the demo" line is gone, with its milestone deck link, until step 3 retires the deck. The start page's purpose
+line is the README's new first sentence, its first reading path is the Java lead's, and its README card and the
+README's sheet describe the new order.
 
 ## See it
 
@@ -29,17 +31,27 @@ purpose line is the README's new first sentence, and its first reading path is t
 
 Recorded output — not rerun by this site build.
 
-Recorded 2026-11-16 on macOS with Temurin 25.0.5+8. `SitePagesTest` was changed first to expect the new purpose line
-and the Java reading path before the COO's. Run with the old README and start page, it failed; the excerpt omits the
-assertion's page dump:
+Recorded 2026-11-16 on macOS with Temurin 25.0.5+8. `SitePagesTest` was changed first. It expects the new purpose
+line and the Java reading path before the COO's on the start page, and on the README's sheet "The Java architecture",
+"Run it" with the command, "What exists today" and "How this was built" in that order. Run with main's README and this
+pull request's start page, the README test and the purpose line failed; with this pull request's README and main's
+start page, the reading-path order failed. The excerpts omit the assertions' page dumps:
+
+```text
+SitePagesTest > theReadmeSheetLeadsWithTheJavaArchitectureAndTheCommandThatRunsIt() FAILED
+    java.lang.AssertionError at SitePagesTest.java:99
+SitePagesTest > theStartPageStatesThePurposeTheStateTheDataAndTheJavaReadingPathFirst() FAILED
+    java.lang.AssertionError at SitePagesTest.java:84
+36 tests completed, 2 failed
+```
 
 ```text
 SitePagesTest > theStartPageStatesThePurposeTheStateTheDataAndTheJavaReadingPathFirst() FAILED
-    java.lang.AssertionError at SitePagesTest.java:84
-35 tests completed, 1 failed
+    java.lang.AssertionError at SitePagesTest.java:90
+36 tests completed, 1 failed
 ```
 
-After the change all 35 tests passed. Inspection record: the site built with `./gradlew :tools:docs:site`, read in
+With both changes all 36 tests passed. Inspection record: the site built with `./gradlew :tools:docs:site`, read in
 headless Chrome at 1280 px. The [start page](https://stig-johnny.github.io/shipping-reference-platform/index.html)
 shows the new purpose line under its title and "Reading path for a Java lead" left of the COO's. The README's sheet
 shows the Java paragraph, "The Java architecture" with its eight links and "Run it" with the command. Review: pull

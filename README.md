@@ -28,10 +28,11 @@ and Bash and curl available:
 bash tools/demo/run-attended-demo.sh memory 8080 tools/demo/fixture
 ```
 
-The launcher builds the API and serves it on `http://127.0.0.1:8080/` with in-memory stores and synthetic data; no
-database or container engine is needed. The walkthrough's
+The launcher builds the API and serves it under `http://127.0.0.1:8080/api/v1/` with in-memory stores and synthetic
+data; the root shows a small static fixture page, and no database or container engine is needed. The walkthrough's
 [Run it locally](docs/java-architecture-walkthrough.md#run-it-locally) section quotes a parcel, books it and
-downloads its label with three curl calls. For the browser workbench, see [Attended demo](#attended-demo).
+downloads its label with three curl calls, using Python 3 to read the returned IDs. For the browser workbench, see
+[Attended demo](#attended-demo).
 
 ## What exists today
 
@@ -49,7 +50,7 @@ Built and running:
   `QuotesHttpContractTest`, `ShipmentsHttpContractTest`, `TenantsHttpContractTest` and `ProblemDetailsHttpContractTest`
   validate every response they exercise against the contract. The tests use test doubles and stores in memory, a fixed clock and deterministic
   IDs, and booking is tested against real quotes. These tests keep in-memory ports and prove
-  the HTTP edge and domain; JDBC adapters are selected separately by `postgres`. The `demo` profile now serves a configured static build directory on the API origin with strict CSP; its real-HTTP memory smoke passes. In `java`, `ArchitectureConformanceTest` checks the API's classes against the model with the checker,
+  the HTTP edge and domain; JDBC adapters are selected separately by `postgres`. The `demo` profile now serves a configured static build directory on the API origin with strict CSP; its real-HTTP memory smoke passes. In the required `java` check, `ArchitectureConformanceTest` checks the API's classes against the model with [the checker](#the-checker),
   `ModularityTest` runs Spring Modulith's verification and `HexagonalLayeringTest` the layering rules, and each of the
   three also fails on fixtures that break it.
 - **The database migrations**, `V1__tenants.sql`, `V2__quotes.sql` and `V3__shipments.sql`, with matching down scripts (ADR 0016),

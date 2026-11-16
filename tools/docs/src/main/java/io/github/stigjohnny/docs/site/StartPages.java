@@ -87,8 +87,8 @@ final class StartPages {
                 body.append(card(section.index(), section.label(), section.purpose()));
             }
         }
-        body.append(card(README, "The repository's README", "The idea, the product, the controls and how each can "
-                + "fail, and the honest limits."))
+        body.append(card(README, "The repository's README", "The Java architecture, how to run it, what exists "
+                + "today and how it was built, with the controls and the honest limits."))
                 .append(card(SITE_DESIGN, "How this site is drawn", "Sheet codes, the status ledger and what each "
                         + "line and box means."))
                 .append("</div>\n");
@@ -144,8 +144,8 @@ final class StartPages {
         RenderedMarkdown rendered = context.render(sources.readme(), Sources.README, README, true);
         List<Capability> all = sources.capabilities().all();
         return new SitePage(README, "The repository's README", "The repository's README", SiteSection.START,
-                "The README of the repository as committed: the idea, the product, the controls and how each "
-                        + "can fail, and the honest limits.",
+                "The README of the repository as committed: the Java architecture, how to run it, what exists today "
+                        + "and how it was built, with the controls and the honest limits.",
                 new StatusPanel(Statuses.design("accepted", "The README summarises the accepted specification."),
                         Statuses.implementation(all), Statuses.evidence(all, sources.evidence())),
                 DocPages.contents(rendered.headings()), rendered.html(),

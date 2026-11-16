@@ -841,4 +841,6 @@ Base: `5ded4d529b1aec6261a2803549722ae4915d32da`. Record: `issue-123-pull-reques
 
 Claude Code, the orchestrator (`claude-opus-5-5`, effort `xhigh`), rewrote the README's opening, put the Java reading
 path first on the start page, changed `SitePagesTest` first (it failed, then passed) and wrote the demo, this entry
-and the record. The independent review of the final head and the merge decision are comments on PR #124.
+and the record. An independent review of head `3910876` approved with changes; its findings were fixed in this pull
+request, except two left for epic 113's steps 3 and 4. The independent review of the final head and the merge decision
+are comments on PR #124.

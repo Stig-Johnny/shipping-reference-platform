@@ -91,6 +91,18 @@ class SitePagesTest {
     }
 
     @Test
+    void theReadmeSheetLeadsWithTheJavaArchitectureAndTheCommandThatRunsIt() {
+        String repository = site.text("start/repository.html");
+
+        assertThat(List.of(repository.indexOf("id=\"the-java-architecture\""), repository.indexOf("id=\"run-it\""),
+                repository.indexOf("id=\"what-exists-today\""), repository.indexOf("id=\"how-this-was-built\"")))
+                .doesNotContain(-1).isSorted();
+        String runIt = repository.substring(repository.indexOf("id=\"run-it\""),
+                repository.indexOf("id=\"what-exists-today\""));
+        assertThat(runIt).contains("run-attended-demo.sh memory 8080 tools/demo/fixture");
+    }
+
+    @Test
     void everyPageSeparatesAcceptedDesignPlannedImplementationAndVerifiedEvidence() {
         for (String page : site.pages()) {
             if (page.equals("404.html")) {
