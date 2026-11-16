@@ -13,7 +13,7 @@ import io.github.stigjohnny.shipping.shipments.internal.domain.ShipmentCursor;
 /**
  * The port through which shipments are stored and found, always by tenant: booking, reading and paging. The postgres-profile JDBC
  * adapter implements it on the table shipments.shipment, whose unique keys on (tenant, idempotency key) and (tenant,
- * quote) the two finds follow (docs/modules/shipments.md); the tests use an implementation in memory. Updating arrives with cancellation.
+ * quote) the two finds follow (docs/modules/shipments.md); tests without a database use one in memory. Updating arrives with cancellation.
  */
 public interface ShipmentStore {
 

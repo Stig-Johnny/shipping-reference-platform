@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 
 /**
- * The quotes module's ports without production adapters, for the application started in tests: the store is in
+ * The quotes module's ports as test doubles, for the application started in tests: the store is in
  * memory, so tests that use it prove the HTTP edge, not the database, and the IDs are deterministic. Reading
  * {@link #FAILING_QUOTE} fails as an unavailable database would. The JDBC adapter replaces the store with the
  * PostgreSQL-backed demo profile.
