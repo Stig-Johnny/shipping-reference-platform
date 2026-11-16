@@ -78,16 +78,16 @@ class SitePagesTest {
     }
 
     @Test
-    void theStartPageStatesThePurposeTheStateTheDataAndTwoReadingPaths() {
+    void theStartPageStatesThePurposeTheStateTheDataAndTheJavaReadingPathFirst() {
         String start = site.text("index.html");
 
-        assertThat(start).contains("<h1>Shipping reference platform</h1>", "A reference monorepo",
+        assertThat(start).contains("<h1>Shipping reference platform</h1>", "A reference Java application",
                 "<span class=\"badge badge-partial\">Partly built</span>", "synthetic", "Reading path for a COO",
                 "Reading path for a Java lead").doesNotContain("Specification only", "No application code exists yet")
                 .contains("href=\"model/flow-quote-book-label.html\"", "href=\"trust/risk-levels.html\"",
                         "href=\"trust/gaps.html\"", "href=\"model/api-components.html\"", "href=\"modules/index.html\"",
                         "href=\"api/index.html\"", "href=\"decisions/index.html\"", "href=\"trust/allowlist.html\"");
-        assertThat(start.indexOf("Reading path for a COO")).isLessThan(start.indexOf("Reading path for a Java lead"));
+        assertThat(start.indexOf("Reading path for a Java lead")).isLessThan(start.indexOf("Reading path for a COO"));
     }
 
     @Test
