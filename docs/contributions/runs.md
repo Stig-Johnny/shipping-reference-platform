@@ -1717,6 +1717,35 @@ records:
       scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
       method: "unknown: no measured usage or billed allocation; no costs inferred"
       receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-125-pull-request"
+    issue: 125
+    date: "2026-11-16"
+    role: "implementation"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "xhigh"
+    base: "91dbe457ed496148cd36f8a51562717f46f28169"
+    outcome: "completed"
+    scope: "Issue 125, part of epic 113 (step 3), PR 126: retire the milestone deck and the attended-demo wording. The deck and its speaker notes are deleted; demos 49, 104 and 107 name the deck as retired instead of linking it. Attended demo, runbook, launcher and similar become local in the README, docs/flows, docs/modules, docs/ui, docs/gaps.md, the web app's README and AGENTS.md, the Brain's runbook link and code comments; human checks and recordings become manual. SitePagesTest pins the retirement and the README's first section; the tests of the repository's own deck go. The demo, this record and the history entry."
+    environment: "PR 126 issue branch; macOS and reviewed Temurin 25.0.5+8; documentation, documentation-tool and comment changes."
+    result: "SitePagesTest was changed first and failed against the unchanged documents (1 of 37); a README mutant with a section above the Java architecture failed the new first-section assertion. Removing the deck then failed three demos' links, two demo checks for demo 49, and three tests that read the repository's own deck; the demos were edited, DemoCheckTest's and DemoPagesTest's own-deck tests were removed, and PublicationScannerTest's became a check of the whole site. Generation, the full check including checkGenerated, and PolicyCheck exited 0 before push; the site loses the deck's two pages (111 files, this demo included). The independent review of the final head and the merge decision are comments on PR 126."
+    limitations: "File names that security reviews or accepted ADRs name keep attended; renaming needs a security-scope update and the owner's acceptance. The launcher's sign-in hint for the fixture and the CI step name are unchanged. Usage and cost are unknown."
+    evidence: "Settings receipt on PR 126 (comment of 2026-11-16): configured model claude-opus-5-5, effort xhigh from the session's /effort output ('Effort stays xhigh', 2026-11-15T14:39:49Z); this pull request's diff and review comments."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "The orchestrator's work on PR 126."
+      receipt: "unknown: no usage measurement available for this pull request"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
 ---
 
 # Model runs and cost evidence
