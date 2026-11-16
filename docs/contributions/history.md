@@ -887,5 +887,6 @@ Base: `bb4065417b6e7e94c162c01fb11597e6f6ab8e0a`. Record: `issue-118-pull-reques
 Claude Code, the orchestrator (`claude-opus-5-5`, effort `max`), working through a background fork of its session,
 changed the API's comments and Javadoc that still called built parts planned to say what exists, and checked each
 claim against the code. It fixed issue 130's wording in demo X-129, a `SitePagesTest` comment and the site design doc,
-and wrote the demo, this entry and the record. The independent review of the final head and the merge decision are
-comments on PR #131.
+and wrote the demo, this entry and the record. An independent review of head `493f9a1` approved with changes; its
+P2, a shipments configuration comment that still called the built persistence adapters not yet built, and two P3
+comments were fixed in this pull request. The review of the final head and the merge decision are comments on PR #131.

@@ -16,7 +16,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/** The module's HTTP entry point wires use cases to ports; tests supply the not-yet-built persistence adapters. */
+/** The module's HTTP entry point wires use cases to ports: JDBC adapters under postgres, memory ones otherwise. */
 @Configuration(proxyBeanMethods = false)
 class ShipmentsConfiguration {
     @Bean

@@ -18,8 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
  * Creates a quote for the current tenant: rates the request at the clock's instant and, when something is offered,
  * stores the quote and publishes {@link QuoteIssued}. An unavailable result is neither stored nor published. The
  * transaction takes effect where a transaction manager exists, as under the postgres profile with JdbcQuoteStore.
- * No test checks this method's own transaction: the database tests control their JDBC transactions directly. The
- * class is not final, so that Spring can proxy it.
+ * No test checks this method's own transaction: the store integration tests control their JDBC transactions directly.
+ * The class is not final, so that Spring can proxy it.
  */
 public class CreateQuote {
 
