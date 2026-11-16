@@ -854,6 +854,7 @@ The milestone deck and the "attended demo" wording are retired, part of epic 113
 Base: `91dbe457ed496148cd36f8a51562717f46f28169`. Record: `issue-125-pull-request` in [model runs](runs.md).
 
 Claude Code, the orchestrator (`claude-opus-5-5`, effort `xhigh`), deleted the deck, reworded "attended" to "local" or
-"manual" where a reader meets it, kept the file names that security reviews and accepted decisions name, changed
-`SitePagesTest` first (it failed, then passed), and wrote the demo, this entry and the record. The independent review
-of the final head and the merge decision are comments on PR #126.
+"interactive" where a reader meets it, kept the file names that security reviews and accepted decisions name, changed
+`SitePagesTest` first (it failed, then passed), and wrote the demo, this entry and the record. An independent review of
+head `4c7d0e4` approved with changes; its findings were fixed in this pull request. The independent review of the final
+head and the merge decision are comments on PR #126.

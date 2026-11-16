@@ -191,8 +191,8 @@ provider fetch, price lookup or repository-link exception is introduced.
 ## The Demos section
 
 Demos is the second section of the register, after Start. It shows a reader who does not read code what each pull
-request changed, from `docs/demos/` (the recipe for writing one is `docs/demos/how-to.md`). A milestone deck stands
-there too, drawn as [decks](#decks) are.
+request changed, from `docs/demos/` (the recipe for writing one is `docs/demos/how-to.md`). A milestone deck, when there
+is one, stands there too, drawn as [decks](#decks) are.
 
 - **Codes.** `X-00` is the register of demonstrations, `X-GUIDE` the how-to, and each demonstration is `X-` and its
   pull request's number (`X-42`), from the record's own `pr`, never from its position. The how-to stands first in the

@@ -8,10 +8,11 @@ modules: [tenants, quotes, shipments]
 
 # Run the shipping app locally
 
-Use the reviewed Temurin JDK 25.0.5+8, the repository Gradle wrapper, Bash and curl. Set `JAVA_HOME` to that
-JDK and put its `bin` first on `PATH`. The launcher checks `java -version`; it does not download a JDK.
-Use synthetic data only. The workbench runs against the API in this profile; a small HTML/JS/CSS fixture also remains available for serving checks.
-The launcher binds to `127.0.0.1` and stays in the foreground until interrupted.
+Use the reviewed Temurin JDK 25.0.5+8, the repository Gradle wrapper, Bash and curl. Set `JAVA_HOME` to that JDK and
+put its `bin` first on `PATH`. The launcher checks `java -version`; it does not download a JDK. Use synthetic data
+only. The workbench runs against the API in this profile; with the small HTML/JS/CSS fixture instead, the launcher
+runs the API without the workbench, as the README's Run it does. The launcher binds to `127.0.0.1` and stays in the
+foreground until interrupted.
 
 ## Memory mode
 
@@ -27,14 +28,15 @@ bash tools/demo/run-attended-demo.sh memory 8080
 ```
 
 The arguments are mode (`memory` by default), port (`8080` by default), and static directory
-(`apps/shipping-web/dist` by default). Pass `tools/demo/fixture` as the third argument only to inspect the static-serving fixture.
-It must contain `index.html`. Files are served from this directory only; there is no directory listing or general SPA fallback. Only the documented workbench page routes serve the entry file;
-unknown paths, missing assets and API requests never fall back to HTML. Give the process read-only access to an immutable, trusted build directory. Do not put secrets there.
-The server checks normalized and real paths, including symlink destinations, on each request. API paths remain
-behind the API authentication chain. CSP forbids inline script/style, remote resources, framing and base URLs.
-Early malformed-request JSON 400 responses from the path filter and strict firewall precede those chains and
-carry correlation/no-store headers without their CSP or default security headers. Outer fallback/reset responses
-also do not retain those chain-written headers.
+(`apps/shipping-web/dist` by default). Pass `tools/demo/fixture` as the third argument to run the API without the
+workbench; its root page is a static fixture. It must contain `index.html`. Files are served from this directory
+only; there is no directory listing or general SPA fallback. Only the documented workbench page routes serve the
+entry file; unknown paths, missing assets and API requests never fall back to HTML. Give the process read-only
+access to an immutable, trusted build directory. Do not put secrets there. The server checks normalized and real
+paths, including symlink destinations, on each request. API paths remain behind the API authentication chain. CSP
+forbids inline script/style, remote resources, framing and base URLs. Early malformed-request JSON 400 responses
+from the path filter and strict firewall precede those chains and carry correlation/no-store headers without their
+CSP or default security headers. Outer fallback/reset responses also do not retain those chain-written headers.
 
 Gradle's root `bootJar` task packages an executable **thin** archive at
 `apps/shipping-api/build/demo/shipping-demo.jar`, alongside its `lib` directory. Keep both together.

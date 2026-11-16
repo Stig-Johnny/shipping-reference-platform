@@ -72,7 +72,7 @@ API stay outside the check; the end-to-end tests are their evidence for the oper
 Per the owner's decision of 2026-11-08 (ADR 0015), this reader ships as a labelled partial lint. Authoritative
 compiler-graph boundary enforcement remains planned. The reviewed compiler now type-checks and emits browser modules.
 The entry page declares ADR 0019's strict same-origin CSP, tested as text by `src/app/csp.test.ts`; browser enforcement
-has a manual browser walkthrough but no adversarial enforcement test. Keep the policy before all resource elements, without unsafe-inline, unsafe-eval or external
+has an interactive browser walkthrough but no adversarial enforcement test. Keep the policy before all resource elements, without unsafe-inline, unsafe-eval or external
 origins. The demo server sends the policy as a response header with frame-ancestors none; retain that coverage. Passing partial lint or
 this text test is not proof of runtime safety.
 

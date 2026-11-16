@@ -22,10 +22,10 @@ caused GitHub to reject the diagram; replacing it with a comma preserves the not
 
 ## See it
 
-Follow the [memory-demo instructions](../flows/attended-demo.md#memory-mode), open the
-milestone deck (since retired by issue 125), then explore the [visual Brain](../../BRAIN.md).
-The [main flow](../flows/quote-book-label.md) shows the target-design caption and a disclosure of the authored
-sequence source. The model-derived dynamic diagram above it is unchanged.
+Follow the [memory-demo instructions](../flows/attended-demo.md#memory-mode), then explore the
+[visual Brain](../../BRAIN.md); the milestone deck this step also opened was retired by issue 125. The
+[main flow](../flows/quote-book-label.md) shows the target-design caption and a disclosure of the authored sequence
+source. The model-derived dynamic diagram above it is unchanged.
 
 ## Evidence
 

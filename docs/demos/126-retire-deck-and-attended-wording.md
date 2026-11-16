@@ -1,6 +1,6 @@
 ---
 title: "The meeting deck is gone and the demo is simply run locally"
-description: "A Java reader no longer meets a milestone deck made for one meeting, or the word \"attended\", which only made sense for that meeting."
+description: "A Java reader no longer meets a milestone deck made for one meeting, and the word \"attended\", which only made sense for that meeting, is left only in kept file names, a decision's title and earlier records."
 status: accepted
 updated: 2026-11-16
 pr: 126
@@ -15,11 +15,11 @@ Before, the site published a milestone deck with speaker notes, made for one mee
 the module documents, the known gaps and code comments called the local run "the attended demo", with an "attended
 runbook" and an "attended launcher".
 
-Now the deck and its notes are retired: the start page has no deck line and the site no deck pages. The run is "local"
-everywhere a reader meets it: the runbook is titled "Run the shipping app locally" and the README's section is "Run
-the workbench locally". Checks and recordings made by a person are called "manual". File names that security
-reviews or accepted decisions name, such as `tools/demo/run-attended-demo.sh`, keep their names, and the
-documentation tool still supports decks.
+Now the deck and its notes are retired: the start page has no deck line and the site no deck pages. The run is
+"local" everywhere a reader meets it: the runbook is titled "Run the shipping app locally" and the README's section
+is "Run the workbench locally". Browser checks and recordings that were not automated are called "interactive":
+several were made by AI agents in an in-app browser. File names that security reviews or accepted decisions name,
+such as `tools/demo/run-attended-demo.sh`, keep their names, and the documentation tool still supports decks.
 
 ## See it
 
@@ -34,7 +34,8 @@ Recorded output — not rerun by this site build.
 
 Recorded 2026-11-16 on macOS with Temurin 25.0.5+8. `SitePagesTest` was changed first: it requires that no deck page
 is published, that the start page has no deck line, and that the runbook, the README and the Brain use the new
-words. Against the unchanged documents it failed; the excerpt omits the assertion's page dump:
+words. Run with `./gradlew :tools:docs:test --tests '*SitePagesTest'` against the unchanged documents, it exited 1;
+the excerpt omits the assertion's page dump:
 
 ```text
 SitePagesTest > theMeetingDeckIsRetiredAndTheRunbookReadsAsALocalRun() FAILED
@@ -51,7 +52,8 @@ request #126.
 
 ## Limits
 
-`tools/demo/run-attended-demo.sh`, its test, `docs/flows/attended-demo.md` and its route, ADR 0018's title and the
-security reviews keep "attended" in their names; renaming them needs a security-scope update. The launcher still
-prints a sign-in hint that the static fixture page does not have. Earlier demos and contribution records keep their
-wording. The CI step that tests the launcher keeps its name.
+`tools/demo/run-attended-demo.sh` (its name and its own comments), its test, `docs/flows/attended-demo.md` and its
+route, ADR 0018's title and the security reviews keep "attended"; renaming them needs a security-scope update. The
+launcher still prints a sign-in hint that the static fixture page does not have. Earlier demos keep their wording,
+except that demos 49, 104 and 107 now name the deck as retired; contribution records keep theirs. The CI step that
+tests the launcher keeps its name.

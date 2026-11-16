@@ -12,10 +12,10 @@ tests: [DemoCheckTest, DemoPagesTest, MarkdownRendererTest]
 ## What changed
 
 Before, a presentation of the repository's state had to live in another tool and could drift from what the
-repository shows. Now the Demos section holds a milestone deck: ten slides and four appendix slides in English, built
-from one Markdown file, with an index, Previous, Next and Overview links on every slide, and speaker notes on a page
-of their own. The documentation tool checks the deck before the site is published, including that the number of
-planned capabilities on a slide matches the capabilities file.
+repository shows. Then the Demos section held a milestone deck, until issue 125 retired it: ten slides and four
+appendix slides in English, built from one Markdown file, with an index, Previous, Next and Overview links on every
+slide, and speaker notes on a page of their own. The documentation tool checks the deck before the site is
+published, including that the number of planned capabilities on a slide matches the capabilities file.
 
 ## See it
 
@@ -32,8 +32,8 @@ From the repository root, with the reviewed JDK as `JAVA_HOME`, build the site; 
 ./gradlew :tools:docs:site
 ```
 
-Then open `tools/docs/build/site/demos/deck-milestone.html`; for a printed copy, print it in landscape. Since issue 125
-retired the deck, the build no longer writes this page.
+The build then wrote `tools/docs/build/site/demos/deck-milestone.html`, printable in landscape. Since issue 125 retired
+the deck, it no longer does.
 
 ## Evidence
 
@@ -59,3 +59,5 @@ in every build.
   not.
 - The live demonstration on slide three is shown from a recording; this build did not rerun it.
 - Text only until a media gate is reviewed.
+- The deck and its notes are no longer published (issue 125): the links above open the deck design, not the pages that
+  were inspected.

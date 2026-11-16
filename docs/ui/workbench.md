@@ -48,7 +48,7 @@ formatting; they include the exact CSP policy and its placement in the entry pag
 `WebArchitectureConformanceTest` checks the real imports and every REQUIRED relationship; its reader remains partial.
 The `web` job installs the reviewed lock, runs `tsc -p apps/shipping-web` and then `node --test` in the workspace.
 
-The demo launcher serves the staged assets and documented page routes. The manual memory-mode browser
+The demo launcher serves the staged assets and documented page routes. The interactive memory-mode browser
 recording in `docs/demos/87-web-workbench-slice.md` includes focused keyboard checks. No Playwright e2e,
 axe, screen-reader or adversarial browser CSP enforcement result is claimed. The component and e2e names below stay acceptance targets, and all four `web.*` capabilities stay
 planned until their evidence exists and the documentation build can consume it. Cancellation and preview stay

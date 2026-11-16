@@ -104,7 +104,7 @@ policy and the agent rules, with the reviewed toolchain.
 The **web workbench sources** are built: synthetic sign-in, parcel and quote views, booking recovery, shipments,
 label download and theme selection, using plain TypeScript without runtime packages. Its 130 Node tests
 include strict CSP text, emitted module paths and session cleanup; `tsc` emits browser modules under `/assets/`.
-The demo launcher serves the staged workbench. A manual memory-mode browser recording covers the main flow;
+The demo launcher serves the staged workbench. An interactive memory-mode browser recording covers the main flow;
 named component/e2e acceptance tests and full accessibility evidence remain absent.
 See `apps/shipping-web/README.md` and [screen specification](docs/ui/workbench.md).
 

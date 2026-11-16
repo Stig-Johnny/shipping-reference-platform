@@ -50,7 +50,7 @@ The only manifest scripts are root `build:web` = `tsc -p apps/shipping-web` and 
 or type-check logic tests: Node runs their erasable TypeScript directly, and Node type declarations are not reviewed.
 The 130 Node tests run without a browser; the announcer tests use a minimal text sink and mocked clock.
 The entry test walks emitted module imports to prevent collisions with authenticated `/api` paths. Compile first.
-No Playwright e2e or axe evidence is claimed; the manual browser recording is in `docs/demos/87-web-workbench-slice.md`.
+No Playwright e2e or axe evidence is claimed; the interactive browser recording is in `docs/demos/87-web-workbench-slice.md`.
 
 ## Content security and serving
 
