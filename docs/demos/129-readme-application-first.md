@@ -23,9 +23,10 @@ AI-assisted delivery and governance material forms its subsections: the idea, ho
 judge the code, the checker and Try it, the controls, the limits of the checks, the scenario coverage ledger,
 contribution records and model runs, the CI toolchain and prior art. The blocks moved unchanged, apart from one
 merged statement of the ledger's acceptance, one positional reference that became a link and one lead-in line. The
-README sheet's ledger gives the start sheet's counts. Each control's remaining work is still in the ledger of the
-sheet whose document specifies it, such as a decision record or a Trust sheet; the README specifies the external
-imports control itself, and its controls table says what remains of it.
+README sheet's ledger gives the start sheet's counts. The other controls' remaining work is still in the ledger of
+the sheet whose document specifies it, such as a decision record or a Trust sheet. The README itself specifies two
+controls, external imports and mutation testing: its controls table says what remains of each, and the external
+imports sentence that its ledger showed is now on no ledger.
 
 ## See it
 
@@ -41,7 +42,7 @@ imports control itself, and its controls table says what remains of it.
 
 Recorded output — not rerun by this site build.
 
-Recorded 2026-11-16 on macOS with Temurin 25.0.5+8. `SitePagesTest` was changed first. It now requires:
+Recorded 2026-11-16 on macOS with Temurin 25.0.5+8. `SitePagesTest` was changed first, to require:
 
 - the README sheet's level-2 sections in the new order;
 - the eleven subsections under "How this was built";
@@ -58,6 +59,10 @@ SitePagesTest > theReadmeDescribesTheApplicationFirstAndHowItWasBuiltAfterIt() F
     org.opentest4j.AssertionFailedError at SitePagesTest.java:124
 39 tests completed, 2 failed
 ```
+
+The line numbers are the test's as first changed. After the first review it also checks the Trust sheet's and two
+decision records' ledgers, the README's controls table and the moved `web` job sentence, and the same run now fails
+at lines 154 and 124.
 
 After the change all 39 passed. `./gradlew check :tools:docs:checkGenerated` and `java tools/policy/PolicyCheck.java .`
 exited 0. A line-by-line comparison found every line of the old README in the new one, except:

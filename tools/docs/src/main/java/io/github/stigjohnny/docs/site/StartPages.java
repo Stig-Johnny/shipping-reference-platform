@@ -145,7 +145,7 @@ final class StartPages {
         List<Capability> all = sources.capabilities().all();
         // Its planned implementation is the repository's state in counts, as on the start sheet, not what remains of
         // each control above the README's Java opening: that stays in the ledgers of the sheets whose documents specify
-        // the controls, and the README's controls table says what remains of the one the README itself specifies.
+        // the controls, and the README's controls table says what remains of the two the README itself specifies.
         return new SitePage(README, "The repository's README", "The repository's README", SiteSection.START,
                 "The README of the repository as committed: the Java architecture, how to run it, what exists today "
                         + "and its limits, then how it was built, with the checks and the controls.",

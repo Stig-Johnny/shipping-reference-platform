@@ -91,8 +91,8 @@ publishes follow below.
 
 The README's sheet, `S-01`, gives the same counts as its planned implementation, not what remains of each control
 above the README's Java opening. That remaining work stays in the ledger of each sheet whose document specifies the
-control, such as a decision record or a Trust sheet. The README itself specifies one control, the API's external
-imports, and its controls table, under "How this was built", says what remains of it. The README describes the
+control, such as a decision record or a Trust sheet. The README itself specifies two controls, the API's external
+imports and mutation testing, and its controls table, under "How this was built", says what remains of each. The README describes the
 application first, then how it was built: the AI-assisted delivery and governance material, with its checks and
 controls, is in that one later section.
 
