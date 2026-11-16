@@ -15,7 +15,7 @@ import java.util.function.Predicate;
 
 /**
  * The {@link ShipmentStore} port in memory, for tests: shipments by tenant, and an insert that would break one of the
- * planned table's keys fails as that key would: (tenant, shipment), (tenant, idempotency key), (tenant, quote) and
+ * table's keys fails as that key would: (tenant, shipment), (tenant, idempotency key), (tenant, quote) and
  * (tenant, tracking number). Public, so that the scenario checks (scenarios package) can wire it; it is never database
  * evidence.
  */

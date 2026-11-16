@@ -60,9 +60,9 @@ SitePagesTest > theReadmeDescribesTheApplicationFirstAndHowItWasBuiltAfterIt() F
 39 tests completed, 2 failed
 ```
 
-The line numbers are the test's as first changed. After the first review it also checks the Trust sheet's and two
-decision records' ledgers, the README's controls table and the moved `web` job sentence, and the same run now fails
-at lines 154 and 124.
+The line numbers are the test's as first changed. After the first review it also checks two decision records'
+ledgers, the README's controls table and the moved `web` job sentence, and the same run now fails at lines 154 and
+124.
 
 After the change all 39 passed. `./gradlew check :tools:docs:checkGenerated` and `java tools/policy/PolicyCheck.java .`
 exited 0. A line-by-line comparison found every line of the old README in the new one, except:

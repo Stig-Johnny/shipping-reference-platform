@@ -145,7 +145,7 @@ public final class ScenarioRun implements AutoCloseable {
 
     /**
      * The real implementation behind an observed bean, for what only the test does with it, such as binding a tenant
-     * the way the planned HTTP filter will. Calls on it are not observed.
+     * the way DemoTokenAuthenticationFilter does for a request. Calls on it are not observed.
      */
     public <T> T implementation(Class<?> api, Class<T> type) {
         Object bean = context.getBean(api);

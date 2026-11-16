@@ -155,8 +155,9 @@ class SitePagesTest {
                 .contains("product capabilities are planned. Controls: ");
         assertThat(implementation).doesNotContain("Phase 3", "ExternalImportSourceTest", "spread-syntax",
                 "PARTIAL lint", "Shipment cancellation");
-        // Each control's remaining work stays in the ledger of a sheet whose document specifies it. The README itself
-        // specifies the external imports control, and its controls table says what remains of it.
+        // The README itself specifies two controls, external imports and mutation testing, and its controls table
+        // says what remains of each. Every other control's remaining work stays in the ledger of a sheet whose
+        // document specifies it.
         assertThat(statusRow(site.text("trust/index.html"), "Planned implementation")).contains("PARTIAL lint");
         assertThat(statusRow(site.text(decision("0013")), "Planned implementation")).contains("Phase 3 / option 2");
         assertThat(statusRow(site.text(decision("0012")), "Planned implementation")).contains("spread-syntax",

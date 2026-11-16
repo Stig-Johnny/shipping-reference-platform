@@ -874,3 +874,23 @@ changed `SitePagesTest` first (it failed, then passed), and wrote the demo, this
 review of head `c09ff0d` approved with changes; its findings were fixed in this pull request, except that the
 specification paragraph stays, as that review allowed. A review of `38f3d19` approved with changes; its findings were
 fixed too. The independent review of the final head and the merge decision are comments on PR #129.
+
+## Issue 118
+
+The API's comments say what is built, with issue 130's wording items from PR 129's final review, part of epic 113.
+
+[Issue 118](https://github.com/Stig-Johnny/shipping-reference-platform/issues/118) ·
+[Issue 130](https://github.com/Stig-Johnny/shipping-reference-platform/issues/130) ·
+[PR #131](https://github.com/Stig-Johnny/shipping-reference-platform/pull/131).
+Base: `bb4065417b6e7e94c162c01fb11597e6f6ab8e0a`. Record: `issue-118-pull-request` in [model runs](runs.md).
+
+Claude Code, the orchestrator (`claude-opus-5-5`, effort `max`), working through a background fork of its session,
+changed the API's comments and Javadoc that still called built parts planned to say what exists, and checked each
+claim against the code. It fixed issue 130's wording in demo X-129, a `SitePagesTest` comment and the site design doc,
+and wrote the demo, this entry and the record. An independent review of head `493f9a1` approved with changes: its
+P2, a shipments configuration comment that still called the built persistence adapters not yet built, and the two of
+its four P3s that concerned code comments were fixed in this pull request, and the other two were met in the PR body.
+A delta review of `3b15770` approved with changes: its P2, an `ApiTest` comment that still said the JDBC adapters
+come in the next pull request, and three stale comments among its P3s were fixed in this pull request, its P3 on this
+entry's wording too, and its P3 on a whitelist label, a string rather than a comment, became issue 133. The review of
+the final head and the merge decision are comments on PR #131.

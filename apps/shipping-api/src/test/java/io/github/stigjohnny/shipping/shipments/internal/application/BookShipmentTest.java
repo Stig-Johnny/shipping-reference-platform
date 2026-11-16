@@ -53,8 +53,8 @@ import org.junit.jupiter.api.Test;
  * body replays the shipment, and with another body is refused; a rejection stores and publishes nothing. The quote is
  * a real one, issued by the quotes module's rating and found through QuoteOffers with its real expiry, and the tenant
  * is bound with the tenants module's thread context. Shipments are stored in memory and the publisher records what it
- * gets: the transaction, concurrent requests and the database are for BookingIdempotencyIntegrationTest and
- * ShipmentEventsIntegrationTest, which are planned.
+ * gets: the transaction, concurrent requests and the database are for BookingIdempotencyIntegrationTest, and durable
+ * event publication is for ShipmentEventsIntegrationTest, which is planned.
  */
 class BookShipmentTest {
 
@@ -254,7 +254,7 @@ class BookShipmentTest {
         assertThat(book(ALPHA, NOW, KEY, bookStandard)).isInstanceOf(BookingOutcome.Booked.class);
     }
 
-    /** Books at an instant with the tenant bound, as the planned HTTP filter is to bind it for a request. */
+    /** Books at an instant with the tenant bound, as DemoTokenAuthenticationFilter binds it for a request. */
     private BookingOutcome book(TenantId tenant, Instant at, IdempotencyKey key, BookingCommand command) {
         BookShipment bookShipment = bookShipment(at);
         return tenants.callAs(tenant, () -> bookShipment.handle(key, command));

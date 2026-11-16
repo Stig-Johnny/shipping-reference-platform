@@ -18,10 +18,10 @@ import org.springframework.test.context.ActiveProfiles;
 
 /**
  * The whole application, started in a test with a mock servlet environment: ShippingApplication with every module,
- * the HTTP edge and Spring Security, in the {@code demo} profile unless a test names other profiles. What has no
- * production adapter yet is a test double: the membership directory, the quote and shipment stores, deterministic IDs and tracking numbers,
- * and a test clock. PostgreSQL is not started, so the data source is not configured; the next pull request brings it with
- * the JDBC adapters. The architecture tests' fixtures are excluded from component scanning.
+ * the HTTP edge and Spring Security, in the {@code demo} profile unless a test names other profiles. Test doubles
+ * replace the membership directory, the quote and shipment stores, the ID sources, tracking numbers and the clock.
+ * PostgreSQL is not started, so the data source is not configured; the JDBC adapters run in the demo-postgres smoke
+ * test and the store integration tests. The architecture tests' fixtures are excluded from component scanning.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
