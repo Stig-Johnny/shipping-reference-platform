@@ -874,3 +874,18 @@ changed `SitePagesTest` first (it failed, then passed), and wrote the demo, this
 review of head `c09ff0d` approved with changes; its findings were fixed in this pull request, except that the
 specification paragraph stays, as that review allowed. A review of `38f3d19` approved with changes; its findings were
 fixed too. The independent review of the final head and the merge decision are comments on PR #129.
+
+## Issue 118
+
+The API's comments say what is built, with issue 130's wording items from PR 129's final review, part of epic 113.
+
+[Issue 118](https://github.com/Stig-Johnny/shipping-reference-platform/issues/118) ·
+[Issue 130](https://github.com/Stig-Johnny/shipping-reference-platform/issues/130) ·
+[PR #131](https://github.com/Stig-Johnny/shipping-reference-platform/pull/131).
+Base: `bb4065417b6e7e94c162c01fb11597e6f6ab8e0a`. Record: `issue-118-pull-request` in [model runs](runs.md).
+
+Claude Code, the orchestrator (`claude-opus-5-5`, effort `xhigh`), working through a background fork of its session,
+changed the API's comments and Javadoc that still called built parts planned to say what exists, and checked each
+claim against the code. It fixed issue 130's wording in demo X-129, a `SitePagesTest` comment and the site design doc,
+and wrote the demo, this entry and the record. The independent review of the final head and the merge decision are
+comments on PR #131.
