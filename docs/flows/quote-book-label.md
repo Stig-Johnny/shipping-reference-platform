@@ -2,7 +2,7 @@
 title: "Flow: quote, book and download a simulated label"
 description: "The main v0.1 flow from parcel form to label, step by step, with the acceptance tests for each step and their status."
 status: accepted
-updated: 2026-11-10
+updated: 2026-11-16
 modules: [tenants, quotes, shipments, audit]
 ---
 
@@ -14,11 +14,11 @@ test becomes evidence only once it exists, passes and asserts the step; each row
 expiry logic have passing Java tests. Signing in and creating and reading a quote pass over HTTP, in the application
 started by the tests with test doubles for the token lookup and the quote store; so storage is tested in memory, and so
 are booking, replay, shipment listing/reading and SVG labels over HTTP. The tenants, quotes and shipments schemas have paired up and down migrations (ADR 0016),
-and JDBC adapters selected by `postgres`. Their database classes passed in [recorded CI evidence](../flows/attended-demo.md#recorded-database-evidence) (run `42612173809`). The attended demo is runnable (ADR 0018); durable
+and JDBC adapters selected by `postgres`. Their database classes passed in [recorded CI evidence](../flows/attended-demo.md#recorded-database-evidence) (run `42612173809`). The local demo is runnable (ADR 0018); durable
 event publication remains planned.
 The web sources now implement the in-scope screens and have passing logic tests for parcel validation, quote expiry,
 booking key reuse and recovery, shipment pagination and label state. These run without a DOM or live HTTP server:
-the `*.test.tsx` component tests and Playwright specs in the table remain planned. The attended launcher now serves
+the `*.test.tsx` component tests and Playwright specs in the table remain planned. The local launcher now serves
 the workbench, with a separate memory-mode browser recording in `docs/demos/87-web-workbench-slice.md`.
 No integrated browser-to-database quote/book/label result is claimed.
 Parts of the flow are also executable scenarios, checked against what the code does when they run
@@ -26,7 +26,7 @@ Parts of the flow are also executable scenarios, checked against what the code d
 
 Actors: a shipping clerk of Tenant Alpha signed in as the synthetic user `clerk-alpha`. All data is synthetic.
 
-The attended runtime executes this HTTP flow on one origin. `DemoSmokeTest` starts the application with production
+The local runtime executes this HTTP flow on one origin. `DemoSmokeTest` starts the application with production
 memory stores and drives synthetic sign-in/token selection, quote, booking, replay, list, detail and label through
 real sockets, including foreign-tenant refusals and the public static page's strict CSP. The shared PostgreSQL
 variant, `DemoPostgresSmokeIntegrationTest`, passed its three cases in that run through CI's reviewed database window. These smoke exchanges are
@@ -37,8 +37,8 @@ See the [runbook](../flows/attended-demo.md).
 ## Sequence
 
 **PostgreSQL target design.** This sequence includes planned durable publication and Audit steps.
-The [attended memory demo](attended-demo.md#memory-mode) uses disposable stores and does not execute the PostgreSQL
-or registry/Audit calls shown here. Both attended storage modes disable durable publication; booking currently
+The [local memory demo](attended-demo.md#memory-mode) uses disposable stores and does not execute the PostgreSQL
+or registry/Audit calls shown here. Both local storage modes disable durable publication; booking currently
 emits `ShipmentBooked` in process. The planned participants and messages below remain design targets.
 
 ```mermaid

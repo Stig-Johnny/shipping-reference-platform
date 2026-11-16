@@ -12,7 +12,7 @@ A plain TypeScript single-page app with no UI framework (ADR 0012).
 - TypeScript 5.9.3 (`tsc`) type-checks the sources and emits browser ES modules; there is no bundler. Its review is
   approved with the reviewed lock (issues #59 and #80). Install only with `npm ci --ignore-scripts`.
   Node 26.13.0, bundled npm 11.20.0.
-- The attended Java demo serves staged assets from loopback (`127.0.0.1`), including known workbench page routes.
+- The local Java demo serves staged assets from loopback (`127.0.0.1`), including known workbench page routes.
   Compile into `dist/assets` and stage the entry page and CSS as documented in `README.md`; never serve modules
   under the authenticated `/api` namespace. The recorded browser flow uses disposable memory, not PostgreSQL.
 - Tests: `node --test`, Node's built-in runner, for logic; Playwright 1.65.0 with axe-core 4.14.0 for end-to-end and
@@ -72,7 +72,7 @@ API stay outside the check; the end-to-end tests are their evidence for the oper
 Per the owner's decision of 2026-11-08 (ADR 0015), this reader ships as a labelled partial lint. Authoritative
 compiler-graph boundary enforcement remains planned. The reviewed compiler now type-checks and emits browser modules.
 The entry page declares ADR 0019's strict same-origin CSP, tested as text by `src/app/csp.test.ts`; browser enforcement
-has an attended browser walkthrough but no adversarial enforcement test. Keep the policy before all resource elements, without unsafe-inline, unsafe-eval or external
+has a manual browser walkthrough but no adversarial enforcement test. Keep the policy before all resource elements, without unsafe-inline, unsafe-eval or external
 origins. The demo server sends the policy as a response header with frame-ancestors none; retain that coverage. Passing partial lint or
 this text test is not proof of runtime safety.
 

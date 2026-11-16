@@ -1,4 +1,4 @@
-// Package the attended demo using Gradle's existing Jar/Sync tasks, without a new plugin or loader.
+// Package the local demo using Gradle's existing Jar/Sync tasks, without a new plugin or loader.
 val api = project(":apps:shipping-api")
 val demoLibraries = tasks.register<Sync>("demoLibraries") {
     from(api.configurations.named("runtimeClasspath"))

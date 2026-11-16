@@ -2,7 +2,7 @@
 title: "Known gaps and limits"
 description: "What v0.1 does not do, what each control cannot prove, and which decisions are still unverified. Read this before trusting a green build."
 status: accepted
-updated: 2026-11-15
+updated: 2026-11-16
 ---
 
 # Known gaps and limits
@@ -16,7 +16,7 @@ closes it.
 the acceptance. Existing classifications and the census, matching, duplicate and bypass checks are unchanged.
 Every finding remains a coverage refusal; the expected verdict is `COVERAGE_INCOMPLETE`.
 
-The [attended runbook](flows/attended-demo.md#recorded-database-evidence) records the PostgreSQL CI result.
+The [local runbook](flows/attended-demo.md#recorded-database-evidence) records the PostgreSQL CI result.
 
 ## 0. State of this commit
 
@@ -28,7 +28,7 @@ The [attended runbook](flows/attended-demo.md#recorded-database-evidence) record
   library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. So does
   its partial web import check, which compares detected imports in `apps/shipping-web` with the web container of the
   model; all six web parts are built and all ten REQUIRED relationships have production import evidence.
-  The workbench sources, logic tests and API asset serving exist. Attended browser observations are recorded
+  The workbench sources, logic tests and API asset serving exist. Manual browser observations are recorded
   separately; named browser acceptance tests do not exist.
   The first
   application code exists, checked by `ArchitectureConformanceTest`, `ModularityTest` and `HexagonalLayeringTest`: the
@@ -47,11 +47,11 @@ The [attended runbook](flows/attended-demo.md#recorded-database-evidence) record
   implementations; `MembershipDirectoryIntegrationTest`, `QuotesModuleIntegrationTest` and
   `ShipmentListingIntegrationTest` require CI's reviewed PostgreSQL engine. Local passing contracts prove only the
   in-memory implementation. `JdbcProfileTest` checks opt-in repository and transaction annotations, not live proxy
-  behavior. The existing HTTP tests prove default wiring without JDBC. The attended demo now starts with production memory stores and serves configured static assets with strict CSP.
+  behavior. The existing HTTP tests prove default wiring without JDBC. The local demo now starts with production memory stores and serves configured static assets with strict CSP.
   `DemoSmokeTest` exercises real HTTP; the shared `DemoPostgresSmokeIntegrationTest` passed all three cases in that recorded CI run.
-  Durable event publication remains planned. Memory mode is disposable and intended for sequential attended use,
+  Durable event publication remains planned. Memory mode is disposable and intended for sequential local use,
   not concurrent booking guarantees. The static fixture loads its external script without browser console errors;
-  the integrated workbench has an attended memory-mode recording in demo #87; adversarial CSP enforcement
+  the integrated workbench has a manual memory-mode recording in demo #87; adversarial CSP enforcement
   tests remain separate work. Early malformed-request JSON 400
   responses from the path filter and strict firewall precede the security chains and do not receive their CSP headers;
   outer fallback/reset responses also do not retain chain-written headers.
@@ -432,7 +432,7 @@ The [attended runbook](flows/attended-demo.md#recorded-database-evidence) record
   `ShipmentDrawer.test.tsx`, `ProblemAlert.test.tsx`, `ThemeToggle.test.tsx`) wait for Vitest, Testing Library and
   jsdom. They stay acceptance targets, so the capabilities that name them stay unshipped; until they exist, only
   logic tests under `node --test` run. Playwright specs and a full manual keyboard/screen-reader audit remain pending; focused keyboard checks
-  accompany the attended recording in demo #87.
+  accompany the manual recording in demo #87.
 - The CI time target of 8 to 12 minutes is a target, not a measurement.
 - The migration round trip (ADR 0016) compares catalogs, not data, and runs on empty databases. It covers only
   the object kinds listed by CatalogSnapshot, not operators, casts, collations, text search objects, foreign data
@@ -501,7 +501,7 @@ The [attended runbook](flows/attended-demo.md#recorded-database-evidence) record
   It is a declaration/evidence view, not a runtime trace, and does not yet combine the separate web component map.
   Site search matches titles, summaries and headings as literal phrases; it does not search full prose or offer
   semantic search. Both rebuild from source through the checked Pages workflow; a failed deployment leaves the
-  previously published revision visible. Keyboard and narrow-screen reviews are attended checks, not a complete
+  previously published revision visible. Keyboard and narrow-screen reviews are manual checks, not a complete
   screen-reader or accessibility certification.
 
 - The brain is a budgeted summary (12 KiB root, 8 KiB per module) and omits detail by design; it links to sources.

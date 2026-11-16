@@ -98,7 +98,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 
 ## Flows
 
-- [Run an attended shipping demo](docs/flows/attended-demo.md): modules tenants, quotes, shipments.
+- [Run the shipping app locally](docs/flows/attended-demo.md): modules tenants, quotes, shipments.
 - [Flow: quote, book and download a simulated label](docs/flows/quote-book-label.md): modules tenants, quotes, shipments, audit.
 
 ## Known gaps

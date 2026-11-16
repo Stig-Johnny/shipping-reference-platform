@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/** Disposable, tenant-keyed storage for the attended memory demo; never database evidence. */
+/** Disposable, tenant-keyed storage for the local memory demo; never database evidence. */
 public final class DemoQuoteStore implements QuoteStore {
 
     private record Key(TenantId tenant, QuoteId quote) {

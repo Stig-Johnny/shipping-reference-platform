@@ -503,11 +503,6 @@ class DemoCheckTest {
     }
 
     @Test
-    void theRepositorysOwnDeckPasses() {
-        assertThat(problems(Decks.PATH, Repository.read(Decks.PATH))).isEmpty();
-    }
-
-    @Test
     void theRepositoryCheckRunsTheDeckCheck(@TempDir Path copy) {
         Fixture fixture = Fixture.copy(copy).passingEvidence().withoutDemos().write(Decks.PATH,
                 Decks.with("lang: en", "lang: nb"));

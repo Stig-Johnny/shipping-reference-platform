@@ -2,7 +2,7 @@
 title: "Module: shipments"
 description: "Books shipments from quote offers with tenant-scoped idempotency and simulated SVG labels. Cancellation and durable event delivery are planned."
 status: accepted
-updated: 2026-11-10
+updated: 2026-11-16
 module: shipments
 moduleStatus: built
 riskLevel: 3
@@ -15,7 +15,7 @@ bookings and personal data (recipient names and addresses, synthetic only).
 
 ## Implementation state
 
-The attended `demo` runtime now supplies disposable memory storage; `demo,postgres` selects the existing JDBC
+The local `demo` runtime now supplies disposable memory storage; `demo,postgres` selects the existing JDBC
 adapter with standard datasource environment variables. `DemoSmokeTest` exercises the real HTTP quote-to-label
 flow with memory storage; the matching `DemoPostgresSmokeIntegrationTest` passed all three cases in [recorded CI evidence](../flows/attended-demo.md#recorded-database-evidence) (run `42612173809`). See the
 [runbook](../flows/attended-demo.md) and [ADR 0018](../adr/0018-attended-demo-runtime.md).
@@ -42,7 +42,7 @@ PostgreSQL's default READ COMMITTED isolation. The adapters' transaction annotat
 `BookingIdempotencyIntegrationTest` covers real overlapping transactions; all four cases passed in that recorded CI run.
 
 `BookShipment` emits `ShipmentBooked` through Spring's in-process `ApplicationEventPublisher` after inserting a new
-booking, but not on replay or rejection. Both attended profiles (`demo` and `demo,postgres`) disable the durable
+booking, but not on replay or rejection. Both demo profiles (`demo` and `demo,postgres`) disable the durable
 publication registry. The planned `shipments.publish-events` capability also requires `ShipmentCancelled` and
 publication once on commit, never on rollback; the current publisher call does not establish those guarantees.
 Audit consumption and replay remain planned.

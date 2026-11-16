@@ -1,12 +1,12 @@
 ---
-title: "Run an attended shipping demo"
+title: "Run the shipping app locally"
 description: "Start a loopback-only API and static workbench with disposable memory stores or an already prepared PostgreSQL database, using synthetic users."
 status: accepted
-updated: 2026-11-09
+updated: 2026-11-16
 modules: [tenants, quotes, shipments]
 ---
 
-# Run an attended shipping demo
+# Run the shipping app locally
 
 Use the reviewed Temurin JDK 25.0.5+8, the repository Gradle wrapper, Bash and curl. Set `JAVA_HOME` to that
 JDK and put its `bin` first on `PATH`. The launcher checks `java -version`; it does not download a JDK.
@@ -45,7 +45,7 @@ The printed URL opens the workbench. Choose `clerk-alpha` or `clerk-beta`. Their
 user are documented in [the tenants module](../modules/tenants.md#demo-authentication).
 There is no new sign-in endpoint: each API request carries the selected public bearer token and `/api/v1/me`
 returns its membership. Memory mode forgets quotes, bookings and tracking numbers when stopped. It is for
-sequential attended use, not durable storage or concurrent booking guarantees.
+sequential local use, not durable storage or concurrent booking guarantees.
 
 ## PostgreSQL mode
 

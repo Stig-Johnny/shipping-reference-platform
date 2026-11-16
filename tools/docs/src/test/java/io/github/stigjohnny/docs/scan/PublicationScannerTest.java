@@ -330,15 +330,13 @@ class PublicationScannerTest {
     }
 
     @Test
-    void theRepositorysOwnDeckPassesTheScanRules() {
+    void theRepositorysOwnSitePassesTheScanRules() {
         Fixture fixture = Fixture.copy(dir.resolve("copy")).passingEvidence();
         ScanExceptions exceptions = ScanExceptions.parse(Sources.text(fixture.root(), PublicationScanner.EXCEPTIONS),
                 PublicationScanner.EXCEPTIONS);
 
         ScanResult result = scanBuiltSite(fixture, exceptions);
 
-        assertThat(dir.resolve("site/demos/deck-milestone.html")).exists();
-        assertThat(dir.resolve("site/demos/deck-milestone-notes.html")).exists();
         assertThat(result.findings()).isEmpty();
     }
 

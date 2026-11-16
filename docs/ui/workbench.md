@@ -2,7 +2,7 @@
 title: "Shipping workbench: UI specification"
 description: "Screens, states, components, keyboard and accessibility requirements of the workbench in apps/shipping-web."
 status: accepted
-updated: 2026-11-09
+updated: 2026-11-16
 module: web
 ---
 
@@ -32,7 +32,7 @@ An explicit design decision under the rule above. The rest of this specification
 - **End-to-end:** `prototype-flag.spec.ts` waits for the preview; the other specs in
   [End-to-end scenarios](#end-to-end-scenarios-contract-e2e) apply to this slice.
 
-## Amendment 2026-11-09: attended serving
+## Amendment 2026-11-09: local serving
 
 The demo server serves the entry document for the documented History API routes: sign-in, new quote,
 quote by UUID, shipments and shipment by UUID (also with one trailing slash). These are page routes only;
@@ -48,7 +48,7 @@ formatting; they include the exact CSP policy and its placement in the entry pag
 `WebArchitectureConformanceTest` checks the real imports and every REQUIRED relationship; its reader remains partial.
 The `web` job installs the reviewed lock, runs `tsc -p apps/shipping-web` and then `node --test` in the workspace.
 
-The demo launcher serves the staged assets and documented page routes. The attended memory-mode browser
+The demo launcher serves the staged assets and documented page routes. The manual memory-mode browser
 recording in `docs/demos/87-web-workbench-slice.md` includes focused keyboard checks. No Playwright e2e,
 axe, screen-reader or adversarial browser CSP enforcement result is claimed. The component and e2e names below stay acceptance targets, and all four `web.*` capabilities stay
 planned until their evidence exists and the documentation build can consume it. Cancellation and preview stay
