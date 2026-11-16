@@ -2,7 +2,7 @@
 title: "Model runs and cost evidence"
 description: "Recorded models, usage, cost bases and outcomes, with unsuccessful work and explicit limits on attribution and coverage."
 status: accepted
-updated: 2026-11-15
+updated: 2026-11-16
 schemaVersion: 1
 coverage: "Partial record set: 14 historical DeepSeek rounds for issues 69, 37 and 101, four supported historical Codex phases, seven current issue 111 phases, one separate root-window API comparison snapshot, 26 issue 114 rows covering planning, implementation, integration, reviews, corrections and validation, and five issue 117 rows covering diagnosis, implementation, a settings correction, independent review and review fixes. From PR #122 on, each pull request has one record, plus correction records for merged records it corrects (ADR 0021). Work and backfill dates differ. API-equivalent estimates do not establish actual billed cost; missing phases, subscription allocation, child-agent inclusion and complete delivery cost remain unknown."
 records:
@@ -1680,6 +1680,35 @@ records:
       input: "unknown"
       output: "unknown"
       scope: "The orchestrator's work on PR 122."
+      receipt: "unknown: no usage measurement available for this pull request"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-123-pull-request"
+    issue: 123
+    date: "2026-11-16"
+    role: "implementation"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "xhigh"
+    base: "5ded4d529b1aec6261a2803549722ae4915d32da"
+    outcome: "completed"
+    scope: "Issue 123, part of epic 113 (step 2), PR 124: the README and the site's start page lead with the Java architecture. The README gets a Java first paragraph, The Java architecture, Run it, What exists today with the shipping API and migrations first, and the former opening paragraphs under How this was built, where the first one now begins 'The repository also shows'; the Start the demo line is dissolved and its deck link dropped until step 3. StartPages puts the Java reading path first and describes the new README in its card and the README sheet's summary; SitePagesTest; docs/ui/documentation-site.md; the demo, this record and the history entry."
+    environment: "PR 124 issue branch; macOS and reviewed Temurin 25.0.5+8; README, documentation-tool and documentation changes."
+    result: "SitePagesTest was changed first; it pins the start page's purpose line and reading-path order and the README sheet's Java-first section order. Against main's README it failed 2 of 36 (the README test and the purpose line); against main's start page it failed 1 of 36 (the order). It passes with both changes. Generation, the full check including checkGenerated, and PolicyCheck exited 0 before each push, and the start page, the README's sheet and the demo were read in the built site at 1280 px. An independent review of head 3910876 approved with changes: its P2 (the test did not pin the README) and its P3s (the order assertion never run red, an overstated 'moved unchanged', the Run it wording, a forward reference, the README card and summary) were fixed in this pull request, except the Attended demo section's wording, left for epic 113 step 3, and the README sheet's long status row, left for step 4. The review of the final head and the merge decision are comments on PR 124."
+    limitations: "Only 1280 px was inspected. The README's sheet still shows a long process paragraph in its status ledger above the Java opening, left for epic 113 step 4. Usage and cost are unknown."
+    evidence: "Settings receipt on PR 124 (comment of 2026-11-16): configured model claude-opus-5-5, effort xhigh from the session's /effort output ('Effort stays xhigh', 2026-11-15T14:39:49Z); this pull request's diff and review comments."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "The orchestrator's work on PR 124."
       receipt: "unknown: no usage measurement available for this pull request"
     cost:
       basis: "unknown"

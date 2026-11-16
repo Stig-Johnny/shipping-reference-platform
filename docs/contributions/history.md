@@ -2,7 +2,7 @@
 title: "Contribution history"
 description: "Per-issue implementation, integration, review and human approval records, with exact settings where evidenced and unknowns where receipts are missing."
 status: accepted
-updated: 2026-11-15
+updated: 2026-11-16
 ---
 
 # Contribution history
@@ -830,3 +830,17 @@ Brain line, the demo, this entry and the record. Independent reviews of heads `1
 changes; their findings were fixed in this pull request, except the milestone deck's wording, which epic 113's step
 that retires the deck replaces. The independent review of the final head and the merge decision are comments on
 PR #122.
+
+## Issue 123
+
+The README and the site's start page lead with the Java architecture, part of epic 113 (step 2).
+
+[Issue 123](https://github.com/Stig-Johnny/shipping-reference-platform/issues/123) ·
+[PR #124](https://github.com/Stig-Johnny/shipping-reference-platform/pull/124).
+Base: `5ded4d529b1aec6261a2803549722ae4915d32da`. Record: `issue-123-pull-request` in [model runs](runs.md).
+
+Claude Code, the orchestrator (`claude-opus-5-5`, effort `xhigh`), rewrote the README's opening, put the Java reading
+path first on the start page, changed `SitePagesTest` first (it failed, then passed) and wrote the demo, this entry
+and the record. An independent review of head `3910876` approved with changes; its findings were fixed in this pull
+request, except two left for epic 113's steps 3 and 4. The independent review of the final head and the merge decision
+are comments on PR #124.

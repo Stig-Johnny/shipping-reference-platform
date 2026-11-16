@@ -57,13 +57,6 @@ final class StartPages {
                                 + SiteContext.link(INDEX, viewPage, ViewNames.title(systemContext)) + "."))
                 .append("</section>\n");
         body.append("<h2 id=\"reading-paths\">Two reading paths</h2>\n<div class=\"card-grid reading-paths\">\n");
-        body.append(path("path-coo", "Reading path for a COO", "What is promised, who approves what, and "
-                + "what is not proven yet.", List.of(
-                        step(INDEX, INDEX, "Start: what this is and its state"),
-                        step(INDEX, flowPage(context), "The main flow: quote, book and download a label"),
-                        step(INDEX, "trust/risk-levels.html", "Risk levels: who must approve a change"),
-                        step(INDEX, "trust/gaps.html", "Known gaps: what a green build does not prove"),
-                        step(INDEX, DemoPages.INDEX, "Demos: what each change did, with its evidence"))));
         body.append(path("path-java", "Reading path for a Java lead", "How the structure is written down and "
                 + "checked, from the model to the dependencies.", List.of(
                         step(INDEX, JAVA_WALKTHROUGH, "Java architecture walkthrough: run it and follow the code"),
@@ -72,6 +65,13 @@ final class StartPages {
                         step(INDEX, "api/index.html", "API: the HTTP contract"),
                         step(INDEX, "decisions/index.html", "Decisions: the architecture decision records"),
                         step(INDEX, "trust/allowlist.html", "Dependency allowlist: every reviewed component"))));
+        body.append(path("path-coo", "Reading path for a COO", "What is promised, who approves what, and "
+                + "what is not proven yet.", List.of(
+                        step(INDEX, INDEX, "Start: what this is and its state"),
+                        step(INDEX, flowPage(context), "The main flow: quote, book and download a label"),
+                        step(INDEX, "trust/risk-levels.html", "Risk levels: who must approve a change"),
+                        step(INDEX, "trust/gaps.html", "Known gaps: what a green build does not prove"),
+                        step(INDEX, DemoPages.INDEX, "Demos: what each change did, with its evidence"))));
         body.append("</div>\n");
         // Beside the reading paths, below the title, the ledger and the drawing: one compact line per deck.
         for (DeckRecord deck : DeckRecord.all(sources)) {
@@ -87,8 +87,8 @@ final class StartPages {
                 body.append(card(section.index(), section.label(), section.purpose()));
             }
         }
-        body.append(card(README, "The repository's README", "The idea, the product, the controls and how each can "
-                + "fail, and the honest limits."))
+        body.append(card(README, "The repository's README", "The Java architecture, how to run it, what exists "
+                + "today and how it was built, with the controls and the honest limits."))
                 .append(card(SITE_DESIGN, "How this site is drawn", "Sheet codes, the status ledger and what each "
                         + "line and box means."))
                 .append("</div>\n");
@@ -144,8 +144,8 @@ final class StartPages {
         RenderedMarkdown rendered = context.render(sources.readme(), Sources.README, README, true);
         List<Capability> all = sources.capabilities().all();
         return new SitePage(README, "The repository's README", "The repository's README", SiteSection.START,
-                "The README of the repository as committed: the idea, the product, the controls and how each "
-                        + "can fail, and the honest limits.",
+                "The README of the repository as committed: the Java architecture, how to run it, what exists today "
+                        + "and how it was built, with the controls and the honest limits.",
                 new StatusPanel(Statuses.design("accepted", "The README summarises the accepted specification."),
                         Statuses.implementation(all), Statuses.evidence(all, sources.evidence())),
                 DocPages.contents(rendered.headings()), rendered.html(),

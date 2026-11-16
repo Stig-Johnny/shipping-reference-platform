@@ -2,7 +2,7 @@
 title: "Documentation site: visual design"
 description: "How the documentation site is drawn: a drawing set with sheet codes, a title block on every sheet and a status ledger that keeps accepted design, planned implementation and verified evidence apart."
 status: accepted
-updated: 2026-11-15
+updated: 2026-11-16
 ---
 
 # Documentation site: visual design
@@ -85,8 +85,9 @@ definitions, and a drawing must read the same wherever it is shown.
 ## The start sheet
 
 At 1280 × 900 the first screen shows the title, the purpose, the title block and the status ledger, then the system
-context drawn, then the two reading paths; the COO's ends with the Demos section. The counts in the ledger come from
-`docs/capabilities/capabilities.yaml`. The explanations of the data and of what the site publishes follow below.
+context drawn, then the two reading paths, the Java lead's first; the COO's ends with the Demos section. The counts
+in the ledger come from `docs/capabilities/capabilities.yaml`. The explanations of the data and of what the site
+publishes follow below.
 
 The Java reading path starts with [the Java architecture walkthrough](../java-architecture-walkthrough.md),
 an authored Start sheet at `start/java-architecture-walkthrough.html`, code `S-04`. It also appears in Start

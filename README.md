@@ -1,43 +1,64 @@
 # shipping-reference-platform
 
-A reference monorepo that shows how a Java and TypeScript product can be built when the architecture model, the
-API contract and the documentation lead and the code follows, and when each claim about the code is backed by a
-check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is
-synthetic and the carrier is simulated. The application's first code exists: the API's pricing and quotes and its
-demo authentication, served over HTTP in tests, and booking, listing, reading and simulated labels in its shipments
-module over HTTP. The tenants, quotes and shipments schemas have paired migrations and JDBC adapters behind the postgres profile;
-the attended demo now runs with memory stores or opt-in PostgreSQL, with PostgreSQL execution recorded in CI (see the attended demo evidence below).
-The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions,
-a labelled partial check of detected TypeScript imports in the web app, a dependency allowlist check and a
-documentation tool.
+A reference Java application for webshop parcel shipping: a Spring Boot modular monolith with hexagonal modules, a
+contract-first HTTP API, explicit SQL and tenant isolation down to PostgreSQL row-level security. A webshop's clerk
+quotes a parcel, books an offer and downloads a label. The data is synthetic and the carrier is simulated.
 
-**Start the demo:** open the [milestone deck](https://stig-johnny.github.io/shipping-reference-platform/demos/deck-milestone.html),
-run the [memory workbench](docs/flows/attended-demo.md#memory-mode), then explore the
-[visual Brain](https://stig-johnny.github.io/shipping-reference-platform/brain/index.html).
-The deck and Brain are documentation; the workbench runs locally with synthetic data.
+## The Java architecture
 
-For a Java/Spring tour of the implementation, read the [Java architecture walkthrough](docs/java-architecture-walkthrough.md).
+Java 25 and Spring Boot 4.1.2: one deployable with three Spring Modulith modules, `quotes`, `shipments` and
+`tenants`. The [Java architecture walkthrough](docs/java-architecture-walkthrough.md) explains each point from the
+code, with links to the classes, tests and decisions:
 
-**Scenario coverage ledger:** the owner accepted 15 exact demo findings for issue #92, bringing the ledger to
-215 distinct findings: 115 HTTP/security accesses, 94 JDBC accesses and six factory parameters. ADR 0013 records
-the acceptance. Existing classifications and the census, matching, duplicate and bypass checks are unchanged.
-Every finding remains a coverage refusal; the expected verdict is `COVERAGE_INCOMPLETE`.
+- [Modular monolith with enforced boundaries](docs/java-architecture-walkthrough.md#module-boundaries).
+- [Hexagonal ports and adapters](docs/java-architecture-walkthrough.md#ports-adapters-and-profiles).
+- [Explicit SQL with JdbcClient](docs/java-architecture-walkthrough.md#persistence-jdbcclient-rather-than-jpa).
+- [Tenant isolation in code and PostgreSQL row-level security](docs/java-architecture-walkthrough.md#transactions-tenancy-and-concurrency).
+- [Idempotent booking](docs/java-architecture-walkthrough.md#transactions-tenancy-and-concurrency).
+- [Contract-first OpenAPI with RFC 9457 problems](docs/java-architecture-walkthrough.md#http-api).
+- [Flyway migrations with tested down scripts](docs/java-architecture-walkthrough.md#migrations).
+- [Tests at each layer](docs/java-architecture-walkthrough.md#testing-at-each-layer).
 
-The human Brain offers a generated visual map of API modules, their capabilities and named decisions, plus controls
-and their passing test evidence. Site search finds published titles, summaries and headings. Both update when the
-normal checked Pages deployment succeeds; prose does not create architecture dependency arrows. The generated
-`BRAIN.md` and module brains remain the agent entry points.
-[Contribution records](docs/contributions.md) and [model runs](docs/contributions/runs.md) record the models, costs
-and outcomes behind each change, including unsuccessful work, integration and review. The aim is to compare
-model-assisted delivery under the same security and quality controls. Prefer API-equivalent estimates from
-recorded usage and dated API prices, including subscription work; keep actual billed cost separate. Missing
-measurements stay unknown, and different tasks and incomplete costs do not establish a model ranking.
+## Run it
+
+From the repository root, with the reviewed JDK, Temurin 25.0.5+8, as `JAVA_HOME` (see [Running it](#running-it)),
+and Bash and curl available:
+
+```sh
+bash tools/demo/run-attended-demo.sh memory 8080 tools/demo/fixture
+```
+
+The launcher builds the API and serves it under `http://127.0.0.1:8080/api/v1/` with in-memory stores and synthetic
+data; the root shows a small static fixture page, and no database or container engine is needed. The walkthrough's
+[Run it locally](docs/java-architecture-walkthrough.md#run-it-locally) section quotes a parcel, books it and
+downloads its label with three curl calls, using Python 3 to read the returned IDs. For the browser workbench, see
+[Attended demo](#attended-demo).
 
 ## What exists today
 
 Built and running:
 
-- **The checker**, `libs/c4-contract-kit`, described in [the next section](#the-checker). Its tests, and a check of
+- **The shipping API's first code**, `apps/shipping-api`, which starts in its tests:
+  - in the `quotes` module, the synthetic tariff, rating, quote creation, quote reading and the offer lookup, with
+    `POST /api/v1/quotes` and `GET /api/v1/quotes/{quoteId}`;
+  - in the `shipments` module, booking from an offer, idempotent per tenant and `Idempotency-Key`, plus tenant-scoped
+    listing, reading and deterministic SVG labels, all over HTTP in tests;
+  - in the `tenants` module, demo bearer-token authentication with Spring Security, the member's tenant bound for each
+    request, and `GET /api/v1/me`;
+  - the HTTP edge: correlation IDs and the contract's RFC 9457 problems.
+
+  `QuotesHttpContractTest`, `ShipmentsHttpContractTest`, `TenantsHttpContractTest` and `ProblemDetailsHttpContractTest`
+  validate every response they exercise against the contract. The tests use test doubles and stores in memory, a fixed clock and deterministic
+  IDs, and booking is tested against real quotes. These tests keep in-memory ports and prove
+  the HTTP edge and domain; JDBC adapters are selected separately by `postgres`. The `demo` profile now serves a configured static build directory on the API origin with strict CSP; its real-HTTP memory smoke passes. In the required `java` check, `ArchitectureConformanceTest` checks the API's classes against the model with [the checker](#the-checker),
+  `ModularityTest` runs Spring Modulith's verification and `HexagonalLayeringTest` the layering rules, and each of the
+  three also fails on fixtures that break it.
+- **The database migrations**, `V1__tenants.sql`, `V2__quotes.sql` and `V3__shipments.sql`, with matching down scripts (ADR 0016),
+  forced row-level security and the role bootstrap `apps/shipping-api/postgres/init-roles.sql`. `MigrationFilesTest`
+  checks their pairing without a database. `MigrationsIntegrationTest`, `MigrationRoundTripTest`,
+  `RowLevelSecurityCatalogTest` and `RowLevelSecurityIntegrationTest` run in the mandatory CI `databaseTest` task.
+  The database classes passed in recorded CI; no local up/down execution or RLS proof is claimed.
+- **The checker**, `libs/c4-contract-kit`, described [below](#the-checker). Its tests, and a check of
   the library against its own model, run in `java`, a check that a pull request must pass before it can merge.
   Its web source reader, conformance rules and repository gate ship as a **labelled partial static check** with
   known spread-syntax bypasses: only detected imports are compared with the model. The reader and web conformance
@@ -54,21 +75,6 @@ Built and running:
   requests from forks. Its tests, `tools/policy/PolicyCheckTest.java`, need only the JDK too and run in `java`;
   before them, scripted tamperings (ADR 0007) and two pull requests made to fail on purpose
   ([security/README.md](security/README.md)) showed that it fails.
-- **The shipping API's first code**, `apps/shipping-api`, which starts in its tests:
-  - in the `quotes` module, the synthetic tariff, rating, quote creation, quote reading and the offer lookup, with
-    `POST /api/v1/quotes` and `GET /api/v1/quotes/{quoteId}`;
-  - in the `shipments` module, booking from an offer, idempotent per tenant and `Idempotency-Key`, plus tenant-scoped
-    listing, reading and deterministic SVG labels, all over HTTP in tests;
-  - in the `tenants` module, demo bearer-token authentication with Spring Security, the member's tenant bound for each
-    request, and `GET /api/v1/me`;
-  - the HTTP edge: correlation IDs and the contract's RFC 9457 problems.
-
-  `QuotesHttpContractTest`, `ShipmentsHttpContractTest`, `TenantsHttpContractTest` and `ProblemDetailsHttpContractTest`
-  validate every response they exercise against the contract. The tests use test doubles and stores in memory, a fixed clock and deterministic
-  IDs, and booking is tested against real quotes. These tests keep in-memory ports and prove
-  the HTTP edge and domain; JDBC adapters are selected separately by `postgres`. The `demo` profile now serves a configured static build directory on the API origin with strict CSP; its real-HTTP memory smoke passes. In `java`, `ArchitectureConformanceTest` checks the API's classes against the model with the checker,
-  `ModularityTest` runs Spring Modulith's verification and `HexagonalLayeringTest` the layering rules, and each of the
-  three also fails on fixtures that break it.
 - **The scenario checks** (`control.scenario-conformance`, partial): two scenario views run in process on the built
   modules. Of their twelve declared steps, four are verified against what the code did (three module API calls and one
   event publication); the rest are counted as not evaluated. The accepted ledger has 215 distinct known gaps:
@@ -91,11 +97,6 @@ Built and running:
   and shipped or partial capability claims against passing test evidence. The `pages` workflow scans the site before
   each upload and publishes it from `main` at <https://stig-johnny.github.io/shipping-reference-platform/>.
   The site's use case overview shows each capability's actors and what its tests showed, not a runtime trace.
-- **The database migrations**, `V1__tenants.sql`, `V2__quotes.sql` and `V3__shipments.sql`, with matching down scripts (ADR 0016),
-  forced row-level security and the role bootstrap `apps/shipping-api/postgres/init-roles.sql`. `MigrationFilesTest`
-  checks their pairing without a database. `MigrationsIntegrationTest`, `MigrationRoundTripTest`,
-  `RowLevelSecurityCatalogTest` and `RowLevelSecurityIntegrationTest` run in the mandatory CI `databaseTest` task.
-  The database classes passed in recorded CI; no local up/down execution or RLS proof is claimed.
 
 The specification is in place too: the model, the API contract, the decisions, the module specifications, the risk
 policy and the agent rules, with the reviewed toolchain.
@@ -116,6 +117,33 @@ demo authentication and the current membership remain partial, as do shipment bo
 and simulated labels. Their local evidence covers memory/HTTP behavior; recorded CI also proves database execution
 and the implemented concurrency cases. Cancellation, durable events and the workbench acceptance capabilities remain planned. Generated
 capability evidence continues to name tests available to the ordinary local build; recorded CI is linked separately. [docs/gaps.md](docs/gaps.md) lists what a green build does not prove.
+
+## How this was built
+
+The repository also shows how a Java and TypeScript product can be built when the architecture model, the API
+contract and the documentation lead and the code follows, and when each claim about the code is backed by a check
+that fails. The application's first code exists: the API's pricing and quotes and its demo authentication, served
+over HTTP in tests, and booking, listing, reading and simulated labels in its shipments module over HTTP. The
+tenants, quotes and shipments schemas have paired migrations and JDBC adapters behind the postgres profile; the
+attended demo now runs with memory stores or opt-in PostgreSQL, with PostgreSQL execution recorded in CI (see the
+attended demo evidence below). The tooling that judges it exists too: a checker that holds compiled Java classes to
+the C4 model in both directions, a labelled partial check of detected TypeScript imports in the web app, a
+dependency allowlist check and a documentation tool.
+
+**Scenario coverage ledger:** the owner accepted 15 exact demo findings for issue #92, bringing the ledger to
+215 distinct findings: 115 HTTP/security accesses, 94 JDBC accesses and six factory parameters. ADR 0013 records
+the acceptance. Existing classifications and the census, matching, duplicate and bypass checks are unchanged.
+Every finding remains a coverage refusal; the expected verdict is `COVERAGE_INCOMPLETE`.
+
+The human [Brain](https://stig-johnny.github.io/shipping-reference-platform/brain/index.html) offers a generated
+visual map of API modules, their capabilities and named decisions, plus controls and their passing test evidence.
+Site search finds published titles, summaries and headings. Both update when the normal checked Pages deployment
+succeeds; prose does not create architecture dependency arrows. The generated `BRAIN.md` and module brains remain
+the agent entry points. [Contribution records](docs/contributions.md) and [model runs](docs/contributions/runs.md)
+record the models, costs and outcomes behind each change, including unsuccessful work, integration and review. The
+aim is to compare model-assisted delivery under the same security and quality controls. Prefer API-equivalent
+estimates from recorded usage and dated API prices, including subscription work; keep actual billed cost separate.
+Missing measurements stay unknown, and different tasks and incomplete costs do not establish a model ranking.
 
 ## The checker
 

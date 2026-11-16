@@ -78,16 +78,28 @@ class SitePagesTest {
     }
 
     @Test
-    void theStartPageStatesThePurposeTheStateTheDataAndTwoReadingPaths() {
+    void theStartPageStatesThePurposeTheStateTheDataAndTheJavaReadingPathFirst() {
         String start = site.text("index.html");
 
-        assertThat(start).contains("<h1>Shipping reference platform</h1>", "A reference monorepo",
+        assertThat(start).contains("<h1>Shipping reference platform</h1>", "A reference Java application",
                 "<span class=\"badge badge-partial\">Partly built</span>", "synthetic", "Reading path for a COO",
                 "Reading path for a Java lead").doesNotContain("Specification only", "No application code exists yet")
                 .contains("href=\"model/flow-quote-book-label.html\"", "href=\"trust/risk-levels.html\"",
                         "href=\"trust/gaps.html\"", "href=\"model/api-components.html\"", "href=\"modules/index.html\"",
                         "href=\"api/index.html\"", "href=\"decisions/index.html\"", "href=\"trust/allowlist.html\"");
-        assertThat(start.indexOf("Reading path for a COO")).isLessThan(start.indexOf("Reading path for a Java lead"));
+        assertThat(start.indexOf("Reading path for a Java lead")).isLessThan(start.indexOf("Reading path for a COO"));
+    }
+
+    @Test
+    void theReadmeSheetLeadsWithTheJavaArchitectureAndTheCommandThatRunsIt() {
+        String repository = site.text("start/repository.html");
+
+        assertThat(List.of(repository.indexOf("id=\"the-java-architecture\""), repository.indexOf("id=\"run-it\""),
+                repository.indexOf("id=\"what-exists-today\""), repository.indexOf("id=\"how-this-was-built\"")))
+                .doesNotContain(-1).isSorted();
+        String runIt = repository.substring(repository.indexOf("id=\"run-it\""),
+                repository.indexOf("id=\"what-exists-today\""));
+        assertThat(runIt).contains("run-attended-demo.sh memory 8080 tools/demo/fixture");
     }
 
     @Test

@@ -2,7 +2,7 @@
 title: "Brain: shipping-reference-platform"
 description: "The generated entry point for agents: what the repository is, what is built and what is only planned, and where each module, decision, control and limit is written down."
 status: accepted
-updated: 2026-11-15
+updated: 2026-11-16
 ---
 
 > Generated—do not hand-edit. Sources: `README.md`, `architecture/workspace.dsl`, `docs/`, `contracts/`, `policy/risk.json` and `security/allowlist.json`.
@@ -10,7 +10,7 @@ updated: 2026-11-15
 
 # Brain: shipping-reference-platform
 
-A reference monorepo that shows how a Java and TypeScript product can be built when the architecture model, the API contract and the documentation lead and the code follows, and when each claim about the code is backed by a check that fails. The domain is generic webshop parcel shipping: quote a parcel, book it, download a label. Data is synthetic and the carrier is simulated. The application's first code exists: the API's pricing and quotes and its demo authentication, served over HTTP in tests, and booking, listing, reading and simulated labels in its shipments module over HTTP. The tenants, quotes and shipments schemas have paired migrations and JDBC adapters behind the postgres profile; the attended demo now runs with memory stores or opt-in PostgreSQL, with PostgreSQL execution recorded in CI (see the attended demo evidence below). The tooling that judges it exists too: a checker that holds compiled Java classes to the C4 model in both directions, a labelled partial check of detected TypeScript imports in the web app, a dependency allowlist check and a documentation tool.
+A reference Java application for webshop parcel shipping: a Spring Boot modular monolith with hexagonal modules, a contract-first HTTP API, explicit SQL and tenant isolation down to PostgreSQL row-level security. A webshop's clerk quotes a parcel, books an offer and downloads a label. The data is synthetic and the carrier is simulated.
 
 **State at this commit.** 27 capabilities: 2 shipped, 9 partial, 16 planned; 19 controls: 10 shipped, 6 partial, 3 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
 
