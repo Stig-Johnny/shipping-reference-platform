@@ -1746,6 +1746,35 @@ records:
       scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
       method: "unknown: no measured usage or billed allocation; no costs inferred"
       receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-127-pull-request"
+    issue: 127
+    date: "2026-11-16"
+    role: "implementation"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "xhigh"
+    base: "94a4bc4c3a3525ad6740aabba8cdc8a4fe26196b"
+    outcome: "completed"
+    scope: "Issue 127, part of epic 113 (step 4), PR 129: the README describes the application first and how it was built after it. The AI-assisted delivery and governance material moves verbatim into subsections of How this was built: the idea, how a change is made, the tools that judge the code, the checker, Try it, the controls, the limits of the checks, the scenario coverage ledger, contribution records and model runs, the CI toolchain and prior art. The workbench section moves up from after the licence. The README sheet's ledger gives the start sheet's counts. Also: the site design doc, the wording of demos 49 and 126 and of the runbook; SitePagesTest pins the order and the ledger row; the demo, this record and the history entry."
+    environment: "PR 129 issue branch; macOS and reviewed Temurin 25.0.5+8; documentation and documentation-tool changes."
+    result: "SitePagesTest was changed first and failed against the unchanged README and site (2 of 39). After the move and the ledger change all 39 passed; generation changed no committed file, and the full check including checkGenerated, and PolicyCheck, exited 0 (762 documentation tests). A line comparison of the old and new README found every old line except the demoted headings, the rewrapped paragraphs and the two statements of the ledger's acceptance, now one. The independent reviews and the merge decision are comments on PR 129."
+    limitations: "The site's section order, the start page's reading paths and the controls' own sheets are unchanged. The launcher's sign-in hint for the static fixture is issue 128. Usage and cost are unknown."
+    evidence: "Settings receipt on PR 129 (comment of 2026-11-16): configured model claude-opus-5-5, effort xhigh from the session's /effort output ('Effort stays xhigh', 2026-11-15T14:39:49Z); this pull request's diff and review comments."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "The orchestrator's work on PR 129."
+      receipt: "unknown: no usage measurement available for this pull request"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
 ---
 
 # Model runs and cost evidence
