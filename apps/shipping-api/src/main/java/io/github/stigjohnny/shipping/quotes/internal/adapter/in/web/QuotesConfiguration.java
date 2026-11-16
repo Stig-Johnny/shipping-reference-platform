@@ -16,8 +16,8 @@ import org.springframework.context.annotation.Configuration;
  * The quotes module's beans: its use cases and the offer lookup, wired with the application's clock, the current
  * tenant, the event publisher and the store port, and the module's source of new IDs, random UUIDs. Domain and
  * application code get both the clock and the IDs injected and never create them, so the wiring lives in an adapter:
- * the web adapter is the module's entry point. The store's adapter is the planned JDBC adapter; tests supply one in
- * memory.
+ * the web adapter is the module's entry point. The store's adapter is JdbcQuoteStore under the postgres profile and
+ * memory storage under the demo profile without it; tests supply one in memory.
  */
 @Configuration(proxyBeanMethods = false)
 class QuotesConfiguration {

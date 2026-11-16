@@ -19,8 +19,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Reading a quote is scoped to the current tenant: the tenant's own quote is found, and another tenant's quote is not
- * found, exactly like an unknown ID. The store is in memory; the same read from the database is for
- * QuotesModuleIntegrationTest, which is planned.
+ * found, exactly like an unknown ID. The store is in memory; QuotesModuleIntegrationTest checks the same read against
+ * PostgreSQL.
  */
 class GetQuoteTest {
 

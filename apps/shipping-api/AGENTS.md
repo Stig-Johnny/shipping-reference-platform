@@ -5,8 +5,8 @@ Adds to the root `AGENTS.md`. Decisions: ADR 0012 (modules, contract and databas
 
 ## Structure
 
-- Base package `io.github.stigjohnny.shipping`. Modules: `quotes`, `shipments`, `tenants`, `audit` (planned for v0.1);
-  `orders`, `tracking`, `returns` (planned: no code until `architecture/workspace.dsl` says `built`).
+- Base package `io.github.stigjohnny.shipping`. Modules: `quotes`, `shipments`, `tenants` (built), `audit` (planned
+  for v0.1); `orders`, `tracking`, `returns` (planned: no code until `architecture/workspace.dsl` says `built`).
 - Inside a module only these packages: `api`, `internal.domain`, `internal.application`, `internal.adapter.in.web`,
   `internal.adapter.out.jdbc`. Omit the ones you do not need. Any other package fails `HexagonalLayeringTest`.
 - The root package contains exactly `ShippingApplication`, `CorrelationIdFilter` and `FallbackProblemHandler`

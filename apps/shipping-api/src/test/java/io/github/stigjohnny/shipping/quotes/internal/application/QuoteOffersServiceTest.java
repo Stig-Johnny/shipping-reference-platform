@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 /**
  * What shipments learns about an offer through QuoteOffers, checked in the contract's order: an unknown quote or one
  * of another tenant is not found, then an offer that is not in the quote, then the expiry. The quote is held in memory;
- * the same answers from the database are for QuotesModuleIntegrationTest, which is planned.
+ * QuotesModuleIntegrationTest checks a bookable offer, another tenant's quote and an expired offer against PostgreSQL.
  */
 class QuoteOffersServiceTest {
 

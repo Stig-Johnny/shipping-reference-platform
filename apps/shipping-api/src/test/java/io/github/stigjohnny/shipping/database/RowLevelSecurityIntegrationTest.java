@@ -22,11 +22,12 @@ import org.junit.jupiter.api.Test;
 /**
  * T5 of docs/modules/tenants.md, the database's half: plain JDBC as the runtime role and as the owner role, with no
  * repository and no tenant predicate in the SQL, so that only forced row-level security stands between the tenants.
- * Tenant Alpha and Tenant Beta each have a quote, offers and a prototype flag. Each test binds a tenant as the planned
- * TenantBindingTransactionManager will, with {@code set_config('app.tenant_id', tenant, true)}.
+ * Tenant Alpha and Tenant Beta each have a quote, offers and a prototype flag. Each test binds a tenant as the JDBC
+ * adapters do before every statement (ADR 0017), with {@code set_config('app.tenant_id', tenant, true)}.
  *
- * <p>Not covered here, because the code does not exist yet: the binding by TenantBindingTransactionManager over the
- * application's pool, and listeners that write under an event's tenant.
+ * <p>Not covered here: the JDBC adapters' own binding, which the store integration tests exercise and
+ * QuotesModuleIntegrationTest asserts, and listeners that write under an event's tenant, which wait for the planned
+ * event TenantScope.
  */
 @Tag("database")
 class RowLevelSecurityIntegrationTest {

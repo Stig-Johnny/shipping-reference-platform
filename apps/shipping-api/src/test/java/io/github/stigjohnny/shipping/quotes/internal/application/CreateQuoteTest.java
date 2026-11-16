@@ -27,8 +27,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Creating a quote (invariant Q8): the tenant comes from CurrentTenant, and only an offered quote is stored and
- * publishes QuoteIssued. The store is in memory and the publisher records what it gets; that the publication happens
- * inside the database transaction is for QuotesModuleIntegrationTest, which is planned.
+ * publishes QuoteIssued. The store is in memory and the publisher records what it gets. No test yet checks that the
+ * publication happens inside the database transaction: QuotesModuleIntegrationTest checks the store against
+ * PostgreSQL, and durable publication proof is planned.
  */
 class CreateQuoteTest {
 

@@ -13,9 +13,10 @@ import java.util.UUID;
 
 /**
  * A test double of the {@link MembershipDirectory} port, holding the synthetic users and tenants of
- * docs/modules/tenants.md: like the planned database, it knows tokens only by their SHA-256. It stands in until the
- * JDBC adapter that calls {@code tenants.resolve_demo_token} exists, so tests that use it prove the HTTP edge, not the
- * database. One more token, {@link #FAILING_TOKEN}, makes it fail as an unavailable database would.
+ * docs/modules/tenants.md: like the database, it knows tokens only by their SHA-256. Under the postgres profile,
+ * JdbcMembershipDirectory calls {@code tenants.resolve_demo_token} instead, and MembershipDirectoryIntegrationTest
+ * checks it; tests that use this double prove the HTTP edge, not the database. One more token,
+ * {@link #FAILING_TOKEN}, makes it fail as an unavailable database would.
  */
 public final class FixtureMembershipDirectory implements MembershipDirectory {
 

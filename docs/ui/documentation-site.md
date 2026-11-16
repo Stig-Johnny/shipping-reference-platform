@@ -92,13 +92,15 @@ publishes follow below.
 The README's sheet, `S-01`, gives the same counts as its planned implementation, not what remains of each control
 above the README's Java opening. That remaining work stays in the ledger of each sheet whose document specifies the
 control, such as a decision record or a Trust sheet. The README itself specifies two controls, the API's external
-imports and mutation testing, and its controls table, under "How this was built", says what remains of each. The README describes the
-application first, then how it was built: the AI-assisted delivery and governance material, with its checks and
-controls, is in that one later section.
+imports and mutation testing, and its controls table, under "How this was built", says what remains of each. The
+README describes the application first, then how it was built: the AI-assisted delivery and governance material,
+with its checks and controls, is in that one later section.
 
 The Java reading path starts with [the Java architecture walkthrough](../java-architecture-walkthrough.md),
 an authored Start sheet at `start/java-architecture-walkthrough.html`, code `S-04`. It also appears in Start
-navigation, the repository README and the generated search directory. `SitePagesTest` checks those routes.
+navigation, the repository README and the generated search directory. `SitePagesTest` checks those routes, and that
+its status rows show the README sheet's verified evidence and, because it specifies no capability, "Not applicable"
+as its planned implementation.
 The source belongs directly under `docs/`: `docs/architecture/` remains generated-only. Code and test references
 use repository-relative Markdown links; the existing publication rule renders unpublished source paths as text.
 

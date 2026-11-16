@@ -9,8 +9,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Reads a quote of the current tenant. Another tenant's quote is not found, exactly like an unknown ID. As with
- * CreateQuote, the read-only transaction takes effect once a transaction manager exists, which arrives with the
- * planned JDBC adapter; the class is not final, so that Spring can proxy it then.
+ * CreateQuote, the read-only transaction takes effect where a transaction manager exists, as under the postgres
+ * profile; the class is not final, so that Spring can proxy it.
  */
 public class GetQuote {
 

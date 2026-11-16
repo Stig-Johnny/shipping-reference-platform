@@ -16,7 +16,7 @@ final class Jdbc {
     private Jdbc() {
     }
 
-    /** Binds a tenant to the current transaction, exactly as the planned TenantBindingTransactionManager will. */
+    /** Binds a tenant to the current transaction with the set_config call the JDBC adapters make (ADR 0017). */
     static void bind(Connection connection, String tenant) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(
                 "select set_config('app.tenant_id', ?, true)")) {
