@@ -11,7 +11,7 @@ modules: [tenants, quotes, shipments]
 Use the reviewed Temurin JDK 25.0.5+8, the repository Gradle wrapper, Bash and curl. Set `JAVA_HOME` to that JDK and
 put its `bin` first on `PATH`. The launcher checks `java -version`; it does not download a JDK. Use synthetic data
 only. The workbench runs against the API in this profile; with the small HTML/JS/CSS fixture instead, the launcher
-runs the API without the workbench, as the README's Run it does. The launcher binds to `127.0.0.1` and stays in the
+runs the API without the workbench, as the README's "Run it" section does. The launcher binds to `127.0.0.1` and stays in the
 foreground until interrupted.
 
 ## Memory mode

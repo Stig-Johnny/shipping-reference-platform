@@ -14,8 +14,8 @@ tests: [DemoCheckTest, DemoPagesTest, MarkdownRendererTest]
 Before, a presentation of the repository's state had to live in another tool and could drift from what the
 repository shows. Then the Demos section held a milestone deck, until issue 125 retired it: ten slides and four
 appendix slides in English, built from one Markdown file, with an index, Previous, Next and Overview links on every
-slide, and speaker notes on a page of their own. The documentation tool checks the deck before the site is
-published, including that the number of planned capabilities on a slide matches the capabilities file.
+slide, and speaker notes on a page of their own. The documentation tool checked the deck before the site was
+published, including that the number of planned capabilities on a slide matched the capabilities file.
 
 ## See it
 

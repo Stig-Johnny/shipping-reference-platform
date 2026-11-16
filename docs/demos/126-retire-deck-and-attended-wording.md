@@ -1,6 +1,6 @@
 ---
 title: "The meeting deck is gone and the demo is simply run locally"
-description: "A Java reader no longer meets a milestone deck made for one meeting, and the word \"attended\", which only made sense for that meeting, is left only in kept file names, a decision's title and earlier records."
+description: "A Java reader no longer meets a milestone deck made for one meeting, and the word \"attended\", which only made sense for that meeting, is left in kept file names and the launcher's own comments, a decision's title, a CI step's name and earlier records."
 status: accepted
 updated: 2026-11-16
 pr: 126

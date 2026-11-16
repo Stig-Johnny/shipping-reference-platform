@@ -89,6 +89,11 @@ context drawn, then the two reading paths, the Java lead's first; the COO's ends
 in the ledger come from `docs/capabilities/capabilities.yaml`. The explanations of the data and of what the site
 publishes follow below.
 
+The README's sheet, `S-01`, gives the same counts as its planned implementation. What remains of each capability and
+control stays on its module, Trust and Brain sheets rather than above the README's Java opening. The README describes
+the application first, then how it was built: the AI-assisted delivery and governance material, with its checks and
+controls, is in that one later section.
+
 The Java reading path starts with [the Java architecture walkthrough](../java-architecture-walkthrough.md),
 an authored Start sheet at `start/java-architecture-walkthrough.html`, code `S-04`. It also appears in Start
 navigation, the repository README and the generated search directory. `SitePagesTest` checks those routes.
