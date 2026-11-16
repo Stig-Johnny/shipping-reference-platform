@@ -21,17 +21,21 @@ Now the README describes the application first: The Java architecture, Run it, W
 paragraph, Layout, Running it, Run the workbench locally and Honest limits. "How this was built" follows, and the
 AI-assisted delivery and governance material forms its subsections: the idea, how a change is made, the tools that
 judge the code, the checker and Try it, the controls, the limits of the checks, the scenario coverage ledger,
-contribution records and model runs, the CI toolchain and prior art. The blocks moved without rewording. The README
-sheet's ledger gives the start sheet's counts, and each control's remaining work is still on its module, Trust and
-Brain sheets.
+contribution records and model runs, the CI toolchain and prior art. The blocks moved unchanged, apart from one
+merged statement of the ledger's acceptance, one positional reference that became a link and one lead-in line. The
+README sheet's ledger gives the start sheet's counts. Each control's remaining work is still in the ledger of the
+sheet whose document specifies it, such as a decision record or a Trust sheet; the README specifies the external
+imports control itself, and its controls table says what remains of it.
 
 ## See it
 
 - [The repository's README](../../README.md): "On this sheet" lists the application's sections, then "How this was
   built" and Licence.
 - [How this was built](../../README.md#how-this-was-built): its subsections, from the idea to prior art.
-- [The Trust sheet](https://stig-johnny.github.io/shipping-reference-platform/trust/index.html): the controls'
-  remaining work in its ledger.
+- [The Trust sheet](https://stig-johnny.github.io/shipping-reference-platform/trust/index.html): the dependency
+  allowlist control's remaining work in its ledger.
+- [Controls and how each one can fail](../../README.md#controls-and-how-each-one-can-fail): the external imports
+  row's status says what remains of that control.
 
 ## Evidence
 
@@ -67,6 +71,7 @@ The rendered [README sheet](../../README.md) was read with its new order and its
 
 ## Limits
 
-Only the README's order and its sheet's ledger changed. The site's sections, the start page's reading paths and the
-controls' own sheets are unchanged, and the Demos section still comes second in the navigation. The launcher still
-prints a sign-in hint that the static fixture page does not have (issue 128).
+The site's sections, the start page's reading paths and the controls' own sheets are unchanged, and the Demos section
+still comes second in the navigation. Of the ledgers that keep the controls' remaining work, the site test checks the
+Trust sheet's and two decision records'; the others were not read page by page. The launcher still prints a sign-in
+hint that the static fixture page does not have (issue 128).

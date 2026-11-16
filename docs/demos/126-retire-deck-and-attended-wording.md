@@ -24,7 +24,7 @@ such as `tools/demo/run-attended-demo.sh`, keep their names, and the documentati
 ## See it
 
 - [The runbook](../flows/attended-demo.md): its title, "Run the shipping app locally".
-- [The repository's README](../../README.md): "Run the workbench locally" near the end, and "Run it" linking to it.
+- [The repository's README](../../README.md): "Run the workbench locally", and "Run it" linking to it.
 - [The start page](https://stig-johnny.github.io/shipping-reference-platform/index.html#reading-paths): no deck line
   beside the reading paths.
 

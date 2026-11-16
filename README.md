@@ -164,8 +164,6 @@ CI stages the reviewed JDK is under [The CI toolchain](#the-ci-toolchain).
 
 Not built yet: a developer toolchain bootstrap script and automated workbench browser acceptance tests. The local
 demo launcher and real-HTTP smoke now exist; PostgreSQL preparation remains an operator step.
-The `web` job runs after `java` has checked the candidate, with the first-step engine guard, a checksum-verified
-Node archive, lock-only installation, the reviewed compiler command and workspace logic tests. No browser runs.
 The API's HTTP contract tests run in `./gradlew check`.
 
 ## Run the workbench locally
@@ -462,6 +460,9 @@ owner acceptance. No runtime URL or checksum override exists. Gradle retains its
 checksum, with `networkTimeout=60000`, `retries=3` and `retryBackOffMs=1000`; CI still starts with an empty Gradle
 home. A staged Gradle launcher and repeated offline signature verification belong to later reviewed work. The
 existing first-use signature record in `security/verifications/2026-11-06-toolchain.md` remains applicable.
+
+The `web` job runs after `java` has checked the candidate, with the first-step engine guard, a checksum-verified
+Node archive, lock-only installation, the reviewed compiler command and workspace logic tests. No browser runs.
 
 ### Prior art
 

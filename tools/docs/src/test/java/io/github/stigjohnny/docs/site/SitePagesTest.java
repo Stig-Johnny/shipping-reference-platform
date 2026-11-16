@@ -140,7 +140,8 @@ class SitePagesTest {
         for (String material : List.of("<strong>The checker</strong>", "<strong>The dependency allowlist check</strong>",
                 "<strong>The scenario checks</strong>", "<strong>The database harness</strong>",
                 "<strong>The documentation tool</strong>", "COVERAGE_INCOMPLETE", "model runs", "API-equivalent",
-                "whitelist", "PARTIAL static lint", "AI review", "risk-approval", "stage-temurin.sh")) {
+                "whitelist", "PARTIAL static lint", "AI review", "risk-approval", "stage-temurin.sh",
+                "lock-only installation")) {
             assertThat(application).as(material).doesNotContain(material);
             assertThat(howItWasBuilt).as(material).contains(material);
         }
@@ -152,10 +153,21 @@ class SitePagesTest {
 
         assertThat(implementation).isEqualTo(statusRow(site.text("index.html"), "Planned implementation"))
                 .contains("product capabilities are planned. Controls: ");
-        // Each control's remaining work stays on its own sheets, not above the README's Java opening.
         assertThat(implementation).doesNotContain("Phase 3", "ExternalImportSourceTest", "spread-syntax",
-                "PARTIAL lint");
+                "PARTIAL lint", "Shipment cancellation");
+        // Each control's remaining work stays in the ledger of a sheet whose document specifies it. The README itself
+        // specifies the external imports control, and its controls table says what remains of it.
         assertThat(statusRow(site.text("trust/index.html"), "Planned implementation")).contains("PARTIAL lint");
+        assertThat(statusRow(site.text(decision("0013")), "Planned implementation")).contains("Phase 3 / option 2");
+        assertThat(statusRow(site.text(decision("0012")), "Planned implementation")).contains("spread-syntax",
+                "Shipment cancellation");
+        assertThat(readmeBody()).contains("source analysis and the scope of every locked artifact are planned");
+    }
+
+    /** The sheet of the decision record with the given number. */
+    private static String decision(String number) {
+        return site.pages().stream().filter(page -> page.startsWith("decisions/" + number + "-")).findFirst()
+                .orElseThrow(() -> new AssertionError("no sheet for decision " + number));
     }
 
     /** The README as its sheet renders it, without the sheet's status ledger, contents or related pages. */
