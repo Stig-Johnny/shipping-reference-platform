@@ -82,8 +82,8 @@ public final class Brains {
                 .append("- [AGENTS.md](AGENTS.md): rules for agents, with scoped files in `apps/*`, `libs/*` and "
                         + "`security/`.\n")
                 .append("- [docs/gaps.md](docs/gaps.md): what a green build does not prove.\n")
-                .append("- [Contribution records](docs/contributions.md): per-issue models, reasoning effort, "
-                        + "receipts and separate review/owner approval phases.\n")
+                .append("- [Contribution records](docs/contributions.md): one record per pull request with its "
+                        + "models, reasoning effort and receipts; reviews and the merge decision are PR comments.\n")
                 .append("- [Model runs and costs](docs/contributions/runs.md): include failed attempts, usage and "
                         + "cost basis; unknown is not zero. Structure validation does not prove completeness.\n")
                 .append("- [Human site design](docs/ui/documentation-site.md): generated page search and a visual map "

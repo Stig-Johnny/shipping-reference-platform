@@ -1,8 +1,8 @@
 ---
 title: "Contribution records"
-description: "Record models, usage, cost and observed outcomes for every change, with failed attempts, separate review and explicit gaps in the evidence."
+description: "One record per pull request: the models, reasoning effort, usage, cost and outcome of every change, with reviews and the merge decision as pull request comments and explicit gaps in the evidence."
 status: accepted
-updated: 2026-11-10
+updated: 2026-11-15
 ---
 
 # Contribution records
@@ -20,9 +20,9 @@ observations of real work, not a controlled benchmark or a model ranking. A comp
 | Question | Where to look |
 |---|---|
 | What was implemented? | The issue's scope, PR and relevant commit references. A partial slice is labelled partial. |
-| Which model and effort? | The implementation or integration phase, with its verification receipt. |
-| Was it independently reviewed? | A separate review phase naming the reviewed head and review receipt. |
-| Did the owner approve it? | A separate human phase naming the approved head and approval receipt. |
+| Which model and effort? | The pull request's record, with its verification receipt. Records added before PR #122 have one record per phase instead. |
+| Was it independently reviewed? | The pull request's review comments, each naming the reviewed head and the reviewer's model and effort. Records before PR #122 also include review records. |
+| Did the owner approve it? | The pull request's approval or delegated-decision comment, naming the head. Records before PR #122 also include human records. |
 | What did it cost? | Prefer the API-equivalent comparison with dated rates and usage, including subscription work; keep actual billed cost separate and unknown where unallocated. |
 | What did the attempt achieve? | Its outcome, validation/review result and limitations, including failed work and later remediation. |
 
@@ -30,67 +30,61 @@ A configured model identifier is what the tool requested. It does not establish 
 `unknown` means evidence is missing; `not applicable` is for a field that does not apply, such as a human's model.
 Neither a known model nor a merged PR proves correctness, independent review or human approval.
 
-## Record work as it happens
+## Record each pull request once
 
-For every repository change, start a structured record when work starts. Before claiming completion, add its
-`## Issue N` narrative to [the history](contributions/history.md), link the records from the PR and account for every
-contributing phase. Include planning, retries, failed or rejected attempts, remediation, integration, validation,
-independent review and actual human decisions. Use these fields:
+From PR #122 on, each pull request appends one record to [model runs](contributions/runs.md) and one short entry for
+its issue to [the history](contributions/history.md). Records added before it keep one record per phase and stay
+unchanged as the historical log. [ADR 0021](adr/0021-one-contribution-record-per-pull-request.md) records this
+decision.
 
-| Field | Required content |
-|---|---|
-| Scope and revision | Issue, PR, role and relevant full commit SHA; distinguish partial work from completion. |
-| Date | Actual work date/time in UTC when known; otherwise `unknown`. Keep the receipt and backfill dates separate. |
-| Tool or agent | The observed tool and whether it is the implementer, integrator or independent reviewer. |
-| Configured model | Exact identifier from runtime or request metadata; product names and defaults are insufficient. |
-| Resolved checkpoint | Only a checkpoint actually established by a receipt; otherwise `unknown`. |
-| Reasoning effort | Observed setting, or `unknown` with the missing evidence explained. |
-| Verification | A public, sanitized receipt or reference identifying which fields it establishes and its limits. |
-| Usage | Reported or estimated input/output counts, or explicit unknown/not-applicable values, with the measurement boundary. |
-| Cost | Prefer api-equivalent-estimate; retain billed, metered-estimate, estimate, unknown and not-applicable bases distinctly, with exact decimal amount/currency, scope, method and receipt. |
-| Outcome | Completed, partial, rejected, failed, blocked or abandoned, with the actual result and remaining limits. |
-
-Append a phase when the model, effort or role changes, including handoffs and worker contributions. Human-only
-phases remain in the record with model, checkpoint and effort `not applicable`. Record independent AI review and
-owner approval separately; neither substitutes for the other. Approval names the exact reviewed or approved head.
-For a current PR, record its implementation commit after the first commit exists and append later review/head
-references; do not try to embed a commit's own hash in itself.
-Receipts issued after the last commit, especially final-head review and owner approval, stay as durable PR
-comments linked from the issue record. A later reviewed backfill can append them here. Do not change an approved
-head merely to record its approval.
-
-Keep earlier phases unchanged. A correction is a new dated row that identifies the earlier phase, corrected field,
-new value and supporting receipt. Later approval does not rewrite an earlier pending state. The PR template is a
-checklist; committed history and structured runs are the durable record. The build validates submitted records,
-not receipt truth, missing changes or preservation against earlier revisions. Reviewers compare the issue and PR
-against all phases and inspect corrections/deletions. A missing record is a review finding even when the build is
-green. Final-head review and human/delegated approval remain distinct; standing delegation is not a new personal
-approval of a particular head.
+- The record covers the whole pull request: scope, base, outcome, what was validated and what remains limited. Its
+  `role` is `implementation`, or `integration` when the pull request mainly integrates work done elsewhere. `tool`,
+  `model`, `checkpoint` and `effort` list every contributor in the same order, separated by semicolons, for example
+  `tool: "Codex; Claude Code"`, `model: "gpt-6-astra; claude-opus-5-5"` and `effort: "xhigh; xhigh"`. A setting
+  without a receipt is `unknown`, with the reason. A usage window the pull request measured goes inside its record.
+- Failed attempts, retries and review fixes are summarised in the record's result; they get no records of their own.
+- Besides its own record, a pull request appends only correction records: one for each merged record it corrects,
+  with that record's issue and `correctionOf` naming it. A correction to a merged history entry is stated in the
+  correcting pull request's own entry.
+- While the pull request is open, edit its record and history entry rather than appending corrections. Every pushed
+  version stays in the pull request's commits as long as nobody force-pushes, which is a rule rather than a check;
+  main keeps only the squashed final version. Once merged, the record and the entry are frozen.
+- The history entry is headed `## Issue N`. A pull request for an issue that already has an entry adds its own entry,
+  headed `## Issue N, PR #M`.
+- Independent reviews of the final head and the merge decision come after the last commit, so they stay as durable
+  pull request comments naming that head. A review comment also names the reviewer's tool, model and effort, or
+  `unknown`. The history entry says where they are. A standing delegation to merge is not a personal approval of a
+  particular head.
+- Human-only work keeps model, checkpoint and effort `not-applicable`. Usage and cost stay `unknown` unless measured,
+  as the accounting rules below describe. The build validates each record's structure, not whether a pull request
+  has one or whether a merged record changed; reviewers check both, and the pull request template asks for it.
 
 ## Repeatable comparison protocol
 
 1. Record the fixed task, full base revision, acceptance criteria and provided context before comparing runs. Name
    the configured model/effort, tools, environment, rules and available allowance, or the missing evidence.
-2. Retain every attempt, interruption, security refusal, retry and handoff. Record receipt-scoped usage and cost
-   without charging a shared account counter to several phases. Preserve failed and rejected output in the record.
-3. Record tests, independent findings, corrections, accepted scope and subsequent defects separately. Same rules
-   and a passing check do not establish equal task difficulty or one combined quality score.
+2. Summarise every attempt, interruption, security refusal, retry and handoff in the pull request's record. Record
+   receipt-scoped usage and cost without charging a shared account counter to several records.
+3. State tests, independent findings, corrections, accepted scope and subsequent defects separately in the record.
+   Same rules and a passing check do not establish equal task difficulty or one combined quality score.
 4. Prefer API-equivalent estimates using recorded usage and dated API prices, even when the work ran under a
    subscription. State the comparison tier, cache treatment and per-request prompt-size thresholds; distinguish
    assumptions from observed settings. State omitted tool, infrastructure and human charges when the estimate
    covers only model tokens. Actual billed cost remains separate and may be unknown.
-5. Compare only evidenced scopes with their limitations. A bounded coordinator-window record may span phases;
-   retain it once, label its coverage and do not repeat its cost in phase records or assume child-agent inclusion.
+5. Compare only evidenced scopes with their limitations. A bounded coordinator usage window is recorded once, in
+   the pull request's record, with its coverage labelled; do not repeat its cost elsewhere or assume child-agent
+   inclusion.
    This slice computes no cross-record totals, currency conversions, subscription allocations or rankings.
 
 ## Structured source and accounting
 
 `docs/contributions/runs.md` contains schemaVersion `1`, a nonempty coverage statement and a records list in its
-frontmatter. Each stable record ID names one phase/attempt or one explicitly bounded aggregate usage window;
-`correctionOf` is `none` or an earlier ID for the same issue. Dates are quoted ISO dates or `unknown`; bases are
-full lower-case commit hashes or `unknown`. Text fields
-are quoted strings, at most 2,000 characters each. Use only the keys and enums in the existing records; the reader
-rejects extra/missing fields, invalid identities, incompatible states and malformed numeric values.
+frontmatter. Each stable record ID names one pull request or a correction of a merged record; records added before
+PR #122 name one phase or attempt, or one explicitly bounded aggregate usage window. `correctionOf` is `none` or an
+earlier ID for the same issue. Dates are quoted ISO dates or `unknown`; bases are full lower-case commit hashes or
+`unknown`. Text fields are quoted strings, at most 2,000 characters each. Use only the keys and enums in the
+existing records; the reader rejects extra/missing fields, invalid identities, incompatible states and malformed
+numeric values.
 
 Usage states are `reported`, `estimated`, `unknown`, `not-applicable`; input/output values are nonnegative integers
 or the corresponding quoted marker. Cost bases are `api-equivalent-estimate`, `billed`, `metered-estimate`,
@@ -100,16 +94,18 @@ reason. Human model settings can be not applicable while human economic cost rem
 
 Reservations and budgets are exposure/permission limits, not incurred cost. Describe them separately in scope or
 limitations; never put them in the cost amount. Metered estimates use recorded rates and may differ from invoices,
-particularly for cache discounts. An API-equivalent estimate prices an evidenced usage scope at stated API rates;
-it does not claim that an API invoice was issued or allocate subscription charges. Missing usage/rate evidence
-keeps the estimate unknown. Actual subscription or shared-session billed cost is unknown until an allocation is
-evidenced. Preserve historical metered estimates with their original rate basis. Zero needs evidence of zero for
-that exact basis; a tool's placeholder zero is not a billing receipt. Cached input and reasoning tokens may be
-subsets of provider totals: do not add them again. If an aggregate window is all the receipt supports, do not
-fabricate phase costs or infer that other agents are included. Keep an actual-bill record separately scoped and
+particularly for cache discounts. An API-equivalent estimate prices an evidenced usage scope at stated API rates; it
+does not claim that an API invoice was issued or allocate subscription charges. Missing usage/rate evidence keeps
+the estimate unknown. Actual subscription or shared-session billed cost is unknown until an allocation is evidenced.
+Preserve historical metered estimates with their original rate basis. Zero needs evidence of zero for that exact
+basis; a tool's placeholder zero is not a billing receipt. Cached input and reasoning tokens may be subsets of
+provider totals: do not add them again. If an aggregate window is all the receipt supports, do not fabricate
+per-contributor costs or infer that other agents are included. Keep an actual-bill record separately scoped and
 labelled if one later becomes available; never add it to the comparison estimate as though they were different work.
 
-[ADR 0020](adr/0020-model-run-evidence-and-cost-boundaries.md) records this boundary.
+[ADR 0020](adr/0020-model-run-evidence-and-cost-boundaries.md) records this boundary. ADR 0021 supersedes it to make
+the record one per pull request, edited while the pull request is open and frozen once merged; the schema and these
+accounting rules carry forward unchanged.
 
 ## Backfill and privacy
 

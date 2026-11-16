@@ -17,7 +17,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-/** Submitted phase records, not authenticated billing or a claim that all repository changes were recorded. */
+/**
+ * Submitted records, one per pull request since ADR 0021 and one per phase before it; not authenticated billing or a
+ * claim that all repository changes were recorded.
+ */
 public record ModelRuns(String coverage, List<Run> records) {
 
     public static final String PATH = "docs/contributions/runs.md";

@@ -231,8 +231,9 @@ The workflow in the diagram, in order:
 3. Failing tests describe the new behaviour.
 4. Code and documentation change until the tests pass.
 5. The required checks run; when one fails, the change goes back to step 4.
-6. An independent AI review is recorded. Contribution phases and verified model/effort settings are appended to
-   [the issue history](docs/contributions/history.md), with missing evidence explicitly unknown.
+6. An independent AI review is recorded. One contribution record per pull request names the models and their
+   verified reasoning effort, in [the issue history](docs/contributions/history.md) and the model runs, with missing
+   evidence explicitly unknown.
 7. The risk level decides: levels 0 to 2 merge; level 3 merges only after the owner approves the current head.
 
 GitHub enforces step 5: branch protection on `main` requires the `preflight` and `java` checks, for administrators

@@ -68,8 +68,8 @@ final class TrustPages {
                 + "keeps.");
         card(body, NoticesPage.PAGE, "Third-party notices", "The licence of the one third-party file the site "
                 + "serves, and what it contains.");
-        card(body, "trust/contributions.html", "Contribution records", "Which model and effort contributed to each "
-                + "issue, with receipts and explicit unknowns.");
+        card(body, "trust/contributions.html", "Contribution records", "Which models and effort contributed to each "
+                + "pull request, with receipts and explicit unknowns.");
         card(body, ModelRunsPage.PAGE, "Model runs and costs", "Attempts, outcomes, usage and cost evidence. "
                 + "Estimates and unknowns remain visible, including failed work.");
         body.append("</div>\n");

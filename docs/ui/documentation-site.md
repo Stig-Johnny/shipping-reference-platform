@@ -181,7 +181,7 @@ The shared site labels specify synthetic shipping data. Model-run measurements a
 recorded observations, so the header, footer and landing page must not label all site content synthetic.
 
 The status distinguishes validated structure from authored measurements: records are read on each site build, but
-the build does not authenticate receipts or prove every change and phase was recorded. The coverage statement
+the build does not authenticate receipts or prove every pull request was recorded. The coverage statement
 and receipt limitations remain visible. Preserve failed, rejected and corrected records; a correction links to
 the earlier same-issue ID. Stable run headings and anchors support search, keyboard navigation and no-script
 reading. Existing escaping, relative links and publication scanning apply to all new fields. No raw logs,
