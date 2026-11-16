@@ -2,7 +2,7 @@
 title: "Module: quotes"
 description: "Prices parcels with the synthetic tariff and issues tenant-scoped quotes whose offers expire after 30 minutes."
 status: accepted
-updated: 2026-11-09
+updated: 2026-11-16
 module: quotes
 moduleStatus: built
 riskLevel: 3
@@ -15,7 +15,7 @@ all of its code is pricing.
 
 ## Implementation state
 
-The attended `demo` runtime now supplies disposable memory storage; `demo,postgres` selects the existing JDBC
+The local `demo` runtime now supplies disposable memory storage; `demo,postgres` selects the existing JDBC
 adapter with standard datasource environment variables. `DemoSmokeTest` exercises the real HTTP quote-to-label
 flow with memory storage; the matching `DemoPostgresSmokeIntegrationTest` passed all three cases in [recorded CI evidence](../flows/attended-demo.md#recorded-database-evidence) (run `42612173809`). See the
 [runbook](../flows/attended-demo.md) and [ADR 0018](../adr/0018-attended-demo-runtime.md).

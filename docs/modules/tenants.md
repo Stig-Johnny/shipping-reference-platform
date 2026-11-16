@@ -2,7 +2,7 @@
 title: "Module: tenants"
 description: "Demo authentication for synthetic users, tenant derivation from membership, tenant binding for row-level security, and tenant-scoped prototype flags."
 status: accepted
-updated: 2026-11-09
+updated: 2026-11-16
 module: tenants
 moduleStatus: built
 riskLevel: 3
@@ -130,7 +130,7 @@ These tokens are public, guessable test fixtures, not secrets. Rules:
   `DemoStaticController` serves the configured immutable build directory outside `/api`, with normalized/real-path
   containment. Documented workbench page routes resolve the entry file; unknown paths stay 404 and `/api` stays protected.
   `DemoSmokeTest` proves static content types, CSP, traversal and escaping-symlink refusal plus the
-  full shipment flow over real HTTP. See the [attended runbook](../flows/attended-demo.md) and
+  full shipment flow over real HTTP. See the [local runbook](../flows/attended-demo.md) and
   [ADR 0018](../adr/0018-attended-demo-runtime.md). The three PostgreSQL smoke cases passed in the recorded CI run.
 - A request that Spring Security's firewall refuses, such as a path with `;` or an encoded `/` or a method the
   server does not accept, is `400 malformed-request` before it is authenticated: the module's

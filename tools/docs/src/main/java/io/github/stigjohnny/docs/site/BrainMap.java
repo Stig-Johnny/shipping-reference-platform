@@ -104,7 +104,7 @@ final class BrainMap {
                 </ol>
                 <p>This is a runtime journey. Map arrows show static code dependencies.</p>
                 """);
-        out.append(SiteContext.link(BrainPage.PAGE, "model/flow-attended-demo.html", "Open the attended runbook"))
+        out.append(SiteContext.link(BrainPage.PAGE, "model/flow-attended-demo.html", "Open the local runbook"))
                 .append("</div></div><aside id=\"brain-detail\" aria-label=\"Selected record\"></aside></div>\n")
                 .append("<details id=\"brain-records\" open><summary>All map records, relationships and sources</summary>\n")
                 .append("<p>API modules and their declared capabilities, decisions named by their specifications, "

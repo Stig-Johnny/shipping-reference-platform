@@ -3,12 +3,13 @@ package io.github.stigjohnny.docs.testing;
 /**
  * A sample milestone deck for the tests, valid as written against a copy of the repository: three main slides, one
  * appendix slide, notes on three of them and one recorded output with its full record in the notes. A test changes one
- * thing and expects the check, the site or the scan to say why it fails. It stands at the path of the repository's own
- * deck, whose sheet codes (X-D01 and X-N01) the site has, so that a test can build the site with it.
+ * thing and expects the check, the site or the scan to say why it fails. It stands at the path that the repository's
+ * own deck had until issue 125 retired it, whose sheet codes (X-D01 and X-N01) the site still assigns, so that a test
+ * can build the site with it.
  */
 public final class Decks {
 
-    /** Where the sample stands: the path of the repository's own deck. */
+    /** Where the sample stands: the path that the repository's retired deck had. */
     public static final String PATH = "docs/demos/deck-milestone.md";
 
     public static final String SAMPLE = """

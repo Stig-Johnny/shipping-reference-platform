@@ -2,7 +2,7 @@
 title: "How to write a demo"
 description: "When a pull request needs a public demonstration, which kind it is, the template to copy, what each section holds, and the checks the documentation tool applies."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-16
 ---
 
 # How to write a demo
@@ -30,7 +30,8 @@ that reader.
 
 A milestone deck presents the state of the repository as slides for a meeting. It belongs to no pull request, has no
 sections, commands or tests of a demo, and is never evidence. Its file is `docs/demos/deck-<slug>.md`, such as
-`docs/demos/deck-milestone.md`; the tool checks every file named so as a deck, by the rules of
+`docs/demos/deck-milestone.md`, the path of the tests' sample deck (issue 125 retired the repository's own deck);
+the tool checks every file named so as a deck, by the rules of
 [how the site draws decks](../ui/documentation-site.md#decks), and never as a demo.
 
 ## Which kind

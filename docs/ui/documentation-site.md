@@ -122,7 +122,7 @@ At 1280 pixels the map and selected record share the available width; at 390 and
 keyboard paths and visible focus. Small satellites may hide on mobile; the searchable record list keeps the same
 capabilities available. The map and selected details come first. Source metadata, the existing status ledger and the contents list follow
 the main body; full capability, control and module records remain available through disclosures. Without script the records remain readable and linked. The four-step
-demo journey links to the attended runbook and is visibly separate from static dependency arrows.
+demo journey links to the local runbook and is visibly separate from static dependency arrows.
 
 Search is sheet S-03, linked from every page, with a labelled input and the complete list of published sheets
 (excluding the 404 fallback). Its index is generated from the assembled pages' titles, summaries and rendered
@@ -191,8 +191,8 @@ provider fetch, price lookup or repository-link exception is introduced.
 ## The Demos section
 
 Demos is the second section of the register, after Start. It shows a reader who does not read code what each pull
-request changed, from `docs/demos/` (the recipe for writing one is `docs/demos/how-to.md`). A milestone deck stands
-there too, drawn as [decks](#decks) are.
+request changed, from `docs/demos/` (the recipe for writing one is `docs/demos/how-to.md`). A milestone deck, when there
+is one, stands there too, drawn as [decks](#decks) are.
 
 - **Codes.** `X-00` is the register of demonstrations, `X-GUIDE` the how-to, and each demonstration is `X-` and its
   pull request's number (`X-42`), from the record's own `pr`, never from its position. The how-to stands first in the
@@ -294,9 +294,9 @@ borders for planned elements and a dark drawing theme wait for a design decision
 WCAG 2.1 AA in both themes: 4.5:1 for text, 3:1 for controls and focus, a visible 2 px focus outline with a 2 px
 offset, reduced motion, 200 % text and 400 % zoom, reflow at 320 px, and every state in words.
 
-## Attended demo runbook
+## Local demo runbook
 
-The [attended runbook](../flows/attended-demo.md) uses the existing flow-document route in the Model section,
+The [local runbook](../flows/attended-demo.md) uses the existing flow-document route in the Model section,
 with stable sheet code `M-10` and route `model/flow-attended-demo.html`. It describes launch preparation,
 synthetic identity, both storage modes, credential-free diagnostics and cleanup. `SitePagesTest` checks that the
 rendered page retains those instructions and the PostgreSQL evidence limit. The COO reading path continues to

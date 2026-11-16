@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.markdown.SlideOutline;
-import io.github.stigjohnny.docs.repo.Capability;
 import io.github.stigjohnny.docs.repo.DeckRecord;
 import io.github.stigjohnny.docs.repo.DemoRecord;
 import io.github.stigjohnny.docs.repo.DocFile;
@@ -510,23 +509,6 @@ class DemoPagesTest {
         assertThat(site.urls(NOTES)).contains(
                 "deck-milestone.html#httpsgithubcomstig-johnnyshipping-reference-platform",
                 "deck-milestone.html#the-repository-on-github");
-    }
-
-    @Test
-    void theRepositorysOwnDeckIsPublishedWithTenMainSlidesAndFourInTheAppendix() {
-        fixture = Fixture.copy(dir).passingEvidence();
-
-        BuiltSite site = build();
-        String deck = site.text(DECK);
-
-        assertThat(count(deck, "<section class=\"slide\"")).isEqualTo(14);
-        assertThat(deck).contains("<span aria-hidden=\"true\"> · 01/10</span>", "<span aria-hidden=\"true\"> · 10/10"
-                + "</span>", "<span aria-hidden=\"true\"> · A1/4</span>", "<span aria-hidden=\"true\"> · A4/4</span>");
-        long planned = Sources.read(fixture.root(), List.of(fixture.reports())).capabilities().capabilities().stream()
-                .filter(c -> c.status() == Capability.Status.PLANNED).count();
-        assertThat(slide(deck, "the-promises-and-what-you-can-check-today")).contains(planned + " of ")
-                .contains("<div class=\"slide-ledger\">");
-        assertThat(count(site.text(NOTES), "<section class=\"deck-note\"")).isEqualTo(14);
     }
 
     private static String slide(String deck, String id) {

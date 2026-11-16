@@ -2,7 +2,7 @@
 title: "The milestone deck describes the app that can now be demonstrated"
 description: "Slides and speaker notes distinguish the runnable workbench, recorded database evidence and the work still planned."
 status: accepted
-updated: 2026-11-10
+updated: 2026-11-16
 pr: 104
 kind: docs
 recorded: 2026-11-10
@@ -20,8 +20,8 @@ They distinguish the owner's delegated merge workflow from a separate human appr
 
 ## See it
 
-Open the [milestone deck](deck-milestone.md). Slide 2 describes the runnable app, slide 6 opens the Brain and
-contribution records, and slide 7 describes the JDBC adapters. The deck's X-N01 link opens its speaker notes.
+The milestone deck has since been retired by issue 125. Its slide 2 described the runnable app, slide 6 opened the
+Brain and contribution records, and slide 7 described the JDBC adapters. Its X-N01 link opened the speaker notes.
 The [attended runbook](../flows/attended-demo.md) explains the memory demo and separately recorded database checks.
 
 ## Evidence

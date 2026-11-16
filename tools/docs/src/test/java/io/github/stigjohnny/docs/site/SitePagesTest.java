@@ -72,9 +72,21 @@ class SitePagesTest {
     }
 
     @Test
-    void theAttendedRunbookIsPublishedWithItsStorageModesAndLimits() {
+    void theLocalRunbookIsPublishedWithItsStorageModesAndLimits() {
         assertThat(site.text("model/flow-attended-demo.html")).contains("M-10", "Memory mode", "PostgreSQL mode",
                 "SPRING_DATASOURCE_PASSWORD", "DemoPostgresSmokeIntegrationTest", "operator", "Ctrl-C");
+    }
+
+    @Test
+    void theMeetingDeckIsRetiredAndTheRunbookReadsAsALocalRun() {
+        assertThat(site.pages()).doesNotContain("demos/deck-milestone.html", "demos/deck-milestone-notes.html");
+        assertThat(site.text("index.html")).doesNotContain("class=\"start-deck\"");
+        assertThat(site.text("model/flow-attended-demo.html")).contains("<h1>Run the shipping app locally</h1>")
+                .doesNotContain("Run an attended shipping demo");
+        assertThat(site.text("start/repository.html")).contains("id=\"run-the-workbench-locally\"")
+                .doesNotContain("id=\"attended-demo\"");
+        assertThat(site.text("brain/index.html")).contains("Open the local runbook")
+                .doesNotContain("Open the attended runbook");
     }
 
     @Test
@@ -94,6 +106,10 @@ class SitePagesTest {
     void theReadmeSheetLeadsWithTheJavaArchitectureAndTheCommandThatRunsIt() {
         String repository = site.text("start/repository.html");
 
+        int status = repository.indexOf("<h2 id=\"site-status-title\"");
+        assertThat(status).isNotNegative();
+        assertThat(repository.indexOf("<h2", status + 1))
+                .isEqualTo(repository.indexOf("<h2 id=\"the-java-architecture\""));
         assertThat(List.of(repository.indexOf("id=\"the-java-architecture\""), repository.indexOf("id=\"run-it\""),
                 repository.indexOf("id=\"what-exists-today\""), repository.indexOf("id=\"how-this-was-built\"")))
                 .doesNotContain(-1).isSorted();
@@ -488,7 +504,7 @@ class SitePagesTest {
                 "<td>Built in part: tariff, rating, quote creation and reading, and offer lookup, over HTTP in tests; "
                         + "V2 schema and JDBC adapter have recorded CI evidence</td>",
                 "<td>Built in part: demo authentication over HTTP, <code>GET /api/v1/me</code> and the tenant bound "
-                        + "for each request; V1 schema exists, RLS execution recorded in CI; JDBC directory and attended demo built; prototype flags planned"
+                        + "for each request; V1 schema exists, RLS execution recorded in CI; JDBC directory and local demo built; prototype flags planned"
                         + "</td>")
                 .doesNotContain("<td>built</td>", "<td>built (minimal)</td>", "v0.1 target, not implemented");
     }
