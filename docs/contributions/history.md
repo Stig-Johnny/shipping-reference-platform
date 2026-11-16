@@ -858,3 +858,19 @@ Claude Code, the orchestrator (`claude-opus-5-5`, effort `xhigh`), deleted the d
 `SitePagesTest` first (it failed, then passed), and wrote the demo, this entry and the record. An independent review of
 head `4c7d0e4` approved with changes; its findings were fixed in this pull request. The independent review of the final
 head and the merge decision are comments on PR #126.
+
+## Issue 127
+
+The README describes the application first and how it was built after it, part of epic 113 (step 4).
+
+[Issue 127](https://github.com/Stig-Johnny/shipping-reference-platform/issues/127) ·
+[PR #129](https://github.com/Stig-Johnny/shipping-reference-platform/pull/129).
+Base: `94a4bc4c3a3525ad6740aabba8cdc8a4fe26196b`. Record: `issue-127-pull-request` in [model runs](runs.md).
+
+Claude Code, the orchestrator (`claude-opus-5-5`, effort `xhigh`), moved the README's AI-assisted delivery and
+governance material into subsections of "How this was built", unchanged apart from one merged ledger statement, one
+positional reference that became a link and one lead-in line. It gave the README sheet the start sheet's counts,
+changed `SitePagesTest` first (it failed, then passed), and wrote the demo, this entry and the record. An independent
+review of head `c09ff0d` approved with changes; its findings were fixed in this pull request, except that the
+specification paragraph stays, as that review allowed. A review of `38f3d19` approved with changes; its findings were
+fixed too. The independent review of the final head and the merge decision are comments on PR #129.

@@ -119,6 +119,77 @@ class SitePagesTest {
     }
 
     @Test
+    void theReadmeDescribesTheApplicationFirstAndHowItWasBuiltAfterIt() {
+        String readme = readmeBody();
+        assertThat(headings(readme, 2)).containsExactly("the-java-architecture", "run-it", "what-exists-today",
+                "the-product-in-one-paragraph", "layout", "running-it", "run-the-workbench-locally", "honest-limits",
+                "how-this-was-built", "licence");
+        int built = readme.indexOf("<h2 id=\"how-this-was-built\"");
+        String application = readme.substring(0, built);
+        String howItWasBuilt = readme.substring(built, readme.indexOf("<h2 id=\"licence\""));
+
+        assertThat(headings(application, 3)).isEmpty();
+        assertThat(headings(howItWasBuilt, 3)).containsExactly("the-idea", "how-a-change-is-made",
+                "the-tools-that-judge-the-code", "the-checker", "try-it", "controls-and-how-each-one-can-fail",
+                "limits-of-the-checks", "scenario-coverage-ledger", "contribution-records-and-model-runs",
+                "the-ci-toolchain", "prior-art");
+        assertThat(application).contains("<strong>The shipping API's first code</strong>",
+                "<strong>The database migrations</strong>", "<strong>web workbench sources</strong>");
+        // The AI-assisted delivery and governance material: the scenario ledger, model runs and their costs, the
+        // import whitelists and allowlist checks, and the review pipeline. Their checks stay; only their place moves.
+        for (String material : List.of("<strong>The checker</strong>", "<strong>The dependency allowlist check</strong>",
+                "<strong>The scenario checks</strong>", "<strong>The database harness</strong>",
+                "<strong>The documentation tool</strong>", "COVERAGE_INCOMPLETE", "model runs", "API-equivalent",
+                "whitelist", "PARTIAL static lint", "AI review", "risk-approval", "stage-temurin.sh",
+                "lock-only installation")) {
+            assertThat(application).as(material).doesNotContain(material);
+            assertThat(howItWasBuilt).as(material).contains(material);
+        }
+    }
+
+    @Test
+    void theReadmeSheetsLedgerGivesTheRepositorysStateAsTheStartSheetDoes() {
+        String implementation = statusRow(site.text("start/repository.html"), "Planned implementation");
+
+        assertThat(implementation).isEqualTo(statusRow(site.text("index.html"), "Planned implementation"))
+                .contains("product capabilities are planned. Controls: ");
+        assertThat(implementation).doesNotContain("Phase 3", "ExternalImportSourceTest", "spread-syntax",
+                "PARTIAL lint", "Shipment cancellation");
+        // Each control's remaining work stays in the ledger of a sheet whose document specifies it. The README itself
+        // specifies the external imports control, and its controls table says what remains of it.
+        assertThat(statusRow(site.text("trust/index.html"), "Planned implementation")).contains("PARTIAL lint");
+        assertThat(statusRow(site.text(decision("0013")), "Planned implementation")).contains("Phase 3 / option 2");
+        assertThat(statusRow(site.text(decision("0012")), "Planned implementation")).contains("spread-syntax",
+                "Shipment cancellation");
+        assertThat(readmeBody()).contains("source analysis and the scope of every locked artifact are planned");
+    }
+
+    /** The sheet of the decision record with the given number. */
+    private static String decision(String number) {
+        return site.pages().stream().filter(page -> page.startsWith("decisions/" + number + "-")).findFirst()
+                .orElseThrow(() -> new AssertionError("no sheet for decision " + number));
+    }
+
+    /** The README as its sheet renders it, without the sheet's status ledger, contents or related pages. */
+    private static String readmeBody() {
+        String page = site.text("start/repository.html");
+        int from = page.indexOf("<div class=\"page-body\">");
+        int related = page.indexOf("<section class=\"page-related\"", from);
+        assertThat(from).isNotNegative();
+        return page.substring(from, related < 0 ? page.indexOf("<p class=\"page-source\">", from) : related);
+    }
+
+    /** The ids of the headings of one level, in order. */
+    private static List<String> headings(String html, int level) {
+        List<String> ids = new ArrayList<>();
+        Matcher heading = Pattern.compile("<h" + level + " id=\"([a-z0-9-]+)\"").matcher(html);
+        while (heading.find()) {
+            ids.add(heading.group(1));
+        }
+        return ids;
+    }
+
+    @Test
     void everyPageSeparatesAcceptedDesignPlannedImplementationAndVerifiedEvidence() {
         for (String page : site.pages()) {
             if (page.equals("404.html")) {

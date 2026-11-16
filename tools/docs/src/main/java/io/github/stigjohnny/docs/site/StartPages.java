@@ -88,7 +88,7 @@ final class StartPages {
             }
         }
         body.append(card(README, "The repository's README", "The Java architecture, how to run it, what exists "
-                + "today and how it was built, with the controls and the honest limits."))
+                + "today and its limits, then how it was built, with the checks and the controls."))
                 .append(card(SITE_DESIGN, "How this site is drawn", "Sheet codes, the status ledger and what each "
                         + "line and box means."))
                 .append("</div>\n");
@@ -109,8 +109,8 @@ final class StartPages {
 
     /**
      * The repository's state in the ledger's three statements, from the sources: the start sheet's, which slide 02 of
-     * a milestone deck carries as well. The counts come from docs/capabilities/capabilities.yaml, the evidence from the
-     * tests that passed in the build that makes the site.
+     * a milestone deck carries as well; the README's sheet carries its planned implementation. The counts come from
+     * docs/capabilities/capabilities.yaml, the evidence from the tests that passed in the build that makes the site.
      */
     static StatusPanel repositoryState(Sources sources) {
         List<Capability> all = sources.capabilities().all();
@@ -143,11 +143,14 @@ final class StartPages {
         Sources sources = context.sources();
         RenderedMarkdown rendered = context.render(sources.readme(), Sources.README, README, true);
         List<Capability> all = sources.capabilities().all();
+        // Its planned implementation is the repository's state in counts, as on the start sheet, not what remains of
+        // each control above the README's Java opening: that stays in the ledgers of the sheets whose documents specify
+        // the controls, and the README's controls table says what remains of the two the README itself specifies.
         return new SitePage(README, "The repository's README", "The repository's README", SiteSection.START,
                 "The README of the repository as committed: the Java architecture, how to run it, what exists today "
-                        + "and how it was built, with the controls and the honest limits.",
+                        + "and its limits, then how it was built, with the checks and the controls.",
                 new StatusPanel(Statuses.design("accepted", "The README summarises the accepted specification."),
-                        Statuses.implementation(all), Statuses.evidence(all, sources.evidence())),
+                        repositoryState(sources).implementation(), Statuses.evidence(all, sources.evidence())),
                 DocPages.contents(rendered.headings()), rendered.html(),
                 context.mentioned(sources.readme(), README), Sources.README, false);
     }
