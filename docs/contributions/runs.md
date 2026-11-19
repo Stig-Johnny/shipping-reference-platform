@@ -2,7 +2,7 @@
 title: "Model runs and cost evidence"
 description: "Recorded models, usage, cost bases and outcomes, with unsuccessful work and explicit limits on attribution and coverage."
 status: accepted
-updated: 2026-11-16
+updated: 2026-11-19
 schemaVersion: 1
 coverage: "Partial record set: 14 historical DeepSeek rounds for issues 69, 37 and 101, four supported historical Codex phases, seven current issue 111 phases, one separate root-window API comparison snapshot, 26 issue 114 rows covering planning, implementation, integration, reviews, corrections and validation, and five issue 117 rows covering diagnosis, implementation, a settings correction, independent review and review fixes. From PR #122 on, each pull request has one record, plus correction records for merged records it corrects (ADR 0021). Work and backfill dates differ. API-equivalent estimates do not establish actual billed cost; missing phases, subscription allocation, child-agent inclusion and complete delivery cost remain unknown."
 records:
@@ -1796,6 +1796,35 @@ records:
       input: "unknown"
       output: "unknown"
       scope: "The orchestrator's work on PR 131."
+      receipt: "unknown: no usage measurement available for this pull request"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-138-pull-request"
+    issue: 138
+    date: "2026-11-19"
+    role: "implementation"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "unknown"
+    base: "3eb06772fe07a628c62e61bbd79dbf845c177784"
+    outcome: "completed"
+    scope: "Issue 138, step 2 of issue 136, PR 139: a CLAUDE.md beside each of the five AGENTS.md files imports it and nothing else; the agent-instructions rule in policy/risk.json and .github/CODEOWNERS cover CLAUDE.md at level 3; the root AGENTS.md says why the files exist. Also: demo 139, this record and the history entry. The measurements behind the choice (issues 135 and 137 and this issue's validation: headless Claude Haiku 5.5 and Sonnet 5.5 runs on another machine, and Codex reviews of their method and conclusions) are reported on those issues and are outside this record's usage."
+    environment: "PR 139 issue branch; macOS and reviewed Temurin 25.0.5+8; instruction files, policy, CODEOWNERS and documentation changes only."
+    result: "PolicyCheck exited 0: the allowlist is clean and its existing warnings are unchanged. ./gradlew check, including checkGenerated, exited 0, with 762 documentation tests passing, after ./gradlew :tools:docs:generate; the regeneration changed only the updated date of the generated files. The first documentation check failed: demo 139's See it linked GitHub issues, which a demonstration may not link; it now links the site's risk-levels and contribution-history pages and names the issues in text. A probe of commit 9dae14c with Claude Haiku 5.5 found the root CLAUDE.md and AGENTS.md in context at start, and apps/shipping-api's pair as well after it read a file there. No behaviour or test changed, so there was no red-first run. The review of the final head and the merge decision are comments on PR 139."
+    limitations: "No check requires a CLAUDE.md beside each AGENTS.md or that a CLAUDE.md holds only the import. Only Claude Code reads CLAUDE.md. The validation found no detectable benefit from importing BRAIN.md, not proof that none exists. Usage and cost are unknown."
+    evidence: "Issue 138's validation comment and demo 139's recorded probe; this pull request's diff and review comments. The session's reasoning effort has no receipt, so it is recorded as unknown."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "The orchestrator's work on PR 139."
       receipt: "unknown: no usage measurement available for this pull request"
     cost:
       basis: "unknown"
