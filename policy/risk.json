@@ -125,8 +125,8 @@
     {
       "id": "agent-instructions",
       "level": 3,
-      "reason": "Instructions that govern what AI agents may do are controls.",
-      "globs": ["AGENTS.md", "**/AGENTS.md"]
+      "reason": "Instructions that govern what AI agents may do are controls; each CLAUDE.md only imports them for Claude Code.",
+      "globs": ["AGENTS.md", "**/AGENTS.md", "CLAUDE.md", "**/CLAUDE.md"]
     },
     {
       "id": "pricing-quotes",

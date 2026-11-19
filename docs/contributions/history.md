@@ -2,7 +2,7 @@
 title: "Contribution history"
 description: "Per-issue implementation, integration, review and human approval records, with exact settings where evidenced and unknowns where receipts are missing."
 status: accepted
-updated: 2026-11-16
+updated: 2026-11-19
 ---
 
 # Contribution history
@@ -894,3 +894,20 @@ A delta review of `3b15770` approved with changes: its P2, an `ApiTest` comment 
 come in the next pull request, and three stale comments among its P3s were fixed in this pull request, its P3 on this
 entry's wording too, and its P3 on a whitelist label, a string rather than a comment, became issue 133. The review of
 the final head and the merge decision are comments on PR #131.
+
+## Issue 138
+
+Claude Code loads `CLAUDE.md` but not `AGENTS.md`, so a `CLAUDE.md` beside each `AGENTS.md` now imports the rules for
+Claude agents, step 2 of issue 136.
+
+[Issue 138](https://github.com/Stig-Johnny/shipping-reference-platform/issues/138) ·
+[PR #139](https://github.com/Stig-Johnny/shipping-reference-platform/pull/139).
+Base: `3eb06772fe07a628c62e61bbd79dbf845c177784`. Record: `issue-138-pull-request` in [model runs](runs.md).
+
+Claude Code, the orchestrator (`claude-opus-5-5`, effort unknown), added the five `CLAUDE.md` files, extended the
+`agent-instructions` risk rule and `CODEOWNERS` to them, said why they exist in the root `AGENTS.md`, and wrote demo
+139, this entry and the record. Issues 135 and 137 measured documentation setups with Claude Haiku 5.5 and Sonnet 5.5
+on the command line; this issue's validation through Claude Code's import path found that also importing `BRAIN.md`
+raised the tokens processed to 1.32 to 1.36 times in three of four comparisons, with no accuracy improvement in
+the sample, so only the rules are imported. The review of the final
+head and the merge decision are comments on PR #139.

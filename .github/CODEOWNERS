@@ -27,6 +27,8 @@
 /docs/adr/                                                            @Stig-Johnny
 /AGENTS.md                                                            @Stig-Johnny
 **/AGENTS.md                                                          @Stig-Johnny
+/CLAUDE.md                                                            @Stig-Johnny
+**/CLAUDE.md                                                          @Stig-Johnny
 
 # Build definitions, wrapper and lockfiles.
 /gradlew                                                              @Stig-Johnny
