@@ -908,5 +908,6 @@ Claude Code, the orchestrator (`claude-opus-5-5`, effort unknown), added the fiv
 `agent-instructions` risk rule and `CODEOWNERS` to them, said why they exist in the root `AGENTS.md`, and wrote demo
 139, this entry and the record. Issues 135 and 137 measured documentation setups with Claude Haiku 5.5 and Sonnet 5.5
 on the command line; this issue's validation through Claude Code's import path found that also importing `BRAIN.md`
-added about a third more tokens processed and no accuracy, so only the rules are imported. The review of the final
+raised the tokens processed to 1.32 to 1.36 times in three of four comparisons, with no accuracy improvement in
+the sample, so only the rules are imported. The review of the final
 head and the merge decision are comments on PR #139.
