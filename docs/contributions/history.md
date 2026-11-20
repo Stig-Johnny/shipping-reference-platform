@@ -2,7 +2,7 @@
 title: "Contribution history"
 description: "Per-issue implementation, integration, review and human approval records, with exact settings where evidenced and unknowns where receipts are missing."
 status: accepted
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Contribution history
@@ -911,3 +911,18 @@ on the command line; this issue's validation through Claude Code's import path f
 raised the tokens processed to 1.32 to 1.36 times in three of four comparisons, with no accuracy improvement in
 the sample, so only the rules are imported. The review of the final
 head and the merge decision are comments on PR #139.
+
+## Issue 137
+
+The documentation benchmark's held-out development tasks are recorded, together with the decision the benchmark
+supported, as ADR 0022, step 1 of issue 136.
+
+[Issue 137](https://github.com/Stig-Johnny/shipping-reference-platform/issues/137) ·
+[PR #140](https://github.com/Stig-Johnny/shipping-reference-platform/pull/140).
+Base: `8850d7d8f0669fa58283b20b66245b1ef4e30659`. Record: `issue-137-pull-request` in [model runs](runs.md).
+
+Codex (`gpt-6-astra`, effort xhigh) checked the approach first. Claude Code, the orchestrator (`claude-opus-5-5`,
+effort unknown), then wrote ADR 0022 with the results of issues 135, 137 and 138, the questions, tasks, answer keys,
+overrides and prompts under `tools/docs-bench/` with a README on the method, the entry in the known gaps, demo 140,
+this entry and the record. Issue 135 stays open until the harness that ran the benchmark is in the repository. The
+review of the final head and the merge decision are comments on PR #140.

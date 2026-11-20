@@ -1,0 +1,223 @@
+[
+ {
+  "id": "t01-tariff-rejection-order",
+  "area": "quotes",
+  "q": "Before refactoring tariff availability checks, I need to preserve error precedence: a request has an unserved route, billable weight above the maximum, and an unavailable EXPRESS service. Which rejection wins, and which wins after only the route is corrected? Identify the production decision method and the rating-level regression test class that verifies this ordering.",
+  "keys": [
+   "(?i)(\\bROUTE_NOT_SERVED\\b|\\broute not served\\b|\\bunserved route\\b)",
+   "(?i)(\\bBILLABLE_WEIGHT_ABOVE_LIMIT\\b|\\bbillable weight above\\b|\\boverweight\\b)",
+   "(?i)\\bunavailability\\b",
+   "(?i)\\bRatingTest\\b"
+  ],
+  "forbid": [],
+  "evidence": [
+   "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/quotes/internal/domain/SyntheticTariff.java:48",
+   "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/quotes/internal/domain/SyntheticTariff.java:52",
+   "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/quotes/internal/domain/SyntheticTariff.java:45",
+   "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/quotes/internal/domain/RatingTest.java:82"
+  ],
+  "amended_after_run": "answers named the winning rejections in words instead of enum names; accept those"
+ },
+ {
+  "id": "t02-shipment-pagination",
+  "area": "shipments",
+  "q": "I'm adding status-filter controls to the shipment list. Can an existing cursor be reused after changing the status filter or tenant, and what HTTP result follows if it is? Name the cursor-validation class and HTTP regression test class, and give the SQL ORDER BY that prevents ambiguous ordering when booking timestamps tie.",
+  "keys": [
+   "(?i)\\bShipmentCursor\\b",
+   "(?i)\\bbooked_at\\s+desc\\s*,\\s*shipment_id\\s+desc\\b",
+   "(?i)(?:\\b400\\b[^\\n]{0,80}\\bvalidation-failed\\b|\\bvalidation-failed\\b[^\\n]{0,80}\\b400\\b)",
+   "(?i)\\bShipmentsHttpContractTest\\b"
+  ],
+  "forbid": [],
+  "evidence": [
+   "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/shipments/internal/domain/ShipmentCursor.java:45",
+   "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/shipments/internal/adapter/out/jdbc/JdbcShipmentStore.java:106",
+   "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/shipments/internal/adapter/in/web/ShipmentsHttpContractTest.java:142",
+   "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/shipments/internal/adapter/in/web/ShipmentsHttpContractTest.java:123"
+  ]
+ },
+ {
+  "id": "t03-identity-rls-exception",
+  "area": "tenants and row-level security",
+  "q": "While refactoring database authentication, could I replace the existing lookup with a direct SELECT from tenants.demo_token as shipping_app, since the identity tables have no RLS? Explain the privilege boundary, name the Java adapter and database function currently used, and identify the tenant-owned table in the same migration that does have forced RLS.",
+  "keys": [
+   "(?i)\\bJdbcMembershipDirectory\\b",
+   "(?i)\\b(?:tenants\\.)?resolve_demo_token\\b",
+   "(?i)\\bsecurity[\\s_-]+definer\\b",
+   "(?i)\\b(?:tenants\\.)?prototype_flag\\b"
+  ],
+  "forbid": [],
+  "evidence": [
+   "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/tenants/internal/adapter/out/jdbc/JdbcMembershipDirectory.java:20",
+   "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/tenants/internal/adapter/out/jdbc/JdbcMembershipDirectory.java:31",
+   "apps/shipping-api/src/main/resources/db/migration/V1__tenants.sql:67",
+   "apps/shipping-api/src/main/resources/db/migration/V1__tenants.sql:57"
+  ]
+ },
+ {
+  "id": "t04-audit-dependency-direction",
+  "area": "events/audit and module dependency direction",
+  "q": "Before adding audit's shipment-event listener, list the modeled module dependencies originating in audit and their modes, using source -> target: MODE notation. Explain why receiving shipment events does not reverse those code-dependency arrows, and name the checker violation raised if listener code is added while audit remains planned.",
+  "keys": [
+   "(?i)\\baudit[`\\s]*(?:->|-->|\u2192)[`\\s]*shipments\\b[^\\n;]{0,40}\\bREQUIRED\\b",
+   "(?i)\\baudit[`\\s]*(?:->|-->|\u2192)[`\\s]*tenants\\b[^\\n;]{0,40}\\bREQUIRED\\b",
+   "(?i)\\baudit[`\\s]*(?:->|-->|\u2192)[`\\s]*quotes\\b[^\\n;]{0,40}\\bPERMITTED\\b",
+   "(?i)\\bPLANNED_COMPONENT_HAS_CODE\\b"
+  ],
+  "forbid": [],
+  "evidence": [
+   "architecture/workspace.dsl:365",
+   "architecture/workspace.dsl:370",
+   "architecture/workspace.dsl:375",
+   "libs/c4-contract-kit/src/test/java/io/github/stigjohnny/c4contractkit/model/MappingValidationTest.java:579"
+  ]
+ },
+ {
+  "id": "t05-problem-pointer-boundary",
+  "area": "OpenAPI contract",
+  "q": "Before changing unknown-JSON-member error rendering, how is the escaped JSON Pointer's length measured, and at what boundary does the response change from a validation problem to a malformed-request problem? State the HTTP status and whether errors is present on each side, name the production String method used for the measurement, and identify the regression test method covering supplementary Unicode characters.",
+  "keys": [
+   "(?i)\\b200\\b",
+   "(?i)\\bmalformed-request\\b",
+   "(?i)\\bcodePointCount\\b",
+   "(?i)\\bsupplementaryPointersUseTheEscapedCodePointBoundary\\b"
+  ],
+  "forbid": [],
+  "evidence": [
+   "contracts/shipping.openapi.yaml:89",
+   "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/FallbackProblemHandler.java:168",
+   "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/FallbackProblemHandler.java:166",
+   "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/http/ProblemDetailsHttpContractTest.java:183"
+  ]
+ },
+ {
+  "id": "t06-migration-reversal-proof",
+  "area": "database migrations",
+  "q": "I'm reviewing the rollback footprint of the shipments migration. What objects does its down script remove, in what order, and which test classes separately check script pairing and actual catalog reversibility? Does a passing round trip authorize rolling back a deployed database, and which ADR governs that distinction?",
+  "keys": [
+   "(?i)\\bshipments\\.tracking_number_seq\\b",
+   "(?i)\\bMigrationFilesTest\\b",
+   "(?i)\\bMigrationRoundTripTest\\b",
+   "(?i)\\bADR[\\s-]*0*16\\b"
+  ],
+  "forbid": [
+   "(?i)\\bdrop\\s+(?:table|schema)\\s+shipments(?:\\.shipment)?\\s+cascade\\b"
+  ],
+  "evidence": [
+   "apps/shipping-api/src/main/resources/db/down/V3__shipments.down.sql:4",
+   "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/MigrationFilesTest.java:52",
+   "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/MigrationRoundTripTest.java:49",
+   "docs/adr/0016-down-scripts-proven-in-ci-production-rolls-forward.md:56"
+  ]
+ },
+ {
+  "id": "t07-booking-recovery-state",
+  "area": "web workbench",
+  "q": "I'm changing the booking form's navigation behavior: the network reply is lost, the clerk leaves the quote screen, then returns and retries. What phase must the booking retain, can recipient or offer edits alter that unresolved request, and must retry reuse its intent? Name the function that freezes edits, the session-store factory that survives route changes, and the test file covering this recovery.",
+  "keys": [
+   "(?i)\\bunknown\\b",
+   "(?i)\\bisFrozen\\b",
+   "(?i)\\bcreateBookingMemory\\b",
+   "(?i)\\bbooking-memory\\.test\\.ts\\b"
+  ],
+  "forbid": [],
+  "evidence": [
+   "apps/shipping-web/src/features/shipments/BookingFormModel.ts:186",
+   "apps/shipping-web/src/features/shipments/BookingFormModel.ts:77",
+   "apps/shipping-web/src/features/shipments/booking-memory.ts:27",
+   "apps/shipping-web/src/features/shipments/booking-memory.test.ts:31"
+  ]
+ },
+ {
+  "id": "t08-docs-database-evidence",
+  "area": "docs tool and generated docs",
+  "q": "Before publishing generated docs with database evidence, can leftover databaseTest XML in a checkout count in an ordinary docs build? Give the opt-in Gradle property and the CLI argument used to require those reports, then name the implementation method and test class that reject missing, empty, or skipped required results.",
+  "keys": [
+   "(?i)databaseEvidence\\s*=\\s*true\\b",
+   "(?i)--required-results\\b",
+   "(?i)\\brequiredProblems\\b",
+   "(?i)\\bTestEvidenceTest\\b"
+  ],
+  "forbid": [],
+  "evidence": [
+   "tools/docs/build.gradle.kts:62",
+   "tools/docs/build.gradle.kts:85",
+   "tools/docs/src/main/java/io/github/stigjohnny/docs/repo/TestEvidence.java:179",
+   "tools/docs/src/test/java/io/github/stigjohnny/docs/repo/TestEvidenceTest.java:70"
+  ]
+ },
+ {
+  "id": "t09-theme-storage-risk",
+  "area": "risk policy and approvals",
+  "q": "If I add a localStorage call to persist the choice in apps/shipping-web/src/ui/ThemeToggle.ts, can I treat the PR as presentation-only? Identify the escalating policy signal and resulting risk level, the file identifying the required human approver, and what happens to approval after another push; distinguish these requirements from the automated approval check actually available at this commit.",
+  "keys": [
+   "(?i)\\bunsafe-web-apis\\b",
+   "(?i)\\b3\\b",
+   "(?i)\\.github/CODEOWNERS\\b",
+   "(?i)\\brisk-approval\\b"
+  ],
+  "forbid": [
+   "(?i)\\brisk-approval\\s+(?:already|currently)\\s+(?:runs|enforces|blocks)\\b"
+  ],
+  "evidence": [
+   "policy/risk.json:406",
+   "policy/risk.json:407",
+   "policy/risk.json:54",
+   "docs/gaps.md:218"
+  ]
+ },
+ {
+  "id": "t10-scenario-coverage-ledger",
+  "area": "scenario tests",
+  "q": "I'm adding a framework call and want to understand why a successful quote scenario still reports incomplete conformance. What verdict and outstanding-gap count are intentionally expected before my change, where is the exact finding inventory kept, and which regression test class proves that replacing a finding still fails even when the total count stays unchanged?",
+  "keys": [
+   "(?i)\\bCOVERAGE_INCOMPLETE\\b",
+   "(?i)\\b215\\b",
+   "(?i)\\bscenario-coverage-gaps\\.tsv\\b",
+   "(?i)\\bCoverageLedgerTest\\b"
+  ],
+  "forbid": [],
+  "evidence": [
+   "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/scenarios/QuoteScenarioTest.java:38",
+   "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/scenarios/QuoteScenarioTest.java:40",
+   "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/scenarios/support/CoverageLedger.java:17",
+   "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/scenarios/support/CoverageLedgerTest.java:48"
+  ]
+ },
+ {
+  "id": "t11-demo-smoke-boundaries",
+  "area": "demo tests",
+  "q": "I want to add a quote-to-label regression for both attended-demo storage modes. Name the shared base where the assertions belong and the two concrete smoke-test classes that run them, explain which profiles select each mode, and say why passing these tests would still not prove that the compiled web workbench works in a browser.",
+  "keys": [
+   "(?i)\\bDemoSmokeTest\\b",
+   "(?i)\\bDemoPostgresSmokeIntegrationTest\\b",
+   "(?i)\\bDemoHttpSmoke\\b"
+  ],
+  "forbid": [],
+  "evidence": [
+   "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/http/DemoSmokeTest.java:14",
+   "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/database/DemoPostgresSmokeIntegrationTest.java:22",
+   "apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/http/DemoHttpSmoke.java:41"
+  ]
+ },
+ {
+  "id": "t12-planned-prototype-flags",
+  "area": "planned feature: tenant prototype flags",
+  "q": "I want to enable the drawer's inline label preview by inserting an enabled flag row for Tenant Alpha. Would that make this checkout expose the flag through GET /api/v1/me? Reconcile the contract's flag key with the current controller, give the capability ID and implementation status, and name the two planned Java acceptance tests for flag evaluation and expiry.",
+  "keys": [
+   "(?i)\\blabel-preview\\b",
+   "(?i)(\\benabledFlags\\b[^\\n.]{0,45}(?:\\[\\s*\\]|\\bempty\\b)|\\bempty\\b[^\\n.]{0,30}\\benabledFlags\\b|\\b(would|will|does)\\s+not\\b[^.]{0,80}\\b(expose|return)|\\bno\\b[^.]{0,20}\\bwould not\\b)",
+   "(?i)\\btenants\\.prototype-flags\\b",
+   "(?i)(?:\\bPrototypeFlagsTest\\b[\\s\\S]{0,100}\\bPrototypeFlagExpiryTest\\b|\\bPrototypeFlagExpiryTest\\b[\\s\\S]{0,100}\\bPrototypeFlagsTest\\b)"
+  ],
+  "forbid": [],
+  "evidence": [
+   "contracts/shipping.openapi.yaml:1100",
+   "apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/tenants/internal/adapter/in/web/MeController.java:14",
+   "docs/capabilities/capabilities.yaml:207",
+   "docs/capabilities/capabilities.yaml:213"
+  ],
+  "amended": "before the run: accept 'empty enabledFlags' in either word order",
+  "amended_after_run": "every failing answer correctly said the row would not expose the flag; accept that wording"
+ }
+]

@@ -1,0 +1,138 @@
+[
+ {
+  "id": "q01-expiry",
+  "q": "How long is a quote's offer valid, how is expiresAt computed, and to what precision is issuedAt truncated?",
+  "keys": [
+   "30\\s*min",
+   "milli"
+  ],
+  "forbid": []
+ },
+ {
+  "id": "q02-tenant",
+  "q": "Which interface in the tenants module's API gives other modules the caller's tenant, and what is its Java package?",
+  "keys": [
+   "CurrentTenant",
+   "io\\.github\\.stigjohnny\\.shipping\\.tenants\\.api"
+  ],
+  "forbid": []
+ },
+ {
+  "id": "q03-events",
+  "q": "Which ADR decides how modules publish events to each other, and how are failed deliveries and duplicate deliveries handled?",
+  "keys": [
+   "0006",
+   "publication registry",
+   "(dedup|event id|idempoten)"
+  ],
+  "forbid": []
+ },
+ {
+  "id": "q04-cancel",
+  "q": "Can a clerk cancel a booked shipment today? Give the capability id and its status.",
+  "keys": [
+   "shipments\\.cancel-shipment",
+   "planned"
+  ],
+  "forbid": [
+   "status\\W{0,4}(shipped|partial)\\b"
+  ]
+ },
+ {
+  "id": "q05-risk",
+  "q": "What risk level does the quotes module have, and what approval does a change at that level need before it is merged?",
+  "keys": [
+   "(level|risk)\\W{0,3}3\\b|\\b3\\b",
+   "owner",
+   "(exact|final|current head|head sha|head commit)"
+  ],
+  "forbid": [],
+  "amended": "after audit: the repo says 'the owner's approval of the current head'; 'exact|final' rejected 16 correct answers"
+ },
+ {
+  "id": "q06-booking-lock",
+  "q": "How does booking stop two concurrent requests with the same Idempotency-Key from both creating a shipment, and which ADR decided it?",
+  "keys": [
+   "0017",
+   "advisory"
+  ],
+  "forbid": []
+ },
+ {
+  "id": "q07-regenerate",
+  "q": "Which Gradle task regenerates BRAIN.md, and which task fails the build when BRAIN.md is out of date?",
+  "keys": [
+   "(tools:docs:generate|`generate`)",
+   "(checkGenerated|tools:docs:check\\b)"
+  ],
+  "forbid": [],
+  "amended": "after audit of the first run: task names without the ':tools:docs:' prefix are correct, and ':tools:docs:check' fails too because it depends on checkGenerated"
+ },
+ {
+  "id": "q08-rls-test",
+  "q": "Which test fails when a tenant-owned database table has no row-level security policy?",
+  "keys": [
+   "RowLevelSecurityCatalogTest"
+  ],
+  "forbid": []
+ },
+ {
+  "id": "q09-carrier",
+  "q": "Does the platform call a real carrier's API to create shipping labels today?",
+  "keys": [
+   "(simulat|\\bno\\b|\\bnot\\b|n't)"
+  ],
+  "forbid": [
+   "^\\W*yes\\b"
+  ],
+  "amended": "after audit: a correct 'No ... renders the label locally' answer lacked the word 'simulated'"
+ },
+ {
+  "id": "q10-key-reused",
+  "q": "What HTTP status code and problem type does booking return when an Idempotency-Key is reused with a different request body?",
+  "keys": [
+   "\\b422\\b",
+   "idempotency[-_ ]key[-_ ]reused"
+  ],
+  "forbid": []
+ },
+ {
+  "id": "q11-deps",
+  "q": "Which modules does the shipments module depend on, and is each dependency REQUIRED or PERMITTED?",
+  "keys": [
+   "tenants",
+   "quotes",
+   "required"
+  ],
+  "forbid": [
+   "(tenants|quotes)`?\\W{0,6}\\(?\\s*permitted"
+  ]
+ },
+ {
+  "id": "q12-superseded",
+  "q": "Is ADR 0020 still in force? If not, what replaced it?",
+  "keys": [
+   "(supersed|replac)",
+   "0021"
+  ],
+  "forbid": []
+ },
+ {
+  "id": "q13-postgres",
+  "q": "Which PostgreSQL version does the platform target, and which tool runs its schema migrations?",
+  "keys": [
+   "18\\.6",
+   "flyway"
+  ],
+  "forbid": []
+ },
+ {
+  "id": "q14-csp",
+  "q": "What content security policy does the workbench use, and which ADR decided it?",
+  "keys": [
+   "0019",
+   "same.origin"
+  ],
+  "forbid": []
+ }
+]
