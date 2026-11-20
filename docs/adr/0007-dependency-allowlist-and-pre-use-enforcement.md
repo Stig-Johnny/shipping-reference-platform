@@ -2,7 +2,7 @@
 title: "ADR 0007: Dependency allowlist with pre-use enforcement"
 description: "Every third-party component is reviewed and listed in security/allowlist.json before any build can download or run it; a base-branch preflight enforces this."
 status: accepted
-updated: 2026-11-15
+updated: 2026-11-20
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
@@ -91,11 +91,11 @@ Chosen option 1, with option 2 kept as integrity evidence and option 3 as option
 ### Confirmation
 
 - **Enforced.** `preflight` is a required check (branch protection on `main`, strict, administrators included).
-- **Planned.** `tools/policy` tests (Gradle project `:tools:policy`), each with negative fixtures: `AllowlistCheckTest`
-  (unknown, expired, rejected, condition unmet), `GradleVerificationCheckTest` (missing or mismatched SHA-256,
-  wildcard, exclusion), `NpmLockCheckTest` (unapproved host, missing integrity, lockfile not matching allowlist),
-  `WorkflowPinCheckTest` (tag instead of SHA, unlisted action), `ApprovalBindingTest` (approval of an older head is
-  ignored), `StrictJsonParserTest`. None of these exists yet.
+- **Planned.** `tools/policy` tests (Gradle project `:tools:policy`), each with negative fixtures: `planned:test:AllowlistCheckTest`
+  (unknown, expired, rejected, condition unmet), `planned:test:GradleVerificationCheckTest` (missing or mismatched SHA-256,
+  wildcard, exclusion), `planned:test:NpmLockCheckTest` (unapproved host, missing integrity, lockfile not matching allowlist),
+  `planned:test:WorkflowPinCheckTest` (tag instead of SHA, unlisted action), `planned:test:ApprovalBindingTest` (approval of an older head is
+  ignored), `planned:test:StrictJsonParserTest`. None of these exists yet.
 - **Enforced** for `java`, **planned** for `web`. `java` runs Gradle with strict verification and locked
   configurations, and is a required check. `web` (`npm ci --ignore-scripts`) does not exist yet.
 - **Planned.** `.github/CODEOWNERS` protects `security/`, `tools/`, `build-logic/`, `gradle/`, `.github/`, lockfiles

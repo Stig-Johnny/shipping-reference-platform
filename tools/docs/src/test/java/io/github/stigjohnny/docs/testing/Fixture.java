@@ -79,10 +79,10 @@ public final class Fixture {
                     }
                 }
             }
-            // Every instruction file, paired or not, so that the instruction check sees in the copy what it sees in
-            // the repository. Found by a walk of its own, so that a fault in the check's walk cannot also empty the
-            // fixtures that test it.
-            for (Path file : instructionFiles(repository)) {
+            // Every Markdown file, instruction files paired or not, and every test class outside a test source tree,
+            // so that the instruction and reference checks see in the copy what they see in the repository. Found by a
+            // walk of its own, so that a fault in a check's walk cannot also empty the fixtures that test it.
+            for (Path file : walkedFiles(repository)) {
                 copyFile(file, root.resolve(repository.relativize(file).toString()));
             }
         } catch (IOException e) {
@@ -230,16 +230,20 @@ public final class Fixture {
     }
 
     /**
-     * Every regular file named AGENTS.md or CLAUDE.md, in any letter case, outside build output, dependencies, tool
-     * state and Claude Code's worktrees, the directories the instruction check skips, sorted.
+     * Every regular Markdown file, its extension in any letter case, and every Java file whose name ends in Test,
+     * outside build output, dependencies, tool state and Claude Code's worktrees, the directories the checks skip,
+     * sorted.
      */
-    private static List<Path> instructionFiles(Path repository) throws IOException {
+    private static List<Path> walkedFiles(Path repository) throws IOException {
         List<Path> files = new ArrayList<>();
         Files.walkFileTree(repository, new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) {
                 String name = String.valueOf(directory.getFileName());
-                boolean skipped = List.of("build", ".gradle", ".git", "node_modules").contains(name)
+                String relative = repository.relativize(directory).toString().replace('\\', '/');
+                boolean insideSources = relative.startsWith("src/") || relative.contains("/src/");
+                boolean skipped = List.of(".gradle", ".git", "node_modules").contains(name)
+                        || (name.equals("build") && !insideSources)
                         || directory.equals(repository.resolve(".claude").resolve("worktrees"));
                 return !directory.equals(repository) && skipped
                         ? FileVisitResult.SKIP_SUBTREE : FileVisitResult.CONTINUE;
@@ -248,8 +252,8 @@ public final class Fixture {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
                 String name = String.valueOf(file.getFileName());
-                boolean instructions = name.equalsIgnoreCase("AGENTS.md") || name.equalsIgnoreCase("CLAUDE.md");
-                if (attributes.isRegularFile() && instructions) {
+                boolean markdown = name.toLowerCase(java.util.Locale.ROOT).endsWith(".md");
+                if (attributes.isRegularFile() && (markdown || name.endsWith("Test.java"))) {
                     files.add(file);
                 }
                 return FileVisitResult.CONTINUE;

@@ -944,3 +944,19 @@ Correction to the entry for issue 138: it says that Claude Code loads `CLAUDE.md
 Code reads `AGENTS.md` by itself where no `CLAUDE.md` exists, by default and not in every session; the import remains
 how the rules reach every session that loads `CLAUDE.md` files. ADR 0022 and demo 139 carry the same marked
 correction. The reviews of the final head and the merge decision are comments on PR #142.
+
+## Issue 143
+
+Inline code that names a test class is now checked: the class exists, or the name carries the planned marker and is
+registered as planned. ADR 0023 records the grammar, the first part of issue 136's explicit reference syntax.
+
+[Issue 143](https://github.com/Stig-Johnny/shipping-reference-platform/issues/143) ·
+[PR #147](https://github.com/Stig-Johnny/shipping-reference-platform/pull/147).
+Base: `660926c6ec050f740ca2c5b4190818a74e3f3b3d`. Record: `issue-143-pull-request` in [model runs](runs.md).
+
+Codex (`gpt-6-astra`, effort xhigh) checked the design: it proposed explicit markers over a check of the names against
+the register alone, which cannot tell a current claim from a plan, and the repository owner chose the markers. Claude
+Code, the orchestrator (`claude-opus-5-5`, effort unknown), wrote the tests first and then the check, a reader of inline
+code in the Markdown renderer, ADR 0023, the planned marker on the 47 mentions of planned tests in current documents,
+`control.inline-references`, demo 147, this entry and the record. Issues 144 to 146 add capability ids, the site's
+labels and paths. The reviews of the final head and the merge decision are comments on PR #147.

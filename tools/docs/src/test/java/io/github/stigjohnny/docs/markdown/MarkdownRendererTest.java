@@ -326,4 +326,31 @@ class MarkdownRendererTest {
         assertThatThrownBy(() -> MarkdownRenderer.render(quotes, "docs/deep.md", KEEP_ALL, false))
                 .isInstanceOf(DocsException.class).hasMessageContaining("docs/deep.md");
     }
+
+    @Test
+    void inlineCodeIsReadWithTheLineItStartsOnAndNeverFromCodeBlocks() {
+        String markdown = """
+                # Title
+
+                A `FirstTest` and ``SecondTest`` on line three.
+
+                | Name | Test |
+                |---|---|
+                | one | `TableTest` |
+
+                ```text
+                `FencedTest`
+                ```
+
+                    `IndentedTest`
+
+                A span over `two
+                lines` ends here.
+                """;
+
+        assertThat(MarkdownRenderer.inlineCode(markdown, "docs/x.md")).containsExactly(
+                new InlineCode(3, "FirstTest"), new InlineCode(3, "SecondTest"),
+                new InlineCode(7, "TableTest"), new InlineCode(15, "two lines"));
+    }
+
 }

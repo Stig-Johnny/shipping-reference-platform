@@ -2,7 +2,7 @@
 title: "Module: shipments"
 description: "Books shipments from quote offers with tenant-scoped idempotency and simulated SVG labels. Cancellation and durable event delivery are planned."
 status: accepted
-updated: 2026-11-16
+updated: 2026-11-20
 module: shipments
 moduleStatus: built
 riskLevel: 3
@@ -265,17 +265,17 @@ columns `not null`.
 
 | # | Invariant | Tests |
 |---|---|---|
-| S1 | Only `BOOKED -> CANCELLED` is allowed; cancelling twice changes nothing and publishes once. | Planned: cancellation cases in `ShipmentTest` and `CancelShipmentTest`; current `ShipmentTest` covers booking only |
+| S1 | Only `BOOKED -> CANCELLED` is allowed; cancelling twice changes nothing and publishes once. | Planned: cancellation cases in `ShipmentTest` and `planned:test:CancelShipmentTest`; current `ShipmentTest` covers booking only |
 | S2 | Booking checks run in the documented order and map to the documented rejections. | `BookShipmentTest` |
 | S3 | An offer is bookable only while `now < expiresAt`. | `BookShipmentTest`, `QuoteExpiryTest` |
 | S4 | The recipient's country and postcode equal the quote's destination. | `BookShipmentTest` |
 | S5 | Same tenant, key and body give the same shipment (`201` then `200`); a different body gives `422`; concurrent duplicates create one row. | `ShipmentsHttpContractTest` (sequential HTTP), `BookingIdempotencyIntegrationTest` (passed in recorded CI) |
 | S6 | One shipment per quote; a second key for the same quote gives `409`. | `ShipmentsHttpContractTest` (sequential HTTP), `BookingIdempotencyIntegrationTest` (passed in recorded CI) |
 | S7 | The fingerprint changes when any field changes and distinguishes absent from present optional fields. | `RequestFingerprintTest` |
-| S8 | `ShipmentBooked` and `ShipmentCancelled` are published once on commit and never on rollback. | Planned: `ShipmentEventsIntegrationTest` |
+| S8 | `ShipmentBooked` and `ShipmentCancelled` are published once on commit and never on rollback. | Planned: `planned:test:ShipmentEventsIntegrationTest` |
 | S9 | Labels are byte-identical for the same shipment, escape all text, contain only allowed elements and attributes, carry the simulation banner; a cancelled shipment has no label. | `SvgLabelRendererTest`, `ShipmentsHttpContractTest` (booked labels); cancelled-shipment label denial remains planned |
 | S10 | Listing is newest first, paginates without gaps or repeats, honours the status filter and rejects foreign cursors. | `ShipmentsHttpContractTest` (in memory), `ShipmentListingIntegrationTest` (passed in recorded CI) |
-| S11 | Shipments of another tenant are never visible or changeable. | `ShipmentsHttpContractTest` (detail/label, in memory); `RowLevelSecurityIntegrationTest` (passed in recorded CI); `CrossTenantAccessTest` remains planned |
+| S11 | Shipments of another tenant are never visible or changeable. | `ShipmentsHttpContractTest` (detail/label, in memory); `RowLevelSecurityIntegrationTest` (passed in recorded CI); `planned:test:CrossTenantAccessTest` remains planned |
 | S12 | HTTP responses match the contract. | `ShipmentsHttpContractTest` |
 | S13 | Recipient values are validated per the contract. | `RecipientTest` |
 | S14 | Tracking numbers retain the `SIM[0-9]{10}` format regardless of the server's default formatting locale. | `JdbcTrackingNumbersTest` (formatter only, no database) |

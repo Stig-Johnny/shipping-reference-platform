@@ -34,7 +34,7 @@ final class AgentInstructions {
     static final String RULES = "AGENTS.md";
     static final String WRAPPER = "CLAUDE.md";
     static final String IMPORT = "@AGENTS.md\n";
-    /** Directory names that are never walked: build output, dependencies and tool state, wherever they are. */
+    /** Directory names that are never walked: build output (outside src trees), dependencies and tool state. */
     static final Set<String> SKIPPED = Set.of(".git", ".gradle", "build", "node_modules");
     /** Claude Code's worktrees: separate checkouts, each with its own checks. */
     static final String WORKTREES = ".claude/worktrees";
@@ -105,7 +105,7 @@ final class AgentInstructions {
                         return FileVisitResult.CONTINUE;
                     }
                     String path = relative(repo, directory);
-                    if (SKIPPED.contains(name(directory)) || path.equals(WORKTREES)) {
+                    if (skipped(path)) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     if (instructionName(name(directory))) {
@@ -132,6 +132,19 @@ final class AgentInstructions {
         }
         found.sort(Comparator.comparing(Candidate::path));
         return List.copyOf(found);
+    }
+
+    /**
+     * Whether a directory, repository-relative, is never walked: build output, dependencies, tool state or Claude Code's
+     * worktrees. A directory named build inside a src tree is a Java package, not build output, as the repository's
+     * .gitignore also says, so it is walked.
+     */
+    static boolean skipped(String path) {
+        String name = path.substring(path.lastIndexOf('/') + 1);
+        if (name.equals("build")) {
+            return !path.startsWith("src/") && !path.contains("/src/");
+        }
+        return SKIPPED.contains(name) || path.equals(WORKTREES);
     }
 
     private static boolean instructionName(String name) {

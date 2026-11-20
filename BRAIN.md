@@ -12,7 +12,7 @@ updated: 2026-11-20
 
 A reference Java application for webshop parcel shipping: a Spring Boot modular monolith with hexagonal modules, a contract-first HTTP API, explicit SQL and tenant isolation down to PostgreSQL row-level security. A webshop's clerk quotes a parcel, books an offer and downloads a label. The data is synthetic and the carrier is simulated.
 
-**State at this commit.** 27 capabilities: 2 shipped, 9 partial, 16 planned; 20 controls: 11 shipped, 6 partial, 3 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
+**State at this commit.** 27 capabilities: 2 shipped, 9 partial, 16 planned; 21 controls: 12 shipped, 6 partial, 3 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
 
 ## Read first
 
@@ -66,6 +66,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | `control.brain-check` | shipped | `java` | BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest, ContributionPagesTest |
 | `control.publication-scan` | shipped | `build` | PublicationScannerTest, PagesWorkflowTest |
 | `control.agent-instructions` | shipped | `java` | AgentInstructionsTest |
+| `control.inline-references` | shipped | `java` | ReferencesTest |
 
 ## Decisions
 
@@ -93,6 +94,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | [ADR 0020: Record model runs with explicit cost and coverage boundaries](docs/adr/0020-model-run-evidence-and-cost-boundaries.md) | superseded by ADR 0021 | java |
 | [ADR 0021: One contribution record per pull request](docs/adr/0021-one-contribution-record-per-pull-request.md) | accepted | java |
 | [ADR 0022: Agents load the rules at start, and the map stays one read away](docs/adr/0022-agent-entry-point-and-documentation-lookup.md) | accepted | java |
+| [ADR 0023: Inline references carry explicit markers](docs/adr/0023-inline-references-carry-explicit-markers.md) | accepted | java |
 
 ## Third-party components
 

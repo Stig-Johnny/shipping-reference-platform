@@ -2,7 +2,7 @@
 title: "Module: quotes"
 description: "Prices parcels with the synthetic tariff and issues tenant-scoped quotes whose offers expire after 30 minutes."
 status: accepted
-updated: 2026-11-16
+updated: 2026-11-20
 module: quotes
 moduleStatus: built
 riskLevel: 3
@@ -256,7 +256,7 @@ quote for Tenant Alpha, used by `expired-quote.spec.ts`. The script binds Tenant
 | Q6 | Offers appear in ECONOMY, STANDARD, EXPRESS order; a requested level yields exactly that offer. | `RatingTest` |
 | Q7 | A quote is OPEN until `expiresAt` (exclusive) and EXPIRED from `expiresAt`; `findOffer` returns `Expired` at `expiresAt`. | `QuoteExpiryTest` |
 | Q8 | The tenant comes from `CurrentTenant`; only `Offered` results are stored and publish `QuoteIssued`. | `CreateQuoteTest` |
-| Q9 | Quotes of another tenant are not found, through the repository and through `QuoteOffers`. | `QuotesModuleIntegrationTest`, `CrossTenantAccessTest` |
+| Q9 | Quotes of another tenant are not found, through the repository and through `QuoteOffers`. | `QuotesModuleIntegrationTest`, `planned:test:CrossTenantAccessTest` |
 | Q10 | HTTP responses match the contract, including problem bodies. | `QuotesHttpContractTest` |
 
 Mutation testing: at least 90 % killed mutants on changed lines in this module (pricing logic). Not run yet: PIT runs

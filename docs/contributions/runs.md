@@ -1891,6 +1891,35 @@ records:
       scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
       method: "unknown: no measured usage or billed allocation; no costs inferred"
       receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-143-pull-request"
+    issue: 143
+    date: "2026-11-20"
+    role: "implementation"
+    tool: "Codex; Claude Code (orchestrator)"
+    model: "gpt-6-astra; claude-opus-5-5"
+    checkpoint: "unknown; unknown"
+    effort: "xhigh; unknown"
+    base: "660926c6ec050f740ca2c5b4190818a74e3f3b3d"
+    outcome: "completed"
+    scope: "Issue 143, the first part of issue 136's explicit reference syntax, PR 147: ADR 0023 (accepted by the repository owner's choice of explicit markers); the documentation check References, which fails when inline code names no test class, marks a test planned that exists or that nothing registers as planned, or uses a marker the grammar does not define; MarkdownRenderer.inlineCode, which reads inline code with its line through the one parser, now with source spans; the planned:test: marker on the 47 mentions of planned tests in current documents; a test fixture that copies every Markdown file and test class; a directory named build inside a src tree read as a package by both checks. Also: control.inline-references, a README controls row, AGENTS.md's rule, docs/gaps.md, demo 147, this record and the history entry."
+    environment: "PR 147 issue branch; macOS and reviewed Temurin 25.0.5+8; Java in tools/docs with its tests, and documentation."
+    result: "Red first: against an empty check and an empty reader, ReferencesTest and MarkdownRendererTest ran 67 tests and 20 failed, exactly the cases that must be rejected; with the implementation, all pass. The first green run found README naming ProviderIdentityTest, whose class sits in a Java package named build, which the walks had skipped as build output; both checks and the fixture now follow the repository's .gitignore, which keeps build directories inside src trees. Codex, read-only, checked the design before code: it asked for explicit markers instead of names checked against the register, the register limited to acceptance tests that are not shipped and ADR planned enforcement, inline code read through the renderer, and paths split into their own issue. PolicyCheck exited 0; ./gradlew :tools:docs:generate and ./gradlew check exited 0. The reviews of the final head and the merge decision are comments on PR 147."
+    limitations: "The check proves names and markers, not claims. It covers test classes only; capability ids, the site's labels and paths are issues 144 to 146. Code blocks, records and superseded ADRs are not read. The documentation tests do not list the nested READMEs as Gradle inputs, because tools/docs/build.gradle.kts is a pinned launch site; the check itself runs in generate, checkGenerated and the site, which Gradle never reuses. Usage and cost are unknown."
+    evidence: "Issue 143, demo 147's recorded runs, the red and green test runs; this pull request's diff and review comments. Codex's model and effort come from its run header; the orchestrator's reasoning effort has no receipt, so it is recorded as unknown."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "The design check and the orchestrator's work on PR 147."
+      receipt: "unknown: no usage measurement available for this pull request"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
 ---
 
 # Model runs and cost evidence

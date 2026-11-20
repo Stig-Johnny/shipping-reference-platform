@@ -2,7 +2,7 @@
 title: "ADR 0012: First runnable slice with a plain TypeScript workbench and Spring JDBC"
 description: "Supersedes ADRs 0003, 0004, 0005 and 0009. Their modules, contract-first API and PostgreSQL design carry forward unchanged, except that adapters use Spring JDBC's JdbcClient; the workbench is plain TypeScript with a hand-written typed HTTP adapter, and React and the generated client are deferred."
 status: accepted
-updated: 2026-11-09
+updated: 2026-11-20
 date: 2026-11-07
 decision-makers: repository owner
 enforcedBy:
@@ -141,7 +141,7 @@ the custom tenant-binding manager described below is superseded for those adapte
   Optimistic locking, where a table has a `version` column, is a `version` check in the update's own SQL.
 - **Table ownership.** A module reads and writes only its own schema, and that needs evidence that can fail. With no
   `@Table` mappings, a check of `@Table` annotations would scan nothing and pass: an empty `@Table` scan proves
-  nothing. `TableOwnershipTest` shows ownership from the SQL instead: every statement of a module's adapters touches
+  nothing. `planned:test:TableOwnershipTest` shows ownership from the SQL instead: every statement of a module's adapters touches
   only tables of that module's schema. One way is a test that reads each statement and requires every table it names
   to be qualified with the module's schema; another is a check that asks PostgreSQL which relations each statement
   uses and looks up their schemas in the catalog. Either way, a fixture in which an audit adapter statement reads
@@ -280,7 +280,7 @@ the custom tenant-binding manager described below is superseded for those adapte
   compiler internals; contract conformance is only as complete as the tests; a closed schema makes every additive
   change a contract change; a new tenant table needs its policy, grants and a catalog test update; the event
   publication table is not tenant-scoped; one runtime role serves all modules, so the database does not stop one
-  module's SQL from reading another module's schema, and `TableOwnershipTest` is the control; the web app's router,
+  module's SQL from reading another module's schema, and `planned:test:TableOwnershipTest` is the control; the web app's router,
   state and components are code the project maintains.
 
 ### Confirmation
@@ -300,12 +300,12 @@ the custom tenant-binding manager described below is superseded for those adapte
   tables, on which `shipping_app` has no privileges; `shipping_app` is not superuser, lacks `BYPASSRLS` and owns
   nothing. `RowLevelSecurityIntegrationTest` uses plain JDBC as `shipping_app`: a foreign tenant sees and changes
   nothing; no bound tenant sees nothing and cannot insert; with a pool of size 1, tenant A's transaction followed by
-  tenant B's sees only B's rows. The planned `CrossTenantAccessTest` calls the HTTP API with Tenant Beta's token and Tenant
+  tenant B's sees only B's rows. The planned `planned:test:CrossTenantAccessTest` calls the HTTP API with Tenant Beta's token and Tenant
   Alpha's quote and shipment IDs and expects `404` problems for read, book, cancel and label.
   `MigrationsIntegrationTest` migrates an empty database as `shipping_owner` and asserts that `shipping_app` cannot
   run DDL. ADR 0016 adds matching down scripts and MigrationRoundTripTest; the application's tenant binding,
   shipments/audit schemas and demo seeds remain planned.
-- Planned, `java`: `TableOwnershipTest` asserts that every statement of each module's adapters touches only that
+- Planned, `java`: `planned:test:TableOwnershipTest` asserts that every statement of each module's adapters touches only that
   module's schema, and fails on the fixture above.
 - `java`: `WebArchitectureConformanceTest` runs the partial JDK import check over `apps/shipping-web/src`, the test root
   `apps/shipping-web/e2e`, the public root and app configuration (issue #64). A detected import the model does not allow,

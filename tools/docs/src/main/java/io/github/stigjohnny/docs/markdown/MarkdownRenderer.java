@@ -31,7 +31,9 @@ import org.commonmark.node.IndentedCodeBlock;
 import org.commonmark.node.Link;
 import org.commonmark.node.Node;
 import org.commonmark.node.SoftLineBreak;
+import org.commonmark.node.SourceSpan;
 import org.commonmark.node.Text;
+import org.commonmark.parser.IncludeSourceSpans;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
 import org.jspecify.annotations.Nullable;
@@ -81,7 +83,8 @@ public final class MarkdownRenderer {
     }
 
     private static final List<Extension> EXTENSIONS = List.of(TablesExtension.create());
-    private static final Parser PARSER = Parser.builder().extensions(EXTENSIONS).build();
+    private static final Parser PARSER = Parser.builder().extensions(EXTENSIONS)
+            .includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES).build();
     private static final HtmlRenderer RENDERER = HtmlRenderer.builder().extensions(EXTENSIONS).escapeHtml(true)
             .sanitizeUrls(true).urlSanitizer(new SiteUrlSanitizer()).build();
     private static final SiteUrlSanitizer SANITIZER = new SiteUrlSanitizer();
@@ -298,6 +301,43 @@ public final class MarkdownRenderer {
             throw new DocsException(source + ": a heading has no ID");
         }
         return entry;
+    }
+
+    /**
+     * Every inline code span of a document, in document order, with the line it starts on. Code blocks, fenced or
+     * indented, hold no inline code, so nothing in them is returned.
+     */
+    public static List<InlineCode> inlineCode(String markdown, String source) {
+        try {
+            List<InlineCode> spans = new ArrayList<>();
+            Deque<Node> pending = new ArrayDeque<>();
+            pending.push(parse(markdown, source));
+            while (!pending.isEmpty()) {
+                Node node = pending.pop();
+                if (node instanceof Code code) {
+                    spans.add(new InlineCode(line(code), code.getLiteral()));
+                    continue;
+                }
+                List<Node> children = children(node);
+                for (int i = children.size() - 1; i >= 0; i--) {
+                    pending.push(children.get(i));
+                }
+            }
+            return List.copyOf(spans);
+        } catch (StackOverflowError e) {
+            throw new DocsException(source + ": the document is nested too deeply to read", e);
+        }
+    }
+
+    /** The line a node starts on, counted from 1: its own source span, else its nearest ancestor's; 0 when none. */
+    private static int line(Node node) {
+        for (Node at = node; at != null; at = at.getParent()) {
+            List<SourceSpan> spans = at.getSourceSpans();
+            if (!spans.isEmpty()) {
+                return spans.get(0).getLineIndex() + 1;
+            }
+        }
+        return 0;
     }
 
     /** The headings of a document with their anchor IDs, title included, without rendering it. */

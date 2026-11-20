@@ -2,7 +2,7 @@
 title: "ADR 0006: Module events through the publication registry, with idempotent consumers"
 description: "Modules publish small event records transactionally; Spring Modulith's JDBC publication registry redelivers after failures; consumers deduplicate by event ID."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-20
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy: [not enforced yet]
@@ -66,12 +66,12 @@ Chosen option 1.
 
 ### Confirmation
 
-- `ShipmentEventsIntegrationTest` (Spring Modulith Scenario API from `spring-modulith-test`): booking publishes exactly one `ShipmentBooked`
+- `planned:test:ShipmentEventsIntegrationTest` (Spring Modulith Scenario API from `spring-modulith-test`): booking publishes exactly one `ShipmentBooked`
   after commit; a forced rollback publishes none; a cancellation publishes `ShipmentCancelled`; an idempotent replay
   publishes nothing.
-- `ShipmentAuditIntegrationTest`: a booking produces one audit entry for the booking tenant.
-- `AuditDeduplicationTest`: delivering the same event twice leaves one entry.
-- `AuditReplayIntegrationTest`: the audit store fails once; the publication stays incomplete; a second application
+- `planned:test:ShipmentAuditIntegrationTest`: a booking produces one audit entry for the booking tenant.
+- `planned:test:AuditDeduplicationTest`: delivering the same event twice leaves one entry.
+- `planned:test:AuditReplayIntegrationTest`: the audit store fails once; the publication stays incomplete; a second application
   context started against the same database resubmits it; exactly one entry exists and the publication is complete.
 - `ArchitectureConformanceTest` fails if audit no longer references `shipments.api` (absence of a REQUIRED edge).
   The static check cannot show that the listener writes anything; the tests above do.
