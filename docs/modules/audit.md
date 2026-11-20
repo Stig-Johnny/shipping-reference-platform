@@ -2,7 +2,7 @@
 title: "Module: audit"
 description: "Appends one tenant-scoped audit entry per shipment event, deduplicated by event ID, with replay from the publication registry after failures."
 status: accepted
-updated: 2026-11-07
+updated: 2026-11-20
 module: audit
 moduleStatus: planned
 riskLevel: 2
@@ -70,9 +70,9 @@ None in v0.1. The module has no `api` package, and no other module depends on au
 
 | # | Invariant | Tests |
 |---|---|---|
-| A1 | A booking produces one audit entry with the booking's tenant, event ID and shipment ID; a cancellation produces a second entry. | `ShipmentAuditIntegrationTest` |
-| A2 | Delivering the same event twice leaves one entry. | `AuditDeduplicationTest` |
-| A3 | If the audit write fails once, the publication stays incomplete; after a restart against the same database it is replayed; exactly one entry exists; the publication is complete. | `AuditReplayIntegrationTest` |
+| A1 | A booking produces one audit entry with the booking's tenant, event ID and shipment ID; a cancellation produces a second entry. | `planned:test:ShipmentAuditIntegrationTest` |
+| A2 | Delivering the same event twice leaves one entry. | `planned:test:AuditDeduplicationTest` |
+| A3 | If the audit write fails once, the publication stays incomplete; after a restart against the same database it is replayed; exactly one entry exists; the publication is complete. | `planned:test:AuditReplayIntegrationTest` |
 | A4 | The listener cannot write under the wrong tenant or without a tenant. | `RowLevelSecurityIntegrationTest` |
 | A5 | The runtime role cannot update or delete audit entries. | `RowLevelSecurityCatalogTest` |
 

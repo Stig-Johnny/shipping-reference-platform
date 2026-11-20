@@ -132,6 +132,15 @@ class AgentInstructionsTest {
     }
 
     @Test
+    void aDirectoryNamedBuildInsideASourceTreeIsAPackageAndIsRead() {
+        Fixture fixture = Fixture.copy(dir).passingEvidence()
+                .write("apps/shipping-api/src/main/java/io/example/build/CLAUDE.md", "@AGENTS.md\n");
+
+        assertFails(fixture).hasMessageContaining("apps/shipping-api/src/main/java/io/example/build/CLAUDE.md has no "
+                + "AGENTS.md beside it");
+    }
+
+    @Test
     void discoveryFindsEveryCandidateOutsideSkippedDirectoriesWithoutFollowingLinks() throws IOException {
         Path tree = dir.resolve("tree");
         for (String file : List.of("AGENTS.md", "CLAUDE.md", "a/claude.md", "b/Agents.MD", "c/notes.md",

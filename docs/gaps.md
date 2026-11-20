@@ -79,13 +79,13 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
 
 - **A REQUIRED edge proves a reference, not behaviour.** A listener that references `ShipmentBooked` but never
   writes an audit entry passes. So does an unused class that happens to reference the required API. Integration
-  tests (`ShipmentAuditIntegrationTest`) are to carry the behavioural claim. A demonstration of this gap with a
+  tests (`planned:test:ShipmentAuditIntegrationTest`) are to carry the behavioural claim. A demonstration of this gap with a
   deliberately broken listener is planned as the library's slice 10 (`libs/c4-contract-kit/AGENTS.md`); it does not
   exist yet.
 - **"No static evidence" is not "unused".** Reflection, Spring wiring by type or name, serialisation, configuration
   properties and string-built class names create runtime use that bytecode analysis does not see.
 - **Invisible channels.** SQL that reads another module's schema, shared database rows, HTTP calls, message
-  payloads, files and environment variables are not dependencies to the checker. `TableOwnershipTest`, planned, is to
+  payloads, files and environment variables are not dependencies to the checker. `planned:test:TableOwnershipTest`, planned, is to
   check the SQL of each module's adapters against the module's schema (ADR 0012); SQL anywhere else stays invisible
   to it.
 - **Ordering and timing.** The model says who may depend on whom, not in which order things happen or whether they
@@ -166,7 +166,7 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
   Flyway uses the owner role, and every migration is level 3.
 - **Row-level security awaits database evidence for this merged tree.** The implemented tests bind a tenant with `set_config` over
   plain JDBC, and the postgres-profile adapters bind before every statement. PostgreSQL HTTP checks in
-  `CrossTenantAccessTest`, the listeners' tenant scope and the audit schema remain planned.
+  `planned:test:CrossTenantAccessTest`, the listeners' tenant scope and the audit schema remain planned.
   A session that can call `set_config` chooses its tenant: the setting scopes a connection, it authenticates nobody.
 - **Tracking numbers come from one global sequence.** A tenant can infer the platform's total booking volume.
   `JdbcTrackingNumbersTest` proves ASCII formatting under `ar-EG` without a database. Sequence allocation and booking
@@ -268,7 +268,7 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
     Casts, local variable types, explicit type arguments and array creation are not reported
     (`BytecodeEvidenceTest` pins these), nor are retained type-use annotations such as JSpecify's `@Nullable`
     (`ExternalImportPolicyTest` pins this). A source-level pass with the JDK's compiler is planned
-    (`ExternalImportSourceTest`);
+    (`planned:test:ExternalImportSourceTest`);
   - use at run time: reflection, `ServiceLoader`, Spring's wiring and auto-configuration, class names in
     configuration, native libraries. The whitelists name what the API's code refers to, not what its frameworks load;
   - the classes that run: a main class is checked against `compileClasspath` and a test class against
@@ -505,6 +505,10 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
   screen-reader or accessibility certification.
 
 - The brain is a budgeted summary (12 KiB root, 8 KiB per module) and omits detail by design; it links to sources.
+- **Inline references are checked for test classes only.** A test class named in inline code must exist, or carry
+  the planned marker and be registered as planned (ADR 0023). Capability ids, paths and the site's labels follow
+  (issues 144 to 146). The check proves names and markers, not claims, and it does not read code blocks, records or
+  superseded ADRs, which keep the names they had when they were written.
 - **The agent entry point is checked as files, not as behaviour.** Only Claude Code reads `CLAUDE.md`. The docs
   check proves that every `AGENTS.md` has a `CLAUDE.md` beside it that only imports it (ADR 0022), not what a session
   loads or follows; `CLAUDE.local.md`, `.claude/rules/` and user, managed or ancestor instructions are outside it. The

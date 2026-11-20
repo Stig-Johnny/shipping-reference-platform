@@ -532,3 +532,15 @@ controls:
     acceptanceTests: [AgentInstructionsTest]
     negativeFixture: A missing, orphaned, edited, linked or misnamed instruction file; one under .claude/; a malformed file in a skipped directory, which must stay unread.
     docs: docs/adr/0022-agent-entry-point-and-documentation-lookup.md
+
+  - id: control.inline-references
+    title: A test class named in inline code exists, or is marked planned where it is named and registered as planned.
+    where: tools/docs
+    check: java
+    status: shipped
+    target: v0.1
+    evidence: [ReferencesTest]
+    evidenceLabel: documentation-tool
+    acceptanceTests: [ReferencesTest]
+    negativeFixture: An unknown bare test name; a planned marker on a test that exists or is not registered; a malformed or undefined marker; code blocks, records and superseded ADRs, which must stay unread.
+    docs: docs/adr/0023-inline-references-carry-explicit-markers.md

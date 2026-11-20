@@ -2,7 +2,7 @@
 title: "Module: tenants"
 description: "Demo authentication for synthetic users, tenant derivation from membership, tenant binding for row-level security, and tenant-scoped prototype flags."
 status: accepted
-updated: 2026-11-16
+updated: 2026-11-20
 module: tenants
 moduleStatus: built
 riskLevel: 3
@@ -176,7 +176,7 @@ tells the web app what to show (`Membership.enabledFlags`).
   settings live in `tenants.prototype_flag`. A flag is on only if its definition exists, has not expired at the
   injected clock's date, and the tenant's row has `enabled = true`.
 - Demo seed: on for Tenant Alpha, absent (off) for Tenant Beta, so both states can be shown.
-- `PrototypeFlagExpiryTest` fails the build once any definition's expiry date has passed on the real calendar. This
+- `planned:test:PrototypeFlagExpiryTest` fails the build once any definition's expiry date has passed on the real calendar. This
   deliberate time limit forces removal or a reviewed extension.
 
 ## Package contents
@@ -234,12 +234,12 @@ no privileges.
 |---|---|---|
 | T1 | Requests without a valid token get `401`; a user without membership gets `403`; header/query tenant hints cannot override membership; tenantId body members are rejected. | `DemoTokenAuthenticationTest` |
 | T2 | Token format and hashing are exact. | `DemoTokenTest` |
-| T3 | `TenantScope` binds, restores after exceptions and refuses to switch tenants inside a transaction. | `TenantScopeTest` |
+| T3 | `TenantScope` binds, restores after exceptions and refuses to switch tenants inside a transaction. | `planned:test:TenantScopeTest` |
 | T4 | Every tenant-owned table has RLS enabled, forced and a policy; identity tables are unreadable by `shipping_app`; `shipping_app` lacks `BYPASSRLS`, superuser and ownership. | `RowLevelSecurityCatalogTest` |
 | T5 | With plain JDBC as `shipping_app`: a foreign tenant sees and changes nothing; no bound tenant sees nothing and cannot insert; a reused pooled connection (pool size 1) carries no tenant into the next transaction; an asynchronous listener writes only under the event's tenant. | `RowLevelSecurityIntegrationTest` |
-| T6 | Tenant Beta cannot read, book, cancel or download labels for Tenant Alpha's quotes and shipments over HTTP (always `404`). | `CrossTenantAccessTest` |
-| T7 | Flags are off by default, per tenant, off after expiry, and never change authorization. | `PrototypeFlagsTest` |
-| T8 | No flag definition is past its expiry date. | `PrototypeFlagExpiryTest` |
+| T6 | Tenant Beta cannot read, book, cancel or download labels for Tenant Alpha's quotes and shipments over HTTP (always `404`). | `planned:test:CrossTenantAccessTest` |
+| T7 | Flags are off by default, per tenant, off after expiry, and never change authorization. | `planned:test:PrototypeFlagsTest` |
+| T8 | No flag definition is past its expiry date. | `planned:test:PrototypeFlagExpiryTest` |
 | T9 | `GET /api/v1/me` matches the contract for `200`, `401` and `403`. | `TenantsHttpContractTest` |
 
 ## Risk levels of its paths (`policy/risk.json`)
