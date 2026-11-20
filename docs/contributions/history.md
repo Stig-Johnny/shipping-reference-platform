@@ -926,3 +926,20 @@ effort unknown), then wrote ADR 0022 with the results of issues 135, 137 and 138
 overrides and prompts under `tools/docs-bench/` with a README on the method, the entry in the known gaps, demo 140,
 this entry and the record. Issue 135 stays open until the harness that ran the benchmark is in the repository. The
 review of the final head and the merge decision are comments on PR #140.
+
+## Issue 141
+
+The documentation check now enforces the `AGENTS.md` and `CLAUDE.md` pairs that bring the rules to Claude Code, step 4
+of issue 136.
+
+[Issue 141](https://github.com/Stig-Johnny/shipping-reference-platform/issues/141) ·
+[PR #142](https://github.com/Stig-Johnny/shipping-reference-platform/pull/142).
+Base: `2233bfb07edae0f7146b987a4574c6839da9060a`. Record: `issue-141-pull-request` in [model runs](runs.md).
+
+Codex (`gpt-6-astra`, effort xhigh) checked the design twice before any code was written. Claude Code, the
+orchestrator (`claude-opus-5-5`, effort unknown), wrote the check's tests first and then the check, reduced the five
+`CLAUDE.md` files to their import, added `control.agent-instructions`, and wrote demo 142, this entry and the record.
+Correction to the entry for issue 138: it says that Claude Code loads `CLAUDE.md` but not `AGENTS.md`. In fact Claude
+Code reads `AGENTS.md` by itself where no `CLAUDE.md` exists, by default and not in every session; the import remains
+how the rules reach every session that loads `CLAUDE.md` files. ADR 0022 and demo 139 carry the same marked
+correction. The reviews of the final head and the merge decision are comments on PR #142.

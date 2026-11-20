@@ -5,9 +5,13 @@ import io.github.stigjohnny.docs.repo.Capability;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -74,6 +78,12 @@ public final class Fixture {
                         copyFile(file, root.resolve(repository.relativize(file).toString()));
                     }
                 }
+            }
+            // Every instruction file, paired or not, so that the instruction check sees in the copy what it sees in
+            // the repository. Found by a walk of its own, so that a fault in the check's walk cannot also empty the
+            // fixtures that test it.
+            for (Path file : instructionFiles(repository)) {
+                copyFile(file, root.resolve(repository.relativize(file).toString()));
             }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -217,6 +227,34 @@ public final class Fixture {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    /**
+     * Every regular file named AGENTS.md or CLAUDE.md, in any letter case, outside build output, dependencies and tool
+     * state, sorted.
+     */
+    private static List<Path> instructionFiles(Path repository) throws IOException {
+        List<Path> files = new ArrayList<>();
+        Files.walkFileTree(repository, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) {
+                String name = String.valueOf(directory.getFileName());
+                boolean skipped = List.of("build", ".gradle", ".git", "node_modules").contains(name);
+                return !directory.equals(repository) && skipped ? FileVisitResult.SKIP_SUBTREE : FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
+                String name = String.valueOf(file.getFileName());
+                boolean instructions = name.equalsIgnoreCase("AGENTS.md") || name.equalsIgnoreCase("CLAUDE.md");
+                if (attributes.isRegularFile() && instructions) {
+                    files.add(file);
+                }
+                return FileVisitResult.CONTINUE;
+            }
+        });
+        files.sort(null);
+        return files;
     }
 
     private static void copyFile(Path from, Path to) throws IOException {

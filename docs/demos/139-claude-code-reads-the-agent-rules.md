@@ -2,7 +2,7 @@
 title: "Claude Code reads the agent rules"
 description: "A CLAUDE.md beside each AGENTS.md imports it, so Claude agents get this repository's rules: the root rules when a session starts, a directory's scoped rules when they work there."
 status: accepted
-updated: 2026-11-19
+updated: 2026-11-20
 pr: 139
 kind: docs
 recorded: 2026-11-19
@@ -11,9 +11,11 @@ tests: []
 
 ## What changed
 
-Before, Claude Code did not load this repository's rules automatically. It loads `CLAUDE.md` files, not `AGENTS.md`,
-and the repository had none, so unless someone told it to read them, a Claude agent started without the root rules,
-the four scoped rule files and the pointer to `BRAIN.md` that the rules give first.
+Before, the repository had no `CLAUDE.md`. Claude Code reads an `AGENTS.md` by itself only where no `CLAUDE.md`
+exists, and not in every session, so whether a Claude agent started with the root rules, the four scoped rule files
+and the pointer to `BRAIN.md` that the rules give first depended on the session. *Corrected on 2026-11-20 by pull
+request 142: this paragraph first said that Claude Code loads `CLAUDE.md` files and never `AGENTS.md`, an assumption
+that was never measured. The recorded output below is unchanged.*
 
 Now a `CLAUDE.md` beside each `AGENTS.md` imports it and nothing else. The root one loads when a session starts; a
 scoped one loads only when the agent works in its directory. `CLAUDE.md` files are risk level 3, like `AGENTS.md`, in
@@ -75,8 +77,8 @@ the entry for issue 138 in the [contribution history](../contributions/history.m
 ## Limits
 
 - Only Claude Code reads `CLAUDE.md`. Other agents still need to be pointed at `AGENTS.md`.
-- No check yet requires a `CLAUDE.md` beside each `AGENTS.md`, or that a `CLAUDE.md` holds only the import; issue 136
-  lists drift checks as its next step.
+- When this was recorded, no check required a `CLAUDE.md` beside each `AGENTS.md`, or that a `CLAUDE.md` holds only
+  the import. Pull request 142 added that check.
 - The validation used two models, 26 questions and three repetitions, with scores near the ceiling. It found no
   detectable benefit from importing `BRAIN.md`, not proof that none exists, and every cost interval includes 1.
 - The probe is one model's report of its own context, recorded once.

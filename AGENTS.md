@@ -2,8 +2,10 @@
 
 This file applies to the whole repository. Scoped files add rules for their directories and win where they are
 stricter: `apps/shipping-api/AGENTS.md`, `apps/shipping-web/AGENTS.md`, `libs/c4-contract-kit/AGENTS.md`,
-`security/AGENTS.md`. Claude Code does not load `AGENTS.md` files, so a `CLAUDE.md` beside each one imports it and
-nothing else (issue 138). Changing any `AGENTS.md` or `CLAUDE.md` is a risk level 3 change.
+`security/AGENTS.md`. Beside each `AGENTS.md` is a `CLAUDE.md` that holds only `@AGENTS.md`. Claude Code reads an
+`AGENTS.md` by itself only where no `CLAUDE.md` exists, and not in every session; the import brings the rules to every
+Claude session that loads `CLAUDE.md` files, and never twice. The docs check fails without such a pair (ADR 0022).
+Changing any `AGENTS.md` or `CLAUDE.md` is a risk level 3 change.
 
 The repository is a public reference monorepo: a Java modular monolith and a TypeScript workbench for webshop parcel
 shipping, built model first and documentation first, with synthetic data only. The controls are the product as much

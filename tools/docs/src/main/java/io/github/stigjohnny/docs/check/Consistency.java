@@ -38,6 +38,8 @@ import java.util.regex.Pattern;
  *       exists and passed in this build, {@code planned} names no evidence, and a non-planned control's check is a
  *       workflow job; a capability's actors are people or external systems that the model relates to its module;
  *   <li>every link resolves: relative links to existing files and their anchors, no private or unsafe destination;
+ *   <li>every {@code AGENTS.md} has a {@code CLAUDE.md} beside it that only imports it, and every {@code CLAUDE.md} an
+ *       {@code AGENTS.md} ({@link AgentInstructions}, ADR 0022);
  *   <li>every demonstration under {@code docs/demos/} has its metadata, its sections, approved commands only and text
  *       only ({@link DemoCheck}), and every milestone deck there its slides, its notes apart, counts that the sources
  *       give and the record of its recorded output ({@link DeckCheck}).
@@ -69,6 +71,7 @@ public final class Consistency {
         mentions(sources, problems);
         capabilities(sources, problems);
         links(sources, problems);
+        AgentInstructions.check(sources.repo(), problems);
         DemoCheck.check(sources, problems);
         try {
             ModelRuns.read(sources);

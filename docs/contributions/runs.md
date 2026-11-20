@@ -1862,6 +1862,35 @@ records:
       scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
       method: "unknown: no measured usage or billed allocation; no costs inferred"
       receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-141-pull-request"
+    issue: 141
+    date: "2026-11-20"
+    role: "implementation"
+    tool: "Codex; Claude Code (orchestrator)"
+    model: "gpt-6-astra; claude-opus-5-5"
+    checkpoint: "unknown; unknown"
+    effort: "xhigh; unknown"
+    base: "2233bfb07edae0f7146b987a4574c6839da9060a"
+    outcome: "completed"
+    scope: "Issue 141, step 4 of issue 136, PR 142: the documentation check now fails unless the root has an AGENTS.md, every AGENTS.md has a CLAUDE.md beside it that holds exactly @AGENTS.md and a line break, and every CLAUDE.md has an AGENTS.md; it rejects linked, misnamed and .claude/ instruction files (AgentInstructions and AgentInstructionsTest, and the test fixture copying every instruction file). The five CLAUDE.md files hold only the import; control.agent-instructions, the README's controls table and docs/gaps.md describe the check, and ADR 0022 promotes it to enforcedBy. Also: marked corrections in AGENTS.md, ADR 0022 and demo 139 of the claim that Claude Code does not read AGENTS.md, demo 142, this record and the history entry."
+    environment: "PR 142 issue branch; macOS and reviewed Temurin 25.0.5+8; Java in tools/docs with its tests and build inputs, documentation and instruction files. The probes ran headless Claude Code 2.1.325 with Claude Haiku 5.5 on another machine."
+    result: "Red first: against an empty check, AgentInstructionsTest ran 32 tests and 23 failed, exactly the negative fixtures; with the check, all 32 passed. Codex, read-only, checked the design twice before any code: it chose a consistency check over generated files and asked for import-only CLAUDE.md files, discovery that prunes skipped directories and follows no link, rejection of case variants and .claude/ files, and a correction of the docs' claim that Claude Code never reads AGENTS.md. Probes then showed that Claude Code 2.1.325 reads AGENTS.md where no CLAUDE.md exists, and that CLAUDE_CODE_DISABLE_CLAUDE_MDS=1, which the benchmark's setups A to H used, keeps it out. A first version also added the instruction files to the documentation tests' Gradle inputs. PolicyCheck rejected it, because tools/docs/build.gradle.kts is a launch site pinned by its SHA-256, and the edit was reverted. PolicyCheck then exited 0; ./gradlew :tools:docs:generate and ./gradlew check exited 0. The reviews of the final head and the merge decision are comments on PR 142."
+    limitations: "The check proves which instruction files exist and their bytes, not what a session loads or follows. CLAUDE.local.md, .claude/rules/ and user, managed or ancestor instructions are outside it, and skipped directories are never read. The documentation tests do not list the CLAUDE.md files as Gradle inputs, so locally Gradle can reuse them after a CLAUDE.md edit; the check also runs in generate, checkGenerated and the site, which Gradle never reuses, so ./gradlew :tools:docs:check still fails. The probes are one model's report of its own context with one Claude Code version, recorded once per setting. Usage and cost are unknown."
+    evidence: "Issue 141, demo 142's recorded runs and probes, and the red and green test runs; this pull request's diff and review comments. Codex's model and effort come from its run header; the orchestrator's reasoning effort has no receipt, so it is recorded as unknown."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "The design checks and the orchestrator's work on PR 142."
+      receipt: "unknown: no usage measurement available for this pull request"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
 ---
 
 # Model runs and cost evidence
