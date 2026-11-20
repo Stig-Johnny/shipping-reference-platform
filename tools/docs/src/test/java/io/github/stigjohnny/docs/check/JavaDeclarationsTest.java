@@ -9,8 +9,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Which test classes a Java source declares (ADR 0023): only names in code count, as Java reads it, with Unicode
- * escapes translated first and identifiers read whole.
+ * Which test classes a Java source declares (ADR 0023): the JDK's parser reads it, so only names in code count, read
+ * exactly as the compiler reads them, and a source with errors declares nothing.
  */
 class JavaDeclarationsTest {
 
@@ -19,19 +19,24 @@ class JavaDeclarationsTest {
                 Arguments.of("class RealTest {}", List.of("RealTest")),
                 Arguments.of("record RealTest() {}\nenum OtherTest {}\ninterface ThirdTest {}\n"
                         + "@interface FourthTest {}", List.of("FourthTest", "OtherTest", "RealTest", "ThirdTest")),
+                Arguments.of("class OuterTest { class InnerTest {} void m() { class LocalTest {} } }",
+                        List.of("InnerTest", "LocalTest", "OuterTest")),
                 Arguments.of("// class GhostTest\nclass RealTest {}", List.of("RealTest")),
                 Arguments.of("/* class GhostTest */ class RealTest {}", List.of("RealTest")),
-                Arguments.of("String s = \"class GhostTest\"; class RealTest {}", List.of("RealTest")),
-                Arguments.of("char c = '\"'; class RealTest {} String s = \"class GhostTest\";", List.of("RealTest")),
-                Arguments.of("String s = \"\"\"\n  \\\"\"\" class GhostTest {}\n  \"\"\"; class RealTest {}",
+                Arguments.of("class RealTest { String s = \"class GhostTest\"; }", List.of("RealTest")),
+                Arguments.of("class RealTest { char c = '\"'; String s = \"class GhostTest\"; }", List.of("RealTest")),
+                Arguments.of("class RealTest { String s = \"\"\"\n  \\\"\"\" class GhostTest {}\n  \"\"\"; }",
                         List.of("RealTest")),
                 Arguments.of("\\u002f\\u002f class GhostTest {}\nclass RealTest {}", List.of("RealTest")),
                 Arguments.of("cl\\u0061ss RealTest {}", List.of("RealTest")),
-                Arguments.of("String s = \"\\\\u0022\"; class RealTest {}", List.of("RealTest")),
+                Arguments.of("class RealTest { String s = \"\\u005c\\\\u0022; } class OtherTest {}",
+                        List.of("OtherTest", "RealTest")),
+                Arguments.of("// comment \\u000dclass RealTest {}", List.of("RealTest")),
                 Arguments.of("class GhostTest$Helper {}", List.of()),
-                Arguments.of("subclass GhostTest {}", List.of()),
                 Arguments.of("class Real$Test {}", List.of()),
-                Arguments.of("", List.of()));
+                Arguments.of("", List.of()),
+                Arguments.of("subclass GhostTest {}", List.of()),
+                Arguments.of("class Broken extends {} class GhostTest {}", List.of()));
     }
 
     @ParameterizedTest(name = "[{index}]")
