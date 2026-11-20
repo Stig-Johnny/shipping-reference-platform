@@ -216,12 +216,16 @@ public final class Fixture {
         return classes;
     }
 
-    /** Every src/test/java directory of a repository, outside build output and tool caches, sorted. */
+    /**
+     * Every test source tree of a repository, such as src/test/java or src/providerIdentityTest/java, outside build
+     * output and tool caches, sorted.
+     */
     private static List<Path> testTrees(Path repository) {
         try (Stream<Path> walk = Files.walk(repository, 6)) {
             return walk.filter(Files::isDirectory).filter(dir -> {
                 String relative = repository.relativize(dir).toString().replace('\\', '/');
-                return relative.endsWith("src/test/java") && List.of(relative.split("/", -1)).stream()
+                boolean testTree = relative.matches("(.*/)?src/(test|[A-Za-z0-9_]*Test)/java");
+                return testTree && List.of(relative.split("/", -1)).stream()
                         .noneMatch(List.of("build", ".gradle", ".git", "node_modules")::contains);
             }).sorted().toList();
         } catch (IOException e) {

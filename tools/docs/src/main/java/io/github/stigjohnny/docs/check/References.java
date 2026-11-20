@@ -25,8 +25,8 @@ import java.util.regex.Pattern;
  * The references in inline code (ADR 0023). In every hand-written Markdown file:
  *
  * <ul>
- *   <li>a span that is a test class name, {@code NameTest}, names a test class that a Java source in the repository
- *       declares ({@link JavaDeclarations});
+ *   <li>a span that is a test class name, {@code NameTest}, names a test class that a test source in the repository
+ *       declares ({@link JavaDeclarations}, {@link #testSource});
  *   <li>{@code planned:test:NameTest} names a test that does not exist yet and is registered as planned: an acceptance
  *       test of a capability or control that is not shipped, or a test that an ADR's planned enforcement names;
  *   <li>{@code illustrative:test:<...>} is a schematic example with a placeholder in angle brackets;
@@ -152,7 +152,7 @@ final class References {
     }
 
     /**
-     * Collects the test classes that the Java sources declare and the paths of the Markdown files, outside the skipped
+     * Collects the test classes that the test sources declare and the paths of the Markdown files, outside the skipped
      * directories and Claude Code's worktrees, without following links.
      */
     private static void walk(Path repo, Set<String> tests, List<String> markdown) {
@@ -167,7 +167,7 @@ final class References {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
                     String name = name(file);
-                    if (attributes.isRegularFile() && name.endsWith(".java")) {
+                    if (attributes.isRegularFile() && name.endsWith(".java") && testSource(relative(repo, file))) {
                         tests.addAll(JavaDeclarations.testClasses(text(repo, relative(repo, file))));
                     } else if (attributes.isRegularFile() && name.toLowerCase(Locale.ROOT).endsWith(".md")) {
                         markdown.add(relative(repo, file));
@@ -184,6 +184,25 @@ final class References {
             throw new DocsException("the documents cannot be listed: " + e.getClass().getSimpleName(), e);
         }
         markdown.sort(null);
+    }
+
+    /**
+     * Whether a Java file, repository-relative, is a test source: under a source set named test or ending in Test, such
+     * as {@code src/test/java} or {@code src/providerIdentityTest/java}, or a file whose name ends in Test, such as a
+     * test that runs on the JDK alone.
+     */
+    static boolean testSource(String path) {
+        if (path.endsWith("Test.java")) {
+            return true;
+        }
+        String[] names = path.split("/", -1);
+        for (int k = 0; k + 2 < names.length; k++) {
+            boolean testSet = names[k + 1].equals("test") || names[k + 1].endsWith("Test");
+            if (names[k].equals("src") && testSet && names[k + 2].equals("java")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String name(Path path) {

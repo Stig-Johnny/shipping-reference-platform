@@ -7,6 +7,9 @@ import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.generate.GeneratedFiles;
 import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.testing.Fixture;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -73,6 +76,33 @@ class ReferencesTest {
         assertThat(problems(fixture)).extracting(problem -> problem.substring(0, problem.indexOf(" names")))
                 .containsExactly(NOTES + ":3: `EmptyTest`", NOTES + ":3: `InBlockTest`", NOTES + ":3: `InCommentTest`",
                         NOTES + ":3: `InStringTest`", NOTES + ":3: `OriginalTest`");
+    }
+
+    @Test
+    void testClassesAreReadFromTestSourcesAndStandaloneTestFilesOnly() {
+        Fixture fixture = Fixture.copy(dir).passingEvidence()
+                .write("tools/notes/src/test/java/io/example/Helpers.java", "class ExtraTest {\n}\n")
+                .write("tools/notes/src/main/java/io/example/Main.java", "class MainOnlyTest {\n}\n")
+                .write(NOTES, "# Notes\n\n`ExtraTest` `MainOnlyTest`\n");
+
+        assertThat(problems(fixture)).extracting(problem -> problem.substring(0, problem.indexOf(" names")))
+                .containsExactly(NOTES + ":3: `MainOnlyTest`");
+    }
+
+    @Test
+    void theFixtureCopiesTheJavaSourcesTheCheckReads() throws IOException {
+        Path repository = dir.resolve("repository");
+        List<String> read = List.of("x/src/test/java/io/example/Helpers.java",
+                "y/src/providerIdentityTest/java/io/example/Other.java", "z/StandaloneTest.java");
+        for (String file : read) {
+            write(repository.resolve(file), "class X {\n}\n");
+        }
+        write(repository.resolve("w/src/main/java/io/example/Main.java"), "class Y {\n}\n");
+
+        Fixture fixture = Fixture.copy(dir.resolve("copy"), repository);
+
+        assertThat(read).allSatisfy(file -> assertThat(fixture.root().resolve(file)).exists());
+        assertThat(fixture.root().resolve("w/src/main/java/io/example/Main.java")).doesNotExist();
     }
 
     @Test
@@ -212,6 +242,11 @@ class ReferencesTest {
         assertThatThrownBy(() -> GeneratedFiles.generate(Sources.read(fixture.root(), List.of(fixture.reports()))))
                 .isInstanceOf(DocsException.class)
                 .hasMessageContaining(NOTES + ":3: `RenamedAwayTest` names no test class");
+    }
+
+    private static void write(Path file, String text) throws IOException {
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, text, StandardCharsets.UTF_8);
     }
 
     private static List<String> problems(Fixture fixture) {
