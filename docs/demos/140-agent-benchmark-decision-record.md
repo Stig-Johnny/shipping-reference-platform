@@ -33,12 +33,13 @@ decisions in the regenerated `BRAIN.md`:
 | [ADR 0022: Agents load the rules at start, and the map stays one read away](docs/adr/0022-agent-entry-point-and-documentation-lookup.md) | accepted | not enforced yet |
 ```
 
-Then `./gradlew check` exited 0. Read and checked: the ADR's page in the site that it built, at 1280 and 390 pixels
-in Chrome, and the numbers in its tables against the result comments on issues 135, 137 and 138. Review: pull
-request #140.
+Then `./gradlew check` exited 0. Read and checked:
+[the ADR's page](../adr/0022-agent-entry-point-and-documentation-lookup.md) in the site that it built, at 1280 and
+390 pixels in Chrome, and the numbers in its tables against the result comments on issues 135, 137 and 138. Review:
+pull request #140.
 
 ## Limits
 
-- The measurements are historical. This site build does not rerun them, and no test compares the ADR's tables with the
-  data in `tools/docs-bench/`.
+- The measurements are historical. This site build does not rerun them, and the per-run results behind the ADR's
+  tables are not in the repository, so nothing here can recompute them.
 - The harness that made them is not in the repository, so they cannot be repeated from it yet (issue 135).

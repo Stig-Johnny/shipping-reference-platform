@@ -4,10 +4,10 @@ The questions, tasks, answer keys and prompts of the documentation benchmark tha
 (`docs/adr/0022-agent-entry-point-and-documentation-lookup.md`), from issues 135, 137 and 138. They
 are kept so that the runs can be checked and repeated.
 
-**The harness is not here yet.** It ran on 19 November 2026 as about 570 lines of Python 3 and a short bash setup script.
-`AGENTS.md` allows no new toolchain without a security review, so issue 135 stays open until the harness is ported to
-Java on the JDK alone. When the docs tool's own search (issue 136, step 3) takes the place of the search described
-below, that is a new comparison with its own version, not a rerun of these.
+**The harness is not here yet.** It ran on 19 November 2026 as about 570 lines of Python 3 and a short bash setup
+script. `AGENTS.md` allows no new toolchain without a security review, so issue 135 stays open until the harness is
+ported to Java on the JDK alone. When the docs tool's own search (issue 136, step 3) takes the place of the search
+described below, that is a new comparison with its own version, not a rerun of these.
 
 ## Files
 
@@ -45,9 +45,18 @@ below, that is a new comparison with its own version, not a rerun of these.
   `jq`, `wc`, `git ls-files`, `git grep`, `./docs-search` and `./site-search`. Setups A to H ran with
   `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1`. R1 and R2 instead excluded only the host's user-level `CLAUDE.md`, with
   `claudeMdExcludes` in a `--settings` file.
-- **Models and repetitions:** `claude-haiku-5-5` and `claude-sonnet-5-5`, three repetitions of every question in every
-  setup. The runs were shuffled with seed 135, so that models and setups met the same rate limits and time of day,
-  and ran four at a time (the overhead runs two at a time). Each had a 900-second limit; every run exited 0.
+- **Runs:** `claude-haiku-5-5` and `claude-sonnet-5-5`, three repetitions of each question in each setup of its run:
+
+  | Run | Questions | Setups | Prompt file | Runs |
+  |---|---|---|---|---|
+  | Lookups, issue 135 | `lookups.json` | A to H | `prompts-lookups.json` | 672 |
+  | Fixed overhead | "Reply with the single word OK." | A | `prompts-lookups.json` | 6 |
+  | Development tasks, issue 137 | `tasks.json` | A, C, G and H | `prompts-tasks.json` | 288 |
+  | Real import, issue 138 | `lookups.json`, then `tasks.json` | R1 and R2 | the file of each set | 168 and 144 |
+  | Discarded first run | `lookups.json` | A to G | `prompts-lookups.json` | 588, and 6 overhead |
+
+  Within a run, the order was shuffled with seed 135, so that models and setups met the same rate limits and time of
+  day, and four ran at a time (the overhead runs two at a time). Each run had a 900-second limit; every run exited 0.
 - **Fixed overhead:** the question "Reply with the single word OK." in setup A, three runs per model: a median of
   7,924 total tokens for Haiku and 7,101 for Sonnet. It is reported, not subtracted.
 - **Discarded run:** the first lookup run loaded the host's own user-level `CLAUDE.md` into every run and was
@@ -55,21 +64,46 @@ below, that is a new comparison with its own version, not a rerun of these.
 
 ## The search commands
 
-- **Sections:** every Git-tracked Markdown file, split at headings of levels 1 to 4 outside fenced code blocks. The
-  text before the first heading is a section headed by the frontmatter `title`, or by the path. A section records its
-  path, first line, heading and lines.
-- **`./docs-search WORDS`:** BM25 with k1 1.2 and b 0.75 over the sections. Tokens are runs of ASCII letters and
-  digits, lower-cased; a word with camel-case or digit parts also yields each part. Stop words: a, an, and, are, as,
-  at, be, by, can, do, does, for, from, has, have, how, in, is, it, its, of, on, or, that, the, this, to, what, when,
-  where, which, who, why, with, today, give. A section counts as its text plus its heading and its path, both twice.
-  For each of the five best sections it prints the rank, `path:line` of the first line with the most distinct query
-  tokens, the heading (80 characters at most), the section's line range and that line (220 characters at most).
-- **Quartz-format index (E and F):** `site/contentIndex.json`, one entry per Git-tracked Markdown file, keyed by its
-  path without `.md`: `slug`, `filePath`, `title` (the frontmatter title, else the first `# ` heading, else the file
-  name), `links` (relative `.md` links, resolved to slugs), `tags` (from the frontmatter) and `content` (the text
-  after the frontmatter). It follows Quartz's index format; it is not Quartz.
-- **`./site-search WORDS`:** the same ranking over whole pages of that index. For each of the five best pages it prints
-  the path, the title and the best line.
+These are the commands as they ran. A later implementation that ranks differently is a new comparison.
+
+- **Files:** the output of `git ls-files '*.md'` in the copy, sorted by path: every tracked Markdown file, in any
+  directory.
+- **Frontmatter:** when a file's first line is `---`, its frontmatter runs to the next line that is `---`, both after
+  trimming. Lines of the form `key: value`, with a key matching `\w[\w-]*`, give simple values, trimmed and without
+  surrounding double quotes. The body starts after the closing line.
+- **Sections:** a heading is a body line matching `^(#{1,4})\s+(.*)$` outside a fenced code block; a line that starts
+  with three backticks, after any leading spaces, opens or closes a fence. Each heading starts a section that includes
+  the heading line and runs to the line before the next heading. The lines before the first heading form a section
+  headed by the frontmatter `title`, or by the path when there is none. A section whose lines are all blank is
+  dropped. A section keeps its path, the number of its first line in the file (counting from 1), its heading and its
+  lines.
+- **Tokens:** every match of `[A-Za-z0-9]+`, in order. Each gives itself in lower case and, when it splits into more
+  than one part by `[A-Z]?[a-z]+|[A-Z]+(?![a-z])|[0-9]+`, each part in lower case as well: `CurrentTenant` gives
+  `currenttenant`, `current` and `tenant`. Then the stop words are removed: a, an, and, are, as, at, be, by, can, do,
+  does, for, from, has, have, how, in, is, it, its, of, on, or, that, the, this, to, what, when, where, which, who,
+  why, with, today, give.
+- **Ranking, `./docs-search WORDS`:** a section's document is the tokens of its lines joined by newlines, followed
+  twice by the tokens of its heading and then of its path. The query is the set of distinct tokens of the words given.
+  With N sections, `avgdl` their mean length in tokens, `df(t)` the number of sections whose document contains `t` and
+  `tf` the count of `t` in the document, a section scores the sum, over the query tokens it contains, of
+  `idf(t) × tf × 2.2 / (tf + 1.2 × (0.25 + 0.75 × length / avgdl))`, where
+  `idf(t) = ln(1 + (N − df(t) + 0.5) / (df(t) + 0.5))`: BM25 with k1 1.2 and b 0.75. Sections that score 0 are left
+  out. Among equal scores, the section that comes later in file and line order ranks first.
+- **Output:** for each of the five best sections, `RANK. PATH:LINE  [HEADING, lines FIRST-LAST]`, then the chosen
+  line indented by three spaces. The chosen line is the first of the section's lines with the most distinct query
+  tokens, and LINE is its number in the file. HEADING is cut to 80 characters; the chosen line is trimmed, and when it
+  is longer than 220 characters it is cut to 217 followed by `...`. Without a match the command prints `no matches`
+  and exits 1; without query tokens it prints a usage line and exits 2.
+- **Quartz-format index (E and F):** `site/contentIndex.json`, an object with one entry per file above, keyed by its
+  path without `.md` (spaces would become hyphens): `slug` (the same key), `filePath`, `title` (the frontmatter
+  `title`, else the text after the first body line that starts with `# `, else the file name), `links` (each target of
+  a Markdown link matching `\]\(([^)#\s]+\.md)(?:#[^)]*)?\)` without `://`, resolved against the file's directory and
+  turned into a key, sorted and without duplicates), `tags` (the frontmatter `tags` value without its brackets, split
+  at commas) and `content` (the body). It follows Quartz's index format; it is not Quartz.
+- **`./site-search WORDS`:** the same tokens, ranking and choice of line over one document per entry of that index, in
+  the index's order: the tokens of its `content`, followed twice by the tokens of its `title` and then of its
+  `filePath`. For each of the five best pages it prints `RANK. PATH  [TITLE]`, with the title cut to 80 characters,
+  then the chosen line.
 
 ## Scoring and aggregation
 
@@ -80,10 +114,14 @@ below, that is a new comparison with its own version, not a rerun of these.
   output; total tokens are fresh tokens plus cache reads.
 - **Cost:** the `total_cost_usd` that Claude Code reported for the run, its API-equivalent price on 19 November 2026.
   The runs used a subscription, so it is not a bill.
-- **Contrast X against Y, per model:** for each question, the median of X's runs divided by the median of Y's runs,
-  then the geometric mean over the questions. The 95% interval is a two-level bootstrap with 4,000 resamples and seed
-  135: resample the questions, then each setup's repetitions within every sampled question. The intervals are
-  exploratory: few questions, several contrasts and no correction for multiple comparisons.
+- **Contrast X against Y, per model:** for each question, the median of X's runs divided by the median of Y's runs;
+  the estimate is the geometric mean of those ratios over the questions. The 95% interval is a percentile bootstrap
+  with 4,000 resamples, drawn for each contrast from Python's `random.Random(135)`. A resample draws as many questions
+  as there are, with replacement. For each drawn question it draws X's runs again with replacement, as many as X has,
+  then Y's runs likewise, and takes the log of the ratio of their medians. The resample's value is the exponential of
+  the mean of those logs. The 4,000 values are sorted, and the bounds are the values at positions 100 and 3,900,
+  counting from 0. Another random generator gives slightly different bounds. The intervals are exploratory: few
+  questions, several contrasts and no correction for multiple comparisons.
 
 ## Keys changed after a run
 
@@ -97,4 +135,5 @@ below, that is a new comparison with its own version, not a rerun of these.
 
 ## Results
 
-The tables are in ADR 0022. Raw run logs are not published (`AGENTS.md`, step 6).
+The tables are in ADR 0022. The per-run results behind them, such as each run's pass, tokens and cost, are not in the
+repository, so the tables cannot be recomputed from it. Raw run logs are not published (`AGENTS.md`, step 6).
