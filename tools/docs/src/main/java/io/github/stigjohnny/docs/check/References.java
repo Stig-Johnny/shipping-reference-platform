@@ -25,7 +25,8 @@ import java.util.regex.Pattern;
  * The references in inline code (ADR 0023). In every hand-written Markdown file:
  *
  * <ul>
- *   <li>a span that is a test class name, {@code NameTest}, names a test class that exists in the repository;
+ *   <li>a span that is a test class name, {@code NameTest}, names a test class that a Java source in the repository
+ *       declares ({@link JavaDeclarations});
  *   <li>{@code planned:test:NameTest} names a test that does not exist yet and is registered as planned: an acceptance
  *       test of a capability or control that is not shipped, or a test that an ADR's planned enforcement names;
  *   <li>{@code illustrative:test:<...>} is a schematic example with a placeholder in angle brackets;
@@ -82,7 +83,7 @@ final class References {
             if (!read(path) || superseded.contains(path)) {
                 continue;
             }
-            String text = text(repo, path);
+            String text = text(repo, path).replace("\r\n", "\n");
             int body = bodyStart(text);
             int offset = (int) text.substring(0, body).chars().filter(c -> c == '\n').count();
             for (InlineCode code : MarkdownRenderer.inlineCode(text.substring(body), path)) {
@@ -151,8 +152,8 @@ final class References {
     }
 
     /**
-     * Collects the simple names of the Java files named like test classes, and the paths of the Markdown files,
-     * outside the skipped directories and Claude Code's worktrees, without following links.
+     * Collects the test classes that the Java sources declare and the paths of the Markdown files, outside the skipped
+     * directories and Claude Code's worktrees, without following links.
      */
     private static void walk(Path repo, Set<String> tests, List<String> markdown) {
         try {
@@ -166,8 +167,8 @@ final class References {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
                     String name = name(file);
-                    if (attributes.isRegularFile() && name.endsWith("Test.java")) {
-                        tests.add(name.substring(0, name.length() - ".java".length()));
+                    if (attributes.isRegularFile() && name.endsWith(".java")) {
+                        tests.addAll(JavaDeclarations.testClasses(text(repo, relative(repo, file))));
                     } else if (attributes.isRegularFile() && name.toLowerCase(Locale.ROOT).endsWith(".md")) {
                         markdown.add(relative(repo, file));
                     }

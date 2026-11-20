@@ -48,6 +48,67 @@ class ReferencesTest {
     }
 
     @Test
+    void aBareNameOfARegisteredPlannedTestFailsBecauseItReadsAsCurrent() {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write(NOTES, "# Notes\n\n`CrossTenantAccessTest`\n");
+
+        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `CrossTenantAccessTest` names no test class in the "
+                + "repository; if it is planned, write planned:test:CrossTenantAccessTest (ADR 0023)");
+    }
+
+    @Test
+    void aClassIsKnownByItsDeclaredNameNotByItsFileName() {
+        Fixture fixture = Fixture.copy(dir).passingEvidence()
+                .write("tools/notes/src/test/java/io/example/OriginalTest.java", "class ReplacementTest {\n}\n")
+                .write("tools/notes/EmptyTest.java", "")
+                .write("tools/notes/src/test/java/io/example/CommentedTest.java", """
+                        // class InCommentTest
+                        /* record InBlockTest() */
+                        class CommentedTest {
+                            String text = "class InStringTest";
+                        }
+                        """)
+                .write(NOTES, "# Notes\n\n`ReplacementTest` `OriginalTest` `EmptyTest` `CommentedTest` `InCommentTest` "
+                        + "`InBlockTest` `InStringTest`\n");
+
+        assertThat(problems(fixture)).extracting(problem -> problem.substring(0, problem.indexOf(" names")))
+                .containsExactly(NOTES + ":3: `EmptyTest`", NOTES + ":3: `InBlockTest`", NOTES + ":3: `InCommentTest`",
+                        NOTES + ":3: `InStringTest`", NOTES + ":3: `OriginalTest`");
+    }
+
+    @Test
+    void aShippedEntryRegistersNoPlannedTest() {
+        Fixture fixture = Fixture.copy(dir).passingEvidence()
+                .edit("docs/capabilities/capabilities.yaml", text -> text + """
+
+                          - id: control.shipped-only
+                            title: A shipped control.
+                            where: tools/docs
+                            check: java
+                            status: shipped
+                            target: v0.1
+                            evidence: [ShippedOnlyTest]
+                            evidenceLabel: none
+                            acceptanceTests: [ShippedOnlyTest]
+                            negativeFixture: none.
+                            docs: docs/gaps.md
+                        """)
+                .write(NOTES, "# Notes\n\n`planned:test:ShippedOnlyTest`\n");
+
+        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `planned:test:ShippedOnlyTest`: ShippedOnlyTest is "
+                + "not registered as planned; list it in the acceptanceTests of a capability or control that is not "
+                + "shipped, or in an ADR's plannedEnforcement (ADR 0023)");
+    }
+
+    @Test
+    void frontmatterWithWindowsLineEndingsIsNotReadAndLinesStayPhysical() {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write(NOTES,
+                "---\r\ntitle: \"The `GhostMetaTest`\"\r\n---\r\n\r\nSee `RenamedAwayTest`.\r\n");
+
+        assertThat(problems(fixture)).containsExactly(NOTES + ":5: `RenamedAwayTest` names no test class in the "
+                + "repository; if it is planned, write planned:test:RenamedAwayTest (ADR 0023)");
+    }
+
+    @Test
     void aPlannedMarkerOnATestThatExistsFails() {
         Fixture fixture = Fixture.copy(dir).passingEvidence()
                 .write(NOTES, "# Notes\n\n`planned:test:BrainCheckTest`\n");
