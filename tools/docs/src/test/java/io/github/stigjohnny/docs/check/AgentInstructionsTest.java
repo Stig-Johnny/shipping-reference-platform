@@ -2,6 +2,7 @@ package io.github.stigjohnny.docs.check;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.check.AgentInstructions.Candidate;
@@ -12,9 +13,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
+import java.util.Set;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -147,6 +152,73 @@ class AgentInstructionsTest {
                 new Candidate("c/CLAUDE.md", false),
                 new Candidate("d/AGENTS.md", false),
                 new Candidate("linked/real/AGENTS.md", true));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "@AGENTS.md\nMore rules.\n"})
+    @DisabledOnOs(OS.WINDOWS)
+    void aDirectoryWhoseNameHoldsABackslashIsNotTakenForANestedOne(String wrapper) {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write("tools/a/b/AGENTS.md", "# Rules\n")
+                .write("tools/a/b/CLAUDE.md", "@AGENTS.md\n").write("tools/a\\b/AGENTS.md", "# Rules\n");
+        if (!wrapper.isEmpty()) {
+            fixture.write("tools/a\\b/CLAUDE.md", wrapper);
+        }
+
+        assertThat(problems(fixture)).containsExactly(wrapper.isEmpty()
+                ? "tools/a\\b/AGENTS.md has no CLAUDE.md beside it: add tools/a\\b/CLAUDE.md holding exactly "
+                        + "'@AGENTS.md' and a line break, so that Claude Code reads these rules wherever it loads "
+                        + "CLAUDE.md files (ADR 0022)"
+                : "tools/a\\b/CLAUDE.md " + WRAPPER_RULE);
+    }
+
+    @Test
+    void theFixtureCopiesNoInstructionFileFromADirectoryTheCheckSkips() throws IOException {
+        Path repository = dir.resolve("repository");
+        List<String> skipped = List.of(".claude/worktrees/w/CLAUDE.md", "build/CLAUDE.md", ".gradle/AGENTS.md",
+                ".git/CLAUDE.md", "x/node_modules/y/AGENTS.md");
+        for (String file : List.of("AGENTS.md", "CLAUDE.md", "a/AGENTS.md", "a/CLAUDE.md")) {
+            write(repository.resolve(file), "@AGENTS.md\n");
+        }
+        for (String file : skipped) {
+            write(repository.resolve(file), "Rules of my own.\n");
+        }
+
+        Fixture fixture = Fixture.copy(dir.resolve("copy"), repository);
+
+        assertThat(fixture.root().resolve("a/CLAUDE.md")).exists();
+        assertThat(skipped).allSatisfy(file -> assertThat(fixture.root().resolve(file)).doesNotExist());
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void aWrapperThatCannotBeReadFailsTheCheck() throws IOException {
+        Fixture fixture = Fixture.copy(dir).passingEvidence();
+        Path wrapper = fixture.root().resolve("apps/shipping-web/CLAUDE.md");
+        Files.setPosixFilePermissions(wrapper, Set.of());
+        try {
+            assumeFalse(Files.isReadable(wrapper), "the file stays readable, as for a superuser");
+
+            assertThatThrownBy(() -> problems(fixture)).isInstanceOf(DocsException.class)
+                    .hasMessageContaining("apps/shipping-web/CLAUDE.md cannot be read");
+        } finally {
+            Files.setPosixFilePermissions(wrapper, PosixFilePermissions.fromString("rw-r--r--"));
+        }
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void aDirectoryThatCannotBeListedFailsTheCheck() throws IOException {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write("tools/locked/AGENTS.md", "# Rules\n");
+        Path locked = fixture.root().resolve("tools/locked");
+        Files.setPosixFilePermissions(locked, Set.of());
+        try {
+            assumeFalse(Files.isReadable(locked), "the directory stays readable, as for a superuser");
+
+            assertThatThrownBy(() -> problems(fixture)).isInstanceOf(DocsException.class)
+                    .hasMessageContaining("the instruction files cannot be listed");
+        } finally {
+            Files.setPosixFilePermissions(locked, PosixFilePermissions.fromString("rwxr-xr-x"));
+        }
     }
 
     @Test

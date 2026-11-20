@@ -937,7 +937,8 @@ of issue 136.
 Base: `2233bfb07edae0f7146b987a4574c6839da9060a`. Record: `issue-141-pull-request` in [model runs](runs.md).
 
 Codex (`gpt-6-astra`, effort xhigh) checked the design twice before any code was written. Claude Code, the
-orchestrator (`claude-opus-5-5`, effort unknown), wrote the check's tests first and then the check, reduced the five
+orchestrator (`claude-opus-5-5`, effort unknown), probed with Claude Haiku 5.5 how Claude Code reads `AGENTS.md`,
+wrote the check's tests first and then the check, reduced the five
 `CLAUDE.md` files to their import, added `control.agent-instructions`, and wrote demo 142, this entry and the record.
 Correction to the entry for issue 138: it says that Claude Code loads `CLAUDE.md` but not `AGENTS.md`. In fact Claude
 Code reads `AGENTS.md` by itself where no `CLAUDE.md` exists, by default and not in every session; the import remains

@@ -230,8 +230,8 @@ public final class Fixture {
     }
 
     /**
-     * Every regular file named AGENTS.md or CLAUDE.md, in any letter case, outside build output, dependencies and tool
-     * state, sorted.
+     * Every regular file named AGENTS.md or CLAUDE.md, in any letter case, outside build output, dependencies, tool
+     * state and Claude Code's worktrees, the directories the instruction check skips, sorted.
      */
     private static List<Path> instructionFiles(Path repository) throws IOException {
         List<Path> files = new ArrayList<>();
@@ -239,8 +239,10 @@ public final class Fixture {
             @Override
             public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) {
                 String name = String.valueOf(directory.getFileName());
-                boolean skipped = List.of("build", ".gradle", ".git", "node_modules").contains(name);
-                return !directory.equals(repository) && skipped ? FileVisitResult.SKIP_SUBTREE : FileVisitResult.CONTINUE;
+                boolean skipped = List.of("build", ".gradle", ".git", "node_modules").contains(name)
+                        || directory.equals(repository.resolve(".claude").resolve("worktrees"));
+                return !directory.equals(repository) && skipped
+                        ? FileVisitResult.SKIP_SUBTREE : FileVisitResult.CONTINUE;
             }
 
             @Override

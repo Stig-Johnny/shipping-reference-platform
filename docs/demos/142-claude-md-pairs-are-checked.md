@@ -74,8 +74,9 @@ docs: wrote the site, 117 files
 BUILD SUCCESSFUL in 2s
 ```
 
-`AgentInstructionsTest` checks every case in every build. Before the check was written, 23 of its 32 tests failed
-against an empty check: exactly the cases that must be rejected.
+`AgentInstructionsTest` checks every case whenever the documentation tests run, as they do in every CI build; the
+check itself runs in every documentation task. Before the check was written, 23 of its first 32 tests failed against
+an empty check: exactly the cases that must be rejected.
 
 Recorded separately, also on 2026-11-20: the probes behind the correction. Each was a headless `claude -p` run with
 Claude Code 2.1.325 and Claude Haiku 5.5 (`claude-haiku-5-5`, effort medium) on a Mac mini running macOS. Each ran in a

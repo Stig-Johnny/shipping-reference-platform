@@ -142,13 +142,30 @@ final class AgentInstructions {
         return String.valueOf(path.getFileName());
     }
 
+    /**
+     * The path from the repository, its names joined with '/'. A name keeps every other character, a backslash
+     * included, so that a directory named {@code a\b} is never taken for {@code a/b}.
+     */
     private static String relative(Path repo, Path path) {
-        return repo.relativize(path).toString().replace('\\', '/');
+        List<String> names = new ArrayList<>();
+        for (Path name : repo.relativize(path)) {
+            names.add(name.toString());
+        }
+        return String.join("/", names);
+    }
+
+    /** The file a {@link #relative} path names, resolved one name at a time. */
+    private static Path resolve(Path repo, String path) {
+        Path resolved = repo;
+        for (String name : path.split("/", -1)) {
+            resolved = resolved.resolve(name);
+        }
+        return resolved;
     }
 
     private static byte[] bytes(Path repo, String path) {
         try {
-            return Files.readAllBytes(repo.resolve(path));
+            return Files.readAllBytes(resolve(repo, path));
         } catch (IOException e) {
             throw new DocsException(path + " cannot be read: " + e.getClass().getSimpleName(), e);
         }
