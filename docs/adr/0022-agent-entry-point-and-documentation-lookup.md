@@ -94,7 +94,8 @@ cache reads. Each ratio compares two setups per question and model: the geometri
 ratio of medians, with a 95% interval from a two-level bootstrap over questions and repetitions. The intervals are
 exploratory. A first run was discarded because the host's own user-level `CLAUDE.md` had been loaded into every run.
 The method, the questions, the tasks and the keys are in `tools/docs-bench/`. The harness that ran them is not in the
-repository yet (issue 135), and neither are the per-run results behind these tables.
+repository yet (issue 135), and neither are the per-run results behind these tables. Issue 135 holds the full
+paired analysis of the lookups and the cost of each set of runs.
 
 ### Single-fact lookups (issue 135)
 

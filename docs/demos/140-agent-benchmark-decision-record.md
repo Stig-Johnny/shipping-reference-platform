@@ -35,8 +35,9 @@ decisions in the regenerated `BRAIN.md`:
 
 Then `./gradlew check` exited 0. Read and checked:
 [the ADR's page](../adr/0022-agent-entry-point-and-documentation-lookup.md) in the site that it built, at 1280 and
-390 pixels in Chrome, and the numbers in its tables against the result comments on issues 135, 137 and 138. Review:
-pull request #140.
+390 pixels in Chrome, and the numbers in its tables against the result comments on issues 135, 137 and 138 and
+against the analysis comment on issue 135, which holds the remaining lookup cost ratios and the cost of each set of
+runs. Review: pull request #140.
 
 ## Limits
 
