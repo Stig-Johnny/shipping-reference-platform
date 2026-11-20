@@ -520,3 +520,15 @@ controls:
     acceptanceTests: [PublicationScannerTest, PagesWorkflowTest]
     negativeFixture: One value per rule; a missing dictionary; a stale exception; a symbolic link in the site.
     docs: docs/adr/0011-java-documentation-tool-and-publication.md
+
+  - id: control.agent-instructions
+    title: Every AGENTS.md has a CLAUDE.md beside it that only imports it, so Claude Code gets the rules and no CLAUDE.md adds its own.
+    where: tools/docs
+    check: java
+    status: shipped
+    target: v0.1
+    evidence: [AgentInstructionsTest]
+    evidenceLabel: documentation-tool
+    acceptanceTests: [AgentInstructionsTest]
+    negativeFixture: A missing, orphaned, edited, linked or misnamed instruction file; one under .claude/; a malformed file in a skipped directory, which must stay unread.
+    docs: docs/adr/0022-agent-entry-point-and-documentation-lookup.md

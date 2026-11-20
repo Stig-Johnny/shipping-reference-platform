@@ -505,9 +505,11 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
   screen-reader or accessibility certification.
 
 - The brain is a budgeted summary (12 KiB root, 8 KiB per module) and omits detail by design; it links to sources.
-- **The agent entry point is not checked.** Only Claude Code reads `CLAUDE.md`, and nothing checks yet that every
-  `AGENTS.md` has a `CLAUDE.md` beside it that only imports it (issue 136, step 4). The measurements behind ADR 0022
-  cover one repository, two models and three repetitions, with pass rates near the ceiling. No build reruns them,
+- **The agent entry point is checked as files, not as behaviour.** Only Claude Code reads `CLAUDE.md`. The docs
+  check proves that every `AGENTS.md` has a `CLAUDE.md` beside it that only imports it (ADR 0022), not what a session
+  loads or follows; `CLAUDE.local.md`, `.claude/rules/` and user, managed or ancestor instructions are outside it. The
+  measurements behind ADR 0022 cover one repository, two models and three repetitions, with pass rates near the
+  ceiling. No build reruns them,
   and neither the harness that made them (issue 135) nor their per-run results are in the repository yet.
 - Frontmatter-linked documentation proves that a document changed with the code, not that it is correct. Not
   enforced yet: the check that a pull request changing a module's code also changes its documents.

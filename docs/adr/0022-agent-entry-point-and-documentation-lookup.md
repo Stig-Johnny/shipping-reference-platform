@@ -5,9 +5,9 @@ status: accepted
 updated: 2026-11-20
 date: 2026-11-19
 decision-makers: orchestrating agent, under the repository owner's standing delegation
-enforcedBy: [not enforced yet]
+enforcedBy:
+  - "java: the documentation check fails when an AGENTS.md has no CLAUDE.md beside it, a CLAUDE.md has no AGENTS.md or holds anything but its import, or an instruction file is linked, misnamed or under .claude/ (AgentInstructionsTest)"
 plannedEnforcement:
-  - "docs: a check that every AGENTS.md has a CLAUDE.md beside it whose only content is its import (issue 136, step 4)"
   - "docs: the section records of issue 136, step 3, with checks for a stale index, bounded output and published content only"
 ---
 
@@ -17,9 +17,12 @@ plannedEnforcement:
 
 Agents that work on this repository start from what their tool loads. The documentation's goals put working well for
 agents first, then no drift between code and documents, then being readable for people (issue 136). Claude Code
-loads `CLAUDE.md` files but not `AGENTS.md`, and until pull request 139 the repository had no `CLAUDE.md`: unless
-someone gave them the rules, Claude agents started without them, and without the pointer to the generated map,
-`BRAIN.md`, that the rules give first. The site was also about to be redesigned (issue 134), with Quartz 5 suggested
+reads `CLAUDE.md` files. It also reads an `AGENTS.md` by itself, but by default only where no `CLAUDE.md` exists in the
+working directory or above it, and not in every session. Until pull request 139 the repository had no `CLAUDE.md`, so
+whether a Claude agent started with the rules, and with the pointer to the generated map, `BRAIN.md`, that they give
+first, depended on the session. *Corrected on 2026-11-20 by pull request 142: this paragraph first said that Claude
+Code does not read `AGENTS.md` at all. That was an assumption, never measured; the decision below is unchanged.* The
+site was also about to be redesigned (issue 134), with Quartz 5 suggested
 as the engine of its prose pages.
 
 Two questions followed. What should an agent have when it starts? And which documentation layout lets small models,
@@ -69,16 +72,19 @@ Chosen: option 6 with `AGENTS.md` alone (R1), and the search of option 3 as the 
   without anyone pasting them.
 - Good, because start-up context stays at the rules: importing `BRAIN.md` as well raised the total tokens processed
   in all four pairs of task set and model, three of them clearly.
-- Bad, because only Claude Code reads `CLAUDE.md`; other agents still need to be pointed at `AGENTS.md`, and nothing
-  checks the pairs yet.
+- Bad, because only Claude Code reads `CLAUDE.md`, so other agents still need to read or be pointed at `AGENTS.md`.
+  The check of the pairs proves which files exist and what they hold, not what a session loads.
 - Bad, because the evidence is thin: one repository, two models, three repetitions and pass rates near the ceiling,
   so small differences cannot be seen.
 - Neutral, because a pointer to `BRAIN.md` costs little and saved nothing measurable.
 
 ### Confirmation
 
-Not enforced yet. Planned: a docs check that every `AGENTS.md` has a `CLAUDE.md` beside it whose only content is its
-import (issue 136, step 4), and the checks of the section records (step 3). The measurements are historical evidence
+The docs check enforces the pairs since pull request 142 (`AgentInstructionsTest`). It fails when an `AGENTS.md` has
+no `CLAUDE.md` beside it, when a `CLAUDE.md` has no `AGENTS.md` or holds anything but `@AGENTS.md` and a line break,
+and when an instruction file is a link, differs only in letter case or lies under `.claude/`. It proves the files and
+their bytes, not what a session loads or follows. Planned: the checks of the section records (issue 136, step 3).
+The measurements are historical evidence
 from 19 November 2026; no build reruns them. They are repeated, as a new version of the comparison, when the map, the
 task mix, the models or Claude Code's import behaviour change substantively.
 
@@ -93,7 +99,9 @@ and no forbidden pattern. Cost is the API-equivalent cost that Claude Code repor
 cache reads. Each ratio compares two setups per question and model: the geometric mean over the questions of the
 ratio of medians, with a 95% interval from a two-level bootstrap over questions and repetitions. The intervals are
 exploratory. A first run was discarded because the host's own user-level `CLAUDE.md` had been loaded into every run.
-The method, the questions, the tasks and the keys are in `tools/docs-bench/`. The harness that ran them is not in the
+Setups A to H ran with `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1`, which a probe on 20 November showed keeps `AGENTS.md` out
+as well, so they started without the rules. The method, the questions, the tasks and the keys are in
+`tools/docs-bench/`. The harness that ran them is not in the
 repository yet (issue 135), and neither are the per-run results behind these tables. Issue 135 holds the full
 paired analysis of the lookups and the cost of each set of runs.
 
