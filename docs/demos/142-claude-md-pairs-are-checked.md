@@ -29,7 +29,7 @@ You need the reviewed JDK, as for every Gradle command in the README. Fixture: i
 ./gradlew :tools:docs:check
 ```
 
-It fails, and the documentation tool's test report names the file. Cleanup: remove the line again, so that the file
+It fails, and its output names the file and the rule it breaks. Cleanup: remove the line again, so that the file
 holds only `@AGENTS.md`, and run the same command: it passes.
 
 ## Evidence
