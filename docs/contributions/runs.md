@@ -2,7 +2,7 @@
 title: "Model runs and cost evidence"
 description: "Recorded models, usage, cost bases and outcomes, with unsuccessful work and explicit limits on attribution and coverage."
 status: accepted
-updated: 2026-11-19
+updated: 2026-11-20
 schemaVersion: 1
 coverage: "Partial record set: 14 historical DeepSeek rounds for issues 69, 37 and 101, four supported historical Codex phases, seven current issue 111 phases, one separate root-window API comparison snapshot, 26 issue 114 rows covering planning, implementation, integration, reviews, corrections and validation, and five issue 117 rows covering diagnosis, implementation, a settings correction, independent review and review fixes. From PR #122 on, each pull request has one record, plus correction records for merged records it corrects (ADR 0021). Work and backfill dates differ. API-equivalent estimates do not establish actual billed cost; missing phases, subscription allocation, child-agent inclusion and complete delivery cost remain unknown."
 records:
@@ -1825,6 +1825,35 @@ records:
       input: "unknown"
       output: "unknown"
       scope: "The orchestrator's work on PR 139."
+      receipt: "unknown: no usage measurement available for this pull request"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-137-pull-request"
+    issue: 137
+    date: "2026-11-20"
+    role: "implementation"
+    tool: "Codex; Claude Code (orchestrator)"
+    model: "gpt-6-astra; claude-opus-5-5"
+    checkpoint: "unknown; unknown"
+    effort: "xhigh; unknown"
+    base: "8850d7d8f0669fa58283b20b66245b1ef4e30659"
+    outcome: "completed"
+    scope: "Issue 137, step 1 of issue 136, PR 140: ADR 0022 records the decision the documentation benchmark supported (a CLAUDE.md imports AGENTS.md only, BRAIN.md stays one read away, a section-level search is the next aid to measure, the site's engine is chosen for people) with the results of issues 135, 137 and 138; tools/docs-bench holds the questions, tasks, answer keys, overrides and prompts the runs used, with a README on the method; docs/gaps.md names the unchecked entry point. Also: demo 140, this record and the history entry. The benchmark runs themselves (headless Claude Haiku 5.5 and Sonnet 5.5 on another machine on 19 November 2026) are reported in ADR 0022 and are outside this record's usage."
+    environment: "PR 140 issue branch; macOS and reviewed Temurin 25.0.5+8; documentation, a decision record and benchmark data only."
+    result: "Codex, read-only, checked the approach before anything was written: sound, provided the claims stay bounded, Haiku's lower pass rate with search alone is kept, the original search is specified so that a later Java search is a new comparison, and issue 135 stays open; all applied. PolicyCheck exited 0. ./gradlew :tools:docs:generate added ADR 0022 to the decisions in BRAIN.md and changed the updated date of the other generated files; ./gradlew check then exited 0. Codex's first review of the head (89c0598) requested changes, with four P2 findings: the README left the search ranking, the run matrix and the bootstrap bounds underspecified, and demo 140's evidence lacked a link to the page it checked. All four were fixed. Codex's delta review of ffc1990 approved, with two P3 notes on provenance: five lookup cost ratios and the cost totals were in no public comment. That analysis and the totals were posted on issue 135 and are cited. The reviews of the final head and the merge decision are comments on PR 140."
+    limitations: "The harness that ran the benchmark is not in the repository, so issue 135 stays open and the runs cannot be repeated from the repository yet. The per-run results behind ADR 0022's tables are not in the repository, so no check can recompute them. No check requires a CLAUDE.md beside each AGENTS.md. Usage and cost are unknown."
+    evidence: "ADR 0022, the result comments on issues 135, 137 and 138, and demo 140; this pull request's diff and review comments. Codex's model and effort come from its run header; the orchestrator's reasoning effort has no receipt, so it is recorded as unknown."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "The approach check and the orchestrator's work on PR 140."
       receipt: "unknown: no usage measurement available for this pull request"
     cost:
       basis: "unknown"

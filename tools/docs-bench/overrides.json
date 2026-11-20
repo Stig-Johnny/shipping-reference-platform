@@ -1,0 +1,4 @@
+[
+ {"model": "haiku", "arm": "F", "qid": "q11-deps", "rep": 1, "ok": false, "why": "lists orders, tracking and returns as PERMITTED dependencies of shipments; they are reverse edges"},
+ {"model": "sonnet", "arm": "E", "qid": "q11-deps", "rep": 3, "ok": false, "why": "says shipments has six declared dependencies, three PERMITTED; the PERMITTED edges point into shipments"}
+]

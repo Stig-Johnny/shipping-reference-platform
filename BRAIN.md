@@ -2,7 +2,7 @@
 title: "Brain: shipping-reference-platform"
 description: "The generated entry point for agents: what the repository is, what is built and what is only planned, and where each module, decision, control and limit is written down."
 status: accepted
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 > Generated—do not hand-edit. Sources: `README.md`, `architecture/workspace.dsl`, `docs/`, `contracts/`, `policy/risk.json` and `security/allowlist.json`.
@@ -91,6 +91,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | [ADR 0019: Strict same-origin content security for the workbench](docs/adr/0019-strict-same-origin-workbench-csp.md) | accepted | web, java |
 | [ADR 0020: Record model runs with explicit cost and coverage boundaries](docs/adr/0020-model-run-evidence-and-cost-boundaries.md) | superseded by ADR 0021 | java |
 | [ADR 0021: One contribution record per pull request](docs/adr/0021-one-contribution-record-per-pull-request.md) | accepted | java |
+| [ADR 0022: Agents load the rules at start, and the map stays one read away](docs/adr/0022-agent-entry-point-and-documentation-lookup.md) | accepted | not enforced yet |
 
 ## Third-party components
 

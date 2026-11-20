@@ -2,7 +2,7 @@
 title: "Known gaps and limits"
 description: "What v0.1 does not do, what each control cannot prove, and which decisions are still unverified. Read this before trusting a green build."
 status: accepted
-updated: 2026-11-16
+updated: 2026-11-20
 ---
 
 # Known gaps and limits
@@ -505,6 +505,10 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
   screen-reader or accessibility certification.
 
 - The brain is a budgeted summary (12 KiB root, 8 KiB per module) and omits detail by design; it links to sources.
+- **The agent entry point is not checked.** Only Claude Code reads `CLAUDE.md`, and nothing checks yet that every
+  `AGENTS.md` has a `CLAUDE.md` beside it that only imports it (issue 136, step 4). The measurements behind ADR 0022
+  cover one repository, two models and three repetitions, with pass rates near the ceiling. No build reruns them,
+  and neither the harness that made them (issue 135) nor their per-run results are in the repository yet.
 - Frontmatter-linked documentation proves that a document changed with the code, not that it is correct. Not
   enforced yet: the check that a pull request changing a module's code also changes its documents.
 - Evidence is read from the JUnit reports of the same build, so only Java test classes can count as passing. A
