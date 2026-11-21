@@ -2,7 +2,7 @@
 title: "Module: shipments"
 description: "Books shipments from quote offers with tenant-scoped idempotency and simulated SVG labels. Cancellation and durable event delivery are planned."
 status: accepted
-updated: 2026-11-20
+updated: 2026-11-21
 module: shipments
 moduleStatus: built
 riskLevel: 3
@@ -43,7 +43,7 @@ PostgreSQL's default READ COMMITTED isolation. The adapters' transaction annotat
 
 `BookShipment` emits `ShipmentBooked` through Spring's in-process `ApplicationEventPublisher` after inserting a new
 booking, but not on replay or rejection. Both demo profiles (`demo` and `demo,postgres`) disable the durable
-publication registry. The planned `shipments.publish-events` capability also requires `ShipmentCancelled` and
+publication registry. The planned `cap:shipments.publish-events` capability also requires `ShipmentCancelled` and
 publication once on commit, never on rollback; the current publisher call does not establish those guarantees.
 Audit consumption and replay remain planned.
 
@@ -293,6 +293,6 @@ configured yet.
 
 ## Capabilities
 
-`shipments.book-from-offer`, `shipments.idempotent-booking`, `shipments.cancel-shipment`,
-`shipments.list-and-read`, `shipments.simulated-label`, `shipments.publish-events`
+`cap:shipments.book-from-offer`, `cap:shipments.idempotent-booking`, `cap:shipments.cancel-shipment`,
+`cap:shipments.list-and-read`, `cap:shipments.simulated-label`, `cap:shipments.publish-events`
 (`docs/capabilities/capabilities.yaml`).

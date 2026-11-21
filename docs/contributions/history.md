@@ -2,7 +2,7 @@
 title: "Contribution history"
 description: "Per-issue implementation, integration, review and human approval records, with exact settings where evidenced and unknowns where receipts are missing."
 status: accepted
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Contribution history
@@ -960,3 +960,17 @@ Code, the orchestrator (`claude-opus-5-5`, effort unknown), wrote the tests firs
 code in the Markdown renderer, ADR 0023, the planned marker on the 47 mentions of planned tests in current documents,
 `control.inline-references`, demo 147, this entry and the record. Issues 144 to 146 add capability ids, the site's
 labels and paths. The reviews of the final head and the merge decision are comments on PR #147.
+
+## Issue 144
+
+A capability or control named in inline code now carries the cap: marker and must be an entry of
+`docs/capabilities/capabilities.yaml`, the second part of ADR 0023's reference grammar.
+
+[Issue 144](https://github.com/Stig-Johnny/shipping-reference-platform/issues/144) ·
+[PR #148](https://github.com/Stig-Johnny/shipping-reference-platform/pull/148).
+Base: `2a91180858e86758d8e5438f588b57939a2045ae`. Record: `issue-144-pull-request` in [model runs](runs.md).
+
+Claude Code, the orchestrator (`claude-opus-5-5`, effort unknown), wrote the tests first and then the rules in the
+reference check, the marker on the 38 mentions of capabilities and controls in current documents, ADR 0023's grammar
+line, the rule in `AGENTS.md`, demo 148, this entry and the record. The design came from Codex's earlier design check
+for issue 136, step 4. The reviews of the final head and the merge decision are comments on PR #148.

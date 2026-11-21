@@ -2,7 +2,7 @@
 title: "ADR 0012: First runnable slice with a plain TypeScript workbench and Spring JDBC"
 description: "Supersedes ADRs 0003, 0004, 0005 and 0009. Their modules, contract-first API and PostgreSQL design carry forward unchanged, except that adapters use Spring JDBC's JdbcClient; the workbench is plain TypeScript with a hand-written typed HTTP adapter, and React and the generated client are deferred."
 status: accepted
-updated: 2026-11-20
+updated: 2026-11-21
 date: 2026-11-07
 decision-makers: repository owner
 enforcedBy:
@@ -29,7 +29,7 @@ this record says otherwise; their text stays as it was accepted.
 **Web import scope, 2026-11-08:** ADR 0014 records the owner's reader decision for pull request #70; ADR 0015
 extends it to the conformance rules in pull request #71. This record extends that labelled partial check to the
 repository gate in pull request #72.
-`control.web-import-boundaries` stays partial. The gate compares only detected imports and reported refusals;
+`cap:control.web-import-boundaries` stays partial. The gate compares only detected imports and reported refusals;
 its passing verdict cannot establish complete boundary or cycle coverage or runtime safety.
 
 Known open bypass forms are literal `import("unlisted")`, computed `import(name)`, `require("unlisted")` and
@@ -312,7 +312,7 @@ the custom tenant-binding manager described below is superseded for those adapte
   a cycle of detected imports, and a REQUIRED relationship between built parts without a detected direct import each
   fail it. A synthetic fixture using the repository model proves that an unapproved import under `e2e` fails the gate. All six web parts
   are built and all ten REQUIRED relationships have production import evidence;
-  `control.web-import-boundaries` remains partial. The reader does not supply a complete graph (ADR 0015).
+  `cap:control.web-import-boundaries` remains partial. The reader does not supply a complete graph (ADR 0015).
 - `web`: `npm ci --ignore-scripts` from the reviewed lockfile; `tsc` type-checks and emits; `node --test`
   runs the logic tests.
 - Planned, `contract-e2e`: `quote-book-label.spec.ts`, `expired-quote.spec.ts`, `tenant-denial.spec.ts` and

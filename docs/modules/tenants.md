@@ -2,7 +2,7 @@
 title: "Module: tenants"
 description: "Demo authentication for synthetic users, tenant derivation from membership, tenant binding for row-level security, and tenant-scoped prototype flags."
 status: accepted
-updated: 2026-11-20
+updated: 2026-11-21
 module: tenants
 moduleStatus: built
 riskLevel: 3
@@ -50,8 +50,8 @@ Built: the demo runtime defaults to synthetic memory identity; `demo,postgres` u
 The V1–V3 schema, role bootstrap and database RLS tests passed in the recorded CI run. The ordinary local build does
 not read CI database reports, so its generated RLS capability evidence remains unpromoted; this recorded result
 does not establish the planned audit schema or event tenant scope.
-`tenants.cross-tenant-denial`, `tenants.tenant-scope-for-events` and
-`tenants.prototype-flags` are planned.
+`cap:tenants.cross-tenant-denial`, `cap:tenants.tenant-scope-for-events` and
+`cap:tenants.prototype-flags` are planned.
 
 **Scenario coverage ledger:** the owner accepted 15 exact demo findings for issue #92, bringing the ledger to
 215 distinct findings: 115 HTTP/security accesses, 94 JDBC accesses and six factory parameters. ADR 0013 records
@@ -252,6 +252,6 @@ no privileges.
 
 ## Capabilities
 
-`tenants.demo-authentication`, `tenants.current-membership`, `tenants.row-level-security`,
-`tenants.cross-tenant-denial`, `tenants.tenant-scope-for-events`, `tenants.prototype-flags`
+`cap:tenants.demo-authentication`, `cap:tenants.current-membership`, `cap:tenants.row-level-security`,
+`cap:tenants.cross-tenant-denial`, `cap:tenants.tenant-scope-for-events`, `cap:tenants.prototype-flags`
 (`docs/capabilities/capabilities.yaml`).

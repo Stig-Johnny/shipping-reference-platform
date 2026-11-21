@@ -2,7 +2,7 @@
 title: "Module: tracking (planned)"
 description: "Planned module that will receive carrier tracking events and move shipments through transit states. In the model, no code yet."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-21
 module: tracking
 moduleStatus: planned
 riskLevel: 3
@@ -39,4 +39,4 @@ Level 3 (rule `planned-modules`).
 
 ## Capabilities
 
-`tracking.carrier-tracking-events` (planned, no evidence).
+`cap:tracking.carrier-tracking-events` (planned, no evidence).

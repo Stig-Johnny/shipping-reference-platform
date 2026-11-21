@@ -534,7 +534,7 @@ controls:
     docs: docs/adr/0022-agent-entry-point-and-documentation-lookup.md
 
   - id: control.inline-references
-    title: A test class named in inline code exists, or is marked planned where it is named and registered as planned.
+    title: A test class named in inline code exists or is marked planned and registered as planned, and a capability or control is named with its cap marker and is in the register.
     where: tools/docs
     check: java
     status: shipped
@@ -542,5 +542,5 @@ controls:
     evidence: [ReferencesTest]
     evidenceLabel: documentation-tool
     acceptanceTests: [ReferencesTest]
-    negativeFixture: An unknown bare test name; a planned marker on a test that exists or is not registered; a malformed or undefined marker; code blocks, records and superseded ADRs, which must stay unread.
+    negativeFixture: An unknown bare test name; a planned marker on a test that exists or is not registered; a bare or unknown capability id; a malformed or undefined marker; code blocks, records and superseded ADRs, which must stay unread.
     docs: docs/adr/0023-inline-references-carry-explicit-markers.md

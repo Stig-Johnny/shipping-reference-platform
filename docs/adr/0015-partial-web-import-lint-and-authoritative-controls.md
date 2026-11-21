@@ -2,7 +2,7 @@
 title: "ADR 0015: Partial web import lint and planned authoritative controls"
 description: "The JDK web reader, conformance rules and repository gate ship as a labelled partial check with known spread-syntax bypasses; compiler-graph boundary enforcement and browser verification of the implemented CSP remain planned."
 status: accepted
-updated: 2026-11-09
+updated: 2026-11-21
 date: 2026-11-08
 decision-makers: repository owner
 enforcedBy:
@@ -45,7 +45,7 @@ this decision. Existing detections, refusals and assertions remain in place; no 
   library are implemented and tested on synthetic fixtures. In pull requests #70 and #71, the repository's web-app
   integration was still planned. Pull request #72 adds `WebArchitectureConformanceTest`, which runs the gate over
   the repository's source, test and public roots and app configuration in every build; its passing tests support
-  `control.web-import-boundaries` as partial. At that integration step all six parts were planned. The workbench now has six built parts and production
+  `cap:control.web-import-boundaries` as partial. At that integration step all six parts were planned. The workbench now has six built parts and production
   import evidence for all ten REQUIRED relationships. The partial label alone does not promote the capability's status.
 - **Known open spread bypass.** Immediately after `...`, literal `import("unlisted")`, computed `import(name)`,
   `require("unlisted")` and unsupported `import.meta.glob("./*.ts")` can yield `imports=[], refusals=[]`.

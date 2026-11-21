@@ -2,7 +2,7 @@
 title: "Module: orders (planned)"
 description: "Planned module that will import webshop orders and turn them into quote and booking requests. In the model, no code yet."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-21
 module: orders
 moduleStatus: planned
 riskLevel: 3
@@ -44,4 +44,4 @@ component into code, which needs a model change and the owner's approval (rule `
 
 ## Capabilities
 
-`orders.import-webshop-orders` (planned, no evidence).
+`cap:orders.import-webshop-orders` (planned, no evidence).

@@ -2,7 +2,7 @@
 title: "ADR 0011: A Java documentation tool, a static site and a scanned publication"
 description: "One Java tool generates the C4 view pages, the budgeted brain and a static documentation site, and fails on drift and on claims without evidence; the site is published on GitHub Pages from main after a fail-closed scan. Supersedes ADR 0010."
 status: accepted
-updated: 2026-11-10
+updated: 2026-11-21
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
@@ -86,7 +86,7 @@ SnakeYAML Engine 3.2.
   more than one test class has, in any module, fails wherever a capability's evidence or an ADR's `enforcedBy` uses
   it; modules may otherwise share test class names.
 - `./gradlew :tools:docs:generate` rewrites the generated files. Both tasks run after the tests of every project with
-  test sources and read all their reports; the tool's own are the evidence of its control, `control.brain-check`.
+  test sources and read all their reports; the tool's own are the evidence of its control, `cap:control.brain-check`.
   The shipping API's database tests run in a task of their own, `:apps:shipping-api:databaseTest`, which `check` does
   not run, so that `check` needs only the reviewed JDK. Full-evidence mode, `-PdatabaseEvidence=true`, adds a
   dependency from the docs tasks to `databaseTest` and requires its reports to show at least one test run and none

@@ -2,13 +2,13 @@
 title: "ADR 0023: Inline references carry explicit markers"
 description: "A test class named in the prose's inline code must exist, a planned one is marked as planned where it is named and registered as planned, and the documentation check fails otherwise; capability ids, paths and the site's labels follow the same grammar."
 status: accepted
-updated: 2026-11-20
+updated: 2026-11-21
 date: 2026-11-20
 decision-makers: repository owner
 enforcedBy:
   - "java: the documentation check fails when inline code names no test class, marks a test planned that exists or is not registered, or uses a marker the grammar does not define (ReferencesTest)"
+  - "java: the documentation check fails when inline code names a capability or control id bare, names one the register lacks, or has the shape of an id that the register lacks (ReferencesTest)"
 plannedEnforcement:
-  - "docs: capability and control ids with the cap: marker (issue 144)"
   - "docs: the site shows markers as labels (issue 145)"
   - "docs: paths with the planned:path:, absent:path: and illustrative:path: markers (issue 146)"
 ---
@@ -51,13 +51,17 @@ The grammar, for inline code in hand-written Markdown:
 NameTest                     a test class that exists in the repository
 planned:test:NameTest        a planned test: not in the repository yet, and registered as planned
 illustrative:test:<Name>     a schematic example; it holds a placeholder in angle brackets
+cap:<id>                     a capability or control in docs/capabilities/capabilities.yaml
 ```
 
 A test is registered as planned when a capability or control that is not shipped lists it in `acceptanceTests`, or
 when an ADR's `plannedEnforcement` names it. For example, `ReferencesTest` exists, and
-`planned:test:CrossTenantAccessTest` is planned. Any other span that starts with planned, illustrative or absent and
-a colon is a marker that the grammar does not define, and fails until a later issue defines it: capability and
-control ids (issue 144) and paths (issue 146). The site shows markers as labels instead of the raw prefix (issue 145).
+`planned:test:CrossTenantAccessTest` is planned. A capability or control is named with its marker, such as
+`cap:control.inline-references`, whatever its status; an id that the register has must carry the marker, and a bare
+token with the shape of an id (a prefix the register uses, a dot and a hyphenated name) that the register lacks fails.
+Any other span that starts with planned, illustrative or absent and a colon is a marker that the grammar does not
+define, and fails until a later issue defines it: paths (issue 146). The site shows markers as labels instead of the
+raw prefix (issue 145).
 
 Not read: code blocks, generated files, the records (the contribution history and runs, the demonstrations apart from
 their how-to, the security reviews and verifications), superseded ADRs, and the directories that the instruction check
@@ -75,6 +79,7 @@ skips (ADR 0022). Records keep the names they had when they were written.
 ### Confirmation
 
 `ReferencesTest` runs in every build of the documentation tests, and the check itself runs in every `generate`,
-`checkGenerated` and site build. It fails on an unknown bare name, on a planned marker for a test that exists or that
-nothing registers, and on a marker the grammar does not define. It does not read code blocks, records or superseded
-ADRs. Planned: the markers for capability ids and paths, and the site's labels (issues 144 to 146).
+`checkGenerated` and site build. It fails on an unknown bare test name, on a planned marker for a test that exists or
+that nothing registers, on a bare or unknown capability id, and on a marker the grammar does not define. It does not
+read code blocks, records or superseded ADRs. Planned: the markers for paths, and the site's labels (issues 145 and
+146).

@@ -2,7 +2,7 @@
 title: "Module: returns (planned)"
 description: "Planned module that will create return shipments for delivered shipments. In the model, no code yet."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-21
 module: returns
 moduleStatus: planned
 riskLevel: 3
@@ -36,4 +36,4 @@ Level 3 (rule `planned-modules`).
 
 ## Capabilities
 
-`returns.return-shipments` (planned, no evidence).
+`cap:returns.return-shipments` (planned, no evidence).
