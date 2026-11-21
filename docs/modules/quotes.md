@@ -2,7 +2,7 @@
 title: "Module: quotes"
 description: "Prices parcels with the synthetic tariff and issues tenant-scoped quotes whose offers expire after 30 minutes."
 status: accepted
-updated: 2026-11-20
+updated: 2026-11-21
 module: quotes
 moduleStatus: built
 riskLevel: 3
@@ -272,5 +272,5 @@ for `libs/c4-contract-kit` only (`docs/gaps.md`, section 6).
 
 ## Capabilities
 
-`quotes.synthetic-tariff`, `quotes.create-quote`, `quotes.get-quote`, `quotes.quote-expiry`, `quotes.offer-lookup`
+`cap:quotes.synthetic-tariff`, `cap:quotes.create-quote`, `cap:quotes.get-quote`, `cap:quotes.quote-expiry`, `cap:quotes.offer-lookup`
 (`docs/capabilities/capabilities.yaml`).

@@ -2,7 +2,7 @@
 title: "Model runs and cost evidence"
 description: "Recorded models, usage, cost bases and outcomes, with unsuccessful work and explicit limits on attribution and coverage."
 status: accepted
-updated: 2026-11-20
+updated: 2026-11-21
 schemaVersion: 1
 coverage: "Partial record set: 14 historical DeepSeek rounds for issues 69, 37 and 101, four supported historical Codex phases, seven current issue 111 phases, one separate root-window API comparison snapshot, 26 issue 114 rows covering planning, implementation, integration, reviews, corrections and validation, and five issue 117 rows covering diagnosis, implementation, a settings correction, independent review and review fixes. From PR #122 on, each pull request has one record, plus correction records for merged records it corrects (ADR 0021). Work and backfill dates differ. API-equivalent estimates do not establish actual billed cost; missing phases, subscription allocation, child-agent inclusion and complete delivery cost remain unknown."
 records:
@@ -1912,6 +1912,35 @@ records:
       input: "unknown"
       output: "unknown"
       scope: "The design check and the orchestrator's work on PR 147."
+      receipt: "unknown: no usage measurement available for this pull request"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-144-pull-request"
+    issue: 144
+    date: "2026-11-21"
+    role: "implementation"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "unknown"
+    base: "2a91180858e86758d8e5438f588b57939a2045ae"
+    outcome: "completed"
+    scope: "Issue 144, PR 148: the reference check (References) now requires a capability or control named in inline code to carry the cap: marker and to name an entry of docs/capabilities/capabilities.yaml; a bare id the register has fails with a hint, and a bare token with the shape of an id (a prefix the register uses, a dot and a hyphenated name) that the register lacks fails. The 38 mentions in current documents carry the marker. Also: ADR 0023's grammar line and enforcement, AGENTS.md's rule, the README controls row, control.inline-references, docs/gaps.md, demo 148, this record and the history entry."
+    environment: "PR 148 issue branch; macOS and reviewed Temurin 25.0.5+8; Java in tools/docs with its tests, and documentation."
+    result: "Red first: the new ReferencesTest cases ran with the old check, 62 tests and 8 failed, exactly the cases that must be rejected; with the rules, all 62 pass. A first green run failed because the new control's title held an unquoted 'cap: ', which YAML read as a mapping; the title was reworded. The design follows Codex's design check for issue 136, step 4 (explicit cap: references, shape detection as a lint, prefixes from the register). PolicyCheck exited 0; ./gradlew :tools:docs:generate and ./gradlew check exited 0. The reviews of the final head and the merge decision are comments on PR 148."
+    limitations: "An unregistered bare token without a hyphen is never taken for an id, so a renamed id without a hyphen written bare is not caught. The check proves that an id is in the register, not that a sentence describes it correctly. Paths and the site's labels are issues 145 and 146. Usage and cost are unknown."
+    evidence: "Issue 144, demo 148's recorded runs, the red and green test runs; this pull request's diff and review comments. The orchestrator's reasoning effort has no receipt, so it is recorded as unknown."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "The orchestrator's work on PR 148."
       receipt: "unknown: no usage measurement available for this pull request"
     cost:
       basis: "unknown"

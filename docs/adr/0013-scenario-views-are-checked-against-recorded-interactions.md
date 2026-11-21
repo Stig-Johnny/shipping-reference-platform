@@ -2,7 +2,7 @@
 title: "ADR 0013: Scenario views are checked against recorded interactions"
 description: "Each executable scenario view has a validated sidecar; a test-only recorder observes module API calls and publications, bounded checks retain detected coverage gaps with an exact debt ledger, and a comparator checks the recording against the steps, with outcomes asserted separately."
 status: accepted
-updated: 2026-11-09
+updated: 2026-11-21
 date: 2026-11-07
 decision-makers: repository owner
 enforcedBy:
@@ -162,7 +162,7 @@ Chosen option 1.
   traversal orders, including a container cycle. `SidecarValidationTest` and
   `ScenarioModelTest` reject sidecars and model text that do not match, `ScenarioModelTest` compares the reader with
   Structurizr for the repository's dynamic views, and `ScenarioReportTest` holds each verdict to its claim.
-- `control.scenario-conformance` in `docs/capabilities/capabilities.yaml` records the status.
+- `cap:control.scenario-conformance` in `docs/capabilities/capabilities.yaml` records the status.
 
 ## Implementation status (2026-11-09)
 

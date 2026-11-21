@@ -178,7 +178,7 @@ class ReferencesTest {
     @ParameterizedTest
     @ValueSource(strings = {"planned:test:", "planned:test:lowercaseTest", "planned:test:BrainCheckTest extra",
         "planned:tests:CrossTenantAccessTest", "planned:path:policy/rulesets.json", "absent:test:GhostTest",
-        "illustrative:test:SomeTest", "planned:"})
+        "illustrative:test:SomeTest", "planned:", "planned:cap:quotes.create-quote"})
     void aMalformedOrNotYetDefinedMarkerFails(String marker) {
         Fixture fixture = Fixture.copy(dir).passingEvidence().write(NOTES, "# Notes\n\n`" + marker + "`\n");
 
@@ -190,6 +190,82 @@ class ReferencesTest {
     void anIllustrativeMarkerWithAPlaceholderPasses() {
         Fixture fixture = Fixture.copy(dir).passingEvidence()
                 .write(NOTES, "# Notes\n\n`illustrative:test:<TestClass>`\n");
+
+        assertThat(problems(fixture)).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"cap:quotes.create-quote", "cap:web.accessibility", "cap:control.migrations",
+        "cap:control.inline-references"})
+    void aCapMarkerOnAKnownCapabilityOrControlPasses(String marker) {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write(NOTES, "# Notes\n\n`" + marker + "`\n");
+
+        assertThat(problems(fixture)).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"quotes.make-quote", "web.accessibilty", "invoices.make-invoice"})
+    void aCapMarkerOnAnIdThatTheRegisterLacksFails(String id) {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write(NOTES, "# Notes\n\n`cap:" + id + "`\n");
+
+        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `cap:" + id + "`: " + id + " is no capability or "
+                + "control in docs/capabilities/capabilities.yaml (ADR 0023)");
+    }
+
+    @Test
+    void aPrefixNewToTheRegisterMakesItsUnknownIdsFail() {
+        Fixture fixture = Fixture.copy(dir).passingEvidence()
+                .edit("docs/capabilities/capabilities.yaml", text -> text + """
+
+                          - id: invoices.make-invoice
+                            title: A control under a new prefix.
+                            where: tools/docs
+                            check: java
+                            status: planned
+                            target: v0.1
+                            evidence: none yet
+                            evidenceLabel: none
+                            acceptanceTests: [InvoiceTest]
+                            negativeFixture: none.
+                            docs: docs/gaps.md
+                        """)
+                .write(NOTES, "# Notes\n\n`cap:invoices.make-invoice` `invoices.send-invoice`\n");
+
+        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `invoices.send-invoice` has the shape of a "
+                + "capability or control id, but no entry in docs/capabilities/capabilities.yaml has it (ADR 0023)");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"cap:", "cap:quotes.create-quote extra", "cap: quotes.create-quote"})
+    void aMalformedCapMarkerFails(String marker) {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write(NOTES, "# Notes\n\n`" + marker + "`\n");
+
+        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `" + marker + "` needs one capability or control "
+                + "id, such as cap:control.inline-references (ADR 0023)");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"quotes.create-quote", "web.accessibility", "control.inline-references"})
+    void aBareKnownIdFailsBecauseItMustBeMarked(String id) {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write(NOTES, "# Notes\n\n`" + id + "`\n");
+
+        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `" + id + "` names a capability or control; write "
+                + "cap:" + id + " (ADR 0023)");
+    }
+
+    @Test
+    void aBareHyphenatedTokenShapedLikeAnUnknownIdFails() {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write(NOTES, "# Notes\n\n`quotes.make-quote`\n");
+
+        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `quotes.make-quote` has the shape of a capability "
+                + "or control id, but no entry in docs/capabilities/capabilities.yaml has it (ADR 0023)");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"tenants.tenant", "web.packages", "quotes.md", "orders.import-webshop-orders.yaml",
+        "invoices.make-invoice"})
+    void tokensThatAreNoCapabilityIdAreIgnored(String token) {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write(NOTES, "# Notes\n\n`" + token + "`\n");
 
         assertThat(problems(fixture)).isEmpty();
     }

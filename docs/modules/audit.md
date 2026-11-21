@@ -2,7 +2,7 @@
 title: "Module: audit"
 description: "Appends one tenant-scoped audit entry per shipment event, deduplicated by event ID, with replay from the publication registry after failures."
 status: accepted
-updated: 2026-11-20
+updated: 2026-11-21
 module: audit
 moduleStatus: planned
 riskLevel: 2
@@ -91,5 +91,5 @@ planned as the library's slice 10 (`libs/c4-contract-kit/AGENTS.md`); like the t
 
 ## Capabilities
 
-`audit.record-shipment-events`, `audit.idempotent-consumer`, `audit.replay-after-failure`
+`cap:audit.record-shipment-events`, `cap:audit.idempotent-consumer`, `cap:audit.replay-after-failure`
 (`docs/capabilities/capabilities.yaml`).

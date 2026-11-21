@@ -2,7 +2,7 @@
 title: "Known gaps and limits"
 description: "What v0.1 does not do, what each control cannot prove, and which decisions are still unverified. Read this before trusting a green build."
 status: accepted
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Known gaps and limits
@@ -24,7 +24,7 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
   are the reviewed dependencies of the docs generator and of the shipping API. The docs generator itself,
   `tools/docs`, exists: it generates the C4 view pages, `BRAIN.md` and the module brains, and builds the
   documentation site, which `.github/workflows/pages.yml` publishes from `main` after the publication scan. Its own
-  controls, `control.brain-check` and `control.publication-scan`, are shipped with their tests as evidence. The
+  controls, `cap:control.brain-check` and `cap:control.publication-scan`, are shipped with their tests as evidence. The
   library `libs/c4-contract-kit` (its slices 1 to 4) exists, and its controls carry their tests as evidence. So does
   its partial web import check, which compares detected imports in `apps/shipping-web` with the web container of the
   model; all six web parts are built and all ten REQUIRED relationships have production import evidence.
@@ -376,7 +376,7 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
   relationship reaches can be unused without a report. dependency-cruiser is deferred.
 - **The web reader, conformance rules and repository gate ship as a labelled partial static check.**
   The owner accepted this scope for pull requests #70, #71 and #72 on 2026-11-08 (ADRs 0012 and 0015).
-  `control.web-import-boundaries` stays partial; authoritative enforcement remains planned. The reader and conformance
+  `cap:control.web-import-boundaries` stays partial; authoritative enforcement remains planned. The reader and conformance
   library are implemented, and the import rules have synthetic fixture evidence. The reader can miss imports and
   unsupported constructs without a refusal.
   `WebArchitectureConformanceTest` proves that an unapproved import in the repository model's `e2e` root fails the
@@ -414,7 +414,7 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
   open bypass class in its probe set; that set was not exhaustive. A green lint result cannot prove the absence of
   undeclared imports or hidden runtime loaders. The conformance rules only compare detected imports and propagate
   reported refusals; they do not recover dependencies the reader misses. Their passing verdict cannot establish
-  complete boundary or cycle coverage. `control.web-import-boundaries` remains partial: the repository gate exists
+  complete boundary or cycle coverage. `cap:control.web-import-boundaries` remains partial: the repository gate exists
   and runs, but its passing verdict neither closes this bypass nor proves complete detection.
 - **Compiler checking and CSP text are present; authoritative boundary and browser proof remain open.** The web
   job runs `tsc -p apps/shipping-web`, but no compiler-derived graph is compared with the C4 model. The strict
@@ -437,7 +437,7 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
 - The migration round trip (ADR 0016) compares catalogs, not data, and runs on empty databases. It covers only
   the object kinds listed by CatalogSnapshot, not operators, casts, collations, text search objects, foreign data
   objects, publications or event triggers. It does not establish that down scripts restore rows from a release.
-- **The scenario checks prove one run, within what the recorder sees** (`control.scenario-conformance`, partial). A
+- **The scenario checks prove one run, within what the recorder sees** (`cap:control.scenario-conformance`, partial). A
   run without detected gaps can show its evaluated steps conformed for one exercised run, not every path, schedule
   or input. The accepted ledger now has 215 distinct known gaps. The expected report is `COVERAGE_INCOMPLETE`,
   "coverage incomplete: 215 known gaps".
@@ -505,10 +505,12 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
   screen-reader or accessibility certification.
 
 - The brain is a budgeted summary (12 KiB root, 8 KiB per module) and omits detail by design; it links to sources.
-- **Inline references are checked for test classes only.** A test class named in inline code must exist, or carry
-  the planned marker and be registered as planned (ADR 0023). Capability ids, paths and the site's labels follow
-  (issues 144 to 146). The check proves names and markers, not claims, and it does not read code blocks, records or
-  superseded ADRs, which keep the names they had when they were written.
+- **Inline references are checked for test classes and capability ids.** A test class named in inline code must
+  exist, or carry the planned marker and be registered as planned; a capability or control carries the cap: marker
+  and must be in the register (ADR 0023). An unregistered bare token without a hyphen, such as a table name, is not
+  taken for an id, so a renamed id without a hyphen written bare is not caught. Paths and the site's labels follow (issues 145 and
+  146). The check proves names and markers, not claims, and it does not read code blocks, records or superseded ADRs,
+  which keep the names they had when they were written.
 - **The agent entry point is checked as files, not as behaviour.** Only Claude Code reads `CLAUDE.md`. The docs
   check proves that every `AGENTS.md` has a `CLAUDE.md` beside it that only imports it (ADR 0022), not what a session
   loads or follows; `CLAUDE.local.md`, `.claude/rules/` and user, managed or ancestor instructions are outside it. The
