@@ -507,8 +507,8 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
 - The brain is a budgeted summary (12 KiB root, 8 KiB per module) and omits detail by design; it links to sources.
 - **Inline references are checked for test classes and capability ids.** A test class named in inline code must
   exist, or carry the planned marker and be registered as planned; a capability or control carries the cap: marker
-  and must be in the register (ADR 0023). A bare token without a hyphen, such as a table name, is not taken for an
-  id, so a renamed id without a hyphen written bare is not caught. Paths and the site's labels follow (issues 145 and
+  and must be in the register (ADR 0023). An unregistered bare token without a hyphen, such as a table name, is not
+  taken for an id, so a renamed id without a hyphen written bare is not caught. Paths and the site's labels follow (issues 145 and
   146). The check proves names and markers, not claims, and it does not read code blocks, records or superseded ADRs,
   which keep the names they had when they were written.
 - **The agent entry point is checked as files, not as behaviour.** Only Claude Code reads `CLAUDE.md`. The docs

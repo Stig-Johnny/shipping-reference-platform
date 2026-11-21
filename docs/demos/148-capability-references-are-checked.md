@@ -72,8 +72,8 @@ failed: exactly the cases that must be rejected. Review: pull request #148.
 
 ## Limits
 
-- A bare token without a hyphen is never taken for an id, so a renamed id without a hyphen, written bare, is not
-  caught; written with its marker, it is.
+- An unregistered bare token without a hyphen is never taken for an id, so a renamed id without a hyphen, written
+  bare, is not caught; written with its marker, it is.
 - The check proves that an id is in the register, not that a sentence describes that capability correctly.
 - Paths and the site's labels follow, in issues 145 and 146; until then the site shows the marker's prefix as it is
   written.

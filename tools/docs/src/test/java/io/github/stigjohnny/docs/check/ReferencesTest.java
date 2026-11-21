@@ -203,12 +203,36 @@ class ReferencesTest {
         assertThat(problems(fixture)).isEmpty();
     }
 
-    @Test
-    void aCapMarkerOnAnUnknownIdFails() {
-        Fixture fixture = Fixture.copy(dir).passingEvidence().write(NOTES, "# Notes\n\n`cap:quotes.make-quote`\n");
+    @ParameterizedTest
+    @ValueSource(strings = {"quotes.make-quote", "web.accessibilty", "invoices.make-invoice"})
+    void aCapMarkerOnAnIdThatTheRegisterLacksFails(String id) {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write(NOTES, "# Notes\n\n`cap:" + id + "`\n");
 
-        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `cap:quotes.make-quote`: quotes.make-quote is no "
-                + "capability or control in docs/capabilities/capabilities.yaml (ADR 0023)");
+        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `cap:" + id + "`: " + id + " is no capability or "
+                + "control in docs/capabilities/capabilities.yaml (ADR 0023)");
+    }
+
+    @Test
+    void aPrefixNewToTheRegisterMakesItsUnknownIdsFail() {
+        Fixture fixture = Fixture.copy(dir).passingEvidence()
+                .edit("docs/capabilities/capabilities.yaml", text -> text + """
+
+                          - id: invoices.make-invoice
+                            title: A control under a new prefix.
+                            where: tools/docs
+                            check: java
+                            status: planned
+                            target: v0.1
+                            evidence: none yet
+                            evidenceLabel: none
+                            acceptanceTests: [InvoiceTest]
+                            negativeFixture: none.
+                            docs: docs/gaps.md
+                        """)
+                .write(NOTES, "# Notes\n\n`cap:invoices.make-invoice` `invoices.send-invoice`\n");
+
+        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `invoices.send-invoice` has the shape of a "
+                + "capability or control id, but no entry in docs/capabilities/capabilities.yaml has it (ADR 0023)");
     }
 
     @ParameterizedTest
