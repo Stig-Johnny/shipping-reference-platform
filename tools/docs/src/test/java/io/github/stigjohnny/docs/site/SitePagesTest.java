@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.github.stigjohnny.docs.Html;
 import io.github.stigjohnny.docs.generate.Brains;
 import io.github.stigjohnny.docs.generate.GeneratedFiles;
+import io.github.stigjohnny.docs.markdown.LinkDecision.Keep;
+import io.github.stigjohnny.docs.markdown.MarkdownRenderer;
+import io.github.stigjohnny.docs.markdown.ReferenceMarkers;
 import io.github.stigjohnny.docs.repo.Allowlist;
 import io.github.stigjohnny.docs.repo.AllowlistEntry;
 import io.github.stigjohnny.docs.repo.Capability;
@@ -363,6 +366,37 @@ class SitePagesTest {
     }
 
     @Test
+    void referenceMarkersAreLabelsInCurrentProseAndStayAsWrittenInRecordsAndCodeBlocks() {
+        String planned = "&nbsp;<span class=\"badge badge-planned reference-label\">planned</span>";
+
+        assertThat(site.text("modules/tenants.html")).contains("<td><code>CrossTenantAccessTest</code>" + planned
+                + "</td>", "<code>tenants.cross-tenant-denial</code>", "table-wide-references")
+                .doesNotContain("planned:test:", "cap:tenants.");
+        assertThat(site.text("trust/gaps.html")).contains("<code>TableOwnershipTest</code>" + planned + ", planned,")
+                .doesNotContain("planned:test:", "cap:control.");
+        // Gaps shown on the Brain page are fragments of docs/gaps.md, which is current prose.
+        assertThat(site.text("brain/index.html")).contains("<code>control.brain-check</code>")
+                .doesNotContain("cap:control.");
+        // The grammar's code block keeps the markers, and so does a record, which nothing checks.
+        assertThat(site.text("decisions/0023-inline-references-carry-explicit-markers.html"))
+                .contains("planned:test:NameTest", "cap:&lt;id&gt;");
+        assertThat(site.text("demos/147-inline-test-references-are-checked.html"))
+                .contains("<code>planned:test:CrossTenantAccessTest</code>").doesNotContain("reference-label");
+        for (String path : site.pages()) {
+            assertThat(site.text(path)).as(path).doesNotContain("\u0000");
+        }
+    }
+
+    @Test
+    void everyCapabilityAndControlIdHasTheShapeTheSiteShowsWithoutItsPrefix() {
+        for (Capability entry : sources.capabilities().all()) {
+            assertThat(MarkdownRenderer.render("`cap:" + entry.id() + "`", "docs/x.md", destination -> new Keep(),
+                    false, ReferenceMarkers.LABELLED).html()).as(entry.id())
+                    .isEqualTo("<p><code>" + entry.id() + "</code></p>\n");
+        }
+    }
+
+    @Test
     void theAllowlistPageShowsTheAcceptanceAndEveryEntryWithTheRejectedOnes() {
         String page = site.text("trust/allowlist.html");
         Allowlist allowlist = sources.allowlist();
@@ -665,12 +699,17 @@ class SitePagesTest {
         assertThat(count(flow, flowRegion + steps + "\">\n" + hint)).isEqualTo(1);
         assertThat(count(flow, flowRegion + "Table 2 in Alternatives and failures, scrolls sideways\">\n" + hint))
                 .isEqualTo(1);
-        // Scoped to the model pages and the register of demonstrations: every other table keeps its plain region.
+        // Scoped to the model pages, the register of demonstrations and the tables that hold a reference label (ADR
+        // 0023), which keep 40rem: every other table keeps its plain region.
+        Pattern labelled = Pattern.compile(Pattern.quote("<div class=\"table-scroll table-wide-references\" "
+                + "role=\"region\" tabindex=\"0\" aria-label=\"") + "[^\"]*\">\n" + Pattern.quote(hint));
         for (String page : site.pages()) {
             if (!page.startsWith("model/") && !page.equals("demos/index.html")) {
-                assertThat(site.text(page)).as(page).doesNotContain("table-wide", "table-hint");
+                assertThat(labelled.matcher(site.text(page)).replaceAll("")).as(page)
+                        .doesNotContain("table-wide", "table-hint");
             }
         }
+        assertThat(labelled.matcher(site.text("modules/tenants.html")).results().count()).isEqualTo(1);
     }
 
     @Test

@@ -95,6 +95,19 @@ class DocsReviewConditionsTest {
         assertThat(count(renderer, "Parser.builder()")).isEqualTo(1);
     }
 
+    /**
+     * The site's reference labels (ADR 0023, issue 145) are the renderer's own constant markup, put in place of its
+     * own placeholders: every fragment the HTML renderer writes passes through that one step, which fails the build on
+     * a placeholder it does not know, before any template wraps the fragment.
+     */
+    @Test
+    void everyFragmentTheRendererWritesPassesThroughTheLabelPlacement() {
+        String renderer = source("markdown/MarkdownRenderer.java");
+
+        assertThat(count(renderer, "RENDERER.render(")).isEqualTo(1);
+        assertThat(renderer).contains("placeLabels(RENDERER.render(");
+    }
+
     private static List<String> filesContaining(String text) {
         return SOURCES.entrySet().stream().filter(e -> e.getValue().contains(text)).map(Map.Entry::getKey).sorted()
                 .toList();

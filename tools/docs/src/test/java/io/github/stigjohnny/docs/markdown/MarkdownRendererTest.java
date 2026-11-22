@@ -353,4 +353,135 @@ class MarkdownRendererTest {
                 new InlineCode(7, "TableTest"), new InlineCode(15, "two lines"));
     }
 
+    // Reference markers (ADR 0023): the site shows a label, GitHub the marker as written.
+
+    private static final String PLANNED_LABEL =
+            "&nbsp;<span class=\"badge badge-planned reference-label\">planned</span>";
+    private static final String EXAMPLE_LABEL =
+            "&nbsp;<span class=\"badge badge-neutral reference-label\">example</span>";
+
+    private static String labelled(String markdown) {
+        return MarkdownRenderer.render(markdown, "docs/x.md", KEEP_ALL, false, ReferenceMarkers.LABELLED).html();
+    }
+
+    @Test
+    void aPlannedTestIsShownAsItsNameAndAPlannedLabelWithThePunctuationAfterIt() {
+        String html = labelled("Proven by `planned:test:CrossTenantAccessTest`, planned, and "
+                + "(`planned:test:TenantScopeTest`).");
+
+        assertThat(html).isEqualTo("<p>Proven by <code>CrossTenantAccessTest</code>" + PLANNED_LABEL
+                + ", planned, and (<code>TenantScopeTest</code>" + PLANNED_LABEL + ").</p>\n");
+    }
+
+    @Test
+    void anExampleIsShownAsItsEscapedPlaceholderAndAnExampleLabel() {
+        String html = labelled("See `illustrative:test:<Module>ArchitectureTest` and "
+                + "`illustrative:test:<script>alert(1)</script>Test`.");
+
+        assertThat(html).isEqualTo("<p>See <code>&lt;Module&gt;ArchitectureTest</code>" + EXAMPLE_LABEL
+                + " and <code>&lt;script&gt;alert(1)&lt;/script&gt;Test</code>" + EXAMPLE_LABEL + ".</p>\n");
+    }
+
+    @Test
+    void aCapabilityOrControlIdLosesOnlyItsPrefixAndGetsNoLabel() {
+        String html = labelled("`cap:tenants.cross-tenant-denial` and `cap:control.inline-references` are named.");
+
+        assertThat(html).isEqualTo("<p><code>tenants.cross-tenant-denial</code> and "
+                + "<code>control.inline-references</code> are named.</p>\n");
+    }
+
+    @Test
+    void markersStayAsWrittenUnlessTheCallerAsksForLabels() {
+        String markdown = "`planned:test:CrossTenantAccessTest`, `illustrative:test:<Name>Test` and "
+                + "`cap:control.inline-references`.";
+        String expected = "<p><code>planned:test:CrossTenantAccessTest</code>, "
+                + "<code>illustrative:test:&lt;Name&gt;Test</code> and <code>cap:control.inline-references</code>.</p>\n";
+
+        assertThat(MarkdownRenderer.render(markdown, "docs/x.md", KEEP_ALL, false).html()).isEqualTo(expected);
+        assertThat(MarkdownRenderer.render(markdown, "docs/x.md", KEEP_ALL, false, ReferenceMarkers.AS_WRITTEN)
+                .html()).isEqualTo(expected);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"planned:path:docs/x.md", "planned:test:", "planned:test:notATestName",
+            "planned:test:Two WordsTest", "illustrative:test:NoPlaceholderTest", "absent:test:GoneTest", "cap:",
+            "cap:two words", "cap:Tenants.Upper-Case", "planned:Test:CrossTenantAccessTest", "ReferencesTest",
+            "tenants.cross-tenant-denial"})
+    void aSpanTheGrammarDoesNotDefineAsAMarkerStaysAsWritten(String span) {
+        String html = labelled("A `" + span + "` here.");
+
+        assertThat(html).isEqualTo("<p>A <code>" + span.replace("<", "&lt;").replace(">", "&gt;")
+                + "</code> here.</p>\n");
+    }
+
+    @Test
+    void labelsAreShownInHeadingsListsEmphasisLinksAndTablesWithTheAnchorsAndDestinationsOfTheSource() {
+        String markdown = """
+                ## Uses `planned:test:CrossTenantAccessTest`
+
+                - An item `planned:test:TenantScopeTest`.
+                - *Emphasis `planned:test:PrototypeFlagsTest`*
+                - [A link `planned:test:AuditReplayIntegrationTest`](https://example.com/x)
+
+                | ID | Test |
+                |---|---|
+                | T6 | `planned:test:CrossTenantAccessTest` |
+                """;
+
+        RenderedMarkdown rendered = MarkdownRenderer.render(markdown, "docs/x.md", KEEP_ALL, false,
+                ReferenceMarkers.LABELLED);
+
+        assertThat(rendered.headings()).containsExactly(
+                new Section(2, "Uses CrossTenantAccessTest (planned)", "uses-plannedtestcrosstenantaccesstest"));
+        assertThat(rendered.html()).contains(
+                "<h2 id=\"uses-plannedtestcrosstenantaccesstest\">Uses <code>CrossTenantAccessTest</code>"
+                        + PLANNED_LABEL + "</h2>",
+                "<li>An item <code>TenantScopeTest</code>" + PLANNED_LABEL + ".</li>",
+                "<li><em>Emphasis <code>PrototypeFlagsTest</code>" + PLANNED_LABEL + "</em></li>",
+                "<li><a rel=\"nofollow\" href=\"https://example.com/x\">A link <code>AuditReplayIntegrationTest</code>"
+                        + PLANNED_LABEL + "</a></li>",
+                "<td><code>CrossTenantAccessTest</code>" + PLANNED_LABEL + "</td>")
+                .doesNotContain("planned:test:", "\u0000");
+        // The region's name is words, never markup; a table that holds a label keeps a readable width and scrolls.
+        assertThat(rendered.html()).contains("<div class=\"table-scroll table-wide-references\" role=\"region\" "
+                + "tabindex=\"0\" aria-label=\"Table 1 in Uses CrossTenantAccessTest (planned), scrolls sideways\">\n"
+                + "<p class=\"table-hint\">Scroll horizontally for all columns.</p>\n<table>");
+    }
+
+    @Test
+    void aTableWithoutALabelKeepsItsPlainRegion() {
+        assertThat(labelled("| ID | Test |\n|---|---|\n| T1 | `ReferencesTest` |\n")).startsWith(
+                "<div class=\"table-scroll\" role=\"region\" tabindex=\"0\" aria-label=\"Table 1, scrolls sideways\">\n"
+                        + "<table>");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"x \u0000planned\u0000 y", "x &#0;planned&#0; y", "x &#x0;example&#X0; y",
+            "`\u0000planned\u0000`", "[a](https://example.com/ \"\u0000planned\u0000\")",
+            "[a](https://example.com/&#0;planned&#0;)", "```\n\u0000planned\u0000\n```",
+            "| a |\n|---|\n| \u0000example\u0000 |", "# \u0000planned\u0000", "<span>\u0000planned\u0000</span>"})
+    void aNulOrAPlaceholderInTheSourceNeverBecomesALabel(String markdown) {
+        String html = labelled(markdown);
+
+        assertThat(html).doesNotContain("\u0000", "reference-label", "<span").contains("�");
+    }
+
+    @Test
+    void aLeftoverPlaceholderFailsTheBuild() {
+        assertThatThrownBy(() -> MarkdownRenderer.placeLabels("<p>x\u0000stray\u0000</p>", "docs/x.md"))
+                .isInstanceOf(DocsException.class).hasMessageContaining("docs/x.md");
+        assertThatThrownBy(() -> MarkdownRenderer.placeLabels("<p>x\u0000</p>", "docs/x.md"))
+                .isInstanceOf(DocsException.class).hasMessageContaining("docs/x.md");
+    }
+
+    @Test
+    void aDeckIsARecordAndKeepsItsMarkersAsWritten() {
+        RenderedDeck deck = MarkdownRenderer.renderDeck(DECK.replace("- A point",
+                "- A point for `planned:test:CrossTenantAccessTest` and `cap:control.inline-references`"),
+                "docs/demos/deck-x.md", KEEP_ALL, "Notes");
+
+        assertThat(deck.slides().getFirst().html()).contains("<code>planned:test:CrossTenantAccessTest</code>",
+                "<code>cap:control.inline-references</code>").doesNotContain("reference-label");
+    }
+
 }

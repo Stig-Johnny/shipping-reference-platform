@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.commonmark.Extension;
 import org.commonmark.ext.gfm.tables.TableBlock;
 import org.commonmark.ext.gfm.tables.TablesExtension;
@@ -57,6 +59,10 @@ import org.jspecify.annotations.Nullable;
  *       as source, because only the generator's validated diagrams are ever rendered.
  *   <li>CommonMark 0.29.0 has no nesting limits, so the tree is measured before rendering and anything deeper than
  *       {@link #MAX_DEPTH} fails; any exception or error, {@link StackOverflowError} included, fails the build.
+ *   <li>Reference markers (ADR 0023) become labels when the caller asks, for current prose: on the parsed tree a
+ *       marker's code keeps its name, and a placeholder that the parser never leaves in a document, a NUL, follows
+ *       it; each fragment the renderer writes then gets the class's own constant label in place of each placeholder,
+ *       before any template wraps it, and a NUL that is left fails the build. No document text enters a label.
  *   <li>{@link #outline} reads the same parsed tree as data, for checks of a document's structure such as a
  *       demonstration's sections; it renders nothing.
  *   <li>A deck is the same Markdown grouped by slide on the parsed tree, never by splitting its text: each level-2
@@ -90,6 +96,43 @@ public final class MarkdownRenderer {
     private static final SiteUrlSanitizer SANITIZER = new SiteUrlSanitizer();
     private static final String RESERVED_PREFIX = "site-";
 
+    /** The hint at the start of a wide table's region; the stylesheet hides it once the table fits. */
+    public static final String TABLE_HINT = "<p class=\"table-hint\">Scroll horizontally for all columns.</p>\n";
+
+    /** A label's placeholder starts and ends with it; the parser never leaves one in a document. */
+    private static final char NUL = '\0';
+    private static final Pattern PLANNED_TEST = Pattern.compile("planned:test:("
+            + ReferenceMarkers.TEST_NAME.pattern() + ")");
+    private static final Pattern EXAMPLE_TEST = Pattern.compile("illustrative:test:("
+            + ReferenceMarkers.PLACEHOLDER.pattern() + ")", Pattern.DOTALL);
+    /** A capability or control id: lower-case words joined by hyphens, in two or more parts joined by dots. */
+    private static final Pattern CAPABILITY = Pattern.compile(
+            "cap:([a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)+)");
+
+    /**
+     * A label after a reference's name: the renderer's own constant markup, which no document text enters. A no-break
+     * space holds it to the name, and it is an inline box, which that space holds where an inline-block would not; the
+     * stylesheet's {@code reference-label} makes it so.
+     */
+    private enum Label {
+        PLANNED("planned", "badge-planned"),
+        EXAMPLE("example", "badge-neutral");
+
+        private final String word;
+        private final String placeholder;
+        private final String html;
+
+        Label(String word, String badge) {
+            this.word = word;
+            this.placeholder = "\0" + word + "\0";
+            this.html = "&nbsp;<span class=\"badge " + badge + " reference-label\">" + word + "</span>";
+        }
+    }
+
+    /** A reference marker read from inline code: the name the site shows, and the label after it, if any. */
+    private record Marker(String name, @Nullable Label label) {
+    }
+
     /** A deck's parsed top-level blocks: what stands before its first slide, and its slides. */
     private record DeckNodes(List<Node> front, List<SlideNodes> slides) {
     }
@@ -111,11 +154,21 @@ public final class MarkdownRenderer {
     private MarkdownRenderer() {
     }
 
-    /** Renders a document; {@code dropTitle} leaves out its first level-1 heading, which the page template shows. */
+    /** Renders a document with its reference markers as written; see the overload that takes {@link ReferenceMarkers}. */
     public static RenderedMarkdown render(String markdown, String source, LinkResolver links, boolean dropTitle) {
+        return render(markdown, source, links, dropTitle, ReferenceMarkers.AS_WRITTEN);
+    }
+
+    /**
+     * Renders a document; {@code dropTitle} leaves out its first level-1 heading, which the page template shows, and
+     * {@code markers} says whether its reference markers are shown as labels (ADR 0023). Headings keep the anchors that
+     * GitHub gives their source text; a section's title and a table region's name give a label in words.
+     */
+    public static RenderedMarkdown render(String markdown, String source, LinkResolver links, boolean dropTitle,
+            ReferenceMarkers markers) {
         try {
             Node document = parse(markdown, source);
-            Map<Node, Section> headings = headings(children(document));
+            Map<Node, Section> headings = headings(children(document), markers);
             Node title = dropTitle ? title(children(document)) : null;
             if (title != null) {
                 title.unlink();
@@ -124,6 +177,9 @@ public final class MarkdownRenderer {
             Set<String> anchors = Set.copyOf(headings.values().stream()
                     .map(Section::id).toList());
             rewriteLinks(document, source, links, anchors);
+            if (markers == ReferenceMarkers.LABELLED) {
+                label(document);
+            }
             StringBuilder html = new StringBuilder();
             List<Section> shown = new ArrayList<>();
             String section = "";
@@ -201,7 +257,7 @@ public final class MarkdownRenderer {
                 String title = text(slide.heading()).strip();
                 StringBuilder titleHtml = new StringBuilder();
                 for (Node child : children(slide.heading())) {
-                    titleHtml.append(RENDERER.render(child));
+                    titleHtml.append(rendered(child, source));
                 }
                 slides.add(new RenderedSlide(ids.get(i), title, titleHtml.toString(),
                         html(slide.content(), headings, title, slideTables, source), slide.notesHeading() != null,
@@ -278,21 +334,123 @@ public final class MarkdownRenderer {
                 Section entry = id(heading, headings, source);
                 html.append("<h").append(entry.level()).append(" id=\"").append(Html.escape(entry.id())).append("\">");
                 for (Node child : children(heading)) {
-                    html.append(RENDERER.render(child));
+                    html.append(rendered(child, source));
                 }
                 html.append("</h").append(entry.level()).append(">\n");
             }
-            case TableBlock table -> html.append("<div class=\"table-scroll\" role=\"region\" tabindex=\"0\" "
-                    + "aria-label=\"").append(Html.escape(tableLabel)).append("\">\n").append(RENDERER.render(table))
-                    .append("</div>\n");
+            case TableBlock table -> {
+                // A label never breaks from its name, so a table that holds one keeps a readable width and scrolls.
+                boolean labelled = holdsLabel(table);
+                html.append("<div class=\"").append(labelled ? "table-scroll table-wide-references" : "table-scroll")
+                        .append("\" role=\"region\" tabindex=\"0\" aria-label=\"").append(Html.escape(tableLabel))
+                        .append("\">\n").append(labelled ? TABLE_HINT : "").append(rendered(table, source))
+                        .append("</div>\n");
+            }
             case FencedCodeBlock code when "mermaid".equals(code.getInfo().strip()) -> html
                     .append("<details class=\"diagram-source-block\">\n<summary>").append(sourceLabel(code))
                     .append(" \u2014 not rendered</summary>\n<p class=\"diagram-note\">GitHub draws this "
                             + "diagram from its source; the text on this page says the same.</p>\n")
-                    .append(RENDERER.render(code)).append("</details>\n");
-            default -> html.append(RENDERER.render(block));
+                    .append(rendered(code, source)).append("</details>\n");
+            default -> html.append(rendered(block, source));
         }
         return html.toString();
+    }
+
+    /** A node as the HTML renderer writes it, with the labels in place; every fragment of this class passes here. */
+    private static String rendered(Node node, String source) {
+        return placeLabels(RENDERER.render(node), source);
+    }
+
+    /**
+     * Shows each reference marker of a document as the site does (ADR 0023): the code keeps the name alone, and a
+     * label's placeholder follows it, which {@link #placeLabels} turns into the label once the renderer has escaped
+     * everything else. Inline code that is no marker of the grammar keeps its text.
+     */
+    private static void label(Node document) {
+        List<Code> spans = new ArrayList<>();
+        Deque<Node> pending = new ArrayDeque<>();
+        pending.push(document);
+        while (!pending.isEmpty()) {
+            Node node = pending.pop();
+            if (node instanceof Code code) {
+                spans.add(code);
+            }
+            for (Node child = node.getFirstChild(); child != null; child = child.getNext()) {
+                pending.push(child);
+            }
+        }
+        for (Code code : spans) {
+            Marker marker = marker(code.getLiteral());
+            if (marker != null) {
+                code.setLiteral(marker.name());
+                Label label = marker.label();
+                if (label != null) {
+                    code.insertAfter(new Text(label.placeholder));
+                }
+            }
+        }
+    }
+
+    /** Whether a block holds a label's placeholder; only {@link #label} writes one. */
+    private static boolean holdsLabel(Node block) {
+        Deque<Node> pending = new ArrayDeque<>();
+        pending.push(block);
+        while (!pending.isEmpty()) {
+            Node node = pending.pop();
+            if (node instanceof Text text && text.getLiteral().indexOf(NUL) >= 0) {
+                return true;
+            }
+            for (Node child = node.getFirstChild(); child != null; child = child.getNext()) {
+                pending.push(child);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Puts each label's constant markup where its placeholder stands in HTML that the renderer wrote. Only
+     * {@link #label} writes a NUL: CommonMark replaces every NUL of the source, character references included, with
+     * U+FFFD. A NUL that is left is therefore no label of this class, and the build fails.
+     */
+    static String placeLabels(String html, String source) {
+        if (html.indexOf(NUL) < 0) {
+            return html;
+        }
+        String placed = html;
+        for (Label label : Label.values()) {
+            placed = placed.replace(label.placeholder, label.html);
+        }
+        if (placed.indexOf(NUL) >= 0) {
+            throw new DocsException(source + ": the rendered HTML holds a placeholder that is no label");
+        }
+        return placed;
+    }
+
+    /** A reference marker of inline code, or null when the code is none: the name the site shows, and its label. */
+    private static @Nullable Marker marker(String literal) {
+        Matcher planned = PLANNED_TEST.matcher(literal);
+        if (planned.matches()) {
+            return new Marker(planned.group(1), Label.PLANNED);
+        }
+        Matcher example = EXAMPLE_TEST.matcher(literal);
+        if (example.matches()) {
+            return new Marker(example.group(1), Label.EXAMPLE);
+        }
+        Matcher capability = CAPABILITY.matcher(literal);
+        if (capability.matches()) {
+            return new Marker(capability.group(1), null);
+        }
+        return null;
+    }
+
+    /** Inline code in plain words, for a section's title or a region's name: a marker as its name and its label. */
+    private static String words(String literal) {
+        Marker marker = marker(literal);
+        if (marker == null) {
+            return literal;
+        }
+        Label label = marker.label();
+        return label == null ? marker.name() : marker.name() + " (" + label.word + ")";
     }
 
     private static Section id(Heading heading, Map<Node, Section> headings, String source) {
@@ -464,6 +622,14 @@ public final class MarkdownRenderer {
 
     /** Top-level headings in order, with GitHub's IDs: unique, lower case, punctuation dropped, spaces as hyphens. */
     private static Map<Node, Section> headings(List<Node> blocks) {
+        return headings(blocks, ReferenceMarkers.AS_WRITTEN);
+    }
+
+    /**
+     * Top-level headings in order, with GitHub's IDs from their source text; with labels, the text a section's title
+     * shows gives each marker as its name and its label in words.
+     */
+    private static Map<Node, Section> headings(List<Node> blocks, ReferenceMarkers markers) {
         Map<Node, Section> out = new LinkedHashMap<>();
         Map<String, Integer> seen = new HashMap<>();
         for (Node block : blocks) {
@@ -472,7 +638,8 @@ public final class MarkdownRenderer {
                 String slug = slug(text);
                 int count = seen.merge(slug, 1, Integer::sum);
                 String id = count == 1 ? slug : slug + "-" + (count - 1);
-                out.put(heading, new Section(heading.getLevel(), text, id));
+                String shown = markers == ReferenceMarkers.LABELLED ? text(heading, true).strip() : text;
+                out.put(heading, new Section(heading.getLevel(), shown, id));
             }
         }
         return out;
@@ -570,6 +737,11 @@ public final class MarkdownRenderer {
 
     /** The plain text of a node: text and code literals, with line breaks as spaces. */
     private static String text(Node node) {
+        return text(node, false);
+    }
+
+    /** The plain text of a node; with {@code labelled}, a reference marker in code reads as its name and label. */
+    private static String text(Node node, boolean labelled) {
         StringBuilder out = new StringBuilder();
         Deque<Node> pending = new ArrayDeque<>();
         pending.push(node);
@@ -577,7 +749,7 @@ public final class MarkdownRenderer {
             Node current = pending.pop();
             switch (current) {
                 case Text text -> out.append(text.getLiteral());
-                case Code code -> out.append(code.getLiteral());
+                case Code code -> out.append(labelled ? words(code.getLiteral()) : code.getLiteral());
                 case SoftLineBreak ignored -> out.append(' ');
                 case HardLineBreak ignored -> out.append(' ');
                 default -> {

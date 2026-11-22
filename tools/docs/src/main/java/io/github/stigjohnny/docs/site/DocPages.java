@@ -53,7 +53,8 @@ final class DocPages {
     static SitePage of(SiteContext context, DocFile doc, SiteSection section, String navLabel, StatusPanel status,
             LinkResolver links) {
         String page = context.map().site(doc.path()).orElseThrow(() -> SiteContext.missing("a page for " + doc.path()));
-        RenderedMarkdown rendered = MarkdownRenderer.render(doc.body(), doc.path(), links, true);
+        RenderedMarkdown rendered = MarkdownRenderer.render(doc.body(), doc.path(), links, true,
+                context.markers(doc.path()));
         return new SitePage(page, doc.title(), navLabel, section, doc.description(), status,
                 contents(rendered.headings()), rendered.html(), context.mentioned(doc.body(), page), doc.path(), false);
     }

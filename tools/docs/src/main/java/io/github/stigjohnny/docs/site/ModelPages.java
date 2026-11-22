@@ -95,12 +95,15 @@ final class ModelPages {
                 doc.contents(), widenThreeColumnTables(doc.body()), related, doc.source(), doc.diagrams());
     }
 
-    private static final Pattern TABLE_REGION = Pattern.compile(
-            "<div class=\"table-scroll\"( role=\"region\" tabindex=\"0\" aria-label=\"[^\"]*\">\n)(<table>.*?</table>)",
-            Pattern.DOTALL);
+    private static final Pattern TABLE_REGION = Pattern.compile("<div class=\"table-scroll(?: table-wide-references)?\""
+            + "( role=\"region\" tabindex=\"0\" aria-label=\"[^\"]*\">\n)(?:" + Pattern.quote(HtmlTable.HINT)
+            + ")?(<table>.*?</table>)", Pattern.DOTALL);
     private static final Pattern HEAD = Pattern.compile("<thead>(.*?)</thead>", Pattern.DOTALL);
 
-    /** A flow's three-column tables, as the Markdown renderer wrote them, get the flow's minimum width and the hint. */
+    /**
+     * A flow's three-column tables, as the Markdown renderer wrote them, get the flow's minimum width and the hint; a
+     * table that holds a reference label comes with the hint and a smaller minimum width, which the flow's replaces.
+     */
     static String widenThreeColumnTables(String html) {
         Matcher region = TABLE_REGION.matcher(html);
         StringBuilder out = new StringBuilder();

@@ -2,10 +2,12 @@ package io.github.stigjohnny.docs.site;
 
 import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.Html;
+import io.github.stigjohnny.docs.check.CurrentProse;
 import io.github.stigjohnny.docs.generate.ModuleFacts;
 import io.github.stigjohnny.docs.markdown.LinkDecision;
 import io.github.stigjohnny.docs.markdown.LinkResolver;
 import io.github.stigjohnny.docs.markdown.MarkdownRenderer;
+import io.github.stigjohnny.docs.markdown.ReferenceMarkers;
 import io.github.stigjohnny.docs.markdown.RenderedMarkdown;
 import io.github.stigjohnny.docs.mermaid.MermaidDiagram;
 import io.github.stigjohnny.docs.repo.Capability;
@@ -62,9 +64,20 @@ final class SiteContext {
         return modules;
     }
 
-    /** Renders Markdown from a repository file onto a page, with the site's link policy. */
+    /**
+     * Renders Markdown from a repository file onto a page, with the site's link policy and, for current prose, its
+     * reference markers as labels.
+     */
     RenderedMarkdown render(String markdown, String sourcePath, String page, boolean dropTitle) {
-        return MarkdownRenderer.render(markdown, sourcePath, links(sourcePath, page), dropTitle);
+        return MarkdownRenderer.render(markdown, sourcePath, links(sourcePath, page), dropTitle, markers(sourcePath));
+    }
+
+    /**
+     * Labels for the reference markers of current prose, which the reference check reads, so that every label is one
+     * it has proved; any other source, such as a record, a generated file or a YAML description, as written (ADR 0023).
+     */
+    ReferenceMarkers markers(String sourcePath) {
+        return CurrentProse.of(sources, sourcePath) ? ReferenceMarkers.LABELLED : ReferenceMarkers.AS_WRITTEN;
     }
 
     /** Renders a short Markdown fragment (a title, a condition, a summary) for use inside a table cell or a list. */

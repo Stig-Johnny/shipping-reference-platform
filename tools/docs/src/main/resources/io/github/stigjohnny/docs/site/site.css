@@ -620,6 +620,17 @@ thead th,
   color: var(--ink-muted);
 }
 
+/* A reference in the prose (ADR 0023): a planned test or an example is its name, a no-break space and this label. As
+   an inline box, not an inline-block, the label is held to the name by that space, so it never starts a line and the
+   punctuation after it stays with it; its word never breaks, so a table column keeps room for the name and the label,
+   while a name too long for the line still breaks instead of widening the page. */
+.badge.reference-label {
+  display: inline;
+  margin-right: 0;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
 /* Cards are register entries: a strong top rule, no box, square. */
 .card-grid {
   display: grid;
@@ -696,6 +707,16 @@ table {
   min-width: 48rem;
 }
 
+/* A Markdown table that holds a reference label: the label stays with its name, so on a narrow screen the table keeps
+   40rem and scrolls inside its region instead of squeezing its prose columns. */
+.table-wide-references {
+  container-type: inline-size;
+}
+
+.table-wide-references table {
+  min-width: 40rem;
+}
+
 .table-hint {
   margin: 0;
   padding: 12px 0 0;
@@ -711,6 +732,12 @@ table {
 
 @container (min-width: 48rem) {
   .table-wide-flow .table-hint {
+    display: none;
+  }
+}
+
+@container (min-width: 40rem) {
+  .table-wide-references .table-hint {
     display: none;
   }
 }
