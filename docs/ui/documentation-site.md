@@ -34,7 +34,8 @@ lines, decorative warnings, shadows, gradients, animation and illustrations.
 - **A reference in the prose** (ADR 0023) shows its state in words where the documentation check reads the prose: a
   planned test is its name, a no-break space and the dashed planned box; a schematic example takes a neutral example
   box; a capability or control id loses its cap: prefix and takes no box. The box is an inline box held to the name, so
-  it never starts a line and the punctuation after it stays with it. Records, generated files, superseded ADRs, decks
+  it starts no line and keeps the punctuation after it, unless a line is too narrow for the name and the box together;
+  then the line breaks rather than widen the page. Records, generated files, superseded ADRs, decks
   and code blocks show the markers as written. A Markdown table that holds such a box keeps 40rem on a narrow screen
   and scrolls inside its region with the hint, as the model tables do.
 

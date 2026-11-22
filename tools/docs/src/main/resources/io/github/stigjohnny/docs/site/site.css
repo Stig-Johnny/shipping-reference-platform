@@ -621,9 +621,9 @@ thead th,
 }
 
 /* A reference in the prose (ADR 0023): a planned test or an example is its name, a no-break space and this label. As
-   an inline box, not an inline-block, the label is held to the name by that space, so it never starts a line and the
-   punctuation after it stays with it; its word never breaks, so a table column keeps room for the name and the label,
-   while a name too long for the line still breaks instead of widening the page. */
+   an inline box, not an inline-block, the label is held to the name by that space, so it starts no line and keeps the
+   punctuation after it unless a line is too narrow for both; its word never breaks, so a table column keeps room for
+   the name and the label, while a pair too long for the line still breaks instead of widening the page. */
 .badge.reference-label {
   display: inline;
   margin-right: 0;

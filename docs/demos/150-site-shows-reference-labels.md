@@ -17,8 +17,9 @@ the reference check reads, the site shows a planned test as its name followed by
 site's mark for planned, and a capability or control id without its prefix. GitHub still shows the markers, so the
 source stays explicit for agents and for the check.
 
-The label stays with its name: it never starts a line, and the punctuation after it stays on its line. A table that
-holds a label keeps a readable width on a phone and scrolls sideways, with a hint. Records, such as the earlier
+The label stays with its name and keeps the punctuation after it, unless a line is too narrow for the two together, as
+for the longest names on a 320-pixel screen; then the line breaks rather than widen the page. A table that holds a
+label keeps a readable width on a phone and scrolls sideways, with a hint. Records, such as the earlier
 demonstrations, and code blocks keep the markers as written, because nothing checks them.
 
 ## See it
@@ -76,6 +77,7 @@ label step. Review reference: pull request #150.
 - A label shows what the marker says and what the check proved, that a planned test is registered and does not exist
   yet; it does not show whether the sentence describes the test rightly.
 - A capability or control id carries no label; its status is on the Brain page, not beside the id.
-- Inspected in headless Chrome only, at 1280 and 390 pixels. At 320 pixels a long test name can break from its label
-  rather than widen the page. No screen reader was used; the label is the word planned in the page's text.
+- Inspected in headless Chrome only, at 1280 and 390 pixels. On a screen narrower than about 354 pixels, a line too
+  narrow for one of the longest test names and its label breaks inside the name or before the label, rather than widen
+  the page. No screen reader was used; the label is the word planned in the page's text.
 - Paths come with issue 146.
