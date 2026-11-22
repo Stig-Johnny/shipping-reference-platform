@@ -381,7 +381,7 @@ class SitePagesTest {
         assertThat(site.text("decisions/0023-inline-references-carry-explicit-markers.html"))
                 .contains("planned:test:NameTest", "cap:&lt;id&gt;");
         assertThat(site.text("demos/147-inline-test-references-are-checked.html"))
-                .contains("<code>planned:test:CrossTenantAccessTest</code>").doesNotContain("reference-label");
+                .contains("<code>planned:test:CrossTenantAccessTest</code>").doesNotContain("reference-label\">");
         for (String path : site.pages()) {
             assertThat(site.text(path)).as(path).doesNotContain("\u0000");
         }

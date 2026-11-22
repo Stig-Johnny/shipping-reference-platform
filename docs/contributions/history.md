@@ -2,7 +2,7 @@
 title: "Contribution history"
 description: "Per-issue implementation, integration, review and human approval records, with exact settings where evidenced and unknowns where receipts are missing."
 status: accepted
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Contribution history
@@ -974,3 +974,18 @@ Claude Code, the orchestrator (`claude-opus-5-5`, effort unknown), wrote the tes
 reference check, the marker on the 38 mentions of capabilities and controls in current documents, ADR 0023's grammar
 line, the rule in `AGENTS.md`, demo 148, this entry and the record. The design came from Codex's earlier design check
 for issue 136, step 4. The reviews of the final head and the merge decision are comments on PR #148.
+
+## Issue 145
+
+The documentation site now shows the reference markers of ADR 0023 as labels in current prose: a planned test as its
+name and a dashed planned box, a capability or control id without its prefix. GitHub keeps the markers as written.
+
+[Issue 145](https://github.com/Stig-Johnny/shipping-reference-platform/issues/145) ·
+[PR #150](https://github.com/Stig-Johnny/shipping-reference-platform/pull/150).
+Base: `8d18a058fa93d9486d399227c474f0aeafa60f87`. Record: `issue-145-pull-request` in [model runs](runs.md).
+
+Claude Code, the orchestrator (`claude-opus-5-5`, effort unknown), rendered three label designs on the real pages,
+wrote the tests first and then the labels in the Markdown renderer, the shared rule for current prose, the
+stylesheet, ADR 0023's enforcement, the site design, the README row, `docs/gaps.md`, demo 150, this entry and the
+record. Codex (`gpt-6-astra`, effort `xhigh`) chose the design before the build and set its conditions. The reviews
+of the final head and the merge decision are comments on PR #150.
