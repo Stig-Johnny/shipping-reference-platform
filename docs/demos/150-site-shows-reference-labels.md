@@ -49,9 +49,9 @@ grammar's code block in [ADR 0023](../adr/0023-inline-references-carry-explicit-
 
 Before the build, three designs were rendered on the same pages, and Codex (gpt-6-astra, effort xhigh) chose the
 dashed box for planned tests and plain ids for capabilities, and set the conditions that the tests now pin. A
-line-breaking probe in Chrome chose a label held to its name by a no-break space: from 150 to 1000 pixels, a table
-never broke the label or parted it from its name, and prose never overflowed the page; only a line narrower than 322
-pixels breaks the longest pairs.
+line-breaking probe in Chrome chose a label held to its name by a no-break space: in a table from 500 to 1000 pixels
+wide, the label never broke or parted from its name, and in prose lines from 150 to 700 pixels nothing overflowed the
+page; only a line narrower than 322 pixels breaks the longest pairs.
 
 The focused tests failed against stubs before the implementation (exit 1). This excerpt omits the assertion traces:
 
