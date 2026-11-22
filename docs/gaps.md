@@ -2,7 +2,7 @@
 title: "Known gaps and limits"
 description: "What v0.1 does not do, what each control cannot prove, and which decisions are still unverified. Read this before trusting a green build."
 status: accepted
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Known gaps and limits
@@ -508,9 +508,10 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
 - **Inline references are checked for test classes and capability ids.** A test class named in inline code must
   exist, or carry the planned marker and be registered as planned; a capability or control carries the cap: marker
   and must be in the register (ADR 0023). An unregistered bare token without a hyphen, such as a table name, is not
-  taken for an id, so a renamed id without a hyphen written bare is not caught. Paths and the site's labels follow (issues 145 and
-  146). The check proves names and markers, not claims, and it does not read code blocks, records or superseded ADRs,
-  which keep the names they had when they were written.
+  taken for an id, so a renamed id without a hyphen written bare is not caught. Paths follow (issue 146). The site shows
+  a planned test or an example with a label, and a capability or control id without its prefix, only where the check
+  reads the prose. The check proves names and markers, not claims, and it does not read code blocks, records or
+  superseded ADRs, which keep the names and markers they had when they were written, on the site as well.
 - **The agent entry point is checked as files, not as behaviour.** Only Claude Code reads `CLAUDE.md`. The docs
   check proves that every `AGENTS.md` has a `CLAUDE.md` beside it that only imports it (ADR 0022), not what a session
   loads or follows; `CLAUDE.local.md`, `.claude/rules/` and user, managed or ancestor instructions are outside it. The

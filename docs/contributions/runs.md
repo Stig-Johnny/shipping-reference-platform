@@ -2,7 +2,7 @@
 title: "Model runs and cost evidence"
 description: "Recorded models, usage, cost bases and outcomes, with unsuccessful work and explicit limits on attribution and coverage."
 status: accepted
-updated: 2026-11-21
+updated: 2026-11-22
 schemaVersion: 1
 coverage: "Partial record set: 14 historical DeepSeek rounds for issues 69, 37 and 101, four supported historical Codex phases, seven current issue 111 phases, one separate root-window API comparison snapshot, 26 issue 114 rows covering planning, implementation, integration, reviews, corrections and validation, and five issue 117 rows covering diagnosis, implementation, a settings correction, independent review and review fixes. From PR #122 on, each pull request has one record, plus correction records for merged records it corrects (ADR 0021). Work and backfill dates differ. API-equivalent estimates do not establish actual billed cost; missing phases, subscription allocation, child-agent inclusion and complete delivery cost remain unknown."
 records:
@@ -1941,6 +1941,35 @@ records:
       input: "unknown"
       output: "unknown"
       scope: "The orchestrator's work on PR 148."
+      receipt: "unknown: no usage measurement available for this pull request"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-145-pull-request"
+    issue: 145
+    date: "2026-11-22"
+    role: "implementation"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "unknown"
+    base: "8d18a058fa93d9486d399227c474f0aeafa60f87"
+    outcome: "completed"
+    scope: "Issue 145, PR 150: the documentation site shows the reference markers of ADR 0023 as labels in current prose, the documents the reference check reads: a planned test as its name, a no-break space and the dashed planned box, an example with an example box, a capability or control id without its cap: prefix. Records, generated files, superseded ADRs, decks and code blocks keep the markers as written. The check and the site share one rule for current prose (CurrentProse) and one grammar (ReferenceMarkers). A Markdown table that holds a label keeps 40rem on narrow screens and scrolls. Also: ADR 0023, the site design, the README controls row, docs/gaps.md, demo 150, this record and the history entry."
+    environment: "PR 150 issue branch; macOS and reviewed Temurin 25.0.5+8; Java in tools/docs with its tests, the stylesheet, and documentation; headless Chrome for the renders."
+    result: "Design first: three variants rendered on the real pages at 1280 and 390 pixels and in both themes; Codex chose the dashed planned box for planned tests and bare ids, and judged the placeholder build acceptable under the CommonMark review's conditions. Red first: against stubs, 8 of the 108 selected tests failed, exactly the label cases. A first green run failed twice: links carry rel=nofollow, and the flow page's table widening did not take a labelled region; both were fixed. Chrome measurements chose a no-break space before an inline label: an inline-block label split from its name at 108 of 501 widths. The first render of the built site showed a label breaking inside its word in a narrow table column; the label no longer wraps. PolicyCheck, ./gradlew :tools:docs:generate and ./gradlew check exited 0. The reviews of the final head and the merge decision are comments on PR 150."
+    limitations: "The labels show what a marker says and what the check proved, not whether a sentence is right. A name too long for a line at 320 pixels breaks inside rather than widening the page. Paths are issue 146. Usage and cost are unknown."
+    evidence: "Issue 145, Codex's design review, demo 150, the red and green test runs; this pull request's diff and review comments. The orchestrator's reasoning effort has no receipt, so it is recorded as unknown."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "The orchestrator's work on PR 150."
       receipt: "unknown: no usage measurement available for this pull request"
     cost:
       basis: "unknown"

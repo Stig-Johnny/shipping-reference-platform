@@ -3,6 +3,7 @@ package io.github.stigjohnny.docs.check;
 import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.markdown.InlineCode;
 import io.github.stigjohnny.docs.markdown.MarkdownRenderer;
+import io.github.stigjohnny.docs.markdown.ReferenceMarkers;
 import io.github.stigjohnny.docs.repo.Capability;
 import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.Sources;
@@ -37,20 +38,17 @@ import java.util.regex.Pattern;
  *       grammar does not define yet, and fails.
  * </ul>
  *
- * <p>Not read: code blocks, generated files, records (contribution history and runs, demonstrations other than the
- * how-to, security reviews and verifications), superseded ADRs, and the directories the instruction check skips. The
+ * <p>Not read: code blocks, and Markdown that is no current prose ({@link CurrentProse}): generated files, records
+ * (contribution history and runs, demonstrations other than the how-to, security reviews and verifications) and
+ * superseded ADRs; nor the directories the instruction check skips. The site shows labels where this check reads. The
  * check proves names and markers, not claims: whether a sentence says that a test passes is outside it.
  */
 final class References {
 
-    static final Pattern TEST = Pattern.compile("[A-Z][A-Za-z0-9]*Test");
+    static final Pattern TEST = ReferenceMarkers.TEST_NAME;
     private static final Pattern TEST_IN_TEXT = Pattern.compile("\\b[A-Z][A-Za-z0-9]*Test\\b");
     private static final Pattern MARKER = Pattern.compile("(planned|illustrative|absent):(.*)", Pattern.DOTALL);
-    private static final Pattern PLACEHOLDER = Pattern.compile(".*<[^<>]+>.*", Pattern.DOTALL);
-    private static final List<String> NOT_READ = List.of("BRAIN.md", "docs/brain/", "docs/architecture/",
-            "docs/contributions/", "security/reviews/", "security/verifications/");
-    private static final String DEMOS = "docs/demos/";
-    private static final String HOW_TO = "docs/demos/how-to.md";
+    private static final Pattern PLACEHOLDER = ReferenceMarkers.PLACEHOLDER;
     private static final String UNDEFINED = "uses a marker that ADR 0023 does not define yet; the markers are "
             + "planned:test:NameTest, illustrative:test:<placeholder> and cap:<id> (ADR 0023)";
     private static final String CAP = "cap:";
@@ -65,7 +63,6 @@ final class References {
         List<String> markdown = new ArrayList<>();
         walk(repo, tests, markdown);
         Set<String> planned = new TreeSet<>();
-        Set<String> superseded = new TreeSet<>();
         Set<String> ids = new TreeSet<>();
         for (Capability entry : sources.capabilities().all()) {
             ids.add(entry.id());
@@ -75,9 +72,6 @@ final class References {
         }
         Pattern idShape = idShape(ids);
         for (DocFile adr : sources.docsUnder("docs/adr/")) {
-            if ("superseded".equals(adr.status())) {
-                superseded.add(adr.path());
-            }
             if (adr.frontmatter().has("plannedEnforcement")) {
                 for (String entry : adr.frontmatter().strings("plannedEnforcement")) {
                     Matcher test = TEST_IN_TEXT.matcher(entry);
@@ -88,7 +82,7 @@ final class References {
             }
         }
         for (String path : markdown) {
-            if (!read(path) || superseded.contains(path)) {
+            if (!CurrentProse.of(sources, path)) {
                 continue;
             }
             String text = text(repo, path).replace("\r\n", "\n");
@@ -177,14 +171,6 @@ final class References {
             }
             default -> problems.add(quoted + UNDEFINED);
         }
-    }
-
-    /** Whether a Markdown file is current prose that the check reads, rather than generated or a record. */
-    private static boolean read(String path) {
-        if (path.startsWith(DEMOS)) {
-            return path.equals(HOW_TO);
-        }
-        return NOT_READ.stream().noneMatch(entry -> entry.endsWith("/") ? path.startsWith(entry) : path.equals(entry));
     }
 
     /** Where the body starts: after YAML frontmatter between two '---' lines, or at the start. */

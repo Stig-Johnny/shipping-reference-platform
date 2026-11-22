@@ -1,6 +1,7 @@
 package io.github.stigjohnny.docs.site;
 
 import io.github.stigjohnny.docs.Html;
+import io.github.stigjohnny.docs.markdown.MarkdownRenderer;
 import java.util.ArrayList;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -39,7 +40,7 @@ final class HtmlTable {
     }
 
     /** The visible hint at the start of a wide table's region; the stylesheet hides it once the table fits. */
-    static final String HINT = "<p class=\"table-hint\">Scroll horizontally for all columns.</p>\n";
+    static final String HINT = MarkdownRenderer.TABLE_HINT;
 
     private final String caption;
     private final String label;
