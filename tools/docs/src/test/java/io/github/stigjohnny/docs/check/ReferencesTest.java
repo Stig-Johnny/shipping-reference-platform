@@ -489,6 +489,53 @@ class ReferencesTest {
                 + "writes the directory Docs/ in another letter case: docs/ exists (ADR 0023)");
     }
 
+    /**
+     * A document's own directory is on its paths' way: a skipped directory or a link that differs from it only in case
+     * stops a marker read from there, as it stops the same marker read from the root. Built in memory, since a Mac
+     * cannot hold both spellings.
+     */
+    @Test
+    void aMarkerFromTheDocumentsDirectoryChecksThatDirectoryToo() {
+        PathReferences skipped = new PathReferences(Set.of("tools/src/build/notes.md"), Set.of(),
+                Set.of("tools/SRC/build"));
+        PathReferences linked = new PathReferences(Set.of("docs/notes.md"), Set.of("DOCS"), Set.of());
+        Problems problems = new Problems();
+
+        skipped.marked("absent:path:./x.txt", "absent", "./x.txt", "tools/src/build/notes.md", "a:1", problems);
+        skipped.marked("planned:path:./y.txt", "planned", "./y.txt", "tools/src/build/notes.md", "a:2", problems);
+        skipped.bare("./z.txt", "tools/src/build/notes.md", "a:3", problems);
+        linked.marked("absent:path:./x.md", "absent", "./x.md", "docs/notes.md", "b:1", problems);
+
+        String output = " is build output or tool state, which no check reads; write it without a marker (ADR 0023)";
+        assertThat(problems.list()).containsExactly("a:1: `absent:path:./x.txt`: ./x.txt" + output,
+                "a:2: `planned:path:./y.txt`: ./y.txt" + output, "a:3: `./z.txt` names no file or directory from "
+                        + "tools/src/build/, this document's directory; if it is planned, write planned:path:./z.txt, "
+                        + "and if it is meant to be absent, absent:path:./z.txt (ADR 0023)",
+                "b:1: `absent:path:./x.md`: ./x.md reaches DOCS, a link or special file, which the check does not "
+                        + "follow (ADR 0023)");
+    }
+
+    /**
+     * A real source path is resolved before any skipped directory in another case is consulted, so local build output
+     * changes no bare path's outcome. Built in memory, since a Mac cannot hold both spellings.
+     */
+    @Test
+    void aRealSourcePathComesBeforeASkippedDirectoryInAnotherCase() {
+        PathReferences paths = new PathReferences(Set.of("tools/notes/src/build/x.txt"), Set.of(),
+                Set.of("tools/notes/SRC/build"));
+        Problems problems = new Problems();
+
+        paths.bare("tools/notes/src/build/x.txt", "README.md", "r:1", problems);
+        paths.bare("tools/notes/SRC/build/x.txt", "README.md", "r:2", problems);
+        paths.bare("tools/notes/src/build/y.txt", "README.md", "r:3", problems);
+
+        assertThat(problems.list()).containsExactly("r:2: `tools/notes/SRC/build/x.txt` differs only in letter case "
+                + "from tools/notes/src/build/x.txt, which exists (ADR 0023)", "r:3: `tools/notes/src/build/y.txt` "
+                + "names no file or directory " + ROOT + "; if it is planned, write "
+                + "planned:path:tools/notes/src/build/y.txt, and if it is meant to be absent, "
+                + "absent:path:tools/notes/src/build/y.txt (ADR 0023)");
+    }
+
     @ParameterizedTest
     @CsvSource({"tools/docs/BUILD/site/, tools/docs/build/site/", "apps/shipping-web/Dist/assets, apps/shipping-web/dist/assets",
         "docs/.Claude/rules/, docs/.claude/rules/"})

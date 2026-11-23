@@ -35,7 +35,9 @@ import org.jspecify.annotations.Nullable;
  *       {@code src}, {@code dist}, {@code node_modules}, {@code .gradle}, {@code .git} and {@code .claude}, in exact
  *       letter case as the walk and git see them; a marker on such a path fails, in any letter case, since nothing
  *       there can prove it, and a path that writes such a name in another letter case fails with the spelling to use.
- *       Before a path counts as output, a real path in another letter case is named. A link or another special file on the way fails, in any letter case, never counting
+ *       Before a path counts as output, a real path in another letter case is named. A directory the walk skipped
+ *       stops a marker in any letter case, the document's own directory included, and a bare path only where no real
+ *       directory has the name. A link or another special file on the way fails, in any letter case, never counting
  *       as absent. Files, directories and special files are matched in other letter cases apart, so that a file never
  *       hides a directory.
  *   <li>{@code planned:path:} and {@code absent:path:} must exist in neither reading, in no letter case;
@@ -221,20 +223,10 @@ final class PathReferences {
         int end = start + path.fixed();
         String object = String.join("/", names.subList(0, end));
         boolean directory = path.pattern() || path.directory();
-        for (int i = start + 1; i <= end; i++) {
-            String prefix = String.join("/", names.subList(0, i));
-            String skipped = foldedSkipped.get(prefix.toLowerCase(Locale.ROOT));
-            if (skipped != null) {
-                // A directory the walk skipped, in this letter case or another: nothing under it is known.
-                String rest = String.join("/", names.subList(i, names.size()));
-                String spelled = skipped + (rest.isEmpty() ? "" : "/" + rest) + (path.directory() ? "/" : "");
-                return marked || skipped.equals(prefix) ? new Reading(base, "", State.EXCLUDED, "")
-                        : new Reading(base, "", State.OUTPUT_CASE, (base.isEmpty() ? anchor(path) : "/") + spelled);
-            }
-        }
+        // Output by its names, as the walk and git see them, or in another letter case: a real path in another case is
+        // named first, so that a source path written SRC fails on its case.
         boolean exact = excluded(names, false);
         if (exact || excluded(names, true)) {
-            // Output as the walk and git see it, or in another letter case: a real path in another case is named first.
             Reading variant = variant(names, start, end, base, object, directory);
             if (variant != null) {
                 return variant;
@@ -242,13 +234,39 @@ final class PathReferences {
             return exact || marked ? new Reading(base, "", State.EXCLUDED, "")
                     : new Reading(base, "", State.OUTPUT_CASE, canonical(path, names.subList(0, start)));
         }
-        for (int i = start + 1; i <= end; i++) {
+        // A link or special file on the way, in any letter case, the document's own directory included.
+        for (int i = 1; i <= end; i++) {
             String prefix = String.join("/", names.subList(0, i));
             String link = special.contains(prefix) ? prefix : foldedSpecial.get(prefix.toLowerCase(Locale.ROOT));
             if (link != null) {
                 return new Reading(base, object, State.SPECIAL, link);
             }
         }
+        Reading found = lookup(names, start, end, base, object, directory);
+        if (found != null) {
+            return found;
+        }
+        // Missing from the inventory: a directory the walk skipped may hold it. A marker stops at any of them in any
+        // letter case, the document's own directory included; a bare path only where no real directory has the name.
+        for (int i = 1; i <= end; i++) {
+            String prefix = String.join("/", names.subList(0, i));
+            String skipped = foldedSkipped.get(prefix.toLowerCase(Locale.ROOT));
+            if (skipped != null && (marked || !directories.contains(prefix))) {
+                String rest = String.join("/", names.subList(i, names.size()));
+                String spelled = skipped + (rest.isEmpty() ? "" : "/" + rest) + (path.directory() ? "/" : "");
+                return marked || skipped.equals(prefix) ? new Reading(base, "", State.EXCLUDED, "")
+                        : new Reading(base, "", State.OUTPUT_CASE, (base.isEmpty() ? anchor(path) : "/") + spelled);
+            }
+        }
+        return new Reading(base, object, State.MISSING, "");
+    }
+
+    /**
+     * The path in the inventory: as written (EXISTS), in another letter case (CASE), or with a directory on its way in
+     * another letter case (DIRECTORY_CASE); null when it is missing.
+     */
+    private @Nullable Reading lookup(List<String> names, int start, int end, String base, String object,
+            boolean directory) {
         if (directories.contains(object) || (!directory && files.contains(object))) {
             return new Reading(base, object, State.EXISTS, object);
         }
@@ -264,11 +282,11 @@ final class PathReferences {
             String prefix = String.join("/", names.subList(0, i));
             if (!directories.contains(prefix)) {
                 String directoryInCase = foldedDirectories.get(prefix.toLowerCase(Locale.ROOT));
-                return directoryInCase == null ? new Reading(base, object, State.MISSING, "")
+                return directoryInCase == null ? null
                         : new Reading(base, prefix, State.DIRECTORY_CASE, directoryInCase);
             }
         }
-        return new Reading(base, object, State.MISSING, "");
+        return null;
     }
 
     /**
