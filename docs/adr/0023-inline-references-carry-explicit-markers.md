@@ -92,11 +92,11 @@ none. Where a path is read from is explicit:
   dist, node_modules, .gradle, .git or .claude, in exact letter case, as the walk and git see them. A marker on such a
   path fails, in any letter case where no real directory has that name as written, because nothing there can prove it,
   and a path that writes such a name in another letter case there fails with the spelling to use; a real directory
-  named BUILD or Dist, which holds a file, is a directory like any other. Before a path counts as output, a real path
-  in another letter case is named: a source path written SRC fails on its case. The directories the walk skips keep
-  their place: a marker through one of them, in any letter case and from the document's own directory too, fails, and
-  a bare path that exists nowhere else gets the spelling to use. A link or another special file on the way fails too,
-  in any letter case, and never counts as absent.
+  named BUILD or Dist, which holds a file, is a directory like any other, and a file named build or dist is a file
+  like any other. Before a path counts as output, a real path in another letter case is named: a source path written
+  SRC fails on its case. The directories the walk skips keep their place: a marker through one of them, in any letter
+  case and from the document's own directory too, fails, and a bare path that exists nowhere else gets the spelling to
+  use. A link or another special file on the way fails too, in any letter case, and never counts as absent.
 - A planned or an absent path must exist in neither reading, in no letter case, and its first name is no pattern; an
   illustrative path needs a placeholder, and nothing else about it is checked. The message for a missing path offers
   these markers only when one would hold, and otherwise says why none can.

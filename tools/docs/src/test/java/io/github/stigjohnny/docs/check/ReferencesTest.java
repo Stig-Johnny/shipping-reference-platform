@@ -665,6 +665,28 @@ class ReferencesTest {
                 + "in letter case from docs/Tools/x.txt, which exists (ADR 0023)");
     }
 
+    /** A file named build or dist is no output directory: the directory that holds it exists. */
+    @Test
+    void aFileNamedLikeOutputKeepsItsDirectory() {
+        PathReferences paths = new PathReferences(Set.of("README.md", "tools/helper/build", "tools/other/dist"), Set.of(),
+                Set.of());
+        Problems problems = new Problems();
+
+        paths.bare("tools/helper/", "README.md", "f:1", problems);
+        paths.bare("tools/other/", "README.md", "f:2", problems);
+        paths.marked("absent:path:tools/helper/", "absent", "tools/helper/", "README.md", "f:3", problems);
+        paths.marked("planned:path:tools/other/", "planned", "tools/other/", "README.md", "f:4", problems);
+        paths.bare("tools/helper/build", "README.md", "f:5", problems);
+        paths.marked("absent:path:tools/helper/build", "absent", "tools/helper/build", "README.md", "f:6", problems);
+        paths.bare("tools/helper/Build", "README.md", "f:7", problems);
+
+        assertThat(problems.list()).containsExactly("f:3: `absent:path:tools/helper/`: tools/helper/ exists " + ROOT
+                + ", so it is not absent (ADR 0023)", "f:4: `planned:path:tools/other/`: tools/other/ exists " + ROOT
+                + ", so name it without planned: (ADR 0023)", "f:6: `absent:path:tools/helper/build`: tools/helper/build "
+                + "exists " + ROOT + ", so it is not absent (ADR 0023)", "f:7: `tools/helper/Build` differs only in letter "
+                + "case from tools/helper/build, which exists (ADR 0023)");
+    }
+
     /** A path that exists exactly is found first: a real directory named Dist is no output in another letter case. */
     @Test
     void aPathThatExistsExactlyIsFoundBeforeAnyOutputRule() {

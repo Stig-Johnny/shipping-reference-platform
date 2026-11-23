@@ -37,7 +37,8 @@ import org.jspecify.annotations.Nullable;
  *       {@code src}, {@code dist}, {@code node_modules}, {@code .gradle}, {@code .git} and {@code .claude}, in exact
  *       letter case as the walk and git see them; a marker on such a path fails, in any letter case where no real
  *       directory has the name as written, since nothing there can prove it, and a path that writes such a name in
- *       another letter case there fails with the spelling to use.
+ *       another letter case there fails with the spelling to use. Output is judged by directories: a file named build
+ *       or dist is a file like any other.
  *       Before a path counts as output, a real path in another letter case is named. A directory the walk skipped
  *       stops a marker in any letter case, the document's own directory included, and a bare path only where no real
  *       directory has the name. A link or another special file on the way fails, in any letter case, never counting
@@ -74,8 +75,10 @@ final class PathReferences {
         for (Set<String> entries : List.of(files, special)) {
             for (String entry : entries) {
                 // Only what lies outside build output and tool state makes a directory exist, as for git: a file the
-                // walk collects in dist never makes its directories appear.
-                if (excluded(List.of(entry.split("/", -1)))) {
+                // walk collects in dist never makes its directories appear. The directories that hold the entry are
+                // what is judged, not its own name, so a file named build or dist keeps its directory.
+                List<String> names = List.of(entry.split("/", -1));
+                if (excluded(names.subList(0, names.size() - 1))) {
                     continue;
                 }
                 for (int slash = entry.indexOf('/'); slash > 0; slash = entry.indexOf('/', slash + 1)) {
@@ -97,6 +100,20 @@ final class PathReferences {
         for (String entry : new TreeSet<>(entries)) {
             folded.computeIfAbsent(entry.toLowerCase(Locale.ROOT), key -> new ArrayList<>()).add(entry);
         }
+    }
+
+    /**
+     * The first spelling of a file in any letter case whose directories lie outside build output and tool state, other
+     * than {@code written}: a file's own name, such as build, makes it no output; null when there is none.
+     */
+    private @Nullable String realFile(String path, String written) {
+        for (String spelling : foldedFiles.getOrDefault(path.toLowerCase(Locale.ROOT), List.of())) {
+            List<String> names = List.of(spelling.split("/", -1));
+            if (!spelling.equals(written) && !excluded(names.subList(0, names.size() - 1))) {
+                return spelling;
+            }
+        }
+        return null;
     }
 
     /** The first spelling of a path in {@code folded}, in any letter case, or null. */
@@ -272,7 +289,8 @@ final class PathReferences {
         // A path outside output that exists exactly is found next: a real directory named Dist is no output. A file in
         // output that the walk collects is no shortcut, so that it never hides a real spelling.
         boolean exact = excluded(names);
-        if (!exact && (directories.contains(object) || (!directory && files.contains(object)))) {
+        boolean file = !directory && files.contains(object) && !excluded(names.subList(0, end - 1));
+        if (file || (!exact && directories.contains(object))) {
             return new Reading(base, object, State.EXISTS, object);
         }
         // Output by its names, as the walk and git see them, or in another letter case: a real path in another case is
@@ -337,7 +355,7 @@ final class PathReferences {
             boolean directory) {
         String whole = real(foldedDirectories, object, object);
         if (whole == null && !directory) {
-            whole = real(foldedFiles, object, object);
+            whole = realFile(object, object);
         }
         if (whole != null) {
             return new Reading(base, object, State.CASE, whole);
