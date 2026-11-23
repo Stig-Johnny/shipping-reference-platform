@@ -1005,3 +1005,20 @@ fixture, migrated the mentions, and updated ADR 0023, the README row, `docs/gaps
 the site design, demo 151, this entry and the record. Codex (`gpt-6-astra`, effort `xhigh`) chose the label and
 required six changes to the grammar before the build. The reviews of the final head and the merge decision are
 comments on PR #151.
+
+## Issue 152
+
+A sequence or state diagram in the prose now carries the label Unchecked design right before it, or the documentation
+check fails, and every dynamic view of the model carries the label from the generator, on GitHub and on the site.
+
+[Issue 152](https://github.com/Stig-Johnny/shipping-reference-platform/issues/152) ·
+[PR #154](https://github.com/Stig-Johnny/shipping-reference-platform/pull/154).
+Base: `9cc5342c714707cf652c4ffcc8f38ecbec688d58`. Record: `issue-152-pull-request` in [model runs](runs.md).
+
+Claude Code, the orchestrator (`claude-opus-5-5`, effort unknown), surveyed the behavioural diagrams, rendered three
+designs of the label, wrote the tests first and then the shared reader, the check, the closed sources at any depth, the
+generated labels and the migration, and updated ADR 0024, ADR 0013, the README row, `docs/gaps.md`,
+`capabilities.yaml`, `AGENTS.md`, the site design, demo 154, this entry and the record. Codex (`gpt-6-astra`, effort
+`xhigh`) chose the label's look, required every dynamic view to stay labelled until a complete comparison is proven,
+and accepted moving that evidence to issue 153. The reviews of the final head and the merge decision are comments on
+PR #154.

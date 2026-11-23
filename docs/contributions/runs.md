@@ -2007,6 +2007,35 @@ records:
       scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
       method: "unknown: no measured usage or billed allocation; no costs inferred"
       receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-152-pull-request"
+    issue: 152
+    date: "2026-11-23"
+    role: "implementation"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "unknown"
+    base: "9cc5342c714707cf652c4ffcc8f38ecbec688d58"
+    outcome: "completed"
+    scope: "Issue 152, PR 154: behavioural diagrams are labelled until a test compares them with the code (ADR 0024). A sequence or state diagram in current prose must follow, in the same container, a paragraph whose first inline is strong emphasis holding exactly Unchecked design.; a label that no such diagram follows fails; a Mermaid fence's info string is mermaid alone and its first line names its type. Every dynamic view of the model carries the label from the generator, a scenario view too: on its generated page, in its accessible description and on its site figure. The site shows Mermaid fences at any depth as closed sources, with the label in the muted solid box on labelled diagrams in current prose, through the renderer's own placeholders. The flow's sequence and the shipment lifecycle carry the label, and the scenario views' descriptions say that their tests compare the steps they can observe. Also: ADR 0024, ADR 0013, the README controls row, docs/gaps.md, capabilities.yaml, AGENTS.md, the site design, demo 154, this record and the history entry."
+    environment: "PR 154 issue branch; macOS and reviewed Temurin 25.0.5+8; Java in tools/docs with its tests, the model and documentation; headless Chrome for the mock-ups and the renders."
+    result: "Design first: three variants of the label rendered on the flow, a view and the shipments page, light, dark and at 390 pixels; Codex chose the muted solid box and the words Unchecked design. Its two P1 findings, that the scenario tests compare only 2 of 6 steps and that a passing test class is no evidence of a comparison, kept every dynamic view labelled and moved evidence-based label removal to issue 153, which Codex accepted in a second round. Red first: against main's code with an empty stub of the check, 39 of the 171 selected tests failed, all new cases. The review conditions test forbids a node renderer, so fences at any depth are closed through the renderer's own placeholders. Two site expectations changed with the label: the views' accessible descriptions, and a view page's link followed by the label. The documentation suite grew from 1056 to 1108 tests, all passing. PolicyCheck, ./gradlew :tools:docs:generate and ./gradlew :tools:docs:check exited 0. The reviews of the final head and the merge decision are comments on PR 154."
+    limitations: "The label disclaims and does not bind: no test compares a whole diagram with the code yet, and only evidence of a complete comparison is to remove a label (issue 153). The check recognises behaviour by a fence's first line: a state machine drawn as a flowchart, a standalone .mmd file and diagrams in records, generated files and superseded ADRs are not read as behaviour. Usage and cost are unknown."
+    evidence: "Issue 152, Codex's design reviews (PR 154 comments 7096569836 and 7096570522), demo 154, the red and green test runs; this pull request's diff and review comments. The orchestrator's reasoning effort has no receipt, so it is recorded as unknown."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "The orchestrator's work on PR 154."
+      receipt: "unknown: no usage measurement available for this pull request"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
 ---
 
 # Model runs and cost evidence
