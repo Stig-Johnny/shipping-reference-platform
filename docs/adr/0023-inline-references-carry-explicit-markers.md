@@ -98,7 +98,8 @@ none. Where a path is read from is explicit:
   a bare path that exists nowhere else gets the spelling to use. A link or another special file on the way fails too,
   in any letter case, and never counts as absent.
 - A planned or an absent path must exist in neither reading, in no letter case, and its first name is no pattern; an
-  illustrative path needs a placeholder, and nothing else about it is checked.
+  illustrative path needs a placeholder, and nothing else about it is checked. The message for a missing path offers
+  these markers only when one would hold, and otherwise says why none can.
 
 The check reads the working tree, untracked files included, so a file that is not committed can make a path pass on
 one machine; a clean checkout, as in CI, decides. A path under a directory that does not exist, such as a planned

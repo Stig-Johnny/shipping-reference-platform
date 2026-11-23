@@ -509,8 +509,8 @@ class ReferencesTest {
         String output = " is build output or tool state, which no check reads; write it without a marker (ADR 0023)";
         assertThat(problems.list()).containsExactly("a:1: `absent:path:./x.txt`: ./x.txt" + output,
                 "a:2: `planned:path:./y.txt`: ./y.txt" + output, "a:3: `./z.txt` names no file or directory from "
-                        + "tools/src/build/, this document's directory; if it is planned, write planned:path:./z.txt, "
-                        + "and if it is meant to be absent, absent:path:./z.txt (ADR 0023)",
+                        + "tools/src/build/, this document's directory, and no marker can say so: it lies in build "
+                        + "output or tool state, or under a directory the walk skips, in some letter case (ADR 0023)",
                 "b:1: `absent:path:./x.md`: ./x.md reaches DOCS, a link or special file, which the check does not "
                         + "follow (ADR 0023)");
     }
@@ -531,9 +531,8 @@ class ReferencesTest {
 
         assertThat(problems.list()).containsExactly("r:2: `tools/notes/SRC/build/x.txt` differs only in letter case "
                 + "from tools/notes/src/build/x.txt, which exists (ADR 0023)", "r:3: `tools/notes/src/build/y.txt` "
-                + "names no file or directory " + ROOT + "; if it is planned, write "
-                + "planned:path:tools/notes/src/build/y.txt, and if it is meant to be absent, "
-                + "absent:path:tools/notes/src/build/y.txt (ADR 0023)");
+                + "names no file or directory " + ROOT + ", and no marker can say so: it lies in build output or tool "
+                + "state, or under a directory the walk skips, in some letter case (ADR 0023)");
     }
 
     /**
@@ -639,6 +638,31 @@ class ReferencesTest {
                             + "planned:path:tools/Dist/z.txt, and if it is meant to be absent, "
                             + "absent:path:tools/Dist/z.txt (ADR 0023)");
         }
+    }
+
+    /**
+     * A missing path is sent to a marker only when that marker would hold: otherwise the message says why none can. In
+     * memory, since a Mac cannot hold both spellings.
+     */
+    @Test
+    void aMissingPathIsSentToAMarkerOnlyWhenTheMarkerWouldHold() {
+        PathReferences skipped = new PathReferences(Set.of("README.md", "x/BUILD/b.txt"), Set.of(), Set.of("x/build"));
+        PathReferences other = new PathReferences(Set.of("docs/notes.md", "docs/Tools/x.txt", "tools/y.txt"), Set.of(),
+                Set.of());
+        Problems problems = new Problems();
+
+        skipped.bare("x/BUILD/a.txt", "README.md", "m:1", problems);
+        skipped.marked("absent:path:x/BUILD/a.txt", "absent", "x/BUILD/a.txt", "README.md", "m:2", problems);
+        other.bare("tools/x.txt", "docs/notes.md", "m:3", problems);
+        other.marked("planned:path:tools/x.txt", "planned", "tools/x.txt", "docs/notes.md", "m:4", problems);
+
+        assertThat(problems.list()).containsExactly("m:1: `x/BUILD/a.txt` names no file or directory " + ROOT + ", and "
+                + "no marker can say so: it lies in build output or tool state, or under a directory the walk skips, in "
+                + "some letter case (ADR 0023)", "m:2: `absent:path:x/BUILD/a.txt`: x/BUILD/a.txt is build output or tool "
+                + "state, which no check reads; write it without a marker (ADR 0023)", "m:3: `tools/x.txt` names no file "
+                + "or directory " + ROOT + ", and no marker can say so: it differs only in letter case from "
+                + "docs/Tools/x.txt, which exists (ADR 0023)", "m:4: `planned:path:tools/x.txt`: tools/x.txt differs only "
+                + "in letter case from docs/Tools/x.txt, which exists (ADR 0023)");
     }
 
     /** A path that exists exactly is found first: a real directory named Dist is no output in another letter case. */

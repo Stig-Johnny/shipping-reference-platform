@@ -179,8 +179,12 @@ final class PathReferences {
                 }
                 String missing = path.pattern() ? "is a pattern whose directory " + fixed(path) + " does not exist "
                         : "names no " + (path.directory() ? "directory " : "file or directory ");
+                // The markers are offered only when one would hold; otherwise the message says why none can.
+                @Nullable Reading marker = otherExists ? null : markerReading(path, document);
                 problems.add(quoted + missing + from(primary.base()) + (otherExists ? ", but does "
-                        + from(directory) + ": write ./" + text + " (ADR 0023)" : markers(text)));
+                        + from(directory) + ": write ./" + text + " (ADR 0023)"
+                        : marker != null ? ", and no marker can say so: " + markerReason(path, marker)
+                        : markers(text)));
             }
         }
     }
@@ -202,46 +206,44 @@ final class PathReferences {
         if (state.equals("illustrative")) {
             return;
         }
+        Reading reading = markerReading(path, document);
+        if (reading == null) {
+            return;
+        }
+        String marked = where + ": `" + text + "`: ";
+        String consequence = state.equals("planned") ? ", so name it without planned: (ADR 0023)"
+                : ", so it is not absent (ADR 0023)";
+        switch (reading.state()) {
+            case EXCLUDED -> problems.add(marked + payload + " is build output or tool state, which no check reads; "
+                    + "write it without a marker (ADR 0023)");
+            case SPECIAL -> problems.add(marked + payload + " " + special(reading));
+            case EXISTS -> problems.add(marked + (path.pattern() ? "its directory " + fixed(path) : payload) + " exists "
+                    + from(reading.base()) + consequence);
+            case CASE -> problems.add(marked + (path.pattern() ? "its directory " + fixed(path) : payload)
+                    + " differs only in letter case from " + found(path, reading) + ", which exists (ADR 0023)");
+            case DIRECTORY_CASE -> problems.add(marked + payload + " " + directoryCase(reading));
+            case MISSING, OUTPUT_CASE -> throw new IllegalStateException("a marker's reading that holds: " + payload);
+        }
+    }
+
+    /**
+     * The first reading that stops a planned or absent marker on this path, over the bases the marker is read from:
+     * the root and the document's directory without an anchor, or the one its anchor names; null when the marker holds.
+     */
+    private @Nullable Reading markerReading(PathReference path, String document) {
         String directory = directoryOf(document);
         List<String> bases = switch (path.anchor()) {
             case ROOT -> List.of("");
             case DOCUMENT -> List.of(directory);
             case NONE -> directory.isEmpty() ? List.of("") : List.of("", directory);
         };
-        String marked = where + ": `" + text + "`: ";
-        String consequence = state.equals("planned") ? ", so name it without planned: (ADR 0023)"
-                : ", so it is not absent (ADR 0023)";
         for (String base : bases) {
             Reading reading = read(path, base, true);
-            switch (reading.state()) {
-                case EXCLUDED -> {
-                    problems.add(marked + payload + " is build output or tool state, which no check reads; write it "
-                            + "without a marker (ADR 0023)");
-                    return;
-                }
-                case SPECIAL -> {
-                    problems.add(marked + payload + " " + special(reading));
-                    return;
-                }
-                case EXISTS -> {
-                    problems.add(marked + (path.pattern() ? "its directory " + fixed(path) : payload) + " exists "
-                            + from(base) + consequence);
-                    return;
-                }
-                case CASE -> {
-                    problems.add(marked + (path.pattern() ? "its directory " + fixed(path) : payload)
-                            + " differs only in letter case from " + found(path, reading) + ", which exists (ADR 0023)");
-                    return;
-                }
-                case DIRECTORY_CASE -> {
-                    problems.add(marked + payload + " " + directoryCase(reading));
-                    return;
-                }
-                case MISSING, OUTPUT_CASE -> {
-                    // Absent from this reading, as the marker says; a marker's path is never OUTPUT_CASE.
-                }
+            if (reading.state() != State.MISSING && reading.state() != State.OUTPUT_CASE) {
+                return reading;
             }
         }
+        return null;
     }
 
     /**
@@ -448,6 +450,19 @@ final class PathReferences {
     /** What a reading found, from the root, with a trailing slash where the path names a directory. */
     private static String found(PathReference path, Reading reading) {
         return reading.found() + (path.pattern() || path.directory() ? "/" : "");
+    }
+
+    /** Why no planned or absent marker could hold for a path, from the reading that stops it. */
+    private String markerReason(PathReference path, Reading reading) {
+        return switch (reading.state()) {
+            case EXCLUDED -> "it lies in build output or tool state, or under a directory the walk skips, in some letter "
+                    + "case (ADR 0023)";
+            case SPECIAL -> "it " + special(reading);
+            case EXISTS -> "it exists " + from(reading.base()) + " (ADR 0023)";
+            case CASE -> "it differs only in letter case from " + found(path, reading) + ", which exists (ADR 0023)";
+            case DIRECTORY_CASE -> "it " + directoryCase(reading);
+            case MISSING, OUTPUT_CASE -> throw new IllegalStateException("a marker's reading that holds");
+        };
     }
 
     /** A directory on a path's way, written in another letter case than the one that exists. */
