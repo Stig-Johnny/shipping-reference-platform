@@ -526,12 +526,18 @@ class ReferencesTest {
         Fixture fixture = Fixture.copy(dir).passingEvidence().write("tools/notes/SRC/README.txt", "x\n")
                 .write("tools/notes/SRC/build/x.txt", "x\n")
                 .write(NOTES, "# Notes\n\n`absent:path:tools/notes/SRC/build/x.txt`, "
-                        + "`planned:path:tools/notes/SRC/build/y.txt` and `tools/notes/SRC/build/x.txt`\n");
+                        + "`planned:path:tools/notes/SRC/build/y.txt`, `tools/notes/SRC/build/x.txt`, "
+                        + "`absent:path:tools/notes/SRC/BUILD/x.txt`, `planned:path:tools/notes/SRC/Build/y.txt` and "
+                        + "`tools/notes/SRC/BUILD/x.txt`\n");
         String output = " is build output or tool state, which no check reads; write it without a marker (ADR 0023)";
 
-        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `absent:path:tools/notes/SRC/build/x.txt`: "
-                + "tools/notes/SRC/build/x.txt" + output, NOTES + ":3: `planned:path:tools/notes/SRC/build/y.txt`: "
-                + "tools/notes/SRC/build/y.txt" + output);
+        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `absent:path:tools/notes/SRC/BUILD/x.txt`: "
+                + "tools/notes/SRC/BUILD/x.txt" + output, NOTES + ":3: `absent:path:tools/notes/SRC/build/x.txt`: "
+                + "tools/notes/SRC/build/x.txt" + output, NOTES + ":3: `planned:path:tools/notes/SRC/Build/y.txt`: "
+                + "tools/notes/SRC/Build/y.txt" + output, NOTES + ":3: `planned:path:tools/notes/SRC/build/y.txt`: "
+                + "tools/notes/SRC/build/y.txt" + output, NOTES + ":3: `tools/notes/SRC/BUILD/x.txt` names build output "
+                + "or tool state in another letter case; write tools/notes/SRC/build/x.txt, which no check reads "
+                + "(ADR 0023)");
     }
 
     @Test

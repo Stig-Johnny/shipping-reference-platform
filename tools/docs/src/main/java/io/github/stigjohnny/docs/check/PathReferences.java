@@ -280,7 +280,8 @@ final class PathReferences {
 
     /**
      * Whether a name of a path, from the root, is build output or tool state, in exact letter case as the walk and git
-     * see it or, with {@code ignoreCase}, in any; a build directory in a source tree named src is not.
+     * see it or, with {@code ignoreCase}, in any; a build directory in a source tree is not, and a source tree is a
+     * directory named src in exact letter case in both modes, as the walk sees it.
      */
     private static boolean excluded(List<String> names, boolean ignoreCase) {
         boolean sources = false;
@@ -289,7 +290,7 @@ final class PathReferences {
             if (EXCLUDED.contains(name) || (name.equals(BUILD) && !sources)) {
                 return true;
             }
-            sources |= name.equals(SOURCES);
+            sources |= written.equals(SOURCES);
         }
         return false;
     }
@@ -317,7 +318,7 @@ final class PathReferences {
             boolean output = EXCLUDED.contains(lower) || (lower.equals(BUILD) && !sources);
             inBase |= output && i < base.size();
             spelled.add(output ? lower : names.get(i));
-            sources |= lower.equals(SOURCES);
+            sources |= names.get(i).equals(SOURCES);
         }
         String directory = path.directory() ? "/" : "";
         return inBase ? "/" + String.join("/", spelled) + directory
