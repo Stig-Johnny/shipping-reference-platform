@@ -2,7 +2,7 @@
 title: "Brain: shipping-reference-platform"
 description: "The generated entry point for agents: what the repository is, what is built and what is only planned, and where each module, decision, control and limit is written down."
 status: accepted
-updated: 2026-11-22
+updated: 2026-11-23
 ---
 
 > Generated—do not hand-edit. Sources: `README.md`, `architecture/workspace.dsl`, `docs/`, `contracts/`, `policy/risk.json` and `security/allowlist.json`.
@@ -66,7 +66,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | `control.brain-check` | shipped | `java` | BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest, ContributionPagesTest |
 | `control.publication-scan` | shipped | `build` | PublicationScannerTest, PagesWorkflowTest |
 | `control.agent-instructions` | shipped | `java` | AgentInstructionsTest |
-| `control.inline-references` | shipped | `java` | ReferencesTest |
+| `control.inline-references` | shipped | `java` | ReferencesTest, MarkdownRendererTest, SitePagesTest |
 
 ## Decisions
 

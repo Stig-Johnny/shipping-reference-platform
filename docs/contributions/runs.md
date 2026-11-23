@@ -2,7 +2,7 @@
 title: "Model runs and cost evidence"
 description: "Recorded models, usage, cost bases and outcomes, with unsuccessful work and explicit limits on attribution and coverage."
 status: accepted
-updated: 2026-11-22
+updated: 2026-11-23
 schemaVersion: 1
 coverage: "Partial record set: 14 historical DeepSeek rounds for issues 69, 37 and 101, four supported historical Codex phases, seven current issue 111 phases, one separate root-window API comparison snapshot, 26 issue 114 rows covering planning, implementation, integration, reviews, corrections and validation, and five issue 117 rows covering diagnosis, implementation, a settings correction, independent review and review fixes. From PR #122 on, each pull request has one record, plus correction records for merged records it corrects (ADR 0021). Work and backfill dates differ. API-equivalent estimates do not establish actual billed cost; missing phases, subscription allocation, child-agent inclusion and complete delivery cost remain unknown."
 records:
@@ -1970,6 +1970,35 @@ records:
       input: "unknown"
       output: "unknown"
       scope: "The orchestrator's work on PR 150."
+      receipt: "unknown: no usage measurement available for this pull request"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-146-pull-request"
+    issue: 146
+    date: "2026-11-23"
+    role: "implementation"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "unknown"
+    base: "37161e079856107d74b7da61dcd80eba0cf240f9"
+    outcome: "completed"
+    scope: "Issue 146, PR 151: paths in inline code are checked (ADR 0023). A path in current prose must exist, read from the root when its first name is a top-level directory and otherwise from the document's directory; /path and ./path choose the reading. A path that both readings find, that only the document's directory has without ./, or that differs only in letter case fails, and a pattern proves its directory. planned:path:, absent:path: and illustrative:path: name paths that do not exist; a marker on build output or tool state fails, and so does a link on the way. The site shows a planned path with the dashed box, an absent one with a muted absent box and an example with the example box. The test fixture copies the whole repository outside build output. 28 mentions in current prose carry a marker or an anchor, and 7 were rewritten. Also: ADR 0023, the README controls row, docs/gaps.md, capabilities.yaml, AGENTS.md, the site design, demo 151, this record and the history entry."
+    environment: "PR 151 issue branch; macOS and reviewed Temurin 25.0.5+8; Java in tools/docs with its tests, and documentation; headless Chrome for the mock-ups of the new label."
+    result: "Design first: three variants of the absent label rendered on real page excerpts, light, dark and at 390 pixels; Codex chose the muted solid box and required six changes to the proposed grammar: case-only misspellings fail, ./ is always read, one resolution for bare and marked paths, markers on excluded paths fail, links on the way fail, and the inventory is described honestly. Red first: against main's check, 69 of the 239 selected tests failed, all of them path cases. The first full run failed in 51 tests: the fixture's withoutDemos() removed demonstrations that current prose names; the copy's prose now marks them absent, and the how-to lost two concrete examples that tests create or remove. Two site tests changed with the new evidence of control.inline-references. The documentation suite grew from 916 to 1031 tests and from about 2 min 52 s to 4 min 35 s on this machine, mostly the full copy. PolicyCheck, ./gradlew :tools:docs:generate and ./gradlew :tools:docs:check exited 0. The reviews of the final head and the merge decision are comments on PR 151."
+    limitations: "The check proves that a path exists or is marked, not that a sentence about it is right. A path under a directory that does not exist is read only when it is marked; a pattern proves its directory, not a file; the working tree, not git, decides what exists. The documentation tests' Gradle inputs do not name application and tool sources. Usage and cost are unknown."
+    evidence: "Issue 146, Codex's design review (PR 151 comment 7088056247), demo 151, the red and green test runs; this pull request's diff and review comments. The orchestrator's reasoning effort has no receipt, so it is recorded as unknown."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "The orchestrator's work on PR 151."
       receipt: "unknown: no usage measurement available for this pull request"
     cost:
       basis: "unknown"
