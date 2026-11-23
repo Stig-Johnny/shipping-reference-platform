@@ -97,13 +97,54 @@ class ContractExamplesTest {
                 .hasMessageContaining("a type that its response names");
     }
 
-    /** Each place where this test reads no example: a header, a schema, a property's schema and the shared examples. */
+    @Test
+    void aConstraintBesideTheRefOfAnExamplesSchemaApplies() {
+        // The fixture's example satisfies the component Thing, but not maxProperties: 0 beside the $ref that names it.
+        String fixture = "contract-fixtures/constraint-beside-ref.openapi.yaml";
+        List<Contract.Example> examples = Contract.examples(Contract.parse(Contract.text(fixture)), "classpath:"
+                + fixture);
+        Contract.Example example = examples.getFirst();
+
+        assertThat(pointers(examples)).containsExactly("#/paths/~1things/get/responses/200" + JSON + "one");
+        contract.assertExample(new Contract.Example(example.pointer(), "classpath:" + fixture
+                + "#/components/schemas/Thing", example.value(), false, 0, List.of()));
+        assertThatThrownBy(() -> contract.assertExample(example)).isInstanceOf(AssertionError.class)
+                .hasMessageContaining(fixture + "#/paths/~1things/get/responses/200/content/application~1json/schema");
+    }
+
+    @Test
+    void aUseThatOverridesTheDescriptionOfAResponseWithAProblemExampleFails() {
+        String use = """
+                                $ref: '#/components/schemas/ShipmentPage'
+                        '400':
+                          $ref: '#/components/responses/BadRequest'
+                """;
+        JsonNode document = edited(use, use + "          description: '`malformed-request` only.'\n");
+
+        assertThatThrownBy(() -> Contract.examples(document)).isInstanceOf(AssertionError.class)
+                .hasMessageContaining("#/paths/~1shipments/get/responses/400 overrides the description of "
+                        + "#/components/responses/BadRequest");
+    }
+
+    /**
+     * Each place where this test reads no example: a header, a schema, a property's schema, a schema under a legacy
+     * definitions keyword named like a keyword of data, and the shared examples.
+     */
     static Stream<Arguments> places() {
         return Stream.of(
                 Arguments.of("#/components/headers/CorrelationId/example", "  headers:\n    CorrelationId:\n",
                         "  headers:\n    CorrelationId:\n      example: x\n"),
                 Arguments.of("#/components/schemas/Quote/example", "    Quote:\n      type: object\n",
                         "    Quote:\n      example: x\n      type: object\n"),
+                Arguments.of("#/components/schemas/Quote/definitions/default/examples",
+                        "    Quote:\n      type: object\n", """
+                                    Quote:
+                                      definitions:
+                                        default:
+                                          type: string
+                                          examples: [42]
+                                      type: object
+                                """),
                 Arguments.of("#/components/schemas/Money/properties/amount/example",
                         "        amount:\n          type: string\n",
                         "        amount:\n          example: x\n          type: string\n"),
@@ -132,13 +173,20 @@ class ContractExamplesTest {
     }
 
     @Test
-    void aMemberNamedExampleInAPayloadOrAmongASchemasPropertiesIsData() {
+    void aMemberNamedExampleInAPayloadOrInASchemasDataOrPropertiesIsData() {
         String recipient = """
                       description: Personal data. Use synthetic values only. Never logged.
                       properties:
                 """;
-        JsonNode document = edited(recipient, recipient + "        example:\n          type: string\n", ROLE,
-                ROLE + "                    examples: {example: data}\n");
+        String named = """
+                      description: Personal data. Use synthetic values only. Never logged.
+                      dependentRequired:
+                        example: [name]
+                      properties:
+                        example:
+                          type: string
+                """;
+        JsonNode document = edited(recipient, named, ROLE, ROLE + "                    examples: {example: data}\n");
 
         assertThat(pointers(Contract.examples(document))).hasSize(9).isEqualTo(pointers(contract.examples()));
     }

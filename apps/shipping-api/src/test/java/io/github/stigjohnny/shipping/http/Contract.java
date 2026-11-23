@@ -80,11 +80,15 @@ public final class Contract {
             "^\\| `([a-z-]+)`\\s*\\| (\\d{3})\\s*\\| ([^|]+?)\\s*\\|");
     /** The members of a media type or a parameter that hold examples: one example, or named examples. */
     private static final Set<String> EXAMPLE_KEYS = Set.of("example", "examples");
+    /** A schema's keywords whose value is one schema. */
+    private static final Set<String> SCHEMA_ONE = Set.of("items", "additionalItems", "additionalProperties", "not",
+            "if", "then", "else", "contains", "propertyNames", "unevaluatedItems", "unevaluatedProperties",
+            "contentSchema");
+    /** A schema's keywords whose value is a list of schemas. */
+    private static final Set<String> SCHEMA_LIST = Set.of("allOf", "anyOf", "oneOf", "prefixItems");
     /** A schema's keywords whose members are names, each of a schema. */
     private static final Set<String> SCHEMA_NAME_MAPS = Set.of("properties", "patternProperties", "$defs",
-            "dependentSchemas");
-    /** A schema's keywords whose values are data, not schemas. */
-    private static final Set<String> SCHEMA_DATA = Set.of("enum", "const", "default");
+            "definitions", "dependentSchemas");
     /** What a media type with examples belongs to, besides an operation's request body. */
     private static final Set<String> MEDIA_TYPE_OWNERS = Set.of("responses", "requestBodies", "parameters");
     /** One problem type at the start of a response's description, its note, and the separator after it. */
@@ -275,15 +279,21 @@ public final class Contract {
         return examples(document);
     }
 
+    /** As {@link #examples(JsonNode, String)}, for a document whose schemas are read from the contract itself. */
+    static List<Example> examples(JsonNode document) {
+        return examples(document, DOCUMENT);
+    }
+
     /**
      * Every example of a contract document, in document order: the {@code example} and the named {@code examples} of a
-     * media type or a parameter. An example anywhere else, or one that holds no value of its own (an
-     * {@code externalValue} or a {@code $ref}), fails, so that no example goes unchecked. An example's value, a schema's
-     * {@code enum}, {@code const} and {@code default}, and the names of a schema's properties are data: a member named
-     * example there is not an example.
+     * media type or a parameter, each with the location of the whole schema beside it in the document at {@code iri}.
+     * An example anywhere else, or one that holds no value of its own (an {@code externalValue} or a {@code $ref}),
+     * fails, so that no example goes unchecked. An example's value, a schema's keywords that hold no schema (such as
+     * {@code enum}, {@code default} and {@code dependentRequired}) and the names of a schema's properties are data: a
+     * member named example there is not an example.
      */
-    static List<Example> examples(JsonNode document) {
-        return collect(document, new Located(document, "#"), false, false);
+    static List<Example> examples(JsonNode document, String iri) {
+        return collect(document, iri, new Located(document, "#"), false, false);
     }
 
     /**
@@ -318,11 +328,11 @@ public final class Contract {
      * The examples under {@code at}, in document order. Its members are a schema's keywords when {@code schema}, the
      * names of a schema's properties when {@code names}, and OpenAPI's otherwise.
      */
-    private static List<Example> collect(JsonNode document, Located at, boolean schema, boolean names) {
+    private static List<Example> collect(JsonNode document, String iri, Located at, boolean schema, boolean names) {
         JsonNode node = at.node();
         Stream<Example> found = Stream.empty();
         for (int i = 0; node.isArray() && i < node.size(); i++) {
-            found = Stream.concat(found, collect(document, at.item(i), schema, names).stream());
+            found = Stream.concat(found, collect(document, iri, at.item(i), schema, names).stream());
         }
         boolean holder = !schema && !names && holdsExamples(segments(at.pointer()));
         for (String key : node.propertyNames()) {
@@ -331,16 +341,22 @@ public final class Contract {
                     throw new AssertionError(at.at(key).pointer() + ": an example in a place where no example is "
                             + "read; only a media type's or a parameter's example and examples are");
                 }
-                found = Stream.concat(found, examplesOf(document, at, key).stream());
+                found = Stream.concat(found, examplesOf(document, iri, at, key).stream());
             } else if (names) {
-                found = Stream.concat(found, collect(document, at.at(key), true, false).stream());
+                // Each member is a property's name, and its value a schema.
+                found = Stream.concat(found, collect(document, iri, at.at(key), true, false).stream());
             } else if (schema) {
-                boolean map = SCHEMA_NAME_MAPS.contains(key);
-                found = SCHEMA_DATA.contains(key) ? found
-                        : Stream.concat(found, collect(document, at.at(key), !map, map).stream());
+                // A schema's keyword holds a schema, a list of schemas, the names of schemas, or else data or an
+                // annotation, which is not read.
+                if (SCHEMA_ONE.contains(key) || SCHEMA_LIST.contains(key)) {
+                    found = Stream.concat(found, collect(document, iri, at.at(key), true, false).stream());
+                } else if (SCHEMA_NAME_MAPS.contains(key)) {
+                    found = Stream.concat(found, collect(document, iri, at.at(key), false, true).stream());
+                }
             } else {
                 boolean schemas = at.pointer().equals("#/components") && key.equals("schemas");
-                found = Stream.concat(found, collect(document, at.at(key), key.equals("schema"), schemas).stream());
+                found = Stream.concat(found, collect(document, iri, at.at(key), key.equals("schema"), schemas)
+                        .stream());
             }
         }
         return found.toList();
@@ -355,13 +371,13 @@ public final class Contract {
         return parameter || mediaType;
     }
 
-    private static List<Example> examplesOf(JsonNode document, Located holder, String key) {
+    private static List<Example> examplesOf(JsonNode document, String iri, Located holder, String key) {
         List<String> at = segments(holder.pointer());
         Located schema = holder.at("schema");
         if (schema.node().isMissingNode()) {
             throw new AssertionError(holder.pointer() + ": an example needs a schema beside it to be validated");
         }
-        String location = schemaLocation(schema);
+        String location = iri + schema.pointer();
         boolean problem = at.size() >= 4 && at.getLast().equals(MediaType.APPLICATION_PROBLEM_JSON_VALUE)
                 && at.get(at.size() - 4).equals("responses");
         String response = problem ? holder.pointer().substring(0, holder.pointer().lastIndexOf("/content/")) : "";
@@ -394,12 +410,20 @@ public final class Contract {
         if (at.getFirst().equals("paths")) {
             statuses.add(at.get(at.size() - 3));
         } else {
-            for (JsonNode path : document.path("paths").values()) {
-                for (JsonNode operation : path.values()) {
-                    for (Map.Entry<String, JsonNode> used : operation.path("responses").properties()) {
-                        if (response.equals(used.getValue().path("$ref").stringValue(""))) {
-                            statuses.add(used.getKey());
+            Located paths = new Located(document, "#").at("paths");
+            for (String path : paths.node().propertyNames()) {
+                for (String method : paths.at(path).node().propertyNames()) {
+                    Located responses = paths.at(path).at(method).at("responses");
+                    for (String code : responses.node().propertyNames()) {
+                        Located use = responses.at(code);
+                        if (!response.equals(use.node().path("$ref").stringValue(""))) {
+                            continue;
                         }
+                        if (use.node().has("description")) {
+                            throw new AssertionError(use.pointer() + " overrides the description of " + response
+                                    + ", whose problem example is checked against the component's description only");
+                        }
+                        statuses.add(code);
                     }
                 }
             }
@@ -482,10 +506,12 @@ public final class Contract {
                 .isEqualTo(instanceFor(requestPath));
     }
 
-    /** Where the validator finds a schema: the component it references, or the inline schema's own pointer. */
+    /**
+     * Where the validator finds a schema: its own pointer in the contract, so that a keyword beside a {@code $ref} applies
+     * too; the validator resolves the reference.
+     */
     private static String schemaLocation(Located schema) {
-        String reference = schema.node().path("$ref").stringValue("");
-        return DOCUMENT + (reference.isEmpty() ? schema.pointer() : reference);
+        return DOCUMENT + schema.pointer();
     }
 
     private Located resolve(Located located) {
@@ -518,9 +544,14 @@ public final class Contract {
 
     /** The contract's text, as committed, from the test class path. */
     static String text() {
-        try (InputStream in = Contract.class.getClassLoader().getResourceAsStream(RESOURCE)) {
+        return text(RESOURCE);
+    }
+
+    /** The text of a resource on the test class path, such as a fixture contract. */
+    static String text(String resource) {
+        try (InputStream in = Contract.class.getClassLoader().getResourceAsStream(resource)) {
             if (in == null) {
-                throw new IllegalStateException(RESOURCE + " is not on the test class path.");
+                throw new IllegalStateException(resource + " is not on the test class path.");
             }
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {

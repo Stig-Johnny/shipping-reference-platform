@@ -1036,4 +1036,5 @@ Claude Code, the orchestrator (`claude-opus-5-5`, effort unknown), counted the c
 first and then the reader and the checks in the HTTP contract tests' support class, and updated the HTTP contract
 control, the README, ADR 0012 and its evidence sentence on the site, demo 158, this entry and the record. Codex
 (`gpt-6-astra`, effort `xhigh`) split this work from issue 155 in its design review and asked that a problem example's
-type be one its response names. The reviews of the final head and the merge decision are comments on PR #158.
+type be one its response names; reviewing the head, it found three gaps, fixed before the merge. The reviews of the
+final head and the merge decision are comments on PR #158.

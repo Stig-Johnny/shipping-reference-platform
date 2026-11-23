@@ -1,0 +1,27 @@
+# A fixture of ContractExamplesTest: the example satisfies the component that the schema's $ref names, but not the
+# constraint beside that $ref, so it fails only when the whole schema beside it is validated.
+openapi: 3.1.2
+info:
+  title: Fixture of a constraint beside a reference
+  version: 0.0.0
+paths:
+  /things:
+    get:
+      responses:
+        '200':
+          description: A thing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Thing'
+                maxProperties: 0
+              examples:
+                one:
+                  value: {name: synthetic}
+components:
+  schemas:
+    Thing:
+      type: object
+      properties:
+        name:
+          type: string
