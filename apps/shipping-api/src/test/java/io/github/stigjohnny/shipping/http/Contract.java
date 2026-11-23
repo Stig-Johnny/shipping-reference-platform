@@ -86,9 +86,12 @@ public final class Contract {
             "contentSchema");
     /** A schema's keywords whose value is a list of schemas. */
     private static final Set<String> SCHEMA_LIST = Set.of("allOf", "anyOf", "oneOf", "prefixItems");
-    /** A schema's keywords whose members are names, each of a schema. */
+    /**
+     * A schema's keywords whose members are names, each of a schema; draft 7's {@code dependencies} names a schema or,
+     * as data, a list of property names.
+     */
     private static final Set<String> SCHEMA_NAME_MAPS = Set.of("properties", "patternProperties", "$defs",
-            "definitions", "dependentSchemas");
+            "definitions", "dependentSchemas", "dependencies");
     /** What a media type with examples belongs to, besides an operation's request body. */
     private static final Set<String> MEDIA_TYPE_OWNERS = Set.of("responses", "requestBodies", "parameters");
     /** One problem type at the start of a response's description, its note, and the separator after it. */
@@ -287,10 +290,12 @@ public final class Contract {
     /**
      * Every example of a contract document, in document order: the {@code example} and the named {@code examples} of a
      * media type or a parameter, each with the location of the whole schema beside it in the document at {@code iri}.
-     * An example anywhere else, or one that holds no value of its own (an {@code externalValue} or a {@code $ref}),
-     * fails, so that no example goes unchecked. An example's value, a schema's keywords that hold no schema (such as
-     * {@code enum}, {@code default} and {@code dependentRequired}) and the names of a schema's properties are data: a
-     * member named example there is not an example.
+     * An example anywhere else, such as in a schema or a header, or one that holds no value of its own (an
+     * {@code externalValue} or a {@code $ref}), fails instead of passing unchecked. A schema's keywords are read by
+     * kind, those of JSON Schema 2020-12 and draft 7's {@code definitions} and {@code dependencies}: an example's value,
+     * a keyword that holds no schema (such as {@code enum}, {@code default} and {@code dependentRequired}), any keyword
+     * this list does not know, and the names of a schema's properties are data, and a member named example there is
+     * not an example.
      */
     static List<Example> examples(JsonNode document, String iri) {
         return collect(document, iri, new Located(document, "#"), false, false);

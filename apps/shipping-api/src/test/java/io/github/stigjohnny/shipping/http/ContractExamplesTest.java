@@ -16,7 +16,8 @@ import tools.jackson.databind.JsonNode;
 /**
  * The contract's own examples (control.http-contract): each one validates against its schema with the settings of the
  * HTTP contract tests, and a problem example is its type's problem, with its response's status, of a type that its
- * response names. An example in a place this test does not read fails, so none goes unchecked. Each negative fixture
+ * response names. An example in a schema, a header or another place this test does not read fails instead of passing
+ * unchecked. Each negative fixture
  * edits one passage of the contract's text, as a contributor would; schemas are still read from the contract itself.
  */
 class ContractExamplesTest {
@@ -128,7 +129,8 @@ class ContractExamplesTest {
 
     /**
      * Each place where this test reads no example: a header, a schema, a property's schema, a schema under a legacy
-     * definitions keyword named like a keyword of data, and the shared examples.
+     * definitions keyword named like a keyword of data, a schema that draft 7's dependencies names, and the shared
+     * examples.
      */
     static Stream<Arguments> places() {
         return Stream.of(
@@ -142,6 +144,16 @@ class ContractExamplesTest {
                                       definitions:
                                         default:
                                           type: string
+                                          examples: [42]
+                                      type: object
+                                """),
+                Arguments.of("#/components/schemas/Quote/dependencies/offers/examples",
+                        "    Quote:\n      type: object\n", """
+                                    Quote:
+                                      $schema: 'http://json-schema.org/draft-07/schema#'
+                                      dependencies:
+                                        offers:
+                                          type: object
                                           examples: [42]
                                       type: object
                                 """),
@@ -181,6 +193,8 @@ class ContractExamplesTest {
         String named = """
                       description: Personal data. Use synthetic values only. Never logged.
                       dependentRequired:
+                        example: [name]
+                      dependencies:
                         example: [name]
                       properties:
                         example:

@@ -17,7 +17,8 @@ still passed. Now `ContractExamplesTest` reads all nine of them, the eight named
 bodies and the `Idempotency-Key` parameter's example, and validates each against the whole schema beside it, a
 constraint beside a `$ref` included, with the validator settings of the HTTP contract tests. A problem example must
 also be its type's problem in the error registry, have its response's status, and be of a type that its response's
-description names. An example in a place the test does not read fails, so a new kind of example cannot go unchecked.
+description names. An example in a schema, a header or another place the test does not read fails instead of
+passing unchecked.
 The test is evidence of the HTTP contract control and of ADR 0012, whose page on the site now counts nine evidence
 classes.
 
@@ -48,19 +49,19 @@ fixture edits is no longer there:
 > Task :apps:shipping-api:test FAILED
 ContractExamplesTest > everyExampleOfTheContractConformsToItsSchemaAndItsResponse() FAILED
 ContractExamplesTest > aProblemExampleWhoseTitleIsNotItsTypesFails() FAILED
-17 tests completed, 2 failed
-BUILD FAILED in 5s
+18 tests completed, 2 failed
+BUILD FAILED in 4s
 org.opentest4j.AssertionFailedError: [#/paths/~1quotes/post/responses/422/content/application~1problem+json/examples/routeNotServed: the registry's title for https://shipping-reference-platform.example/problems/no-offer-available]
 expected: "No offer available"
  but was: "No offers available"
 ```
 
-After the cleanup, the same task ran the 17 tests again, all passing, and exited 0. The excerpt shows the console's
+After the cleanup, the same task ran the 18 tests again, all passing, and exited 0. The excerpt shows the console's
 last line and the counts of the test report:
 
 ```text
 BUILD SUCCESSFUL in 2s
-tests="17" skipped="0" failures="0" errors="0"
+tests="18" skipped="0" failures="0" errors="0"
 ```
 
 ## Limits
@@ -72,5 +73,7 @@ tests="17" skipped="0" failures="0" errors="0"
 - The site's API pages show the eight named examples; the parameter's example is validated but not shown there.
 - A header's example, a schema's examples and a shared example under `components/examples` fail the test instead of
   being validated: using one means extending the test first.
+- A schema's keywords are read by kind, those of JSON Schema 2020-12 and draft 7's `definitions` and `dependencies`:
+  an example inside a keyword that the test does not know as a holder of schemas is data, and is not seen.
 - The negative fixtures edit passages of the contract's text, so editing such a passage means updating its fixture
   too; the failure names the passage.
