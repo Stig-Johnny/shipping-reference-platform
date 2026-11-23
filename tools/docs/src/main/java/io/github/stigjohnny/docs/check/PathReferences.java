@@ -35,8 +35,9 @@ import org.jspecify.annotations.Nullable;
  *       A pattern, a path with a glob or a placeholder, proves only that the directory before them exists.
  *   <li>Build output and tool state are never read as paths: a name {@code build} outside a source tree named
  *       {@code src}, {@code dist}, {@code node_modules}, {@code .gradle}, {@code .git} and {@code .claude}, in exact
- *       letter case as the walk and git see them; a marker on such a path fails, in any letter case, since nothing
- *       there can prove it, and a path that writes such a name in another letter case fails with the spelling to use.
+ *       letter case as the walk and git see them; a marker on such a path fails, in any letter case where no real
+ *       directory has the name as written, since nothing there can prove it, and a path that writes such a name in
+ *       another letter case there fails with the spelling to use.
  *       Before a path counts as output, a real path in another letter case is named. A directory the walk skipped
  *       stops a marker in any letter case, the document's own directory included, and a bare path only where no real
  *       directory has the name. A link or another special file on the way fails, in any letter case, never counting
@@ -74,7 +75,7 @@ final class PathReferences {
             for (String entry : entries) {
                 // Only what lies outside build output and tool state makes a directory exist, as for git: a file the
                 // walk collects in dist never makes its directories appear.
-                if (excluded(List.of(entry.split("/", -1)), false)) {
+                if (excluded(List.of(entry.split("/", -1)))) {
                     continue;
                 }
                 for (int slash = entry.indexOf('/'); slash > 0; slash = entry.indexOf('/', slash + 1)) {
@@ -110,7 +111,7 @@ final class PathReferences {
      */
     private static @Nullable String real(Map<String, List<String>> folded, String path, String written) {
         for (String spelling : folded.getOrDefault(path.toLowerCase(Locale.ROOT), List.of())) {
-            if (!spelling.equals(written) && !excluded(List.of(spelling.split("/", -1)), false)) {
+            if (!spelling.equals(written) && !excluded(List.of(spelling.split("/", -1)))) {
                 return spelling;
             }
         }
@@ -148,6 +149,8 @@ final class PathReferences {
         @Nullable Reading other = path.anchor() == Anchor.NONE && top && !directory.isEmpty()
                 ? read(path, directory, false) : null;
         boolean otherExists = other != null && other.state() == State.EXISTS;
+        // A link on the document's reading leaves that reading unknown, so it decides nothing in the path's favour.
+        @Nullable Reading otherLink = other != null && other.state() == State.SPECIAL ? other : null;
         String quoted = where + ": `" + text + "` ";
         switch (primary.state()) {
             case EXCLUDED -> {
@@ -160,7 +163,9 @@ final class PathReferences {
                     + found(path, primary) + ", which exists (ADR 0023)");
             case DIRECTORY_CASE -> problems.add(quoted + directoryCase(primary));
             case EXISTS -> {
-                if (otherExists) {
+                if (otherLink != null) {
+                    problems.add(quoted + special(otherLink));
+                } else if (otherExists) {
                     problems.add(quoted + (path.pattern() ? "is a pattern whose directory " + fixed(path)
                             + " exists both " : "names a file or directory both ") + from("") + " and "
                             + from(directory) + ": write /" + text + " for the first or ./" + text
@@ -168,6 +173,10 @@ final class PathReferences {
                 }
             }
             case MISSING -> {
+                if (otherLink != null) {
+                    problems.add(quoted + special(otherLink));
+                    return;
+                }
                 String missing = path.pattern() ? "is a pattern whose directory " + fixed(path) + " does not exist "
                         : "names no " + (path.directory() ? "directory " : "file or directory ");
                 problems.add(quoted + missing + from(primary.base()) + (otherExists ? ", but does "
@@ -260,19 +269,19 @@ final class PathReferences {
         }
         // A path outside output that exists exactly is found next: a real directory named Dist is no output. A file in
         // output that the walk collects is no shortcut, so that it never hides a real spelling.
-        boolean exact = excluded(names, false);
+        boolean exact = excluded(names);
         if (!exact && (directories.contains(object) || (!directory && files.contains(object)))) {
             return new Reading(base, object, State.EXISTS, object);
         }
         // Output by its names, as the walk and git see them, or in another letter case: a real path in another case is
         // named first, so that a source path written SRC fails on its case.
-        if (exact || excluded(names, true)) {
+        if (exact || outputInAnotherCase(names)) {
             Reading variant = variant(names, start, end, base, object, directory);
             if (variant != null) {
                 return variant;
             }
             return exact || marked ? new Reading(base, "", State.EXCLUDED, "")
-                    : new Reading(base, "", State.OUTPUT_CASE, canonical(path, names.subList(0, start)));
+                    : new Reading(base, "", State.OUTPUT_CASE, canonical(path, names, start));
         }
         Reading found = lookup(names, start, end, base, object, directory);
         if (found != null) {
@@ -333,7 +342,7 @@ final class PathReferences {
         }
         for (int i = start + 1; i < end; i++) {
             String prefix = String.join("/", names.subList(0, i));
-            if (directories.contains(prefix) && !excluded(List.of(prefix.split("/", -1)), false)) {
+            if (directories.contains(prefix) && !excluded(List.of(prefix.split("/", -1)))) {
                 continue;
             }
             // Missing as written, or output as written: a real directory in another letter case is named, so that an
@@ -345,18 +354,16 @@ final class PathReferences {
     }
 
     /**
-     * Whether a name of a path, from the root, is build output or tool state, in exact letter case as the walk and git
-     * see it or, with {@code ignoreCase}, in any; a build directory in a source tree is not, and a source tree is a
-     * directory named src in exact letter case in both modes, as the walk sees it.
+     * Whether a name of a path, from the root, is build output or tool state in exact letter case, as the walk and git
+     * see it: build outside a source tree named src exactly, dist, node_modules, .gradle, .git or .claude.
      */
-    private static boolean excluded(List<String> names, boolean ignoreCase) {
+    private static boolean excluded(List<String> names) {
         boolean sources = false;
-        for (String written : names) {
-            String name = ignoreCase ? written.toLowerCase(Locale.ROOT) : written;
+        for (String name : names) {
             if (EXCLUDED.contains(name) || (name.equals(BUILD) && !sources)) {
                 return true;
             }
-            sources |= written.equals(SOURCES);
+            sources |= name.equals(SOURCES);
         }
         return false;
     }
@@ -368,26 +375,42 @@ final class PathReferences {
     }
 
     /**
-     * The spelling to use for a path that writes build output or tool state in another letter case: each such name in
-     * its own case, so that the path is never read. {@code base} holds the names of the directory it is read from; when
-     * one of them is such a name, the path is written from the root, since no spelling from that directory helps.
+     * Whether a name of a path, read from the root, is build output or tool state in another letter case: an output
+     * name in any case, where no real directory exists as written. A real directory named Dist or BUILD, which holds a
+     * file outside output, is a directory like any other; a source tree is a directory named src exactly, as the walk
+     * sees it.
      */
-    private static String canonical(PathReference path, List<String> base) {
-        List<String> names = new ArrayList<>(base);
-        names.addAll(path.names());
+    private boolean outputInAnotherCase(List<String> names) {
         boolean sources = false;
-        boolean inBase = false;
-        List<String> spelled = new ArrayList<>();
         for (int i = 0; i < names.size(); i++) {
             String lower = names.get(i).toLowerCase(Locale.ROOT);
             boolean output = EXCLUDED.contains(lower) || (lower.equals(BUILD) && !sources);
-            inBase |= output && i < base.size();
-            spelled.add(output ? lower : names.get(i));
+            if (output && !directories.contains(String.join("/", names.subList(0, i + 1)))) {
+                return true;
+            }
             sources |= names.get(i).equals(SOURCES);
         }
-        String directory = path.directory() ? "/" : "";
-        return inBase ? "/" + String.join("/", spelled) + directory
-                : anchor(path) + String.join("/", spelled.subList(base.size(), spelled.size())) + directory;
+        return false;
+    }
+
+    /**
+     * The spelling to use for a path that writes build output or tool state in another letter case: each such name in
+     * its own case, where no real directory exists as written, so that the path is never read. The names before
+     * {@code start} are the document's directory, which holds the document and so always exists as written.
+     */
+    private String canonical(PathReference path, List<String> names, int start) {
+        boolean sources = false;
+        List<String> spelled = new ArrayList<>();
+        for (int i = 0; i < names.size(); i++) {
+            String lower = names.get(i).toLowerCase(Locale.ROOT);
+            boolean output = (EXCLUDED.contains(lower) || (lower.equals(BUILD) && !sources))
+                    && !directories.contains(String.join("/", names.subList(0, i + 1)));
+            if (i >= start) {
+                spelled.add(output ? lower : names.get(i));
+            }
+            sources |= names.get(i).equals(SOURCES);
+        }
+        return anchor(path) + String.join("/", spelled) + (path.directory() ? "/" : "");
     }
 
     private static String directoryOf(String document) {

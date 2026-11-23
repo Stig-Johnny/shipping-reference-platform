@@ -613,6 +613,34 @@ class ReferencesTest {
         }
     }
 
+    /**
+     * The document's reading of a path still counts when a link stands on it: a link collected in output that differs
+     * only in case never turns an ambiguous or missing path into a pass. In memory, since a Mac cannot hold both
+     * spellings.
+     */
+    @Test
+    void aLinkOnTheDocumentsReadingNeverTurnsAFailureIntoAPass() {
+        Set<String> files = Set.of("docs/notes.md", "tools/Dist/x.txt", "docs/tools/Dist/x.txt");
+        String link = " reaches docs/tools/dist/%s, a link or special file, which the check does not follow (ADR 0023)";
+        for (boolean linked : List.of(false, true)) {
+            Set<String> special = linked ? Set.of("docs/tools/dist/x.txt", "docs/tools/dist/z.txt") : Set.of();
+            PathReferences paths = new PathReferences(files, special, Set.of());
+            Problems problems = new Problems();
+            paths.bare("tools/Dist/x.txt", "docs/notes.md", "d:1", problems);
+            paths.bare("tools/Dist/z.txt", "docs/notes.md", "d:2", problems);
+
+            assertThat(problems.list()).as("linked: " + linked).containsExactly(linked
+                    ? "d:1: `tools/Dist/x.txt`" + link.formatted("x.txt")
+                    : "d:1: `tools/Dist/x.txt` names a file or directory both " + ROOT + " and from docs/, this "
+                            + "document's directory: write /tools/Dist/x.txt for the first or ./tools/Dist/x.txt for the "
+                            + "second (ADR 0023)", linked
+                    ? "d:2: `tools/Dist/z.txt`" + link.formatted("z.txt")
+                    : "d:2: `tools/Dist/z.txt` names no file or directory " + ROOT + "; if it is planned, write "
+                            + "planned:path:tools/Dist/z.txt, and if it is meant to be absent, "
+                            + "absent:path:tools/Dist/z.txt (ADR 0023)");
+        }
+    }
+
     /** A path that exists exactly is found first: a real directory named Dist is no output in another letter case. */
     @Test
     void aPathThatExistsExactlyIsFoundBeforeAnyOutputRule() {
@@ -708,12 +736,18 @@ class ReferencesTest {
                 + "(ADR 0023)");
     }
 
+    /**
+     * A document's own directory holds the document, so it is a real directory even when its name is an output name in
+     * another case, such as BUILD: a missing path there is missing, and the marker that the message offers holds.
+     */
     @Test
-    void theSpellingToUseForOutputInTheDocumentsOwnDirectoryIsFromTheRoot() {
-        Fixture fixture = Fixture.copy(dir).passingEvidence().write("tools/BUILD/notes.md", "# Notes\n\nSee `./x.md`.\n");
+    void aDocumentsOwnDirectoryIsRealWhateverTheCaseOfItsName() {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write("tools/BUILD/notes.md",
+                "# Notes\n\nSee `./x.md` and `planned:path:./x.md`.\n");
 
-        assertThat(problems(fixture)).containsExactly("tools/BUILD/notes.md:3: `./x.md` names build output or tool state in "
-                + "another letter case; write /tools/build/x.md, which no check reads (ADR 0023)");
+        assertThat(problems(fixture)).containsExactly("tools/BUILD/notes.md:3: `./x.md` names no file or directory from "
+                + "tools/BUILD/, this document's directory; if it is planned, write planned:path:./x.md, and if it is "
+                + "meant to be absent, absent:path:./x.md (ADR 0023)");
     }
 
     @Test

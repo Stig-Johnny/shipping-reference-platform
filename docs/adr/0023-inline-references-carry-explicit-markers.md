@@ -84,18 +84,19 @@ none. Where a path is read from is explicit:
 - It must exist in exact letter case, as on Linux, and a path outside build output and tool state that does is found
   before any rule about output; one that differs only in case fails, and so does one that writes a directory on its
   way in another case, with that directory named. Every spelling in the tree counts, so output in another case never
-  hides a real path, and a link on the way is checked before anything else. A trailing slash names a directory, and a
-  directory exists only when it holds a file or a link outside build output and tool state, as for git. A pattern, a
-  path with a glob or a placeholder, such as `docs/modules/<module>.md`, proves only that the directory before them
-  exists, never that a file matches.
+  hides a real path, and a link on the way is checked before anything else, on the document's reading too. A trailing
+  slash names a directory, and a directory exists only when it holds a file or a link outside build output and tool
+  state, as for git. A pattern, a path with a glob or a placeholder, such as `docs/modules/<module>.md`, proves only
+  that the directory before them exists, never that a file matches.
 - A path through build output or tool state is never read: a directory named build outside a source tree named src,
   dist, node_modules, .gradle, .git or .claude, in exact letter case, as the walk and git see them. A marker on such a
-  path fails, in any letter case, because nothing there can prove it, and a path that writes such a name in another
-  letter case fails with the spelling to use. Before a path counts as output, a real path in another letter case is
-  named: a source path written SRC fails on its case. The directories the walk skips keep their place: a marker
-  through one of them, in any letter case and from the document's own directory too, fails, and a bare path that
-  exists nowhere else gets the spelling to use. A link or another special file on the way fails too, in any letter case, and never counts as
-  absent.
+  path fails, in any letter case where no real directory has that name as written, because nothing there can prove it,
+  and a path that writes such a name in another letter case there fails with the spelling to use; a real directory
+  named BUILD or Dist, which holds a file, is a directory like any other. Before a path counts as output, a real path
+  in another letter case is named: a source path written SRC fails on its case. The directories the walk skips keep
+  their place: a marker through one of them, in any letter case and from the document's own directory too, fails, and
+  a bare path that exists nowhere else gets the spelling to use. A link or another special file on the way fails too,
+  in any letter case, and never counts as absent.
 - A planned or an absent path must exist in neither reading, in no letter case, and its first name is no pattern; an
   illustrative path needs a placeholder, and nothing else about it is checked.
 
