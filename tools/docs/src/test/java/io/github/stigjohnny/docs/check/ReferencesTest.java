@@ -586,6 +586,33 @@ class ReferencesTest {
         }
     }
 
+    /**
+     * Collected output that is exactly the referenced file, in dist or .claude, never turns a case error into a pass:
+     * the shortcut for a path that exists applies only outside output. In memory, since a Mac cannot hold both
+     * spellings.
+     */
+    @Test
+    void theReferencedFileItselfInOutputNeverTurnsAFailureIntoAPass() {
+        Set<String> real = Set.of("README.md", "tools/notes/a/DIST/x.txt", "tools/notes/b/.CLAUDE/r.txt");
+        Set<String> withOutput = Set.of("README.md", "tools/notes/a/DIST/x.txt", "tools/notes/b/.CLAUDE/r.txt",
+                "tools/notes/a/dist/x.txt", "tools/notes/a/dist/y.txt", "tools/notes/b/.claude/r.txt");
+        List<String> expected = List.of("r:1: `tools/notes/a/dist/x.txt` differs only in letter case from "
+                + "tools/notes/a/DIST/x.txt, which exists (ADR 0023)", "r:2: `tools/notes/a/dist/y.txt` writes the "
+                + "directory tools/notes/a/dist/ in another letter case: tools/notes/a/DIST/ exists (ADR 0023)",
+                "r:3: `tools/notes/b/.claude/r.txt` differs only in letter case from tools/notes/b/.CLAUDE/r.txt, which "
+                        + "exists (ADR 0023)");
+
+        for (Set<String> files : List.of(real, withOutput)) {
+            PathReferences paths = new PathReferences(files, Set.of(), Set.of());
+            Problems problems = new Problems();
+            paths.bare("tools/notes/a/dist/x.txt", "README.md", "r:1", problems);
+            paths.bare("tools/notes/a/dist/y.txt", "README.md", "r:2", problems);
+            paths.bare("tools/notes/b/.claude/r.txt", "README.md", "r:3", problems);
+
+            assertThat(problems.list()).as(files.toString()).isEqualTo(expected);
+        }
+    }
+
     /** A path that exists exactly is found first: a real directory named Dist is no output in another letter case. */
     @Test
     void aPathThatExistsExactlyIsFoundBeforeAnyOutputRule() {

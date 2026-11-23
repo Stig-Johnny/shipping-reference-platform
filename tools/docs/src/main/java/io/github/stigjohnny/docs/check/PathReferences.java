@@ -29,9 +29,9 @@ import org.jspecify.annotations.Nullable;
  *       directory that does not exist is read only when it is marked.
  *   <li>Without an anchor, the root comes first: a path read from the root that the document's directory also has is
  *       ambiguous, and one that only the document's directory has must say so with {@code ./}.
- *   <li>A path must exist in exact letter case, and one that does is found before any rule about output; one that
- *       differs only in case fails, and so does one that writes a directory on its way in another case, every spelling
- *       of it counting. A trailing slash names a directory.
+ *   <li>A path must exist in exact letter case, and one outside output that does is found before any rule about
+ *       output; one that differs only in case fails, and so does one that writes a directory on its way in another
+ *       case, every spelling of it counting. A trailing slash names a directory.
  *       A pattern, a path with a glob or a placeholder, proves only that the directory before them exists.
  *   <li>Build output and tool state are never read as paths: a name {@code build} outside a source tree named
  *       {@code src}, {@code dist}, {@code node_modules}, {@code .gradle}, {@code .git} and {@code .claude}, in exact
@@ -258,13 +258,14 @@ final class PathReferences {
                 return new Reading(base, object, State.SPECIAL, link);
             }
         }
-        // A path that exists exactly is found next, whatever its names: a real directory named Dist is no output.
-        if (directories.contains(object) || (!directory && files.contains(object))) {
+        // A path outside output that exists exactly is found next: a real directory named Dist is no output. A file in
+        // output that the walk collects is no shortcut, so that it never hides a real spelling.
+        boolean exact = excluded(names, false);
+        if (!exact && (directories.contains(object) || (!directory && files.contains(object)))) {
             return new Reading(base, object, State.EXISTS, object);
         }
         // Output by its names, as the walk and git see them, or in another letter case: a real path in another case is
         // named first, so that a source path written SRC fails on its case.
-        boolean exact = excluded(names, false);
         if (exact || excluded(names, true)) {
             Reading variant = variant(names, start, end, base, object, directory);
             if (variant != null) {
