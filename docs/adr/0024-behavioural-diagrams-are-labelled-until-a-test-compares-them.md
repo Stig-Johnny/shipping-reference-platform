@@ -56,7 +56,7 @@ the diagrams in any case.
   prose whose first line is `sequenceDiagram`, `stateDiagram` or `stateDiagram-v2`. Fences in lists and quotes count.
 - **The label in Markdown** is a paragraph right before the fence, in the same container, whose first inline is
   strong emphasis holding exactly the words `Unchecked design.` and nothing else, which GitHub shows in bold above the
-  drawing. A sentence after it says what no test compares.
+  drawing. The rest of the paragraph says what no test compares; the check reads only the lead and its place.
 - **A stray label fails.** A paragraph that starts with the label must be followed by a sequence or state diagram, so
   that no label stands on a flowchart or on nothing.
 - **Mermaid fences show their type.** In current prose, a fenced block whose info string's first word is `mermaid`, in

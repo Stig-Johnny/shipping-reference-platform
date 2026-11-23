@@ -39,8 +39,8 @@ as the code. An agent that makes a check pass by weakening it has failed the tas
    `cap:control.inline-references`. Name a path that exists from the root, or with `./` from the document's
    directory, and one that does not with its marker, such as `planned:path:policy/rulesets.json` or
    `absent:path:tools/web-imports/`; the docs check fails otherwise (ADR 0023). A sequence or state diagram in Mermaid
-   follows a paragraph that starts with the bold words Unchecked design. and says what no test compares; the docs
-   check fails without it (ADR 0024).
+   follows a paragraph that starts with the bold words Unchecked design.; the docs check fails without that lead right
+   before the diagram (ADR 0024). The rest of the paragraph says what no test compares, which no check reads.
    If no document needs changing, say why under "Docs: none needed because" in the pull request body.
 6. **Record each pull request once.** Follow `docs/contributions.md` (ADR 0021): append one record for the pull
    request to `docs/contributions/runs.md` and one short entry for its issue to `docs/contributions/history.md`.

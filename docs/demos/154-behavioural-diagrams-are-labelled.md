@@ -14,8 +14,8 @@ tests: [BehaviouralDiagramsTest, BrainGeneratorTest, MarkdownRendererTest, SiteP
 Before, nothing told a reader which diagrams the code is held to. The flow's sequence and the shipment lifecycle are
 written by hand and drawn by GitHub, and no test reads them; the model's dynamic views looked alike, although only the
 two scenario views run against the code, and only in part. Now a sequence or state diagram in the prose that the check
-reads must follow a paragraph that starts with the bold words Unchecked design. and says what no test compares, or the
-documentation check fails. Every dynamic view of the model carries the same label from the generator, a scenario view
+reads must follow a paragraph that starts with the bold words Unchecked design., or the documentation check fails. The
+rest of the paragraph says what no test compares; the check reads only the bold lead and its place. Every dynamic view of the model carries the same label from the generator, a scenario view
 too, until evidence shows that a test compares the whole view. On the site the label is the words Unchecked design in
 the muted box, after the diagram's title or on its closed source.
 
@@ -60,7 +60,7 @@ Expecting empty but was: ["docs/modules/shipments.md:169: no test compares this 
 ```
 
 After the cleanup, `./gradlew :tools:docs:generate` ran the documentation tests, 1108, all passing, and exited 0;
-then the same command exited 0, its tests up to date. The excerpt leaves out other tasks' lines:
+then `./gradlew :tools:docs:check` exited 0, its tests up to date. The excerpt leaves out other tasks' lines:
 
 ```text
 > Task :tools:docs:test UP-TO-DATE
