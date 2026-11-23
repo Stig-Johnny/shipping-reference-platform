@@ -516,6 +516,24 @@ class ReferencesTest {
                 + "` differs only in letter case from " + existing + ", which exists (ADR 0023)");
     }
 
+    /**
+     * A source directory written SRC is no source tree for the walk, as for git, so a build directory in it is output
+     * that the inventory leaves out; a marker there can prove nothing and fails, while a mis-cased reference to a real
+     * source file still fails on its case.
+     */
+    @Test
+    void aBuildDirectoryInARealUppercaseSourceDirectoryIsOutputThatNoMarkerCanProveAbsent() {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write("tools/notes/SRC/README.txt", "x\n")
+                .write("tools/notes/SRC/build/x.txt", "x\n")
+                .write(NOTES, "# Notes\n\n`absent:path:tools/notes/SRC/build/x.txt`, "
+                        + "`planned:path:tools/notes/SRC/build/y.txt` and `tools/notes/SRC/build/x.txt`\n");
+        String output = " is build output or tool state, which no check reads; write it without a marker (ADR 0023)";
+
+        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `absent:path:tools/notes/SRC/build/x.txt`: "
+                + "tools/notes/SRC/build/x.txt" + output, NOTES + ":3: `planned:path:tools/notes/SRC/build/y.txt`: "
+                + "tools/notes/SRC/build/y.txt" + output);
+    }
+
     @Test
     void theSpellingToUseForOutputInTheDocumentsOwnDirectoryIsFromTheRoot() {
         Fixture fixture = Fixture.copy(dir).passingEvidence().write("tools/BUILD/notes.md", "# Notes\n\nSee `./x.md`.\n");

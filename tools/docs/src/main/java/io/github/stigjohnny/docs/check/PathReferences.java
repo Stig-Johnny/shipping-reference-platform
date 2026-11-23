@@ -31,10 +31,11 @@ import org.jspecify.annotations.Nullable;
  *   <li>A path must exist in exact letter case; one that differs only in case fails, and so does one that writes a
  *       directory on its way in another case. A trailing slash names a directory.
  *       A pattern, a path with a glob or a placeholder, proves only that the directory before them exists.
- *   <li>Build output and tool state are never read as paths: a name {@code build} outside a source tree, {@code dist},
- *       {@code node_modules}, {@code .gradle}, {@code .git} and {@code .claude}; a marker on such a path fails, in any
- *       letter case, since nothing there can prove it, and a path that writes such a name in another letter case fails
- *       with the spelling to use. A link or another special file on the way fails, in any letter case, never counting
+ *   <li>Build output and tool state are never read as paths: a name {@code build} outside a source tree named
+ *       {@code src}, {@code dist}, {@code node_modules}, {@code .gradle}, {@code .git} and {@code .claude}, in exact
+ *       letter case as the walk and git see them; a marker on such a path fails, in any letter case, since nothing
+ *       there can prove it, and a path that writes such a name in another letter case fails with the spelling to use.
+ *       Before a path counts as output, a real path in another letter case is named. A link or another special file on the way fails, in any letter case, never counting
  *       as absent. Files, directories and special files are matched in other letter cases apart, so that a file never
  *       hides a directory.
  *   <li>{@code planned:path:} and {@code absent:path:} must exist in neither reading, in no letter case;
@@ -209,14 +210,19 @@ final class PathReferences {
         }
         int start = names.size();
         names.addAll(path.names());
-        if (excluded(names, false) || (marked && excluded(names, true))) {
-            return new Reading(base, "", State.EXCLUDED, "");
-        }
-        if (excluded(names, true)) {
-            return new Reading(base, "", State.OUTPUT_CASE, canonical(path, names.subList(0, start)));
-        }
         int end = start + path.fixed();
         String object = String.join("/", names.subList(0, end));
+        boolean directory = path.pattern() || path.directory();
+        boolean exact = excluded(names, false);
+        if (exact || excluded(names, true)) {
+            // Output as the walk and git see it, or in another letter case: a real path in another case is named first.
+            Reading variant = variant(names, start, end, base, object, directory);
+            if (variant != null) {
+                return variant;
+            }
+            return exact || marked ? new Reading(base, "", State.EXCLUDED, "")
+                    : new Reading(base, "", State.OUTPUT_CASE, canonical(path, names.subList(0, start)));
+        }
         for (int i = start + 1; i <= end; i++) {
             String prefix = String.join("/", names.subList(0, i));
             String link = special.contains(prefix) ? prefix : foldedSpecial.get(prefix.toLowerCase(Locale.ROOT));
@@ -224,7 +230,6 @@ final class PathReferences {
                 return new Reading(base, object, State.SPECIAL, link);
             }
         }
-        boolean directory = path.pattern() || path.directory();
         if (directories.contains(object) || (!directory && files.contains(object))) {
             return new Reading(base, object, State.EXISTS, object);
         }
@@ -248,9 +253,34 @@ final class PathReferences {
     }
 
     /**
-     * Whether a name of a path, from the root, is build output or tool state, in exact letter case or, with
-     * {@code ignoreCase}, in any; a build directory in sources is not, whatever the letter case of their name, so that
-     * a source path written in another case is checked as one.
+     * A path through output, read as the inventory has it in another letter case: the whole path, or a directory on its
+     * way, that exists outside build output and tool state; null when there is none. A path written with a source
+     * tree named SRC thus fails on its case when the real one is src, and never passes as output.
+     */
+    private @Nullable Reading variant(List<String> names, int start, int end, String base, String object,
+            boolean directory) {
+        String folded = object.toLowerCase(Locale.ROOT);
+        String whole = foldedDirectories.get(folded);
+        if (whole == null && !directory) {
+            whole = foldedFiles.get(folded);
+        }
+        if (whole != null && !whole.equals(object) && !excluded(List.of(whole.split("/", -1)), false)) {
+            return new Reading(base, object, State.CASE, whole);
+        }
+        for (int i = start + 1; i < end; i++) {
+            String prefix = String.join("/", names.subList(0, i));
+            if (!directories.contains(prefix)) {
+                String found = foldedDirectories.get(prefix.toLowerCase(Locale.ROOT));
+                return found == null || excluded(List.of(found.split("/", -1)), false) ? null
+                        : new Reading(base, prefix, State.DIRECTORY_CASE, found);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Whether a name of a path, from the root, is build output or tool state, in exact letter case as the walk and git
+     * see it or, with {@code ignoreCase}, in any; a build directory in a source tree named src is not.
      */
     private static boolean excluded(List<String> names, boolean ignoreCase) {
         boolean sources = false;
@@ -259,7 +289,7 @@ final class PathReferences {
             if (EXCLUDED.contains(name) || (name.equals(BUILD) && !sources)) {
                 return true;
             }
-            sources |= written.equalsIgnoreCase(SOURCES);
+            sources |= name.equals(SOURCES);
         }
         return false;
     }
