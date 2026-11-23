@@ -153,6 +153,68 @@ class MarkdownRendererTest {
                 KEEP_ALL, false).html()).contains("<summary>Sequence source \u2014 not rendered</summary>");
     }
 
+    private static final String UNCHECKED = " <span class=\"badge badge-none diagram-unchecked\">Unchecked design"
+            + "</span></summary>";
+    private static final String LABEL = "**Unchecked design.** No test compares this diagram with the code.\n";
+
+    @Test
+    void aMermaidFenceAtAnyDepthIsShownAsItsClosedSource() {
+        String html = MarkdownRenderer.render("""
+                - Item
+
+                  ```mermaid
+                  sequenceDiagram
+                  ```
+
+                > ```mermaid
+                > stateDiagram
+                > ```
+                """, "docs/x.md", KEEP_ALL, false).html();
+
+        assertThat(html).contains("<li>\n<p>Item</p>\n<details class=\"diagram-source-block\">\n<summary>Sequence "
+                + "source \u2014 not rendered</summary>\n<p class=\"diagram-note\">GitHub draws this diagram from its "
+                + "source; the text on this page says the same.</p>\n<pre><code class=\"language-mermaid\">"
+                + "sequenceDiagram\n</code></pre>\n</details>", "<blockquote>\n<details class=\"diagram-source-block\">"
+                + "\n<summary>State diagram source \u2014 not rendered</summary>");
+        assertThat(count(html, "<details class=\"diagram-source-block\">")).isEqualTo(2);
+        assertThat(MarkdownRenderer.render("```java\nint x;\n```\n", "docs/x.md", KEEP_ALL, false).html())
+                .isEqualTo("<pre><code class=\"language-java\">int x;\n</code></pre>\n");
+    }
+
+    @Test
+    void aLabelledSequenceOrStateDiagramShowsTheUncheckedLabelInCurrentProseOnly() {
+        String markdown = LABEL + "```mermaid\nsequenceDiagram\n    a->>b: x\n```\n\n- " + LABEL + "\n  ```mermaid\n"
+                + "  stateDiagram-v2\n  ```\n";
+
+        String html = labelled(markdown);
+
+        assertThat(html).contains("<p><strong>Unchecked design.</strong> No test compares this diagram with the "
+                + "code.</p>", "<summary>Sequence source \u2014 not rendered" + UNCHECKED,
+                "<summary>State diagram source \u2014 not rendered" + UNCHECKED);
+        assertThat(count(html, "diagram-unchecked")).isEqualTo(2);
+        assertThat(MarkdownRenderer.render(markdown, "docs/x.md", KEEP_ALL, false).html())
+                .doesNotContain("diagram-unchecked").contains("<summary>Sequence source \u2014 not rendered</summary>");
+    }
+
+    @Test
+    void aDiagramWithoutTheLabelRightBeforeItOrAFlowchartGetsNoLabel() {
+        assertThat(labelled("```mermaid\nsequenceDiagram\n```\n")).doesNotContain("diagram-unchecked");
+        assertThat(labelled(LABEL + "\nText.\n\n```mermaid\nsequenceDiagram\n```\n")).doesNotContain("diagram-"
+                + "unchecked");
+        assertThat(labelled(LABEL + "```mermaid\nflowchart LR\n    a --> b\n```\n")).doesNotContain("diagram-"
+                + "unchecked").contains("<summary>Workflow source \u2014 not rendered</summary>");
+        assertThat(labelled("**Unchecked design**. Text.\n```mermaid\nstateDiagram\n```\n")).doesNotContain("diagram-"
+                + "unchecked");
+    }
+
+    private static int count(String text, String part) {
+        int count = 0;
+        for (int at = text.indexOf(part); at >= 0; at = text.indexOf(part, at + 1)) {
+            count++;
+        }
+        return count;
+    }
+
     private static final String DECK = """
             # Milestone
 

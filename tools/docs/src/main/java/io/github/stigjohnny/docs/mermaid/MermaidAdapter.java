@@ -52,6 +52,15 @@ public final class MermaidAdapter {
     private MermaidAdapter() {
     }
 
+    /**
+     * The accessible description's sentence for an unchecked design (ADR 0024), with a space before it; empty for a view
+     * that is none.
+     */
+    public static String uncheckedSentence(C4View view) {
+        return ViewNames.unchecked(view) ? " Unchecked design: " + Character.toLowerCase(ViewNames.UNCHECKED.charAt(0))
+                + ViewNames.UNCHECKED.substring(1) : "";
+    }
+
     public static MermaidDiagram adapt(RawMermaid raw, C4Model model, ElementStatus status) {
         String where = "view " + raw.viewKey();
         C4View view = model.view(raw.viewKey());
@@ -65,7 +74,8 @@ public final class MermaidAdapter {
         out.append(INDENT).append("accTitle: ").append(ViewNames.title(view)).append('\n');
         out.append(INDENT).append("accDescr: ").append(ViewNames.kind(view)).append(" with ")
                 .append(view.elementIds().size()).append(" elements and ").append(view.steps().size())
-                .append(" relationships. The tables on the page list every one of them.\n");
+                .append(" relationships.").append(uncheckedSentence(view))
+                .append(" The tables on the page list every one of them.\n");
         Deque<String> open = new ArrayDeque<>();
         for (Statement statement : export.statements()) {
             String indent = INDENT.repeat(1 + (int) open.stream().filter(id -> !RawExport.FRAME.equals(id)).count());

@@ -468,18 +468,44 @@ class SitePagesTest {
         assertThat(page).contains("controls-tools", "tools/**", "pricing-quotes", "sql-change", "unmatched-path");
     }
 
+    private static final String UNCHECKED = " <span class=\"badge badge-none diagram-unchecked\">Unchecked design"
+            + "</span>";
+
+    @Test
+    void everyDynamicViewIsLabelledAnUncheckedDesignWhereverItIsDrawn() {
+        String sentence = "<figcaption class=\"diagram-caption\">\n<p><strong>Unchecked design.</strong> No test "
+                + "compares this whole view with the code.</p>";
+        for (String page : List.of("model/quote-book-label.html", "model/scenario-quote.html",
+                "model/scenario-tenant-denial.html")) {
+            String text = site.text(page);
+            assertThat(text).as(page).containsPattern("<p class=\"diagram-title\">M-\\d\\d · [^<]+"
+                    + Pattern.quote(UNCHECKED) + "</p>").contains(sentence, "Unchecked design: no test "
+                    + "compares this whole view with the code.");
+            assertThat(count(text, "diagram-unchecked")).as(page).isEqualTo(1);
+        }
+        String flow = site.text("model/flow-quote-book-label.html");
+        assertThat(flow).contains("<p class=\"diagram-title\">M-04 · Quote, book and download a simulated label"
+                + UNCHECKED + "</p>", sentence, "Unchecked design: no test compares this whole view with the code.");
+        assertThat(count(flow, "diagram-unchecked")).isEqualTo(2);
+        for (String page : List.of("model/system-context.html", "model/containers.html", "model/api-components.html",
+                "model/web-components.html", "model/index.html")) {
+            assertThat(site.text(page)).as(page).doesNotContain("diagram-unchecked", "Unchecked design");
+        }
+    }
+
     @Test
     void handWrittenMermaidIsShownAsClosedSourceAndNeverRendered() {
         String flow = site.text("model/flow-quote-book-label.html");
         String repository = site.text("start/repository.html");
 
         assertThat(flow).contains("<details class=\"diagram-source-block\">\n<summary>Sequence source \u2014 not "
-                + "rendered</summary>", "sequenceDiagram");
+                + "rendered" + UNCHECKED + "</summary>", "sequenceDiagram");
         assertThat(count(flow, "class=\"diagram-source\"")).isEqualTo(1);
         assertThat(repository).contains("<details class=\"diagram-source-block\">\n<summary>Workflow source \u2014 "
-                + "not rendered</summary>").doesNotContain("class=\"diagram-source\"", "mermaid.min.js\"");
+                + "not rendered</summary>").doesNotContain("class=\"diagram-source\"", "mermaid.min.js\"",
+                "diagram-unchecked");
         assertThat(site.text("modules/shipments.html")).contains("<summary>State diagram source \u2014 not rendered"
-                + "</summary>").doesNotContain("class=\"diagram-source\"", "mermaid.min.js\"");
+                + UNCHECKED + "</summary>").doesNotContain("class=\"diagram-source\"", "mermaid.min.js\"");
         assertThat(flow + repository).doesNotContain("<details class=\"diagram-source-block\" open");
     }
 
@@ -654,7 +680,7 @@ class SitePagesTest {
     @Test
     void theGeneratedArchitecturePagesLinkFiguresThatTheSiteHas() {
         Pattern link = Pattern.compile("\\(https://stig-johnny\\.github\\.io/shipping-reference-platform/"
-                + "(model/[a-z-]+\\.html)#(figure-[a-z-]+)\\)\n\n```mermaid\n");
+                + "(model/[a-z-]+\\.html)#(figure-[a-z-]+)\\)\n\n(?:\\*\\*Unchecked design\\.\\*\\* [^\n]+\n\n)?```mermaid\n");
         List<String> targets = new ArrayList<>();
         GeneratedFiles.generate(sources).forEach((path, text) -> {
             Matcher found = link.matcher(text);
@@ -725,11 +751,13 @@ class SitePagesTest {
     void theFlowDiagramDescribesItselfForScreenReaders() {
         String flow = site.text("model/flow-quote-book-label.html");
 
-        assertThat(flow).contains("accDescr: Dynamic view with 8 elements and 15 relationships. The linked Quote, book "
-                + "and download a simulated label page lists its elements and relationships. The step tables below "
-                + "follow the separate 29-step sequence.");
+        assertThat(flow).contains("accDescr: Dynamic view with 8 elements and 15 relationships. Unchecked design: no "
+                + "test compares this whole view with the code. The linked Quote, book and download a simulated label "
+                + "page lists its elements and relationships. The step tables below follow the separate 29-step "
+                + "sequence.");
         assertThat(site.text("model/quote-book-label.html")).contains("accDescr: Dynamic view with 8 elements and 15 "
-                + "relationships. The tables on the page list every one of them.");
+                + "relationships. Unchecked design: no test compares this whole view with the code. The tables on the "
+                + "page list every one of them.");
     }
 
     @Test

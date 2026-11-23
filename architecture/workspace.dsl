@@ -444,7 +444,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
         // and a test in apps/shipping-api runs the scenario and compares what the code did with those steps. Steps
         // here are single interactions: a step that combines actions cannot be checked.
 
-        dynamic api "ScenarioQuote" "Executable scenario: quote a parcel. QuoteScenarioTest runs it on the code and checks its steps (architecture/scenarios/scenario-quote.json)." {
+        dynamic api "ScenarioQuote" "Executable scenario: quote a parcel. QuoteScenarioTest runs it on the code and compares the steps it can observe (architecture/scenarios/scenario-quote.json; ADR 0013)." {
             clerk -> web "Enters a parcel, its origin and its destination"
             web -> quotes "POST /api/v1/quotes (createQuote), answered 201 with the quote"
             quotes -> tenants "CurrentTenant.require(): the tenant bound for the request"
@@ -454,7 +454,7 @@ workspace "Shipping reference platform" "Reference monorepo: webshop parcel ship
             autoLayout lr
         }
 
-        dynamic api "ScenarioTenantDenial" "Executable scenario: another tenant's quote is not found. TenantDenialScenarioTest runs it on the code and checks its steps (architecture/scenarios/scenario-tenant-denial.json)." {
+        dynamic api "ScenarioTenantDenial" "Executable scenario: another tenant's quote is not found. TenantDenialScenarioTest runs it on the code and compares the steps it can observe (architecture/scenarios/scenario-tenant-denial.json; ADR 0013)." {
             clerk -> web "A clerk of Tenant Beta books an offer of Tenant Alpha's quote"
             web -> shipments "POST /api/v1/shipments (bookShipment), answered 404 quote-not-found, as for an unknown quote"
             shipments -> tenants "CurrentTenant.require(): Tenant Beta"

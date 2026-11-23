@@ -544,3 +544,15 @@ controls:
     acceptanceTests: [ReferencesTest, MarkdownRendererTest, SitePagesTest]
     negativeFixture: An unknown bare test name; a planned marker on a test that exists or is not registered; a bare or unknown capability id; a path that does not exist, differs only in letter case or reads two ways; a planned or absent path that exists; a marker on build output; a link on the way; a malformed or undefined marker; code blocks, records and superseded ADRs, which must stay unread and keep their markers on the site.
     docs: docs/adr/0023-inline-references-carry-explicit-markers.md
+
+  - id: control.behavioural-diagrams
+    title: A sequence or state diagram in the prose that the check reads carries the unchecked-design label right before it, such a label precedes such a diagram, a Mermaid fence names its type, and every dynamic view of the model is generated and shown with the label.
+    where: tools/docs
+    check: java
+    status: shipped
+    target: v0.1
+    evidence: [BehaviouralDiagramsTest, BrainGeneratorTest, MarkdownRendererTest, SitePagesTest]
+    evidenceLabel: documentation-tool
+    acceptanceTests: [BehaviouralDiagramsTest, BrainGeneratorTest, MarkdownRendererTest, SitePagesTest]
+    negativeFixture: An unlabelled sequence or state diagram, at the top level or in a list or quote; a label in another form, after another block or in another container; a label before a flowchart or before nothing; an info string other than mermaid; a first line that names no type; records, generated files and superseded ADRs, which must stay unread.
+    docs: docs/adr/0024-behavioural-diagrams-are-labelled-until-a-test-compares-them.md

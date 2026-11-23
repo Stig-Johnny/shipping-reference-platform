@@ -517,6 +517,13 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
   Gradle never reuses. The site shows a planned test or path, an example and an absent path with a label, and a
   capability or control id without its prefix, only where the check reads the prose. The check proves names and markers, not claims, and it does not read code blocks, records or
   superseded ADRs, which keep the names and markers they had when they were written, on the site as well.
+- **Behavioural diagrams are labelled, not compared.** Every sequence or state diagram in the prose the check reads,
+  and every dynamic view of the model, carries the unchecked-design label (ADR 0024). No test compares a whole
+  diagram with the code yet: ADR 0013's scenario tests compare only the steps they observe, 2 of 6 in each scenario
+  view, and no test reads a diagram written in Markdown. Removing a label needs evidence of a complete comparison,
+  which issue 153 is to bind, and the shipment lifecycle needs a transition test, which can come with cancellation.
+  The check recognises behaviour by a fence's first line: a state machine drawn as a flowchart, a standalone `.mmd`
+  file, and diagrams in records, generated files and superseded ADRs are not read as behaviour.
 - **The agent entry point is checked as files, not as behaviour.** Only Claude Code reads `CLAUDE.md`. The docs
   check proves that every `AGENTS.md` has a `CLAUDE.md` beside it that only imports it (ADR 0022), not what a session
   loads or follows; `CLAUDE.local.md`, `.claude/rules/` and user, managed or ancestor instructions are outside it. The

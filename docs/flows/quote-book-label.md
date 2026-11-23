@@ -2,7 +2,7 @@
 title: "Flow: quote, book and download a simulated label"
 description: "The main v0.1 flow from parcel form to label, step by step, with the acceptance tests for each step and their status."
 status: accepted
-updated: 2026-11-20
+updated: 2026-11-23
 modules: [tenants, quotes, shipments, audit]
 ---
 
@@ -36,7 +36,8 @@ See the [runbook](../flows/attended-demo.md).
 
 ## Sequence
 
-**PostgreSQL target design.** This sequence includes planned durable publication and Audit steps.
+**Unchecked design.** No test compares this sequence with the code; the tables below name the tests of each step.
+It is the PostgreSQL target design and includes planned durable publication and Audit steps.
 The [local memory demo](attended-demo.md#memory-mode) uses disposable stores and does not execute the PostgreSQL
 or registry/Audit calls shown here. Both local storage modes disable durable publication; booking currently
 emits `ShipmentBooked` in process. The planned participants and messages below remain design targets.

@@ -14,10 +14,12 @@ Quote, book and download a simulated label. The documentation overview of the wh
 
 [Open this diagram on the documentation site for enlargement and its text equivalent](https://stig-johnny.github.io/shipping-reference-platform/model/quote-book-label.html#figure-quote-book-label)
 
+**Unchecked design.** No test compares this whole view with the code.
+
 ```mermaid
 flowchart LR
     accTitle: Quote, book and download a simulated label
-    accDescr: Dynamic view with 8 elements and 15 relationships. The tables on the page list every one of them.
+    accDescr: Dynamic view with 8 elements and 15 relationships. Unchecked design: no test compares this whole view with the code. The tables on the page list every one of them.
     1["Shipping clerk [Person]"]
     style 1 fill:#0f766e,stroke:#475569,color:#ffffff
     4["Carrier (simulated) [Software System] (external, simulated)"]

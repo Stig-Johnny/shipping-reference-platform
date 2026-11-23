@@ -1,6 +1,6 @@
 ---
 title: "C4 view: Executable scenario: another tenant's quote is not found"
-description: "Dynamic view of the API. Executable scenario: another tenant's quote is not found. TenantDenialScenarioTest runs it on the code and checks its steps (architecture/scenarios/scenario-tenant-denial.json)."
+description: "Dynamic view of the API. Executable scenario: another tenant's quote is not found. TenantDenialScenarioTest runs it on the code and compares the steps it can observe (architecture/scenarios/scenario-tenant-denial.json; ADR 0013)."
 status: accepted
 updated: 2026-11-23
 ---
@@ -10,14 +10,16 @@ updated: 2026-11-23
 
 # C4 view: Executable scenario: another tenant's quote is not found
 
-Executable scenario: another tenant's quote is not found. TenantDenialScenarioTest runs it on the code and checks its steps (architecture/scenarios/scenario-tenant-denial.json).
+Executable scenario: another tenant's quote is not found. TenantDenialScenarioTest runs it on the code and compares the steps it can observe (architecture/scenarios/scenario-tenant-denial.json; ADR 0013).
 
 [Open this diagram on the documentation site for enlargement and its text equivalent](https://stig-johnny.github.io/shipping-reference-platform/model/scenario-tenant-denial.html#figure-scenario-tenant-denial)
+
+**Unchecked design.** No test compares this whole view with the code.
 
 ```mermaid
 flowchart LR
     accTitle: Executable scenario: another tenant's quote is not found
-    accDescr: Dynamic view with 6 elements and 6 relationships. The tables on the page list every one of them.
+    accDescr: Dynamic view with 6 elements and 6 relationships. Unchecked design: no test compares this whole view with the code. The tables on the page list every one of them.
     1["Shipping clerk [Person]"]
     style 1 fill:#0f766e,stroke:#475569,color:#ffffff
     subgraph 5 ["Shipping reference platform"]

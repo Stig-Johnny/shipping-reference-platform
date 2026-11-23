@@ -5,7 +5,19 @@ import java.util.Locale;
 /** Human titles and file names for views, derived from the model so that nothing about a view is hard-coded. */
 public final class ViewNames {
 
+    /**
+     * What every dynamic view says of itself (ADR 0024): no test compares a whole view with the code yet, a scenario view
+     * included, whose test compares only the steps it can observe (ADR 0013); issue 153 is to bind a view to evidence of
+     * a complete comparison before any label can go.
+     */
+    public static final String UNCHECKED = "No test compares this whole view with the code.";
+
     private ViewNames() {
+    }
+
+    /** Whether a view is labelled as an unchecked design: every dynamic view is, whatever its name (ADR 0024). */
+    public static boolean unchecked(C4View view) {
+        return view.kind() == C4View.Kind.DYNAMIC;
     }
 
     /** "System context", "Containers", "Components of the API", or a dynamic view's first sentence. */
