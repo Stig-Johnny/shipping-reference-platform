@@ -456,6 +456,18 @@ class ReferencesTest {
     }
 
     @Test
+    void aLinkInAnotherLetterCaseFailsAsALinkAndNeverCountsAsAbsent() throws IOException {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write(NOTES, "# Notes\n\n`absent:path:tools/notes/LINKED`, "
+                + "`planned:path:tools/notes/Linked/x.md` and `tools/notes/LINKED/gaps.md`\n");
+        Files.createSymbolicLink(fixture.root().resolve("tools/notes/linked"), fixture.root().resolve("docs"));
+        String link = " reaches tools/notes/linked, a link or special file, which the check does not follow (ADR 0023)";
+
+        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `absent:path:tools/notes/LINKED`: tools/notes/LINKED"
+                + link, NOTES + ":3: `planned:path:tools/notes/Linked/x.md`: tools/notes/Linked/x.md" + link,
+                NOTES + ":3: `tools/notes/LINKED/gaps.md`" + link);
+    }
+
+    @Test
     void aDirectoryThatCannotBeReadStopsTheCheck() throws IOException {
         Fixture fixture = Fixture.copy(dir).passingEvidence().write("tools/notes/locked/x.md", "x\n")
                 .write(NOTES, "# Notes\n\nSee `planned:path:tools/notes/locked/y.md`.\n");
@@ -514,6 +526,21 @@ class ReferencesTest {
 
         assertThat(problemsFor(marker)).containsExactly(NOTES + ":3: `" + marker + "`: " + path + " is build output or "
                 + "tool state, which no check reads; write it without a marker (ADR 0023)");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"absent:path:tools/docs/BUILD/site/", "planned:path:apps/shipping-web/Dist/index.html",
+        "absent:path:docs/.Claude/rules/", "planned:path:Node_Modules/x/"})
+    void aMarkerOnBuildOutputOrToolStateInAnotherLetterCaseFails(String marker) {
+        String path = marker.substring(marker.indexOf(":path:") + ":path:".length());
+
+        assertThat(problemsFor(marker)).containsExactly(NOTES + ":3: `" + marker + "`: " + path + " is build output or "
+                + "tool state, which no check reads; write it without a marker (ADR 0023)");
+    }
+
+    @Test
+    void aBuildDirectoryInsideSourcesInAnyLetterCaseIsNoOutputForAMarker() {
+        assertThat(problemsFor("planned:path:tools/notes/src/main/java/io/example/BUILD/Next.java")).isEmpty();
     }
 
     @Test

@@ -16,9 +16,10 @@ exist, written exactly like existing ones: a planned branch ruleset, a script th
 allowlist never got. One could be read two ways, from the root or from the document's own directory.
 
 Now a path in current prose must exist. It is read from the root when its first name is a top-level directory, and
-otherwise from the document's directory; `/architecture/` and `./architecture/self.dsl` choose the reading. A path
-that both readings find, or that only the document's directory has without `./`, fails, and so does one that differs
-only in letter case. A path that does not exist carries its marker: `planned:path:policy/rulesets.json`,
+otherwise from the document's directory; `/architecture/` and `./architecture/self.dsl` choose the reading. When its
+first name is a top-level directory, the root comes first: a path that both readings find fails, and so does one
+that only the document's directory has, until it is written with `./`. A path that differs only in letter case fails
+too. A path that does not exist carries its marker: `planned:path:policy/rulesets.json`,
 `absent:path:tools/web-imports/`, or `illustrative:path:` with a placeholder. A pattern such as
 `docs/modules/<module>.md` proves that its directory exists. Build output and tool state are never read. ADR 0023
 records the rules. 28 mentions in current documents now carry a marker or an anchor, and the site shows the markers

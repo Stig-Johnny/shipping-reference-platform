@@ -77,16 +77,18 @@ none. Where a path is read from is explicit:
 - Written with a leading slash, it is read from the root, and only when its first name is a top-level directory, so
   that a route of the API is no path. Written with a leading `./`, it is read from the document's directory, always.
 - Without an anchor, it is read from the root when its first name is a top-level directory, and otherwise from the
-  document's directory when its first name is a directory there; otherwise it is no path. The root comes first: a
-  path that the document's directory also has is ambiguous and fails, and one that only the document's directory
-  has fails until it is written with `./`.
+  document's directory when its first name is a directory there; otherwise it is no path. When its first name is a
+  top-level directory, the root comes first: such a path that the document's directory also has is ambiguous and
+  fails, and one that only the document's directory has fails until it is written with `./`. A path whose first name
+  is only a directory beside the document is read from there, with or without `./`.
 - It must exist in exact letter case, as on Linux; one that differs only in case fails. A trailing slash names a
   directory, and a directory exists only when it holds a file, as for git. A pattern, a path with a glob or a
   placeholder, such as `docs/modules/<module>.md`, proves only that the directory before them exists, never that a
   file matches.
 - A path through build output or tool state is never read: a directory named build outside a source tree, dist,
-  node_modules, .gradle, .git or .claude. A marker on such a path fails, because nothing there can prove it. A link
-  or another special file on the way fails too, and never counts as absent.
+  node_modules, .gradle, .git or .claude. A marker on such a path fails, in any letter case, because nothing there
+  can prove it. A link or another special file on the way fails too, in any letter case, and never counts as
+  absent.
 - A planned or an absent path must exist in neither reading, in no letter case, and its first name is no pattern; an
   illustrative path needs a placeholder, and nothing else about it is checked.
 
@@ -124,9 +126,10 @@ skips (ADR 0022). Records keep the names they had when they were written.
 `ReferencesTest` runs in every build of the documentation tests, and the check itself runs in every `generate`,
 `checkGenerated` and site build. It fails on an unknown bare test name, on a planned marker for a test that exists or
 that nothing registers, on a bare or unknown capability id, and on a marker the grammar does not define. For paths,
-it fails on a path that does not exist, that differs only in letter case, that both readings find or that only the
-document's directory has without `./`, on a planned or absent path that exists, on a marker on build output or tool
-state, on a link on the way and on an example without a placeholder; it passes a pattern whose directory exists. It does not
+it fails on a path that does not exist, that differs only in letter case, that both readings find, or that starts
+with a top-level directory but only the document's directory has without `./`; on a planned or absent path that
+exists, on a marker on build output or tool state, on a link on the way, each in any letter case, and on an example
+without a placeholder; it passes a pattern whose directory exists. It does not
 read code blocks, records or superseded ADRs. `MarkdownRendererTest` and `SitePagesTest` prove the site's labels: the
 name and the label wherever inline code can stand, the anchors of the source, no label made from a document's own
 text, the markers as written in records, decks and code blocks, and every capability and control id in the shape the

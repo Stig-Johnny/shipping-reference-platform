@@ -30,8 +30,9 @@ import org.jspecify.annotations.Nullable;
  *   <li>A path must exist in exact letter case; one that differs only in case fails. A trailing slash names a directory.
  *       A pattern, a path with a glob or a placeholder, proves only that the directory before them exists.
  *   <li>Build output and tool state are never read as paths: a name {@code build} outside a source tree, {@code dist},
- *       {@code node_modules}, {@code .gradle}, {@code .git} and {@code .claude}; a marker on such a path fails, since
- *       nothing there can prove it. A link or another special file on the way fails, never counting as absent.
+ *       {@code node_modules}, {@code .gradle}, {@code .git} and {@code .claude}; a marker on such a path fails, in any
+ *       letter case, since nothing there can prove it. A link or another special file on the way fails, in any letter
+ *       case, never counting as absent.
  *   <li>{@code planned:path:} and {@code absent:path:} must exist in neither reading, in no letter case;
  *       {@code illustrative:path:} needs a placeholder and nothing else.
  * </ul>
@@ -46,6 +47,7 @@ final class PathReferences {
     private final Set<String> directories = new HashSet<>();
     private final Set<String> special;
     private final Map<String, String> folded = new HashMap<>();
+    private final Map<String, String> foldedSpecial = new HashMap<>();
 
     /** The inventory: the regular files and the special files of the walk, by their paths from the root. */
     PathReferences(Set<String> files, Set<String> special) {
@@ -62,6 +64,9 @@ final class PathReferences {
         }
         for (String entry : directories) {
             folded.putIfAbsent(entry.toLowerCase(Locale.ROOT), entry);
+        }
+        for (String entry : special) {
+            foldedSpecial.putIfAbsent(entry.toLowerCase(Locale.ROOT), entry);
         }
     }
 
@@ -82,15 +87,15 @@ final class PathReferences {
         boolean top = directoryNamed("", first);
         boolean beside = !directory.isEmpty() && directoryNamed(directory, first);
         @Nullable Reading primary = switch (path.anchor()) {
-            case ROOT -> top ? read(path, "") : null;
-            case DOCUMENT -> read(path, directory);
-            case NONE -> top ? read(path, "") : beside ? read(path, directory) : null;
+            case ROOT -> top ? read(path, "", false) : null;
+            case DOCUMENT -> read(path, directory, false);
+            case NONE -> top ? read(path, "", false) : beside ? read(path, directory, false) : null;
         };
         if (primary == null) {
             return;
         }
         @Nullable Reading other = path.anchor() == Anchor.NONE && top && !directory.isEmpty()
-                ? read(path, directory) : null;
+                ? read(path, directory, false) : null;
         boolean otherExists = other != null && other.state() == State.EXISTS;
         String quoted = where + ": `" + text + "` ";
         switch (primary.state()) {
@@ -144,7 +149,7 @@ final class PathReferences {
         String consequence = state.equals("planned") ? ", so name it without planned: (ADR 0023)"
                 : ", so it is not absent (ADR 0023)";
         for (String base : bases) {
-            Reading reading = read(path, base);
+            Reading reading = read(path, base, true);
             switch (reading.state()) {
                 case EXCLUDED -> {
                     problems.add(marked + payload + " is build output or tool state, which no check reads; write it "
@@ -172,23 +177,28 @@ final class PathReferences {
         }
     }
 
-    /** Reads a path from one base: what it names there, or why that cannot be told. */
-    private Reading read(PathReference path, String base) {
+    /**
+     * Reads a path from one base: what it names there, or why that cannot be told. A marker's path, {@code marked}, is
+     * build output or tool state in any letter case, since a file system that ignores case finds it there; a link or
+     * special file on the way counts in any letter case for every path.
+     */
+    private Reading read(PathReference path, String base, boolean marked) {
         List<String> names = new ArrayList<>();
         if (!base.isEmpty()) {
             names.addAll(List.of(base.split("/", -1)));
         }
         int start = names.size();
         names.addAll(path.names());
-        if (excluded(names)) {
+        if (excluded(names, false) || (marked && excluded(names, true))) {
             return new Reading(base, "", State.EXCLUDED, "");
         }
         int end = start + path.fixed();
         String object = String.join("/", names.subList(0, end));
         for (int i = start + 1; i <= end; i++) {
             String prefix = String.join("/", names.subList(0, i));
-            if (special.contains(prefix)) {
-                return new Reading(base, object, State.SPECIAL, prefix);
+            String link = special.contains(prefix) ? prefix : foldedSpecial.get(prefix.toLowerCase(Locale.ROOT));
+            if (link != null) {
+                return new Reading(base, object, State.SPECIAL, link);
             }
         }
         boolean directory = path.pattern() || path.directory();
@@ -202,10 +212,14 @@ final class PathReferences {
         return new Reading(base, object, State.MISSING, "");
     }
 
-    /** Whether a name of a path, from the root, is build output or tool state; a build directory in sources is not. */
-    private static boolean excluded(List<String> names) {
+    /**
+     * Whether a name of a path, from the root, is build output or tool state, in exact letter case or, with
+     * {@code ignoreCase}, in any; a build directory in sources is not.
+     */
+    private static boolean excluded(List<String> names, boolean ignoreCase) {
         boolean sources = false;
-        for (String name : names) {
+        for (String written : names) {
+            String name = ignoreCase ? written.toLowerCase(Locale.ROOT) : written;
             if (EXCLUDED.contains(name) || (name.equals(BUILD) && !sources)) {
                 return true;
             }
@@ -218,7 +232,7 @@ final class PathReferences {
     private boolean directoryNamed(String base, String name) {
         String path = base.isEmpty() ? name : base + "/" + name;
         String found = folded.get(path.toLowerCase(Locale.ROOT));
-        return found != null && directories.contains(found) && !excluded(List.of(found.split("/", -1)));
+        return found != null && directories.contains(found) && !excluded(List.of(found.split("/", -1)), false);
     }
 
     private static String directoryOf(String document) {
