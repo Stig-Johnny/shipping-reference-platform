@@ -68,8 +68,9 @@ final class References {
         List<String> markdown = new ArrayList<>();
         Set<String> files = new HashSet<>();
         Set<String> special = new HashSet<>();
-        walk(repo, tests, markdown, files, special);
-        PathReferences paths = new PathReferences(files, special);
+        Set<String> skipped = new HashSet<>();
+        walk(repo, tests, markdown, files, special, skipped);
+        PathReferences paths = new PathReferences(files, special, skipped);
         Set<String> planned = new TreeSet<>();
         Set<String> ids = new TreeSet<>();
         for (Capability entry : sources.capabilities().all()) {
@@ -202,15 +203,18 @@ final class References {
     /**
      * Collects the test classes that the test sources declare, the paths of the Markdown files, and the inventory of
      * the paths check: every regular file, and every link or other special file, outside the skipped directories and
-     * Claude Code's worktrees, without following links.
+     * Claude Code's worktrees, which it records by their place, without following links.
      */
     private static void walk(Path repo, Set<String> tests, List<String> markdown, Set<String> files,
-            Set<String> special) {
+            Set<String> special, Set<String> skippedDirectories) {
         try {
             Files.walkFileTree(repo, new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) {
                     boolean skipped = !directory.equals(repo) && AgentInstructions.skipped(relative(repo, directory));
+                    if (skipped) {
+                        skippedDirectories.add(relative(repo, directory));
+                    }
                     return skipped ? FileVisitResult.SKIP_SUBTREE : FileVisitResult.CONTINUE;
                 }
 

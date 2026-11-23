@@ -473,7 +473,8 @@ class ReferencesTest {
      */
     @Test
     void aFileWhoseNameDiffersOnlyInLetterCaseNeverHidesADirectory() {
-        PathReferences paths = new PathReferences(Set.of("DOCS", "docs/gaps.md", "docs/a", "docs/A/x.md"), Set.of());
+        PathReferences paths = new PathReferences(Set.of("DOCS", "docs/gaps.md", "docs/a", "docs/A/x.md"), Set.of(),
+                Set.of());
         Problems problems = new Problems();
 
         paths.bare("docs/gaps.md", "README.md", "README.md:1", problems);
@@ -537,6 +538,34 @@ class ReferencesTest {
                 + "tools/notes/SRC/Build/y.txt" + output, NOTES + ":3: `planned:path:tools/notes/SRC/build/y.txt`: "
                 + "tools/notes/SRC/build/y.txt" + output, NOTES + ":3: `tools/notes/SRC/BUILD/x.txt` names build output "
                 + "or tool state in another letter case; write tools/notes/SRC/build/x.txt, which no check reads "
+                + "(ADR 0023)");
+    }
+
+    /** The walk skips a build directory in a tree named SRC; its place is kept, so a case variant cannot pass as absent. */
+    @Test
+    void aSkippedDirectoryKeepsItsCaseEvidenceWhenNothingElseIsBesideIt() {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write("tools/notes/SRC/build/x.txt", "x\n")
+                .write(NOTES, "# Notes\n\n`absent:path:tools/notes/src/build/x.txt`, "
+                        + "`planned:path:tools/notes/src/build/y.txt` and `tools/notes/src/build/x.txt`\n");
+        String output = " is build output or tool state, which no check reads; write it without a marker (ADR 0023)";
+
+        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `absent:path:tools/notes/src/build/x.txt`: "
+                + "tools/notes/src/build/x.txt" + output, NOTES + ":3: `planned:path:tools/notes/src/build/y.txt`: "
+                + "tools/notes/src/build/y.txt" + output, NOTES + ":3: `tools/notes/src/build/x.txt` names build output "
+                + "or tool state in another letter case; write tools/notes/SRC/build/x.txt, which no check reads "
+                + "(ADR 0023)");
+    }
+
+    @Test
+    void aDirectoryThatHoldsOnlyALinkExists() throws IOException {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write(NOTES, "# Notes\n\n`absent:path:tools/notes/links/` "
+                + "and `absent:path:tools/notes/LINKS/`\n");
+        Files.createDirectories(fixture.root().resolve("tools/notes/links"));
+        Files.createSymbolicLink(fixture.root().resolve("tools/notes/links/item"), fixture.root().resolve("docs"));
+
+        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `absent:path:tools/notes/LINKS/`: tools/notes/LINKS/ "
+                + "differs only in letter case from tools/notes/links/, which exists (ADR 0023)", NOTES + ":3: "
+                + "`absent:path:tools/notes/links/`: tools/notes/links/ exists " + ROOT + ", so it is not absent "
                 + "(ADR 0023)");
     }
 

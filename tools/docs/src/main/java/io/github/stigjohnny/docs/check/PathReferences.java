@@ -16,7 +16,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The paths that inline code names (ADR 0023), read against one inventory of the working tree: its files, the
  * directories that hold them, and its links and other special files, each by its exact name, outside the directories
- * the walk skips. A directory without a file does not exist, as for git. The inventory is the working tree, untracked
+ * the walk skips, which are kept by their place. A directory without a file or a link does not exist, as for git. The inventory is the working tree, untracked
  * files included; a clean checkout, as in CI, is the authority.
  *
  * <ul>
@@ -54,20 +54,28 @@ final class PathReferences {
     private final Map<String, String> foldedFiles = new HashMap<>();
     private final Map<String, String> foldedDirectories = new HashMap<>();
     private final Map<String, String> foldedSpecial = new HashMap<>();
+    private final Map<String, String> foldedSkipped = new HashMap<>();
 
-    /** The inventory: the regular files and the special files of the walk, by their paths from the root. */
-    PathReferences(Set<String> files, Set<String> special) {
+    /**
+     * The inventory: the regular files and the special files of the walk, and the directories it skipped, by their
+     * paths from the root. A directory exists when it holds a file or a special file, whose target is never followed;
+     * a skipped directory is kept by its place only, so that no path through it in another letter case can pass.
+     */
+    PathReferences(Set<String> files, Set<String> special, Set<String> skipped) {
         this.files = Set.copyOf(files);
         this.special = Set.copyOf(special);
         directories.add("");
-        for (String file : files) {
-            for (int slash = file.indexOf('/'); slash > 0; slash = file.indexOf('/', slash + 1)) {
-                directories.add(file.substring(0, slash));
+        for (Set<String> entries : List.of(files, special)) {
+            for (String entry : entries) {
+                for (int slash = entry.indexOf('/'); slash > 0; slash = entry.indexOf('/', slash + 1)) {
+                    directories.add(entry.substring(0, slash));
+                }
             }
         }
         fold(files, foldedFiles);
         fold(directories, foldedDirectories);
         fold(special, foldedSpecial);
+        fold(skipped, foldedSkipped);
     }
 
     /**
@@ -213,6 +221,17 @@ final class PathReferences {
         int end = start + path.fixed();
         String object = String.join("/", names.subList(0, end));
         boolean directory = path.pattern() || path.directory();
+        for (int i = start + 1; i <= end; i++) {
+            String prefix = String.join("/", names.subList(0, i));
+            String skipped = foldedSkipped.get(prefix.toLowerCase(Locale.ROOT));
+            if (skipped != null) {
+                // A directory the walk skipped, in this letter case or another: nothing under it is known.
+                String rest = String.join("/", names.subList(i, names.size()));
+                String spelled = skipped + (rest.isEmpty() ? "" : "/" + rest) + (path.directory() ? "/" : "");
+                return marked || skipped.equals(prefix) ? new Reading(base, "", State.EXCLUDED, "")
+                        : new Reading(base, "", State.OUTPUT_CASE, (base.isEmpty() ? anchor(path) : "/") + spelled);
+            }
+        }
         boolean exact = excluded(names, false);
         if (exact || excluded(names, true)) {
             // Output as the walk and git see it, or in another letter case: a real path in another case is named first.
