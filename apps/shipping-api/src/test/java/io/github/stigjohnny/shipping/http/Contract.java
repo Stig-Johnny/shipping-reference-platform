@@ -14,8 +14,6 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -25,6 +23,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MvcResult;
@@ -271,11 +270,6 @@ public final class Contract {
             List<String> responseTypes) {
     }
 
-    /** A copy of the contract's document, for fixtures that change it. */
-    JsonNode copyOfDocument() {
-        return document.deepCopy();
-    }
-
     /** Every example of the contract, in document order. */
     List<Example> examples() {
         return examples(document);
@@ -289,9 +283,7 @@ public final class Contract {
      * example there is not an example.
      */
     static List<Example> examples(JsonNode document) {
-        List<Example> examples = new ArrayList<>();
-        collect(document, new Located(document, "#"), Context.OPENAPI, examples);
-        return examples;
+        return collect(document, new Located(document, "#"), false, false);
     }
 
     /**
@@ -322,34 +314,36 @@ public final class Contract {
                 .contains(suffix);
     }
 
-    /** How the members of a node of the contract are read: as OpenAPI objects, as a schema, or as property names. */
-    private enum Context {
-        OPENAPI, SCHEMA, NAMES
-    }
-
-    private static void collect(JsonNode document, Located at, Context context, List<Example> examples) {
+    /**
+     * The examples under {@code at}, in document order. Its members are a schema's keywords when {@code schema}, the
+     * names of a schema's properties when {@code names}, and OpenAPI's otherwise.
+     */
+    private static List<Example> collect(JsonNode document, Located at, boolean schema, boolean names) {
         JsonNode node = at.node();
+        Stream<Example> found = Stream.empty();
         for (int i = 0; node.isArray() && i < node.size(); i++) {
-            collect(document, at.item(i), context, examples);
+            found = Stream.concat(found, collect(document, at.item(i), schema, names).stream());
         }
-        boolean holder = context == Context.OPENAPI && holdsExamples(segments(at.pointer()));
+        boolean holder = !schema && !names && holdsExamples(segments(at.pointer()));
         for (String key : node.propertyNames()) {
-            if (context != Context.NAMES && EXAMPLE_KEYS.contains(key)) {
+            if (!names && EXAMPLE_KEYS.contains(key)) {
                 if (!holder) {
                     throw new AssertionError(at.at(key).pointer() + ": an example in a place where no example is "
                             + "read; only a media type's or a parameter's example and examples are");
                 }
-                examples.addAll(examplesOf(document, at, key));
-            } else if (context != Context.SCHEMA || !SCHEMA_DATA.contains(key)) {
-                collect(document, at.at(key), switch (context) {
-                    case NAMES -> Context.SCHEMA;
-                    case SCHEMA -> SCHEMA_NAME_MAPS.contains(key) ? Context.NAMES : Context.SCHEMA;
-                    case OPENAPI -> key.equals("schema") ? Context.SCHEMA
-                            : at.pointer().equals("#/components") && key.equals("schemas") ? Context.NAMES
-                                    : Context.OPENAPI;
-                }, examples);
+                found = Stream.concat(found, examplesOf(document, at, key).stream());
+            } else if (names) {
+                found = Stream.concat(found, collect(document, at.at(key), true, false).stream());
+            } else if (schema) {
+                boolean map = SCHEMA_NAME_MAPS.contains(key);
+                found = SCHEMA_DATA.contains(key) ? found
+                        : Stream.concat(found, collect(document, at.at(key), !map, map).stream());
+            } else {
+                boolean schemas = at.pointer().equals("#/components") && key.equals("schemas");
+                found = Stream.concat(found, collect(document, at.at(key), key.equals("schema"), schemas).stream());
             }
         }
+        return found.toList();
     }
 
     /** Whether the node at these pointer segments is a parameter or a media type of a request body, response or parameter. */
@@ -367,31 +361,28 @@ public final class Contract {
         if (schema.node().isMissingNode()) {
             throw new AssertionError(holder.pointer() + ": an example needs a schema beside it to be validated");
         }
+        String location = schemaLocation(schema);
         boolean problem = at.size() >= 4 && at.getLast().equals(MediaType.APPLICATION_PROBLEM_JSON_VALUE)
                 && at.get(at.size() - 4).equals("responses");
-        int status = 0;
-        List<String> types = List.of();
-        if (problem) {
-            String response = holder.pointer().substring(0, holder.pointer().lastIndexOf("/content/"));
-            status = status(document, at, response);
-            types = responseTypes(document.at(response.substring(1)).path("description").stringValue(""));
-        }
+        String response = problem ? holder.pointer().substring(0, holder.pointer().lastIndexOf("/content/")) : "";
+        int status = problem ? status(document, at, response) : 0;
+        List<String> types = problem
+                ? responseTypes(document.at(response.substring(1)).path("description").stringValue("")) : List.of();
         Located examples = holder.at(key);
         if (key.equals("example")) {
-            return List.of(new Example(examples.pointer(), schemaLocation(schema), examples.node(), problem, status,
-                    types));
+            return List.of(new Example(examples.pointer(), location, examples.node(), problem, status, types));
         }
-        List<Example> found = new ArrayList<>();
-        for (String name : examples.node().propertyNames()) {
+        if (!examples.node().isObject()) {
+            throw new AssertionError(examples.pointer() + ": examples is a map of named examples");
+        }
+        return examples.node().propertyNames().stream().map(name -> {
             Located example = examples.at(name);
             if (!example.node().has("value") || example.node().has("externalValue") || example.node().has("$ref")) {
                 throw new AssertionError(example.pointer() + ": an example holds its value itself, not an "
                         + "externalValue or a $ref");
             }
-            found.add(new Example(example.pointer(), schemaLocation(schema), example.node().path("value"), problem,
-                    status, types));
-        }
-        return found;
+            return new Example(example.pointer(), location, example.node().path("value"), problem, status, types);
+        }).toList();
     }
 
     /**
@@ -428,12 +419,12 @@ public final class Contract {
     static List<String> responseTypes(String description) {
         String text = description.strip().replaceAll("\\s+", " ");
         Matcher item = RESPONSE_TYPE.matcher(text);
-        List<String> types = new ArrayList<>();
+        Stream<String> types = Stream.empty();
         while (item.find()) {
-            types.add(item.group(1));
+            types = Stream.concat(types, Stream.of(item.group(1)));
             if (item.group(2) == null) {
                 boolean ends = item.end() == text.length() || ":.".indexOf(text.charAt(item.end())) >= 0;
-                return ends ? List.copyOf(types) : List.of();
+                return ends ? types.toList() : List.of();
             }
         }
         return List.of();
@@ -444,8 +435,8 @@ public final class Contract {
         if (pointer.equals("#")) {
             return List.of();
         }
-        return Arrays.stream(pointer.substring(2).split("/", -1)).map(s -> s.replace("~1", "/").replace("~0", "~"))
-                .toList();
+        return List.of(pointer.substring(2).split("/", -1)).stream()
+                .map(segment -> segment.replace("~1", "/").replace("~0", "~")).toList();
     }
 
     private JsonNode assertBody(String location, String mediaType, MockHttpServletResponse response,
@@ -525,16 +516,25 @@ public final class Contract {
         }
     }
 
-    private static Contract read() {
-        JsonNode document;
+    /** The contract's text, as committed, from the test class path. */
+    static String text() {
         try (InputStream in = Contract.class.getClassLoader().getResourceAsStream(RESOURCE)) {
             if (in == null) {
                 throw new IllegalStateException(RESOURCE + " is not on the test class path.");
             }
-            document = YAMLMapper.builder().build().readTree(in);
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    /** A contract document read from YAML text with the default YAMLFactory, as the contract itself is read. */
+    static JsonNode parse(String yaml) {
+        return YAMLMapper.builder().build().readTree(yaml);
+    }
+
+    private static Contract read() {
+        JsonNode document = parse(text());
         // Formats are assertions here, not annotations: a date-time, a URI reference or a UUID must be one.
         SchemaRegistry schemas = SchemaRegistry.withDefaultDialect(Dialects.getOpenApi31(), registry -> registry
                 .schemaRegistryConfig(SchemaRegistryConfig.builder().formatAssertionsEnabled(true).build())

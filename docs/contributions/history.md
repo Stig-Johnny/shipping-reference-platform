@@ -1022,3 +1022,18 @@ generated labels and the migration, and updated ADR 0024, ADR 0013, the README r
 `xhigh`) chose the label's look, required every dynamic view to stay labelled until a complete comparison is proven,
 and accepted moving that evidence to issue 153. The reviews of the final head and the merge decision are comments on
 PR #154.
+
+## Issue 156
+
+Every example in the OpenAPI contract is now validated against its schema in every build, and a problem example
+against the error registry and its response.
+
+[Issue 156](https://github.com/Stig-Johnny/shipping-reference-platform/issues/156) ·
+[PR #158](https://github.com/Stig-Johnny/shipping-reference-platform/pull/158).
+Base: `455d858e89a6f70c89a42c54f0bd2b44592b7f55`. Record: `issue-156-pull-request` in [model runs](runs.md).
+
+Claude Code, the orchestrator (`claude-opus-5-5`, effort unknown), counted the contract's examples, wrote the tests
+first and then the reader and the checks in the HTTP contract tests' support class, and updated the HTTP contract
+control, the README, ADR 0012 and its evidence sentence on the site, demo 158, this entry and the record. Codex
+(`gpt-6-astra`, effort `xhigh`) split this work from issue 155 in its design review and asked that a problem example's
+type be one its response names. The reviews of the final head and the merge decision are comments on PR #158.

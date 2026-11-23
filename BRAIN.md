@@ -58,7 +58,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | `control.external-imports` | partial | `java` | ExternalImportPolicyTest |
 | `control.table-ownership` | planned | `java` | none yet |
 | `control.migrations` | partial | `java` | MigrationFilesTest |
-| `control.http-contract` | partial | `java` | QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest |
+| `control.http-contract` | partial | `java` | QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest, ContractExamplesTest |
 | `control.web-import-boundaries` | partial | `java` | ImportScannerTest, SourceReaderTest, JsonTest, AppConfigurationTest, WebModelValidationTest, WebConformanceTest, WebReportDeterminismTest, WebArchitectureConformanceTest |
 | `control.dependency-allowlist` | partial | `java` | ContainerEngineWorkflowTest |
 | `control.risk-classification` | planned | `risk-approval` | none yet |

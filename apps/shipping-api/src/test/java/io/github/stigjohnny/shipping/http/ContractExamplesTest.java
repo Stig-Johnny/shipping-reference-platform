@@ -4,18 +4,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.node.ObjectNode;
 
 /**
  * The contract's own examples (control.http-contract): each one validates against its schema with the settings of the
  * HTTP contract tests, and a problem example is its type's problem, with its response's status, of a type that its
- * response names. An example in a place this test does not read fails, so none goes unchecked. The negative fixtures
- * change one example of a copy of the contract; schemas are still read from the contract itself.
+ * response names. An example in a place this test does not read fails, so none goes unchecked. Each negative fixture
+ * edits one passage of the contract's text, as a contributor would; schemas are still read from the contract itself.
  */
 class ContractExamplesTest {
 
@@ -26,6 +28,7 @@ class ContractExamplesTest {
     private static final String NO_OFFER = "#/paths/~1quotes/post/responses/422" + PROBLEM + "routeNotServed";
     private static final String EXPIRED = "#/paths/~1shipments/post/responses/422" + PROBLEM + "expired";
     private static final String IDEMPOTENCY_KEY = "#/components/parameters/IdempotencyKey/example";
+    private static final String ROLE = "                    role: CLERK\n";
 
     private final Contract contract = Contract.contract();
 
@@ -33,7 +36,7 @@ class ContractExamplesTest {
     void everyExampleOfTheContractConformsToItsSchemaAndItsResponse() {
         List<Contract.Example> examples = contract.examples();
 
-        assertThat(examples).extracting(Contract.Example::pointer).containsExactly(MEMBERSHIP,
+        assertThat(pointers(examples)).containsExactly(MEMBERSHIP,
                 "#/paths/~1quotes/post/requestBody" + JSON + "internationalAllLevels", QUOTE, NO_OFFER,
                 "#/paths/~1shipments/post/requestBody" + JSON + "bookStandard",
                 "#/paths/~1shipments/post/responses/201" + JSON + "booked", EXPIRED, IDEMPOTENCY_KEY,
@@ -43,104 +46,123 @@ class ContractExamplesTest {
 
     @Test
     void anExampleWithAnUndocumentedMemberFails() {
-        assertThatThrownBy(() -> changed(MEMBERSHIP, value -> value.put("debug", true)))
+        assertThatThrownBy(() -> assertEdited(MEMBERSHIP, ROLE, ROLE + "                    debug: true\n"))
                 .isInstanceOf(AssertionError.class).hasMessageContaining(MEMBERSHIP).hasMessageContaining("debug");
     }
 
     @Test
     void anExampleWithAnImpossibleDateTimeFails() {
         // It matches the Timestamp pattern; only the date-time format rejects it.
-        assertThatThrownBy(() -> changed(QUOTE, value -> value.put("issuedAt", "2026-99-99T99:99:99.000Z")))
-                .isInstanceOf(AssertionError.class).hasMessageContaining("/issuedAt");
+        assertThatThrownBy(() -> assertEdited(QUOTE, "issuedAt: '2026-11-10T09:00:00.000Z'",
+                "issuedAt: '2026-99-99T99:99:99.000Z'")).isInstanceOf(AssertionError.class)
+                .hasMessageContaining("/issuedAt");
     }
 
     @Test
     void aParameterExampleThatItsSchemaRefusesFails() {
-        JsonNode document = contract.copyOfDocument();
-        ((ObjectNode) document.at("/components/parameters/IdempotencyKey")).put("example", "too-short");
-
-        assertThatThrownBy(() -> contract.assertExample(example(document, IDEMPOTENCY_KEY)))
-                .isInstanceOf(AssertionError.class).hasMessageContaining(IDEMPOTENCY_KEY);
+        assertThatThrownBy(() -> assertEdited(IDEMPOTENCY_KEY, "example: 6f1d2c3b-4a5e-4f60-8172-93a4b5c6d7e8",
+                "example: too-short")).isInstanceOf(AssertionError.class).hasMessageContaining(IDEMPOTENCY_KEY);
     }
 
     @Test
     void aProblemExampleWhoseTitleIsNotItsTypesFails() {
-        assertThatThrownBy(() -> changed(NO_OFFER, value -> value.put("title", "No offers")))
+        assertThatThrownBy(() -> assertEdited(NO_OFFER, "title: No offer available", "title: No offers available"))
                 .isInstanceOf(AssertionError.class).hasMessageContaining("the registry's title");
     }
 
     @Test
     void aProblemExampleWhoseStatusIsNotItsResponsesFails() {
-        assertThatThrownBy(() -> changed(EXPIRED, value -> value.put("status", 409)))
-                .isInstanceOf(AssertionError.class).hasMessageContaining("the status of its response");
+        assertThatThrownBy(() -> assertEdited(EXPIRED, "status: 422\n                    detail: The quote expired",
+                "status: 409\n                    detail: The quote expired")).isInstanceOf(AssertionError.class)
+                .hasMessageContaining("the status of its response");
     }
 
     @Test
     void aProblemExampleOfATypeThatItsResponseDoesNotNameFails() {
         // quote-expired is a 422 with its registry's title, but createQuote's 422 names only no-offer-available.
-        JsonNode document = contract.copyOfDocument();
-        ((ObjectNode) document.at(pointer(NO_OFFER.substring(0, NO_OFFER.lastIndexOf('/'))))).set("expired",
-                document.at(pointer(EXPIRED)).deepCopy());
+        String expired = """
+                                expired:
+                                  value:
+                                    type: https://shipping-reference-platform.example/problems/quote-expired
+                                    title: Quote expired
+                                    status: 422
+                                    detail: The quote expired at 2026-11-10T09:30:00.000Z. Request a fresh quote.
+                                    instance: /api/v1/quotes
+                                    correlationId: 7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d
+                """;
         String moved = NO_OFFER.substring(0, NO_OFFER.lastIndexOf('/') + 1) + "expired";
 
-        assertThatThrownBy(() -> contract.assertExample(example(document, moved)))
-                .isInstanceOf(AssertionError.class).hasMessageContaining("a type that its response names");
+        assertThatThrownBy(() -> assertEdited(moved, "                routeNotServed:\n",
+                expired + "                routeNotServed:\n")).isInstanceOf(AssertionError.class)
+                .hasMessageContaining("a type that its response names");
     }
 
-    /** Each place where this test reads no example, and an example's value that it cannot read. */
+    /** Each place where this test reads no example: a header, a schema, a property's schema and the shared examples. */
+    static Stream<Arguments> places() {
+        return Stream.of(
+                Arguments.of("#/components/headers/CorrelationId/example", "  headers:\n    CorrelationId:\n",
+                        "  headers:\n    CorrelationId:\n      example: x\n"),
+                Arguments.of("#/components/schemas/Quote/example", "    Quote:\n      type: object\n",
+                        "    Quote:\n      example: x\n      type: object\n"),
+                Arguments.of("#/components/schemas/Money/properties/amount/example",
+                        "        amount:\n          type: string\n",
+                        "        amount:\n          example: x\n          type: string\n"),
+                Arguments.of("#/components/examples", "\ncomponents:\n",
+                        "\ncomponents:\n  examples:\n    shared:\n      value: x\n"));
+    }
+
     @ParameterizedTest
-    @ValueSource(strings = {"/components/headers/CorrelationId", "/components/schemas/Quote",
-        "/components/schemas/Money/properties/amount", "/components"})
-    void anExampleInAPlaceThisTestDoesNotReadFails(String place) {
-        JsonNode document = contract.copyOfDocument();
-        ObjectNode holder = (ObjectNode) document.at(place);
-        if (place.equals("/components")) {
-            holder.putObject("examples").putObject("shared").put("value", "x");
-        } else {
-            holder.put("example", "x");
-        }
+    @MethodSource("places")
+    void anExampleInAPlaceThisTestDoesNotReadFails(String example, String passage, String replacement) {
+        JsonNode document = edited(passage, replacement);
 
         assertThatThrownBy(() -> Contract.examples(document)).isInstanceOf(AssertionError.class)
-                .hasMessageContaining("#" + place + "/example")
-                .hasMessageContaining("a place where no example is read");
+                .hasMessageContaining(example + ": an example in a place where no example is read");
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"externalValue", "$ref"})
-    void anExampleThatHoldsNoValueFails(String instead) {
-        JsonNode document = contract.copyOfDocument();
-        ObjectNode example = (ObjectNode) document.at(pointer(MEMBERSHIP));
-        example.remove("value");
-        example.put(instead, "#/components/examples/clerkAlpha");
+    void anExampleThatDoesNotHoldItsValueItselfFails(String instead) {
+        String example = "                clerkAlpha:\n";
+        JsonNode document = edited(example, example + "                  " + instead
+                + ": '#/components/examples/clerkAlpha'\n");
 
         assertThatThrownBy(() -> Contract.examples(document)).isInstanceOf(AssertionError.class)
-                .hasMessageContaining(MEMBERSHIP).hasMessageContaining("holds its value itself");
+                .hasMessageContaining(MEMBERSHIP + ": an example holds its value itself");
     }
 
     @Test
-    void aMemberNamedExampleInAPayloadOrASchemasPropertiesIsData() {
-        JsonNode document = contract.copyOfDocument();
-        ((ObjectNode) document.at("/components/schemas/Recipient/properties")).putObject("example")
-                .put("type", "string");
-        ((ObjectNode) document.at(pointer(MEMBERSHIP) + "/value")).putObject("examples").put("example", "data");
+    void aMemberNamedExampleInAPayloadOrAmongASchemasPropertiesIsData() {
+        String recipient = """
+                      description: Personal data. Use synthetic values only. Never logged.
+                      properties:
+                """;
+        JsonNode document = edited(recipient, recipient + "        example:\n          type: string\n", ROLE,
+                ROLE + "                    examples: {example: data}\n");
 
-        assertThat(Contract.examples(document)).extracting(Contract.Example::pointer).hasSize(9)
-                .isEqualTo(contract.examples().stream().map(Contract.Example::pointer).toList());
+        assertThat(pointers(Contract.examples(document))).hasSize(9).isEqualTo(pointers(contract.examples()));
     }
 
-    /** Asserts the example at {@code at} in a copy of the contract whose example value {@code change} has changed. */
-    private void changed(String at, Consumer<ObjectNode> change) {
-        JsonNode document = contract.copyOfDocument();
-        change.accept((ObjectNode) document.at(pointer(at) + "/value"));
-        contract.assertExample(example(document, at));
+    /** Asserts the example at {@code at} in the contract with one passage of its text replaced. */
+    private void assertEdited(String at, String passage, String replacement) {
+        JsonNode document = edited(passage, replacement);
+        contract.assertExample(Contract.examples(document).stream().filter(e -> e.pointer().equals(at)).findFirst()
+                .orElseThrow());
     }
 
-    private static Contract.Example example(JsonNode document, String at) {
-        return Contract.examples(document).stream().filter(e -> e.pointer().equals(at)).findFirst().orElseThrow();
+    /** The contract's document with passages of its text replaced, each given with its replacement and found once. */
+    private static JsonNode edited(String... passagesAndReplacements) {
+        String text = Contract.text();
+        for (int i = 0; i < passagesAndReplacements.length; i += 2) {
+            String passage = passagesAndReplacements[i];
+            assertThat(text.split(Pattern.quote(passage), -1).length - 1).as("the fixture's passage %s", passage)
+                    .isEqualTo(1);
+            text = text.replace(passage, passagesAndReplacements[i + 1]);
+        }
+        return Contract.parse(text);
     }
 
-    /** A pointer of {@link Contract.Example#pointer()} without its leading {@code #}, as Jackson reads one. */
-    private static String pointer(String at) {
-        return at.substring(1);
+    private static List<String> pointers(List<Contract.Example> examples) {
+        return examples.stream().map(Contract.Example::pointer).toList();
     }
 }
