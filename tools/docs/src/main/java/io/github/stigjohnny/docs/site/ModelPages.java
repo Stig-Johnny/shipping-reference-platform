@@ -3,6 +3,7 @@ package io.github.stigjohnny.docs.site;
 import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.Html;
 import io.github.stigjohnny.docs.generate.ViewText;
+import io.github.stigjohnny.docs.mermaid.MermaidAdapter;
 import io.github.stigjohnny.docs.mermaid.MermaidDiagram;
 import io.github.stigjohnny.docs.mermaid.MermaidValidator;
 import io.github.stigjohnny.docs.model.C4Model;
@@ -120,6 +121,9 @@ final class ModelPages {
     }
 
     private static final String FIGURE_MARKER = "SITEDYNAMICVIEWFIGURE";
+    /** The unchecked-design label after a diagram's title (ADR 0024): the muted solid box, as Codex chose. */
+    private static final String UNCHECKED_LABEL = " <span class=\"badge badge-none diagram-unchecked\">Unchecked design"
+            + "</span>";
     private static final Pattern SEQUENCE = Pattern.compile("```mermaid\n\\s*sequenceDiagram\n(.*?)```", Pattern.DOTALL);
     private static final Pattern MESSAGE = Pattern.compile(
             "^\\s*[A-Za-z0-9_]+\\s*(-->>|->>|-->|->|--x|-x|--\\)|-\\))\\s*[+-]?[A-Za-z0-9_]+\\s*:");
@@ -130,8 +134,8 @@ final class ModelPages {
      */
     static String flowDescription(C4View view, String flowMarkdown) {
         StringBuilder text = new StringBuilder("Dynamic view with " + view.elementIds().size() + " elements and "
-                + view.steps().size() + " relationships. The linked " + ViewNames.title(view) + " page lists its "
-                + "elements and relationships.");
+                + view.steps().size() + " relationships." + MermaidAdapter.uncheckedSentence(view) + " The linked "
+                + ViewNames.title(view) + " page lists its elements and relationships.");
         sequenceSteps(flowMarkdown).ifPresent(steps -> text.append(" The step tables below follow the separate ")
                 .append(steps).append("-step sequence."));
         return text.toString();
@@ -171,7 +175,8 @@ final class ModelPages {
      */
     static String figure(C4View view, MermaidDiagram diagram, String definition, C4Model model, String captionTail) {
         return figure(ViewNames.slug(view), Sheets.code(viewPage(view)), ViewNames.title(view), definition,
-                String.join(" ", ViewText.legend(diagram, model)), captionTail, "Scrolls when enlarged.");
+                String.join(" ", ViewText.legend(diagram, model)), captionTail, "Scrolls when enlarged.",
+                ViewNames.unchecked(view));
     }
 
     /**
@@ -181,10 +186,19 @@ final class ModelPages {
      */
     static String figure(String slug, String code, String title, String definition, String legend,
             String captionTail, String scrolling) {
+        return figure(slug, code, title, definition, legend, captionTail, scrolling, false);
+    }
+
+    /**
+     * The diagram template, with the unchecked-design label (ADR 0024) when {@code unchecked}: the label in the title
+     * line, which stays with the drawing, and the sentence that explains it first in the caption.
+     */
+    static String figure(String slug, String code, String title, String definition, String legend,
+            String captionTail, String scrolling, boolean unchecked) {
         String figure = "figure-" + slug;
         return "<figure class=\"diagram\" id=\"" + figure + "\">\n"
                 + "<div class=\"diagram-toolbar\"><p class=\"diagram-title\">" + code + " · "
-                + Html.escape(title) + "</p><button type=\"button\" class=\"button\" data-enlarge=\""
+                + Html.escape(title) + (unchecked ? UNCHECKED_LABEL : "") + "</p><button type=\"button\" class=\"button\" data-enlarge=\""
                 + figure + "\" aria-pressed=\"false\" hidden>Enlarge diagram</button></div>\n"
                 + "<noscript><p class=\"diagram-note\">A script draws this diagram; without it you see its source. "
                 + captionTail + "</p></noscript>\n"
@@ -194,7 +208,9 @@ final class ModelPages {
                 + Html.escape("Diagram: " + title + ". " + scrolling) + "\">\n"
                 + "<pre class=\"diagram-source\" data-diagram=\"" + slug + "\">" + Html.escape(definition)
                 + "</pre>\n</div>\n"
-                + "<figcaption class=\"diagram-caption\">\n<p><strong>Legend.</strong> "
+                + "<figcaption class=\"diagram-caption\">\n"
+                + (unchecked ? "<p><strong>Unchecked design.</strong> " + Html.escape(ViewNames.UNCHECKED) + "</p>\n" : "")
+                + "<p><strong>Legend.</strong> "
                 + Html.escape(legend) + "</p>\n"
                 + "<p>" + captionTail + "</p>\n</figcaption>\n</figure>\n";
     }

@@ -40,6 +40,11 @@ lines, decorative warnings, shadows, gradients, animation and illustrations.
   then the line breaks rather than widen the page. Records, generated files, superseded ADRs, decks
   and code blocks show the markers as written. A Markdown table that holds such a box keeps 40rem on a narrow screen
   and scrolls inside its region with the hint, as the model tables do.
+- **A behavioural diagram** (ADR 0024) that no test compares in full with the code shows the words Unchecked design in
+  the muted box with a single rule, the box of an absent path: after the title of a dynamic view's figure, with the
+  sentence that says so first in its caption, and after the summary of a hand-written sequence or state diagram's
+  closed source, in the prose the check reads. Every dynamic view carries it today, a scenario view too. Codex chose
+  the muted box from three rendered variants, so the dashed box keeps its single meaning, planned.
 
 ## Tokens
 

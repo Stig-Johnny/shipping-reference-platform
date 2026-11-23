@@ -2,7 +2,7 @@
 title: "ADR 0013: Scenario views are checked against recorded interactions"
 description: "Each executable scenario view has a validated sidecar; a test-only recorder observes module API calls and publications, bounded checks retain detected coverage gaps with an exact debt ledger, and a comparator checks the recording against the steps, with outcomes asserted separately."
 status: accepted
-updated: 2026-11-21
+updated: 2026-11-23
 date: 2026-11-07
 decision-makers: repository owner
 enforcedBy:
@@ -55,7 +55,8 @@ Chosen option 1.
 
 - **Views.** A dynamic view whose key starts with `Scenario` is executable: one view per scenario, for quote, first
   booking, booking replay, tenant denial and label. Each step is a single interaction. `QuoteBookLabel` stays the
-  documentation overview, and its description says that it is not executable. An arrow follows its model
+  documentation overview, and its description says that it is not executable. Every dynamic view, a scenario view
+  too, carries the unchecked-design label until evidence shows that a test compares the whole view (ADR 0024). An arrow follows its model
   relationship: a listener's arrow shows the code dependency, and a publication's arrow points to the database, which
   holds the publication registry.
 - **The sidecar.** `architecture/scenarios/<view key in kebab case>.json`, schema `shipping-scenarios/sidecar/v1`,

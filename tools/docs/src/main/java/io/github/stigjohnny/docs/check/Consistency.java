@@ -42,6 +42,8 @@ import java.util.regex.Pattern;
  *       {@code AGENTS.md} ({@link AgentInstructions}, ADR 0022);
  *   <li>a test class named in inline code exists, or is marked and registered as planned ({@link References},
  *       ADR 0023);
+ *   <li>a sequence or state diagram in current prose carries the unchecked-design label right before it, and a
+ *       Mermaid fence names its type ({@link BehaviouralDiagrams}, ADR 0024);
  *   <li>every demonstration under {@code docs/demos/} has its metadata, its sections, approved commands only and text
  *       only ({@link DemoCheck}), and every milestone deck there its slides, its notes apart, counts that the sources
  *       give and the record of its recorded output ({@link DeckCheck}).

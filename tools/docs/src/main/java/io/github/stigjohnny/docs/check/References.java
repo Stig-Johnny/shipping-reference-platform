@@ -44,7 +44,9 @@ import java.util.regex.Pattern;
  * <p>Not read: code blocks, and Markdown that is no current prose ({@link CurrentProse}): generated files, records
  * (contribution history and runs, demonstrations other than the how-to, security reviews and verifications) and
  * superseded ADRs; nor the directories the instruction check skips. The site shows labels where this check reads. The
- * check proves names and markers, not claims: whether a sentence says that a test passes is outside it.
+ * check proves names and markers, not claims: whether a sentence says that a test passes is outside it. The same pass
+ * hands each document of current prose to the check of its behavioural diagrams ({@link BehaviouralDiagrams},
+ * ADR 0024).
  */
 final class References {
 
@@ -101,6 +103,7 @@ final class References {
                 String where = path + ":" + (code.line() == 0 ? 0 : code.line() + offset);
                 check(code.text(), path, where, new Register(tests, planned, ids, idShape, paths), problems);
             }
+            BehaviouralDiagrams.check(path, text.substring(body), offset, problems);
         }
     }
 

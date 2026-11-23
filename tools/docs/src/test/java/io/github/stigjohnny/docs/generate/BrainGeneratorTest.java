@@ -103,7 +103,7 @@ class BrainGeneratorTest {
     }
 
     @Test
-    void eachGeneratedDiagramLinksItsFigureOnTheSiteRightBeforeItsFence() {
+    void eachGeneratedDiagramLinksItsFigureOnTheSiteAboveItsFence() {
         Map<String, String> files = GeneratedFiles.generate(sources());
 
         for (String slug : List.of("system-context", "containers", "api-components", "web-components",
@@ -112,8 +112,28 @@ class BrainGeneratorTest {
             String link = "[Open this diagram on the documentation site for enlargement and its text equivalent]("
                     + "https://stig-johnny.github.io/" + "shipping-reference-platform/model/" + slug + ".html#figure-"
                     + slug + ")";
-            assertThat(page).as(slug).contains(link + "\n\n```mermaid\n");
+            String label = slug.equals("quote-book-label") ? "**Unchecked design.** No test compares this whole "
+                    + "view with the code.\n\n" : "";
+            assertThat(page).as(slug).contains(link + "\n\n" + label + "```mermaid\n");
             assertThat(page.split("```mermaid", -1)).as(slug).hasSize(2);
+        }
+    }
+
+    @Test
+    void everyDynamicViewsPageIsLabelledAnUncheckedDesignRightBeforeItsFence() {
+        Map<String, String> files = GeneratedFiles.generate(sources());
+
+        for (String slug : List.of("quote-book-label", "scenario-quote", "scenario-tenant-denial")) {
+            String page = file(files, "docs/architecture/" + slug + ".md");
+            assertThat(page).as(slug).contains("\n\n**Unchecked design.** No test compares this whole view with the "
+                    + "code.\n\n```mermaid\nflowchart ", "    accDescr: Dynamic view with ", ". Unchecked design: no test "
+                    + "compares this whole view with the code. The tables on the page list every one of them.\n");
+            assertThat(file(files, "docs/architecture/" + slug + ".mmd")).as(slug).contains("Unchecked design: no test "
+                    + "compares this whole view with the code.");
+        }
+        for (String slug : List.of("system-context", "containers", "api-components", "web-components")) {
+            assertThat(file(files, "docs/architecture/" + slug + ".md") + file(files, "docs/architecture/" + slug
+                    + ".mmd")).as(slug).doesNotContain("Unchecked design");
         }
     }
 

@@ -615,8 +615,11 @@ thead th,
   color: var(--failure);
 }
 
+/* An unchecked design (ADR 0024), a diagram that no test compares in full with the code, has the muted solid box of
+   none: a neutral state in words, not a warning colour. */
 .badge-none,
-.badge-neutral {
+.badge-neutral,
+.diagram-unchecked {
   color: var(--ink-muted);
 }
 

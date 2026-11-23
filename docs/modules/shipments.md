@@ -2,7 +2,7 @@
 title: "Module: shipments"
 description: "Books shipments from quote offers with tenant-scoped idempotency and simulated SVG labels. Cancellation and durable event delivery are planned."
 status: accepted
-updated: 2026-11-21
+updated: 2026-11-23
 module: shipments
 moduleStatus: built
 riskLevel: 3
@@ -163,8 +163,8 @@ upper bound, without a database; it restores the default formatting locale after
 
 ## Lifecycle
 
-The diagram shows the v0.1 target. Only `BOOKED` and its in-process booking event are implemented; both
-cancellation transitions and the cancellation event are planned.
+**Unchecked design.** No test compares this diagram with the code. It shows the v0.1 target: only `BOOKED` and its
+in-process booking event are implemented; both cancellation transitions and the cancellation event are planned.
 
 ```mermaid
 stateDiagram-v2

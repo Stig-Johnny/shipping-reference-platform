@@ -59,6 +59,7 @@ public final class ArchitecturePages {
                 .append(view.description()).append("\n\n")
                 .append("[Open this diagram on the documentation site for enlargement and its text equivalent](")
                 .append(SITE).append("model/").append(slug).append(".html#figure-").append(slug).append(")\n\n")
+                .append(ViewNames.unchecked(view) ? "**Unchecked design.** " + ViewNames.UNCHECKED + "\n\n" : "")
                 .append("```mermaid\n").append(diagram.definition()).append("```\n\n")
                 .append("The same definition is in [").append(slug).append(".mmd](").append(slug).append(".mmd).\n\n")
                 .append("## How to read it\n\n");

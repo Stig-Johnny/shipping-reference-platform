@@ -32,8 +32,10 @@ import org.commonmark.node.Image;
 import org.commonmark.node.IndentedCodeBlock;
 import org.commonmark.node.Link;
 import org.commonmark.node.Node;
+import org.commonmark.node.Paragraph;
 import org.commonmark.node.SoftLineBreak;
 import org.commonmark.node.SourceSpan;
+import org.commonmark.node.StrongEmphasis;
 import org.commonmark.node.Text;
 import org.commonmark.parser.IncludeSourceSpans;
 import org.commonmark.parser.Parser;
@@ -55,8 +57,11 @@ import org.jspecify.annotations.Nullable;
  *       In-page anchors must exist. A destination the sanitizer would empty fails the build instead of rendering
  *       {@code href=""}, and images fail (the site publishes none).
  *   <li>Headings get GitHub's anchor IDs, written by this class's own template from a slug of letters, digits,
- *       {@code _} and {@code -}; tables are wrapped in labelled, keyboard-scrollable regions; Mermaid fences are shown
- *       as source, because only the generator's validated diagrams are ever rendered.
+ *       {@code _} and {@code -}; tables are wrapped in labelled, keyboard-scrollable regions; a Mermaid fence, at any
+ *       depth, is shown as its closed source, because only the generator's validated diagrams are ever rendered. The
+ *       fence's text gets the class's own placeholders on the parsed tree, and the closed source's markup is constant;
+ *       a sequence or state diagram that the label right before it disclaims shows the unchecked-design label in
+ *       current prose (ADR 0024). {@link #diagrams} reads the same fences and labels as data, for the check.
  *   <li>CommonMark 0.29.0 has no nesting limits, so the tree is measured before rendering and anything deeper than
  *       {@link #MAX_DEPTH} fails; any exception or error, {@link StackOverflowError} included, fails the build.
  *   <li>Reference markers (ADR 0023) become labels when the caller asks, for current prose: on the parsed tree a
@@ -76,17 +81,48 @@ public final class MarkdownRenderer {
     /** Deepest nesting of Markdown nodes that is rendered (real documents stay under 12). */
     public static final int MAX_DEPTH = 64;
 
-    /** What a hand-written diagram is, from its first line, for the label of its closed source. */
-    private static String sourceLabel(FencedCodeBlock code) {
-        String first = code.getLiteral().strip().lines().findFirst().orElse("").strip();
-        if (first.startsWith("sequenceDiagram")) {
-            return "Sequence source";
+    /**
+     * A Mermaid fence's closed source (ADR 0024): the renderer's own constant markup in place of a placeholder that starts
+     * the fence's text, chosen from its first line and from whether the unchecked-design label shows, and the end of the
+     * disclosure in place of {@link #DIAGRAM_END}, which ends it. A placeholder is in the text of the code block, so a
+     * fence in a list or a quote is wrapped as well; no document text enters the markup.
+     */
+    private enum DiagramSource {
+        SEQUENCE("Sequence source", false),
+        SEQUENCE_UNCHECKED("Sequence source", true),
+        STATE("State diagram source", false),
+        STATE_UNCHECKED("State diagram source", true),
+        WORKFLOW("Workflow source", false),
+        OTHER("Diagram source", false);
+
+        private final String placeholder;
+        private final String html;
+
+        DiagramSource(String source, boolean unchecked) {
+            this.placeholder = "\0diagram-" + name().toLowerCase(Locale.ROOT) + "\0";
+            this.html = "<details class=\"diagram-source-block\">\n<summary>" + source + " \u2014 not rendered"
+                    + (unchecked ? " <span class=\"badge badge-none diagram-unchecked\">Unchecked design</span>" : "")
+                    + "</summary>\n<p class=\"diagram-note\">GitHub draws this diagram from its source; the text on this "
+                    + "page says the same.</p>\n" + CODE_OPEN;
         }
-        if (first.startsWith("stateDiagram")) {
-            return "State diagram source";
+
+        /** What a fence is, from its first line, as the closed source names it; unchecked only when the label shows. */
+        static DiagramSource of(String firstLine, boolean unchecked) {
+            if (firstLine.startsWith("sequenceDiagram")) {
+                return unchecked ? SEQUENCE_UNCHECKED : SEQUENCE;
+            }
+            if (firstLine.startsWith("stateDiagram")) {
+                return unchecked ? STATE_UNCHECKED : STATE;
+            }
+            return firstLine.startsWith("flowchart") || firstLine.startsWith("graph") ? WORKFLOW : OTHER;
         }
-        return first.startsWith("flowchart") || first.startsWith("graph") ? "Workflow source" : "Diagram source";
     }
+
+    /** How the renderer opens a Mermaid fence's code block. */
+    private static final String CODE_OPEN = "<pre><code class=\"language-" + MermaidFence.INFO + "\">";
+    /** Ends a Mermaid fence's text; with the code block's end after it, it becomes the end of the disclosure. */
+    private static final String DIAGRAM_END = "\0diagram-end\0";
+    private static final String CODE_CLOSE = "</code></pre>";
 
     private static final List<Extension> EXTENSIONS = List.of(TablesExtension.create());
     private static final Parser PARSER = Parser.builder().extensions(EXTENSIONS)
@@ -184,6 +220,7 @@ public final class MarkdownRenderer {
             if (markers == ReferenceMarkers.LABELLED) {
                 label(document);
             }
+            closeDiagramSources(document, markers);
             StringBuilder html = new StringBuilder();
             List<Section> shown = new ArrayList<>();
             String section = "";
@@ -253,6 +290,7 @@ public final class MarkdownRenderer {
                 ids.add(slug(text(slide.heading()).strip()));
             }
             rewriteLinks(document, source, links, Set.copyOf(ids));
+            closeDiagramSources(document, ReferenceMarkers.AS_WRITTEN);
             Tables slideTables = new Tables();
             Tables noteTables = new Tables();
             List<RenderedSlide> slides = new ArrayList<>();
@@ -328,8 +366,8 @@ public final class MarkdownRenderer {
     }
 
     /**
-     * One top-level block as HTML: a heading with its ID, a table in a region named {@code tableLabel}, a Mermaid fence
-     * as its closed source, anything else as the renderer writes it.
+     * One top-level block as HTML: a heading with its ID, a table in a region named {@code tableLabel}, anything else as
+     * the renderer writes it, a Mermaid fence as its closed source ({@link #closeDiagramSources}).
      */
     private static String block(Node block, Map<Node, Section> headings, String tableLabel, String source) {
         StringBuilder html = new StringBuilder();
@@ -350,11 +388,6 @@ public final class MarkdownRenderer {
                         .append("\">\n").append(labelled ? TABLE_HINT : "").append(rendered(table, source))
                         .append("</div>\n");
             }
-            case FencedCodeBlock code when "mermaid".equals(code.getInfo().strip()) -> html
-                    .append("<details class=\"diagram-source-block\">\n<summary>").append(sourceLabel(code))
-                    .append(" \u2014 not rendered</summary>\n<p class=\"diagram-note\">GitHub draws this "
-                            + "diagram from its source; the text on this page says the same.</p>\n")
-                    .append(rendered(code, source)).append("</details>\n");
             default -> html.append(rendered(block, source));
         }
         return html.toString();
@@ -412,9 +445,10 @@ public final class MarkdownRenderer {
     }
 
     /**
-     * Puts each label's constant markup where its placeholder stands in HTML that the renderer wrote. Only
-     * {@link #label} writes a NUL: CommonMark replaces every NUL of the source, character references included, with
-     * U+FFFD. A NUL that is left is therefore no label of this class, and the build fails.
+     * Puts each label's constant markup where its placeholder stands in HTML that the renderer wrote, and each Mermaid
+     * fence's closed source around its code block. Only {@link #label} and {@link #closeDiagramSources} write a NUL:
+     * CommonMark replaces every NUL of the source, character references included, with U+FFFD. A NUL that is left is
+     * therefore no placeholder of this class, and the build fails.
      */
     static String placeLabels(String html, String source) {
         if (html.indexOf(NUL) < 0) {
@@ -424,6 +458,10 @@ public final class MarkdownRenderer {
         for (Label label : Label.values()) {
             placed = placed.replace(label.placeholder, label.html);
         }
+        for (DiagramSource diagram : DiagramSource.values()) {
+            placed = placed.replace(CODE_OPEN + diagram.placeholder, diagram.html);
+        }
+        placed = placed.replace(DIAGRAM_END + CODE_CLOSE, CODE_CLOSE + "\n</details>");
         if (placed.indexOf(NUL) >= 0) {
             throw new DocsException(source + ": the rendered HTML holds a placeholder that is no label");
         }
@@ -497,6 +535,76 @@ public final class MarkdownRenderer {
             return List.copyOf(spans);
         } catch (StackOverflowError e) {
             throw new DocsException(source + ": the document is nested too deeply to read", e);
+        }
+    }
+
+    /**
+     * The Mermaid fences of a document at any depth, in document order, and the lines of the unchecked-design labels
+     * that no sequence or state diagram follows (ADR 0024), read without rendering. The renderer shows the label by the
+     * same rule ({@link #closeDiagramSources}).
+     */
+    public static DiagramOutline diagrams(String markdown, String source) {
+        try {
+            List<MermaidFence> fences = new ArrayList<>();
+            List<Integer> strayLabels = new ArrayList<>();
+            Deque<Node> pending = new ArrayDeque<>();
+            pending.push(parse(markdown, source));
+            while (!pending.isEmpty()) {
+                Node node = pending.pop();
+                if (node instanceof FencedCodeBlock code && MermaidFence.mermaid(code.getInfo())) {
+                    fences.add(new MermaidFence(line(code), code.getInfo().strip(),
+                            MermaidFence.firstLineOf(code.getLiteral()), uncheckedLabel(code.getPrevious())));
+                } else if (uncheckedLabel(node) && !behaviouralFence(node.getNext())) {
+                    strayLabels.add(line(node));
+                }
+                List<Node> children = children(node);
+                for (int i = children.size() - 1; i >= 0; i--) {
+                    pending.push(children.get(i));
+                }
+            }
+            return new DiagramOutline(fences, strayLabels);
+        } catch (StackOverflowError e) {
+            throw new DocsException(source + ": the document is nested too deeply to read", e);
+        }
+    }
+
+    /**
+     * Whether a block is the unchecked-design label (ADR 0024): a paragraph whose first inline is strong emphasis that
+     * holds exactly {@link MermaidFence#LABEL} as plain text, which GitHub shows in bold.
+     */
+    private static boolean uncheckedLabel(@Nullable Node block) {
+        return block instanceof Paragraph paragraph && paragraph.getFirstChild() instanceof StrongEmphasis strong
+                && strong.getFirstChild() instanceof Text text && text.getNext() == null
+                && text.getLiteral().equals(MermaidFence.LABEL);
+    }
+
+    /** Whether a block is a Mermaid fence, in any letter case, whose first line names a sequence or state diagram. */
+    private static boolean behaviouralFence(@Nullable Node block) {
+        return block instanceof FencedCodeBlock code && MermaidFence.mermaid(code.getInfo())
+                && MermaidFence.Type.of(MermaidFence.firstLineOf(code.getLiteral()))
+                        .map(MermaidFence.Type::behavioural).orElse(false);
+    }
+
+    /**
+     * Puts the closed source's placeholders into the text of every fence whose info string is {@code mermaid}, at any
+     * depth (ADR 0024). A sequence or state diagram that the label right before it disclaims gets the placeholder with
+     * the unchecked-design label when the document's labels show, which the site asks for current prose only; the
+     * documentation check holds every such diagram of current prose to the label, so a label is one the check proved.
+     */
+    private static void closeDiagramSources(Node document, ReferenceMarkers markers) {
+        Deque<Node> pending = new ArrayDeque<>();
+        pending.push(document);
+        while (!pending.isEmpty()) {
+            Node node = pending.pop();
+            if (node instanceof FencedCodeBlock code && MermaidFence.INFO.equals(code.getInfo().strip())) {
+                boolean unchecked = markers == ReferenceMarkers.LABELLED && behaviouralFence(code)
+                        && uncheckedLabel(code.getPrevious());
+                DiagramSource diagram = DiagramSource.of(MermaidFence.firstLineOf(code.getLiteral()), unchecked);
+                code.setLiteral(diagram.placeholder + code.getLiteral() + DIAGRAM_END);
+            }
+            for (Node child = node.getFirstChild(); child != null; child = child.getNext()) {
+                pending.push(child);
+            }
         }
     }
 
