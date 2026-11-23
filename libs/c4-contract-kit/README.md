@@ -60,7 +60,7 @@ unscoped and in any letter case, remain unsupported in browser code and tests. S
 
 The library is built and tested, and the shipping API is its first user: `ArchitectureConformanceTest` in
 `:apps:shipping-api` checks the API's classes with it. `SelfConformanceTest` checks the
-library's own six packages against its self-model, [`architecture/self.dsl`](architecture/self.dsl), and the negative
+library's own six packages against its self-model, [`./architecture/self.dsl`](architecture/self.dsl), and the negative
 fixtures of `ConformanceDivergenceTest` and `ConformanceAbsenceTest` show both directions failing. The commands to run
 them, how long they took, and how to watch the self-check fail are under [Try it](../../README.md#try-it) in the
 repository's README.
@@ -116,7 +116,7 @@ void theWebAppConformsToTheModel() {
 ```
 
 `WebArchitectureConformanceTest` does this for the repository in every build, including
-`apps/shipping-web/e2e` as a test root alongside the source and public roots and app configuration. These roots and
+`planned:path:apps/shipping-web/e2e` as a test root alongside the source and public roots and app configuration. These roots and
 configuration files are Gradle test inputs, so adding, editing or removing an end-to-end test reruns the gate.
 
 The model's web container names its source root with `web.root`, its test and public roots, and the Node.js built-ins
@@ -132,8 +132,9 @@ unsupported forms fail the check with their file and line: `require`, `import()`
 `import.meta` other than `import.meta.env`, path aliases, absolute and URL specifiers, `.js` and `.json` files,
 triple-slash directives, and JSX it cannot read with certainty. Strings, comments, templates, regular expressions and
 JSX text never count as code. The known spread bypass above can still hide imports and unsupported constructs
-without a refusal. A relative import names a `.ts` file with its extension, as `./QuoteCard.ts`, which
-must exist with exactly that name, or a file or directory without one, which must match exactly one file.
+without a refusal. A relative import names either a `.ts` file with its extension, as in
+`import { QuoteCard } from './QuoteCard.ts'`, which must exist with exactly that name, or a file or directory
+without one, which must match exactly one file.
 
 Every detected import is whitelisted twice: in the model, and in `security/allowlist.json`. A package must be declared
 by the importing component (`web.packages`, or `web.testPackages` for a test), pinned in `package.json`, and approved for the
@@ -233,7 +234,7 @@ calls into `model`, its member and its source line.
 ## Structure and checks
 
 The library's six packages and the only dependencies allowed between them are in its self-model,
-[`architecture/self.dsl`](architecture/self.dsl). `SelfConformanceTest` checks the library against it with the library
+[`./architecture/self.dsl`](architecture/self.dsl). `SelfConformanceTest` checks the library against it with the library
 itself; `ReviewConditionsTest` checks the conditions of the ArchUnit and Structurizr reviews on the library's class
 files (no `reflect()`, file-path imports only, one parser factory, no URL or feature re-enabled, and more). A rule on
 a method or constructor also catches a method reference to it (`System::getenv`, `StructurizrDslParser::new`). Those

@@ -2,7 +2,7 @@
 title: "How to write a demo"
 description: "When a pull request needs a public demonstration, which kind it is, the template to copy, what each section holds, and the checks the documentation tool applies."
 status: accepted
-updated: 2026-11-16
+updated: 2026-11-23
 ---
 
 # How to write a demo
@@ -20,18 +20,17 @@ that reader.
 - A demo is proportionate: as long as the change needs, no longer. A small change can have a very short one: two
   sentences on what changed, one recorded output, one limit.
 - One demo per pull request, written with the change, in the same pull request. Open the pull request first: the
-  file is named after its number, `docs/demos/<pr>-<slug>.md`, such as
-  `docs/demos/42-model-edits-rerun-the-checks.md`. The site publishes it at `demos/<pr>-<slug>.html`, as sheet
-  `X-<pr>`.
+  file is named after its number and a few words, `docs/demos/<pr>-<slug>.md`. The site publishes it at
+  `demos/<pr>-<slug>.html`, as sheet `X-<pr>`.
 - `recorded` is the date the evidence was captured. It never changes afterwards, and the register of demos sorts by
   it, newest first. `updated` changes with every edit, as in any document, and never moves a demo in the register.
 
 ## A milestone deck is not a demo
 
 A milestone deck presents the state of the repository as slides for a meeting. It belongs to no pull request, has no
-sections, commands or tests of a demo, and is never evidence. Its file is `docs/demos/deck-<slug>.md`, such as
-`docs/demos/deck-milestone.md`, the path of the tests' sample deck (issue 125 retired the repository's own deck);
-the tool checks every file named so as a deck, by the rules of
+sections, commands or tests of a demo, and is never evidence. Its file is `docs/demos/deck-<slug>.md` (issue 125
+retired the repository's own deck, and the tests use a sample one); the tool checks every file named so as a deck, by
+the rules of
 [how the site draws decks](../ui/documentation-site.md#decks), and never as a demo.
 
 ## Which kind

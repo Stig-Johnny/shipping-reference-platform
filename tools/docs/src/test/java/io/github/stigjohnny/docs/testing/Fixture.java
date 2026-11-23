@@ -1,5 +1,6 @@
 package io.github.stigjohnny.docs.testing;
 
+import io.github.stigjohnny.docs.check.CurrentProse;
 import io.github.stigjohnny.docs.repo.Capabilities;
 import io.github.stigjohnny.docs.repo.Capability;
 import java.io.IOException;
@@ -20,25 +21,10 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 /**
- * A copy of the repository's documentation inputs in a temporary directory, for negative fixtures: a test changes
- * one thing and expects the check to fail. Test reports are written as JUnit XML, the way Gradle writes them.
+ * A copy of the repository in a temporary directory, for negative fixtures: a test changes one thing and expects the
+ * check to fail. Test reports are written as JUnit XML, the way Gradle writes them.
  */
 public final class Fixture {
-
-    /** Everything the docs tool reads, and the generated outputs it compares. */
-    private static final List<String> INPUTS = List.of("README.md", "AGENTS.md", "BRAIN.md", "LICENSE", "NOTICE",
-            "SECURITY.md", "THIRD-PARTY-NOTICES.md", "docs",
-            "libs/c4-contract-kit/AGENTS.md", "apps/shipping-api/AGENTS.md", "apps/shipping-web/AGENTS.md",
-            "security/AGENTS.md",
-            "architecture/workspace.dsl", "contracts", "policy/risk.json", "security/allowlist.json",
-            "security/README.md", "security/reviews", ".github/workflows", "tools/docs/vendor",
-            "tools/docs/publication-scan-exceptions.json", "settings-gradle.lockfile", "apps/shipping-api/gradle.lockfile",
-            "libs/c4-contract-kit/gradle.lockfile", "tools/docs/gradle.lockfile", "package-lock.json",
-            "gradle/wrapper/gradle-wrapper.properties",
-            // The Java walkthrough links to real application sources and its launcher, not only test sources.
-            "settings.gradle.kts", "apps/shipping-api/build.gradle.kts", "apps/shipping-api/src/main",
-            "apps/shipping-api/postgres", "apps/shipping-web/src/api/types.ts",
-            "libs/c4-contract-kit/build.gradle.kts", "tools/demo");
 
     private final Path root;
     private final Path reports;
@@ -48,40 +34,22 @@ public final class Fixture {
         this.reports = reports;
     }
 
-    /** Copies the inputs into {@code dir}/repo and creates an empty {@code dir}/reports. */
+    /** Copies the repository into {@code dir}/repo and creates an empty {@code dir}/reports. */
     public static Fixture copy(Path dir) {
         return copy(dir, Repository.root());
     }
 
-    /** Copies the inputs of the repository at {@code repository} into {@code dir}/repo. */
+    /**
+     * Copies the repository at {@code repository} into {@code dir}/repo: every regular file outside the directories the
+     * checks skip, so that the checks see in the copy what they see in the repository, down to every path the documents
+     * name (ADR 0023). Found by a walk of its own, so that a fault in a check's walk cannot also empty the fixtures that
+     * test it.
+     */
     public static Fixture copy(Path dir, Path repository) {
         Path root = dir.resolve("repo");
         Path reports = dir.resolve("reports");
         try {
             Files.createDirectories(reports);
-            for (String input : INPUTS) {
-                Path source = repository.resolve(input);
-                if (Files.isDirectory(source)) {
-                    try (Stream<Path> walk = Files.walk(source)) {
-                        for (Path file : walk.filter(Files::isRegularFile).toList()) {
-                            copyFile(file, root.resolve(repository.relativize(file).toString()));
-                        }
-                    }
-                } else if (Files.isRegularFile(source)) {
-                    copyFile(source, root.resolve(input));
-                }
-            }
-            // Every test source tree, wherever it is, so that a test named as evidence exists in the copy too.
-            for (Path tree : testTrees(repository)) {
-                try (Stream<Path> walk = Files.walk(tree)) {
-                    for (Path file : walk.filter(f -> Files.isRegularFile(f) && f.toString().endsWith(".java")).toList()) {
-                        copyFile(file, root.resolve(repository.relativize(file).toString()));
-                    }
-                }
-            }
-            // Every Markdown file, instruction files paired or not, and every test class outside a test source tree,
-            // so that the instruction and reference checks see in the copy what they see in the repository. Found by a
-            // walk of its own, so that a fault in a check's walk cannot also empty the fixtures that test it.
             for (Path file : walkedFiles(repository)) {
                 copyFile(file, root.resolve(repository.relativize(file).toString()));
             }
@@ -139,12 +107,27 @@ public final class Fixture {
     /**
      * Removes the repository's own demonstrations and milestone decks, keeping the how-to, so that a test's sample
      * demonstrations (pull requests 42 to 46) and sample deck stand alone and never meet a real one with the same
-     * number or path.
+     * number or path. Current prose that names a removed file in inline code then marks it absent, as the reference
+     * check requires of a path that the copy no longer has (ADR 0023).
      */
     public Fixture withoutDemos() {
+        List<String> removed = new ArrayList<>();
         try (Stream<Path> files = Files.list(root.resolve("docs/demos"))) {
             for (Path file : files.filter(f -> !f.getFileName().toString().equals("how-to.md")).toList()) {
+                removed.add("docs/demos/" + file.getFileName());
                 Files.delete(file);
+            }
+            for (Path file : walkedFiles(root)) {
+                if (CurrentProse.path(root.relativize(file).toString().replace('\\', '/'))) {
+                    String text = Files.readString(file, StandardCharsets.UTF_8);
+                    String marked = text;
+                    for (String path : removed) {
+                        marked = marked.replace("`" + path + "`", "`absent:path:" + path + "`");
+                    }
+                    if (!marked.equals(text)) {
+                        Files.writeString(file, marked, StandardCharsets.UTF_8);
+                    }
+                }
             }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -234,9 +217,8 @@ public final class Fixture {
     }
 
     /**
-     * Every regular Markdown file, its extension in any letter case, and every Java file whose name ends in Test,
-     * outside build output, dependencies, tool state and Claude Code's worktrees, the directories the checks skip,
-     * sorted.
+     * Every regular file outside build output, dependencies, tool state and Claude Code's worktrees, the directories
+     * the checks skip, sorted.
      */
     private static List<Path> walkedFiles(Path repository) throws IOException {
         List<Path> files = new ArrayList<>();
@@ -255,9 +237,7 @@ public final class Fixture {
 
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
-                String name = String.valueOf(file.getFileName());
-                boolean markdown = name.toLowerCase(java.util.Locale.ROOT).endsWith(".md");
-                if (attributes.isRegularFile() && (markdown || name.endsWith("Test.java"))) {
+                if (attributes.isRegularFile()) {
                     files.add(file);
                 }
                 return FileVisitResult.CONTINUE;

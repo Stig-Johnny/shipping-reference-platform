@@ -2,7 +2,7 @@
 title: "ADR 0022: Agents load the rules at start, and the map stays one read away"
 description: "Measured with two models on the command line: a CLAUDE.md beside each AGENTS.md imports the rules unchanged, BRAIN.md is read when needed instead of loaded at start, a section-level search is the next aid to evaluate, and the site's engine is chosen for people."
 status: accepted
-updated: 2026-11-20
+updated: 2026-11-23
 date: 2026-11-19
 decision-makers: orchestrating agent, under the repository owner's standing delegation
 enforcedBy:
@@ -41,7 +41,7 @@ Each option was measured as a setup; `tools/docs-bench/README.md` describes the 
 
 1. Nothing besides the repository (setup A).
 2. A pointer to `BRAIN.md` in the prompt (B).
-3. A section-level search command, `./docs-search`, that prints the five best documentation sections as `path:line`
+3. A section-level search command, `./docs-search WORDS`, that prints the five best documentation sections as `path:line`
    with a snippet (C), with or without the pointer (D).
 4. A Quartz-format full-text index queried with `jq` (E), or a page-level search over it (F).
 5. `BRAIN.md` preloaded at start, with the search (G) or without it (H).

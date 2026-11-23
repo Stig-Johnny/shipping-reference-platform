@@ -2,7 +2,7 @@
 title: "Module: audit"
 description: "Appends one tenant-scoped audit entry per shipment event, deduplicated by event ID, with replay from the publication registry after failures."
 status: accepted
-updated: 2026-11-21
+updated: 2026-11-23
 module: audit
 moduleStatus: planned
 riskLevel: 2
@@ -85,8 +85,8 @@ planned as the library's slice 10 (`libs/c4-contract-kit/AGENTS.md`); like the t
 
 | Path | Level | Rule |
 |---|---|---|
-| `apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/audit/**` | 2 | `audit` |
-| `apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/audit/**` | 2 | `audit` |
+| `planned:path:apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/audit/**` | 2 | `audit` |
+| `planned:path:apps/shipping-api/src/test/java/io/github/stigjohnny/shipping/audit/**` | 2 | `audit` |
 | changed lines with SQL, `TenantScope`, `set_config` or `@ApplicationModuleListener` | 3 | behaviour signals `sql-change`, `tenant-and-authentication-symbols`, `transaction-and-event-semantics` |
 
 ## Capabilities

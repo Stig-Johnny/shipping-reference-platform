@@ -2,7 +2,7 @@
 title: "ADR 0001: Record architecture decisions as MADR files"
 description: "Every significant decision is a numbered MADR file in docs/adr with status, context, decision, consequences and the check that confirms it."
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-23
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
@@ -36,7 +36,7 @@ tied to the check that enforces them?
 
 Chosen option 1.
 
-- File name: `docs/adr/NNNN-kebab-case-title.md`, numbered from `0001` without gaps or reuse.
+- File name: `docs/adr/<NNNN>-<kebab-case-title>.md`, numbered from `0001` without gaps or reuse.
 - Frontmatter: `title`, `description`, `status`, `updated`, `date`, `decision-makers`, `enforcedBy`,
   `plannedEnforcement`. `status` is one of `proposed`, `accepted`, `rejected`, `deprecated`, `superseded`; a
   superseded ADR adds `supersededBy: "NNNN"`. `enforcedBy` lists implemented enforcement with passing evidence, or

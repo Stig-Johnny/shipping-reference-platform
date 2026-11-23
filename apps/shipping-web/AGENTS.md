@@ -43,9 +43,9 @@ e2e/                   Playwright specs                                         
 ```
 
 The model declares six built parts, with production import evidence for all ten REQUIRED relationships. `WebArchitectureConformanceTest` uses the JDK reader
-of `libs/c4-contract-kit` as partial static lint over `src/`, the `e2e/` test root, the public root and app
+of `libs/c4-contract-kit` as partial static lint over `src/`, the `planned:path:./e2e/` test root, the public root and app
 configuration in the `java` check. The gate runs on the real source tree in every build; Playwright tests remain absent.
-`tools/web-imports/check-imports.mjs` is not built. The intended rules:
+`absent:path:tools/web-imports/check-imports.mjs` is not built. The intended rules:
 
 - `src/ui/` imports nothing from `app`, `auth`, `api` or `features`.
 - A feature imports another feature only through that feature's `index.ts`.
@@ -112,7 +112,7 @@ No extra options, test paths, loaders or build/copy shell chains in package scri
 | File | Kind |
 |---|---|
 | `src/**/<module>.test.ts` | Logic tests, beside the module they test: `node --test` runs them from the TypeScript sources with Node's type stripping, without a browser (minimal DOM sinks may be doubled) |
-| `e2e/*.spec.ts` | Playwright with axe-core in the `contract-e2e` CI job, against the real API started with the `demo` profile on PostgreSQL |
+| `planned:path:./e2e/*.spec.ts` | Playwright with axe-core in the `contract-e2e` CI job, against the real API started with the `demo` profile on PostgreSQL |
 | `src/**/<Component>.test.tsx` | Deferred with Vitest and Testing Library: component tests, API mocked at the adapter boundary |
 
 Use the names in `docs/capabilities/capabilities.yaml`: `ParcelForm.test.tsx`, `QuoteCardList.test.tsx`,

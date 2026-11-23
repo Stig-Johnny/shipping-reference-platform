@@ -2,7 +2,7 @@
 title: "ADR 0007: Dependency allowlist with pre-use enforcement"
 description: "Every third-party component is reviewed and listed in security/allowlist.json before any build can download or run it; a base-branch preflight enforces this."
 status: accepted
-updated: 2026-11-20
+updated: 2026-11-23
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
@@ -48,7 +48,7 @@ may be used, where is that decision recorded, and how is it enforced before the 
 
 Chosen option 1, with option 2 kept as integrity evidence and option 3 as optional input to reviews.
 
-- `security/allowlist.json` (schema `security/allowlist.schema.json`, field `schemaVersion`) has one entry per exact
+- `security/allowlist.json` (schema `absent:path:security/allowlist.schema.json`, field `schemaVersion`) has one entry per exact
   component or artifact with: `ecosystem`, `coordinate`, `version`, `artifact` or `platform`, `sourceHost`, `digest`
   or `integrity`, `purpose`, `scope`, `licence`, `reviewRef`, `reviewedAt`, `expiresAt`, `findings`, `conditions`,
   `decision`. Ecosystems: `maven`, `gradle-plugin`, `gradle-distribution`, `jdk`, `npm`, `github-action`,
@@ -59,7 +59,7 @@ Chosen option 1, with option 2 kept as integrity evidence and option 3 as option
 - Gradle: strict lockfiles for every resolvable configuration; `gradle/verification-metadata.xml` with SHA-256 for
   every artifact; no wildcards, no trusted-artifact exclusions; wrapper `distributionSha256Sum`; exact plugin
   versions; no changing or dynamic versions; no remote DSL includes, scripts or plugins.
-- npm: workspaces `apps/shipping-web`, `packages/shipping-client` and `docs` share one root `package-lock.json`.
+- npm: workspaces `apps/shipping-web`, `planned:path:packages/shipping-client` and `docs` share one root `package-lock.json`.
   Every entry has an approved `resolved` host and an `integrity` value. Installs use `npm ci --ignore-scripts`;
   any build script that must run is listed with its command in the allowlist entry's `conditions`.
 - GitHub Actions: repository setting "selected actions only", each action pinned by full commit SHA and allowlisted,
@@ -111,7 +111,7 @@ What is built, and where it differs from the decision above. The decision stands
   `reviewedAt` and `expiresAt`, plus `alsoReviewedIn` on some entries. Kinds in use: `maven`, `gradle-distribution`,
   `jdk`, `github-action`, `container-image`, `homebrew`, `npm`, `vendored-js`, `browser-binary`, `runtime`,
   `runner-image` and `bundled` (third-party code inside another reviewed artifact, which no lockfile entry can match). Verdicts: `APPROVE`, `APPROVE-WITH-CONDITIONS`, `REJECT`. There is no
-  `security/allowlist.schema.json`, and the names `ecosystem`, `sourceHost`, `purpose`, `licence`, `reviewRef` and
+  `absent:path:security/allowlist.schema.json`, and the names `ecosystem`, `sourceHost`, `purpose`, `licence`, `reviewRef` and
   `decision` are not used. `project` and `configuration` record the scope; the checker does not enforce it.
 - **The checker is one file, with JDK-only regression tests.** `tools/policy/PolicyCheck.java` runs with the JDK's
   source launcher (`java PolicyCheck.java`). There is no `module-info.java` and no `:tools:policy` Gradle project. It

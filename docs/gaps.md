@@ -2,7 +2,7 @@
 title: "Known gaps and limits"
 description: "What v0.1 does not do, what each control cannot prove, and which decisions are still unverified. Read this before trusting a green build."
 status: accepted
-updated: 2026-11-22
+updated: 2026-11-23
 ---
 
 # Known gaps and limits
@@ -117,7 +117,7 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
 - **Planned components are not evaluated.** Their edges are reported as "not evaluated". Code appearing in a planned
   package fails the build, but the planned edges themselves carry no meaning until the module is built.
 - **The model can be weakened.** Adding a relationship or broadening a package mapping makes a failing build pass.
-  The checker does not understand intent. The compensating control is to be the owner's approval: `architecture/` is
+  The checker does not understand intent. The compensating control is to be the owner's approval: `/architecture/` is
   level 3 and owned by the owner. That approval is not enforced yet (section 5), and the demonstration of a weakening
   pull request waiting for it, the library's slice 8, is planned.
 - **The web app's calls are outside the check.** The C4 relationships from the web app to the API are network calls.
@@ -214,7 +214,7 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
   for administrators too. It dismisses stale reviews and forbids force pushes and deletion. A red check blocks the
   merge. It requires no approval and no code owner review. Code owner review cannot be required: the only code owner
   authors the pull requests through AI agents on the owner's account, and GitHub refuses self-approval. It needs the
-  agents to open pull requests under their own identity. The branch ruleset in `policy/rulesets.json`, the
+  agents to open pull requests under their own identity. The branch ruleset in `planned:path:policy/rulesets.json`, the
   `risk-approval` and `ai-review` checks and the admin workflow that reports drift (ADR 0008) are planned, so level 3
   approval is not enforced yet.
 - **The acceptance digest proves consistency, not who accepted.** `acceptance.reviewedSetSha256` in
@@ -505,12 +505,17 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
   screen-reader or accessibility certification.
 
 - The brain is a budgeted summary (12 KiB root, 8 KiB per module) and omits detail by design; it links to sources.
-- **Inline references are checked for test classes and capability ids.** A test class named in inline code must
-  exist, or carry the planned marker and be registered as planned; a capability or control carries the cap: marker
-  and must be in the register (ADR 0023). An unregistered bare token without a hyphen, such as a table name, is not
-  taken for an id, so a renamed id without a hyphen written bare is not caught. Paths follow (issue 146). The site shows
-  a planned test or an example with a label, and a capability or control id without its prefix, only where the check
-  reads the prose. The check proves names and markers, not claims, and it does not read code blocks, records or
+- **Inline references are checked for test classes, capability ids and paths.** A test class named in inline code
+  must exist, or carry the planned marker and be registered as planned; a capability or control carries the cap:
+  marker and must be in the register; a path must exist, or carry the planned or absent marker (ADR 0023). An
+  unregistered bare token without a hyphen, such as a table name, is not taken for an id, so a renamed id without a
+  hyphen written bare is not caught. A path under a directory that does not exist is read only when it is marked, a
+  pattern proves only its directory, and build output and tool state are never read. The check reads the working tree,
+  so a file that is not committed can make a path pass on the machine that has it; CI's clean checkout decides. The
+  documentation tests' Gradle inputs do not name the application and tool sources, so a local test result can be
+  reused after one of them changes; the check itself runs in every generate, checkGenerated and site build, which
+  Gradle never reuses. The site shows a planned test or path, an example and an absent path with a label, and a
+  capability or control id without its prefix, only where the check reads the prose. The check proves names and markers, not claims, and it does not read code blocks, records or
   superseded ADRs, which keep the names and markers they had when they were written, on the site as well.
 - **The agent entry point is checked as files, not as behaviour.** Only Claude Code reads `CLAUDE.md`. The docs
   check proves that every `AGENTS.md` has a `CLAUDE.md` beside it that only imports it (ADR 0022), not what a session

@@ -2,7 +2,7 @@
 title: "Contribution history"
 description: "Per-issue implementation, integration, review and human approval records, with exact settings where evidenced and unknowns where receipts are missing."
 status: accepted
-updated: 2026-11-22
+updated: 2026-11-23
 ---
 
 # Contribution history
@@ -989,3 +989,19 @@ wrote the tests first and then the labels in the Markdown renderer, the shared r
 stylesheet, ADR 0023's enforcement, the site design, the README row, `docs/gaps.md`, demo 150, this entry and the
 record. Codex (`gpt-6-astra`, effort `xhigh`) chose the design before the build and set its conditions. The reviews
 of the final head and the merge decision are comments on PR #150.
+
+## Issue 146
+
+A path named in inline code must now exist, or carry a marker that says it is planned, meant to be absent or an
+example; the site shows those markers as labels, an absent path in a muted box.
+
+[Issue 146](https://github.com/Stig-Johnny/shipping-reference-platform/issues/146) ·
+[PR #151](https://github.com/Stig-Johnny/shipping-reference-platform/pull/151).
+Base: `37161e079856107d74b7da61dcd80eba0cf240f9`. Record: `issue-146-pull-request` in [model runs](runs.md).
+
+Claude Code, the orchestrator (`claude-opus-5-5`, effort unknown), surveyed the paths in current prose, rendered three
+designs of the absent label, wrote the tests first and then the path grammar, the check, the labels and the full-copy
+fixture, migrated the mentions, and updated ADR 0023, the README row, `docs/gaps.md`, `capabilities.yaml`, `AGENTS.md`,
+the site design, demo 151, this entry and the record. Codex (`gpt-6-astra`, effort `xhigh`) chose the label and
+required six changes to the grammar before the build. The reviews of the final head and the merge decision are
+comments on PR #151.

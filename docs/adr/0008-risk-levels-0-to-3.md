@@ -2,7 +2,7 @@
 title: "ADR 0008: Risk levels 0 to 3 decide who must approve a change"
 description: "Each pull request gets a level from path, behaviour and uncertainty signals using base-branch policy; level 3 needs the owner's approval of the current head before merge."
 status: accepted
-updated: 2026-11-20
+updated: 2026-11-23
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
@@ -56,7 +56,7 @@ Chosen option 1, with CODEOWNERS as the path-based half of it.
 - Repository settings (private repository on GitHub Pro): a ruleset on `main` with required checks `preflight`,
   `java`, `web`, `contract-e2e`, `mutation`, `docs-brain`, `ai-review`, `risk-approval`; code owner review for
   owned paths; stale approval dismissal; no force push, no deletion, no routine bypass. Rulesets are stored as JSON in
-  `policy/rulesets.json`, applied by a trusted admin workflow, and drift between file and API fails that workflow.
+  `planned:path:policy/rulesets.json`, applied by a trusted admin workflow, and drift between file and API fails that workflow.
 - Every path owned in `.github/CODEOWNERS` is level 3 in `policy/risk.json`, and every level 3 path glob has a
   CODEOWNERS entry. `risk-approval` covers semantic level 3 changes outside owned paths.
 - Pull requests are created by a dedicated GitHub App, not the owner's identity, so the owner can approve them;
@@ -93,7 +93,7 @@ What is built, and where it differs from the decision above. The decision stands
   The Actions setting allows selected actions only, requires SHA pinning and lists six allowed patterns, with no
   GitHub-owned or verified wildcard. The default `GITHUB_TOKEN` permission is read, and Actions cannot approve pull
   requests. A tag ruleset makes existing tags immutable.
-- **What is planned.** No branch ruleset exists, and `policy/rulesets.json` does not exist. No trusted admin workflow
+- **What is planned.** No branch ruleset exists, and `planned:path:policy/rulesets.json` does not exist. No trusted admin workflow
   applies settings or reports drift. Code owner review is not required. No `risk-approval` or `ai-review` check exists,
   so nothing computes a level or records an AI approval yet; `policy/risk.json` is policy data that no check reads.
   `mutation`, `web` and `contract-e2e` are not required checks: the `mutation` job arrives with pull request #13, and

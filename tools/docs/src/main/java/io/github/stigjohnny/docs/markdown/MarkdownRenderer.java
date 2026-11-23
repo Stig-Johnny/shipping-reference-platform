@@ -60,8 +60,8 @@ import org.jspecify.annotations.Nullable;
  *   <li>CommonMark 0.29.0 has no nesting limits, so the tree is measured before rendering and anything deeper than
  *       {@link #MAX_DEPTH} fails; any exception or error, {@link StackOverflowError} included, fails the build.
  *   <li>Reference markers (ADR 0023) become labels when the caller asks, for current prose: on the parsed tree a
- *       marker's code keeps its name, and a placeholder that the parser never leaves in a document, a NUL, follows
- *       it; each fragment the renderer writes then gets the class's own constant label in place of each placeholder,
+ *       marker's code keeps its name or path, and a placeholder that the parser never leaves in a document, a NUL,
+ *       follows it; each fragment the renderer writes then gets the class's own constant label in place of each placeholder,
  *       before any template wraps it, and a NUL that is left fails the build. No document text enters a label.
  *   <li>{@link #outline} reads the same parsed tree as data, for checks of a document's structure such as a
  *       demonstration's sections; it renders nothing.
@@ -108,6 +108,9 @@ public final class MarkdownRenderer {
     /** A capability or control id: lower-case words joined by hyphens, in two or more parts joined by dots. */
     private static final Pattern CAPABILITY = Pattern.compile(
             "cap:([a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)+)");
+    /** A path marker: its state, the word path, and the path, which {@link ReferenceMarkers#markedPath} reads. */
+    private static final Pattern PATH_MARKER = Pattern.compile("(planned|absent|illustrative):path:(.*)",
+            Pattern.DOTALL);
 
     /**
      * A label after a reference's name: the renderer's own constant markup, which no document text enters. A no-break
@@ -116,7 +119,8 @@ public final class MarkdownRenderer {
      */
     private enum Label {
         PLANNED("planned", "badge-planned"),
-        EXAMPLE("example", "badge-neutral");
+        EXAMPLE("example", "badge-neutral"),
+        ABSENT("absent", "badge-none");
 
         private final String word;
         private final String placeholder;
@@ -439,6 +443,15 @@ public final class MarkdownRenderer {
         Matcher capability = CAPABILITY.matcher(literal);
         if (capability.matches()) {
             return new Marker(capability.group(1), null);
+        }
+        Matcher path = PATH_MARKER.matcher(literal);
+        if (path.matches() && ReferenceMarkers.markedPath(path.group(1), path.group(2)) != null) {
+            Label label = switch (path.group(1)) {
+                case "planned" -> Label.PLANNED;
+                case "absent" -> Label.ABSENT;
+                default -> Label.EXAMPLE;
+            };
+            return new Marker(path.group(2), label);
         }
         return null;
     }
