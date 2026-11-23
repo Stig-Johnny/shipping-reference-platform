@@ -536,6 +536,44 @@ class ReferencesTest {
                 + "absent:path:tools/notes/src/build/y.txt (ADR 0023)");
     }
 
+    /**
+     * Every spelling of a path counts, not only the first in order: output in another case, which the walk keeps for
+     * dist, never hides a real path, so adding output turns no case error into a pass. Built in memory, since a Mac
+     * cannot hold both spellings.
+     */
+    @Test
+    void anOutputSpellingNeverHidesARealPathInAnotherCase() {
+        Set<String> real = Set.of("README.md", "tools/notes/a/DIST/x.txt");
+        Set<String> withOutput = Set.of("README.md", "tools/notes/a/DIST/x.txt", "tools/notes/A/dist/x.txt");
+        List<String> expected = List.of("r:1: `tools/notes/a/dist/x.txt` differs only in letter case from "
+                + "tools/notes/a/DIST/x.txt, which exists (ADR 0023)", "r:2: `tools/notes/a/dist/y.txt` writes the "
+                + "directory tools/notes/a/dist/ in another letter case: tools/notes/a/DIST/ exists (ADR 0023)");
+
+        for (Set<String> files : List.of(real, withOutput)) {
+            PathReferences paths = new PathReferences(files, Set.of(), Set.of());
+            Problems problems = new Problems();
+            paths.bare("tools/notes/a/dist/x.txt", "README.md", "r:1", problems);
+            paths.bare("tools/notes/a/dist/y.txt", "README.md", "r:2", problems);
+
+            assertThat(problems.list()).as(files.toString()).isEqualTo(expected);
+        }
+    }
+
+    /** A path that exists exactly is found first: a real directory named Dist is no output in another letter case. */
+    @Test
+    void aPathThatExistsExactlyIsFoundBeforeAnyOutputRule() {
+        PathReferences paths = new PathReferences(Set.of("README.md", "apps/x/Dist/y.txt"), Set.of(), Set.of());
+        Problems problems = new Problems();
+
+        paths.bare("apps/x/Dist/y.txt", "README.md", "r:1", problems);
+        paths.bare("apps/x/dist/y.txt", "README.md", "r:2", problems);
+        paths.marked("absent:path:apps/x/Dist/y.txt", "absent", "apps/x/Dist/y.txt", "README.md", "r:3", problems);
+
+        assertThat(problems.list()).containsExactly("r:2: `apps/x/dist/y.txt` differs only in letter case from "
+                + "apps/x/Dist/y.txt, which exists (ADR 0023)", "r:3: `absent:path:apps/x/Dist/y.txt`: apps/x/Dist/y.txt "
+                + "exists " + ROOT + ", so it is not absent (ADR 0023)");
+    }
+
     @ParameterizedTest
     @CsvSource({"tools/docs/BUILD/site/, tools/docs/build/site/", "apps/shipping-web/Dist/assets, apps/shipping-web/dist/assets",
         "docs/.Claude/rules/, docs/.claude/rules/"})
