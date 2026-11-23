@@ -359,6 +359,7 @@ class MarkdownRendererTest {
             "&nbsp;<span class=\"badge badge-planned reference-label\">planned</span>";
     private static final String EXAMPLE_LABEL =
             "&nbsp;<span class=\"badge badge-neutral reference-label\">example</span>";
+    private static final String ABSENT_LABEL = "&nbsp;<span class=\"badge badge-none reference-label\">absent</span>";
 
     private static String labelled(String markdown) {
         return MarkdownRenderer.render(markdown, "docs/x.md", KEEP_ALL, false, ReferenceMarkers.LABELLED).html();
@@ -391,11 +392,42 @@ class MarkdownRendererTest {
     }
 
     @Test
+    void aPathMarkerIsShownAsItsPathAsWrittenAndItsLabel() {
+        String html = labelled("Planned: `planned:path:policy/rulesets.json`, `planned:path:./e2e/` and "
+                + "`planned:path:apps/x/src/main/java/io/example/audit/**`; absent: `absent:path:tools/web-imports/`; "
+                + "an example: `illustrative:path:docs/adr/<NNNN>-<script>.md`.");
+
+        assertThat(html).isEqualTo("<p>Planned: <code>policy/rulesets.json</code>" + PLANNED_LABEL + ", <code>./e2e/</code>"
+                + PLANNED_LABEL + " and <code>apps/x/src/main/java/io/example/audit/**</code>" + PLANNED_LABEL
+                + "; absent: <code>tools/web-imports/</code>" + ABSENT_LABEL + "; an example: "
+                + "<code>docs/adr/&lt;NNNN&gt;-&lt;script&gt;.md</code>" + EXAMPLE_LABEL + ".</p>\n");
+    }
+
+    @Test
+    void aPathWithoutAMarkerStaysAsWrittenWithItsAnchor() {
+        assertThat(labelled("`/architecture/`, `./architecture/self.dsl` and `docs/modules/<module>.md`")).isEqualTo(
+                "<p><code>/architecture/</code>, <code>./architecture/self.dsl</code> and "
+                        + "<code>docs/modules/&lt;module&gt;.md</code></p>\n");
+    }
+
+    @Test
+    void anAbsentPathInAHeadingGivesItsLabelInWordsAndKeepsTheAnchorOfTheSource() {
+        RenderedMarkdown rendered = MarkdownRenderer.render("## No `absent:path:tools/web-imports/` script\n",
+                "docs/x.md", KEEP_ALL, false, ReferenceMarkers.LABELLED);
+
+        assertThat(rendered.headings()).containsExactly(new Section(2, "No tools/web-imports/ (absent) script",
+                "no-absentpathtoolsweb-imports-script"));
+        assertThat(rendered.html()).isEqualTo("<h2 id=\"no-absentpathtoolsweb-imports-script\">No "
+                + "<code>tools/web-imports/</code>" + ABSENT_LABEL + " script</h2>\n");
+    }
+
+    @Test
     void markersStayAsWrittenUnlessTheCallerAsksForLabels() {
-        String markdown = "`planned:test:CrossTenantAccessTest`, `illustrative:test:<Name>Test` and "
-                + "`cap:control.inline-references`.";
+        String markdown = "`planned:test:CrossTenantAccessTest`, `illustrative:test:<Name>Test`, "
+                + "`absent:path:tools/web-imports/` and `cap:control.inline-references`.";
         String expected = "<p><code>planned:test:CrossTenantAccessTest</code>, "
-                + "<code>illustrative:test:&lt;Name&gt;Test</code> and <code>cap:control.inline-references</code>.</p>\n";
+                + "<code>illustrative:test:&lt;Name&gt;Test</code>, <code>absent:path:tools/web-imports/</code> and "
+                + "<code>cap:control.inline-references</code>.</p>\n";
 
         assertThat(MarkdownRenderer.render(markdown, "docs/x.md", KEEP_ALL, false).html()).isEqualTo(expected);
         assertThat(MarkdownRenderer.render(markdown, "docs/x.md", KEEP_ALL, false, ReferenceMarkers.AS_WRITTEN)
@@ -403,7 +435,9 @@ class MarkdownRendererTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"planned:path:docs/x.md", "planned:test:", "planned:test:notATestName",
+    @ValueSource(strings = {"planned:path:two words", "illustrative:path:docs/x.md", "absent:path:../x",
+            "planned:path:**/x.md", "planned:path:", "absent:path:docs/<a<b>>.md", "planned:paths:docs/x.md",
+            "planned:test:", "planned:test:notATestName",
             "planned:test:Two WordsTest", "illustrative:test:NoPlaceholderTest", "absent:test:GoneTest", "cap:",
             "cap:two words", "cap:Tenants.Upper-Case", "planned:Test:CrossTenantAccessTest", "ReferencesTest",
             "tenants.cross-tenant-denial"})

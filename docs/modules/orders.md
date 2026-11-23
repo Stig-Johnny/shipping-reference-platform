@@ -2,7 +2,7 @@
 title: "Module: orders (planned)"
 description: "Planned module that will import webshop orders and turn them into quote and booking requests. In the model, no code yet."
 status: accepted
-updated: 2026-11-21
+updated: 2026-11-23
 module: orders
 moduleStatus: planned
 riskLevel: 3
@@ -39,7 +39,7 @@ One pull request, risk level 3, that:
 
 ## Risk level
 
-Level 3: any file under `apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/orders/` changes a planned
+Level 3: any file under `planned:path:apps/shipping-api/src/main/java/io/github/stigjohnny/shipping/orders/` changes a planned
 component into code, which needs a model change and the owner's approval (rule `planned-modules`).
 
 ## Capabilities

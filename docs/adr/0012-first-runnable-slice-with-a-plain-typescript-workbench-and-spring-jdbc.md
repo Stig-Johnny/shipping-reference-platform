@@ -2,7 +2,7 @@
 title: "ADR 0012: First runnable slice with a plain TypeScript workbench and Spring JDBC"
 description: "Supersedes ADRs 0003, 0004, 0005 and 0009. Their modules, contract-first API and PostgreSQL design carry forward unchanged, except that adapters use Spring JDBC's JdbcClient; the workbench is plain TypeScript with a hand-written typed HTTP adapter, and React and the generated client are deferred."
 status: accepted
-updated: 2026-11-21
+updated: 2026-11-23
 date: 2026-11-07
 decision-makers: repository owner
 enforcedBy:
@@ -108,7 +108,7 @@ one.
   API. There is no separate web server.
 - **API calls.** One hand-written, typed HTTP adapter in `apps/shipping-web/src/api` is the only code that calls
   `fetch`. It adds the bearer token and `Correlation-Id` and returns typed results and problems. Its types are written
-  by hand from `contracts/shipping.openapi.yaml`; `packages/shipping-client` is not created.
+  by hand from `contracts/shipping.openapi.yaml`; `planned:path:packages/shipping-client` is not created.
 - **Tests.** Exactly `node --test`, with working directory `apps/shipping-web`, runs repository-owned logic tests
   using Node's default discovery rooted in that workspace. No extra paths, options or loaders are registered.
   ADR 0007 specifies the matching toolchain reviews and exact optional npm script wrappers; command matching is not
@@ -117,9 +117,9 @@ one.
   profile on PostgreSQL. Their reviews approve them for that job only, so browser automation does not run on developer
   machines.
 - **Import rules.** The JDK import checker in `libs/c4-contract-kit` (issues #62 to #64) supplies partial lint over
-  detected imports (ADR 0015); `tools/web-imports/check-imports.mjs` is not built. The model declares the web app's
+  detected imports (ADR 0015); `absent:path:tools/web-imports/check-imports.mjs` is not built. The model declares the web app's
   six parts, `app`, `auth`, `api`, `quote-feature`, `shipment-feature` and `ui`, and `WebArchitectureConformanceTest` checks
-  `apps/shipping-web/src` against them in the `java` check. It also scans `apps/shipping-web/e2e` as a test root,
+  `apps/shipping-web/src` against them in the `java` check. It also scans `planned:path:apps/shipping-web/e2e` as a test root,
   the public root and app configuration. The rules are listed in `apps/shipping-web/AGENTS.md`.
 - **Scope of the import check.** The checker compares detected imports for boundaries and cycles, and requires a
   detected direct import for each REQUIRED relationship whose endpoints are built. Silent misses prevent complete
@@ -246,10 +246,10 @@ the custom tenant-binding manager described below is superseded for those adapte
 
 ### What this replaces in other records
 
-- ADR 0007's decision names `apps/shipping-web`, `packages/shipping-client` and `docs` as the npm workspaces that
-  share the root `package-lock.json`. ADR 0011 removed `docs`, and this record defers `packages/shipping-client`,
+- ADR 0007's decision names `apps/shipping-web`, `planned:path:packages/shipping-client` and `docs` as the npm workspaces that
+  share the root `package-lock.json`. ADR 0011 removed `docs`, and this record defers `planned:path:packages/shipping-client`,
   which leaves `apps/shipping-web`.
-- ADR 0011's correction of that list says that only `apps/shipping-web` and `packages/shipping-client` are npm
+- ADR 0011's correction of that list says that only `apps/shipping-web` and `planned:path:packages/shipping-client` are npm
   workspaces. Of the two, only `apps/shipping-web` remains.
 
 ### Consequences
@@ -308,7 +308,7 @@ the custom tenant-binding manager described below is superseded for those adapte
 - Planned, `java`: `planned:test:TableOwnershipTest` asserts that every statement of each module's adapters touches only that
   module's schema, and fails on the fixture above.
 - `java`: `WebArchitectureConformanceTest` runs the partial JDK import check over `apps/shipping-web/src`, the test root
-  `apps/shipping-web/e2e`, the public root and app configuration (issue #64). A detected import the model does not allow,
+  `planned:path:apps/shipping-web/e2e`, the public root and app configuration (issue #64). A detected import the model does not allow,
   a cycle of detected imports, and a REQUIRED relationship between built parts without a detected direct import each
   fail it. A synthetic fixture using the repository model proves that an unapproved import under `e2e` fails the gate. All six web parts
   are built and all ten REQUIRED relationships have production import evidence;

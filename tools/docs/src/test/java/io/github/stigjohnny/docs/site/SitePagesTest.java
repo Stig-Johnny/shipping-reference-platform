@@ -374,12 +374,19 @@ class SitePagesTest {
                 .doesNotContain("planned:test:", "cap:tenants.");
         assertThat(site.text("trust/gaps.html")).contains("<code>TableOwnershipTest</code>" + planned + ", planned,")
                 .doesNotContain("planned:test:", "cap:control.");
+        // Paths: a planned one and an absent one take their labels, in prose and in a table (ADR 0023, issue 146).
+        String absent = "&nbsp;<span class=\"badge badge-none reference-label\">absent</span>";
+        assertThat(site.text("start/repository.html")).contains("<code>policy/rulesets.json</code>" + planned + " (",
+                "<code>tools/web-imports/</code>" + absent + " script").doesNotContain("planned:path:", "absent:path:");
+        assertThat(site.text("modules/audit.html")).contains("<td><code>apps/shipping-api/src/main/java/io/github/"
+                + "stigjohnny/shipping/audit/**</code>" + planned + "</td>", "table-wide-references")
+                .doesNotContain("planned:path:");
         // Gaps shown on the Brain page are fragments of docs/gaps.md, which is current prose.
         assertThat(site.text("brain/index.html")).contains("<code>control.brain-check</code>")
                 .doesNotContain("cap:control.");
         // The grammar's code block keeps the markers, and so does a record, which nothing checks.
         assertThat(site.text("decisions/0023-inline-references-carry-explicit-markers.html"))
-                .contains("planned:test:NameTest", "cap:&lt;id&gt;");
+                .contains("planned:test:NameTest", "cap:&lt;id&gt;", "planned:path:policy/rulesets.json");
         assertThat(site.text("demos/147-inline-test-references-are-checked.html"))
                 .contains("<code>planned:test:CrossTenantAccessTest</code>").doesNotContain("reference-label\">");
         for (String path : site.pages()) {
@@ -583,7 +590,7 @@ class SitePagesTest {
         assertThat(adr.indexOf("Passed in the build that generated this site:"))
                 .isGreaterThan(adr.indexOf("<h3 id=\"confirmation\">Confirmation</h3>"));
         assertThat(adr).contains("Passed in the build that generated this site: BrainGeneratorTest, BrainCheckTest, "
-                + "SearchPageTest, BrainMapTest, PublicationScannerTest, PagesWorkflowTest.");
+                + "SitePagesTest, SearchPageTest, BrainMapTest, PublicationScannerTest, PagesWorkflowTest.");
     }
 
     @Test
@@ -710,6 +717,8 @@ class SitePagesTest {
             }
         }
         assertThat(labelled.matcher(site.text("modules/tenants.html")).results().count()).isEqualTo(1);
+        // The audit module's acceptance table names planned tests, and its table of risk levels planned paths.
+        assertThat(labelled.matcher(site.text("modules/audit.html")).results().count()).isEqualTo(2);
     }
 
     @Test

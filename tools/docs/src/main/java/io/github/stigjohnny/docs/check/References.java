@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -34,8 +35,10 @@ import java.util.regex.Pattern;
  *   <li>{@code cap:id} names a capability or control in {@code docs/capabilities/capabilities.yaml}; a bare id that the
  *       register has fails, because it must be marked, and so does a bare token with the shape of an id, a known
  *       prefix and a hyphenated name, that the register does not have;
+ *   <li>a path, by the grammar of {@link ReferenceMarkers#path}, must exist, and {@code planned:path:},
+ *       {@code absent:path:} and {@code illustrative:path:} mark one that does not ({@link PathReferences});
  *   <li>any other span that starts with {@code planned:}, {@code illustrative:} or {@code absent:} is a marker that the
- *       grammar does not define yet, and fails.
+ *       grammar does not define, and fails.
  * </ul>
  *
  * <p>Not read: code blocks, and Markdown that is no current prose ({@link CurrentProse}): generated files, records
@@ -49,8 +52,10 @@ final class References {
     private static final Pattern TEST_IN_TEXT = Pattern.compile("\\b[A-Z][A-Za-z0-9]*Test\\b");
     private static final Pattern MARKER = Pattern.compile("(planned|illustrative|absent):(.*)", Pattern.DOTALL);
     private static final Pattern PLACEHOLDER = ReferenceMarkers.PLACEHOLDER;
-    private static final String UNDEFINED = "uses a marker that ADR 0023 does not define yet; the markers are "
-            + "planned:test:NameTest, illustrative:test:<placeholder> and cap:<id> (ADR 0023)";
+    private static final String UNDEFINED = "uses a marker that ADR 0023 does not define; the markers are "
+            + "planned:test:NameTest, illustrative:test:<placeholder>, cap:<id>, planned:path:<path>, absent:path:<path> "
+            + "and illustrative:path:<placeholder> (ADR 0023)";
+    private static final String PATH = "path:";
     private static final String CAP = "cap:";
     private static final String REGISTER = "docs/capabilities/capabilities.yaml";
 
@@ -61,7 +66,10 @@ final class References {
         Path repo = sources.repo();
         Set<String> tests = new TreeSet<>();
         List<String> markdown = new ArrayList<>();
-        walk(repo, tests, markdown);
+        Set<String> files = new HashSet<>();
+        Set<String> special = new HashSet<>();
+        walk(repo, tests, markdown, files, special);
+        PathReferences paths = new PathReferences(files, special);
         Set<String> planned = new TreeSet<>();
         Set<String> ids = new TreeSet<>();
         for (Capability entry : sources.capabilities().all()) {
@@ -90,18 +98,25 @@ final class References {
             int offset = (int) text.substring(0, body).chars().filter(c -> c == '\n').count();
             for (InlineCode code : MarkdownRenderer.inlineCode(text.substring(body), path)) {
                 String where = path + ":" + (code.line() == 0 ? 0 : code.line() + offset);
-                check(code.text(), where, new Register(tests, planned, ids, idShape), problems);
+                check(code.text(), path, where, new Register(tests, planned, ids, idShape, paths), problems);
             }
         }
     }
 
-    /** What the references are checked against: the declared and planned tests, and the capability register. */
-    private record Register(Set<String> tests, Set<String> planned, Set<String> ids, Pattern idShape) {
+    /**
+     * What the references are checked against: the declared and planned tests, the capability register and the paths
+     * of the working tree.
+     */
+    private record Register(Set<String> tests, Set<String> planned, Set<String> ids, Pattern idShape,
+            PathReferences paths) {
     }
 
-    private static void check(String text, String where, Register register, Problems problems) {
+    private static void check(String text, String document, String where, Register register, Problems problems) {
         Matcher marker = MARKER.matcher(text);
-        if (marker.matches()) {
+        if (marker.matches() && marker.group(2).startsWith(PATH)) {
+            register.paths().marked(text, marker.group(1), marker.group(2).substring(PATH.length()), document, where,
+                    problems);
+        } else if (marker.matches()) {
             marker(text, marker.group(1), marker.group(2), where, register.tests(), register.planned(), problems);
         } else if (text.startsWith(CAP)) {
             capability(text, where, register.ids(), problems);
@@ -113,6 +128,8 @@ final class References {
         } else if (register.idShape().matcher(text).matches()) {
             problems.add(where + ": `" + text + "` has the shape of a capability or control id, but no entry in "
                     + REGISTER + " has it (ADR 0023)");
+        } else {
+            register.paths().bare(text, document, where, problems);
         }
     }
 
@@ -183,10 +200,12 @@ final class References {
     }
 
     /**
-     * Collects the test classes that the test sources declare and the paths of the Markdown files, outside the skipped
-     * directories and Claude Code's worktrees, without following links.
+     * Collects the test classes that the test sources declare, the paths of the Markdown files, and the inventory of
+     * the paths check: every regular file, and every link or other special file, outside the skipped directories and
+     * Claude Code's worktrees, without following links.
      */
-    private static void walk(Path repo, Set<String> tests, List<String> markdown) {
+    private static void walk(Path repo, Set<String> tests, List<String> markdown, Set<String> files,
+            Set<String> special) {
         try {
             Files.walkFileTree(repo, new SimpleFileVisitor<>() {
                 @Override
@@ -198,6 +217,11 @@ final class References {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
                     String name = name(file);
+                    if (attributes.isRegularFile()) {
+                        files.add(relative(repo, file));
+                    } else {
+                        special.add(relative(repo, file));
+                    }
                     if (attributes.isRegularFile() && name.endsWith(".java") && testSource(relative(repo, file))) {
                         tests.addAll(JavaDeclarations.testClasses(text(repo, relative(repo, file))));
                     } else if (attributes.isRegularFile() && name.toLowerCase(Locale.ROOT).endsWith(".md")) {

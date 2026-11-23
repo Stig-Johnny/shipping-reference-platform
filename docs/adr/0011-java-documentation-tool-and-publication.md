@@ -2,7 +2,7 @@
 title: "ADR 0011: A Java documentation tool, a static site and a scanned publication"
 description: "One Java tool generates the C4 view pages, the budgeted brain and a static documentation site, and fails on drift and on claims without evidence; the site is published on GitHub Pages from main after a fail-closed scan. Supersedes ADR 0010."
 status: accepted
-updated: 2026-11-21
+updated: 2026-11-23
 date: 2026-11-06
 decision-makers: repository owner
 enforcedBy:
@@ -196,7 +196,7 @@ SnakeYAML Engine 3.2.
 
 - ADR 0010 as a whole; it is superseded by this record.
 - ADR 0007's decision names `docs` among the npm workspaces that share the root `package-lock.json`. The
-  documentation is no npm workspace: only `apps/shipping-web` and `packages/shipping-client` are.
+  documentation is no npm workspace: only `apps/shipping-web` and `planned:path:packages/shipping-client` are.
 - ADR 0008's decision lists `docs-brain` among the required checks. There is no `docs-brain` job: the documentation
   and brain checks run inside the required `java` check.
 - The Confirmation sections of ADR 0001 and ADR 0002 name `docs-brain` and `brain --check`.

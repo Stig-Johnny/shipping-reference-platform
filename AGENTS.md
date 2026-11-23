@@ -36,7 +36,9 @@ as the code. An agent that makes a check pass by weakening it has failed the tas
    `docs/gaps.md`, and an ADR for a changed decision. Bump `updated:` in the frontmatter of every document you touch.
    In inline code, name a test class that exists by its name, such as `ReferencesTest`, and a planned one with its
    marker, such as `planned:test:CrossTenantAccessTest`, and a capability or control with its marker, such as
-   `cap:control.inline-references`; the docs check fails otherwise (ADR 0023).
+   `cap:control.inline-references`. Name a path that exists from the root, or with `./` from the document's
+   directory, and one that does not with its marker, such as `planned:path:policy/rulesets.json` or
+   `absent:path:tools/web-imports/`; the docs check fails otherwise (ADR 0023).
    If no document needs changing, say why under "Docs: none needed because" in the pull request body.
 6. **Record each pull request once.** Follow `docs/contributions.md` (ADR 0021): append one record for the pull
    request to `docs/contributions/runs.md` and one short entry for its issue to `docs/contributions/history.md`.
@@ -114,7 +116,7 @@ Unknown paths are level 3. Details: `docs/risk-levels.md`, `policy/risk.json`.
 
 ## Generated files: never edit by hand
 
-`BRAIN.md`, `docs/brain/**`, `packages/shipping-client/src/schema.d.ts`, generated documentation pages, checker
+`BRAIN.md`, `docs/brain/**`, `planned:path:packages/shipping-client/src/schema.d.ts`, generated documentation pages, checker
 reports and `CHANGELOG.md` (release-please). Change the source and regenerate.
 
 ## Never

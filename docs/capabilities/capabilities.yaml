@@ -534,13 +534,13 @@ controls:
     docs: docs/adr/0022-agent-entry-point-and-documentation-lookup.md
 
   - id: control.inline-references
-    title: A test class named in inline code exists or is marked planned and registered as planned, and a capability or control is named with its cap marker and is in the register.
+    title: A test class named in inline code exists or is marked planned and registered as planned, a capability or control is named with its cap marker and is in the register, and a path exists or is marked planned, absent or illustrative, which the site shows as labels only in the prose the check reads.
     where: tools/docs
     check: java
     status: shipped
     target: v0.1
-    evidence: [ReferencesTest]
+    evidence: [ReferencesTest, MarkdownRendererTest, SitePagesTest]
     evidenceLabel: documentation-tool
-    acceptanceTests: [ReferencesTest]
-    negativeFixture: An unknown bare test name; a planned marker on a test that exists or is not registered; a bare or unknown capability id; a malformed or undefined marker; code blocks, records and superseded ADRs, which must stay unread.
+    acceptanceTests: [ReferencesTest, MarkdownRendererTest, SitePagesTest]
+    negativeFixture: An unknown bare test name; a planned marker on a test that exists or is not registered; a bare or unknown capability id; a path that does not exist, differs only in letter case or reads two ways; a planned or absent path that exists; a marker on build output; a link on the way; a malformed or undefined marker; code blocks, records and superseded ADRs, which must stay unread and keep their markers on the site.
     docs: docs/adr/0023-inline-references-carry-explicit-markers.md

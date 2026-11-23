@@ -42,7 +42,7 @@ described below, that is a new comparison with its own version, not a rerun of t
   --strict-mcp-config --disable-slash-commands --no-session-persistence --tools Bash,Read,Grep,Glob --allowedTools
   TOOLS --append-system-prompt PROMPT --max-budget-usd 2`, with `CLAUDE_CONFIG_DIR` set to a directory of its own.
   TOOLS are `Read`, `Grep`, `Glob` and `Bash` limited to `cat`, `sed`, `head`, `tail`, `ls`, `find`, `grep`, `rg`,
-  `jq`, `wc`, `git ls-files`, `git grep`, `./docs-search` and `./site-search`. Setups A to H ran with
+  `jq`, `wc`, `git ls-files`, `git grep`, `./docs-search WORDS` and `./site-search WORDS`. Setups A to H ran with
   `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1`. R1 and R2 instead excluded only the host's user-level `CLAUDE.md`, with
   `claudeMdExcludes` in a `--settings` file.
 - **Runs:** `claude-haiku-5-5` and `claude-sonnet-5-5`, three repetitions of each question in each setup of its run:

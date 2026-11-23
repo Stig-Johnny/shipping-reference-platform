@@ -2,7 +2,7 @@
 title: "Documentation site: visual design"
 description: "How the documentation site is drawn: a drawing set with sheet codes, a title block on every sheet and a status ledger that keeps accepted design, planned implementation and verified evidence apart."
 status: accepted
-updated: 2026-11-22
+updated: 2026-11-23
 ---
 
 # Documentation site: visual design
@@ -32,8 +32,10 @@ lines, decorative warnings, shadows, gradients, animation and illustrations.
   tests verify the checker, not the shipping modules).
 - Every state is in words. Colour and line style repeat the words; they never replace them.
 - **A reference in the prose** (ADR 0023) shows its state in words where the documentation check reads the prose: a
-  planned test is its name, a no-break space and the dashed planned box; a schematic example takes a neutral example
-  box; a capability or control id loses its cap: prefix and takes no box. The box is an inline box held to the name, so
+  planned test or path is its name or path, a no-break space and the dashed planned box; a schematic example takes a
+  neutral example box; a path that is meant to be absent takes the word absent in a muted box with a single rule, and
+  keeps its text whole, never struck through; a capability or control id loses its cap: prefix and takes no box. A
+  path keeps its anchor as written. The box is an inline box held to the name, so
   it starts no line and keeps the punctuation after it, unless a line is too narrow for the name and the box together;
   then the line breaks rather than widen the page. Records, generated files, superseded ADRs, decks
   and code blocks show the markers as written. A Markdown table that holds such a box keeps 40rem on a narrow screen

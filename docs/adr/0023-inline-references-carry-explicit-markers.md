@@ -2,15 +2,15 @@
 title: "ADR 0023: Inline references carry explicit markers"
 description: "A test class named in the prose's inline code must exist, a planned one is marked as planned where it is named and registered as planned, and the documentation check fails otherwise; capability ids, paths and the site's labels follow the same grammar."
 status: accepted
-updated: 2026-11-22
+updated: 2026-11-23
 date: 2026-11-20
 decision-makers: repository owner
 enforcedBy:
   - "java: the documentation check fails when inline code names no test class, marks a test planned that exists or is not registered, or uses a marker the grammar does not define (ReferencesTest)"
   - "java: the documentation check fails when inline code names a capability or control id bare, names one the register lacks, or has the shape of an id that the register lacks (ReferencesTest)"
-  - "java: the site shows a planned test as its name and a planned label, an example as its name and an example label, and a capability or control id without its prefix, in the documents the check reads; records keep their markers as written (MarkdownRendererTest, SitePagesTest)"
-plannedEnforcement:
-  - "docs: paths with the planned:path:, absent:path: and illustrative:path: markers (issue 146)"
+  - "java: the documentation check fails when inline code names a path that does not exist, exists only in another letter case or can be read two ways, or carries a planned, absent or illustrative path marker that does not hold (ReferencesTest)"
+  - "java: the site shows a planned test or path with a planned label, an example with an example label, an absent path with an absent label, and a capability or control id without its prefix, in the documents the check reads; records keep their markers as written (MarkdownRendererTest, SitePagesTest)"
+plannedEnforcement: []
 ---
 
 # ADR 0023: Inline references carry explicit markers
@@ -48,10 +48,15 @@ Option 3 makes links that GitHub cannot follow. The repository owner chose expli
 The grammar, for inline code in hand-written Markdown:
 
 ```text
-NameTest                     a test class that exists in the repository
-planned:test:NameTest        a planned test: not in the repository yet, and registered as planned
-illustrative:test:<Name>     a schematic example; it holds a placeholder in angle brackets
-cap:<id>                     a capability or control in docs/capabilities/capabilities.yaml
+NameTest                            a test class that exists in the repository
+planned:test:NameTest               a planned test: not in the repository yet, and registered as planned
+illustrative:test:<Name>            a schematic example; it holds a placeholder in angle brackets
+cap:<id>                            a capability or control in docs/capabilities/capabilities.yaml
+docs/gaps.md                        a path that exists: from the root, or from the document's directory
+/architecture/  ./architecture/     a path from the root, and one from the document's directory
+planned:path:policy/rulesets.json   a planned path: it does not exist yet
+absent:path:tools/web-imports/      a path that is meant to be absent: it does not exist
+illustrative:path:<path>            a schematic path; it holds a placeholder in angle brackets
 ```
 
 A test is registered as planned when a capability or control that is not shipped lists it in `acceptanceTests`, or
@@ -60,11 +65,39 @@ when an ADR's `plannedEnforcement` names it. For example, `ReferencesTest` exist
 `cap:control.inline-references`, whatever its status; an id that the register has must carry the marker, and a bare
 token with the shape of an id (a prefix the register uses, a dot and a hyphenated name) that the register lacks fails.
 Any other span that starts with planned, illustrative or absent and a colon is a marker that the grammar does not
-define, and fails until a later issue defines it: paths (issue 146).
+define, and fails.
+
+### Paths
+
+A span is a path when it is names joined by slashes, with an anchor or at least one slash: `docs/` is a path, and
+the word docs is not. A name holds letters, digits, dots, underscores, hyphens, `*` for a glob and placeholders in
+angle brackets, which hold anything but angle brackets and slashes, spaces included; an empty name, "." and ".." are
+none. Where a path is read from is explicit:
+
+- Written with a leading slash, it is read from the root, and only when its first name is a top-level directory, so
+  that a route of the API is no path. Written with a leading `./`, it is read from the document's directory, always.
+- Without an anchor, it is read from the root when its first name is a top-level directory, and otherwise from the
+  document's directory when its first name is a directory there; otherwise it is no path. The root comes first: a
+  path that the document's directory also has is ambiguous and fails, and one that only the document's directory
+  has fails until it is written with `./`.
+- It must exist in exact letter case, as on Linux; one that differs only in case fails. A trailing slash names a
+  directory, and a directory exists only when it holds a file, as for git. A pattern, a path with a glob or a
+  placeholder, such as `docs/modules/<module>.md`, proves only that the directory before them exists, never that a
+  file matches.
+- A path through build output or tool state is never read: a directory named build outside a source tree, dist,
+  node_modules, .gradle, .git or .claude. A marker on such a path fails, because nothing there can prove it. A link
+  or another special file on the way fails too, and never counts as absent.
+- A planned or an absent path must exist in neither reading, in no letter case, and its first name is no pattern; an
+  illustrative path needs a placeholder, and nothing else about it is checked.
+
+The check reads the working tree, untracked files included, so a file that is not committed can make a path pass on
+one machine; a clean checkout, as in CI, decides. A path under a directory that does not exist, such as a planned
+package, is no path unless it is marked, and a span such as a site address can read as a path when its first
+directory exists; both depend on the context, and a reviewer reads them.
 
 GitHub shows the markers as written. The site shows them as labels in the documents the check reads: a planned test
-as its name followed by the word planned in a dashed box, an example as its name and the word example, and a
-capability or control id without its cap: prefix. Records, generated files and superseded ADRs keep their markers as
+or path as its name followed by the word planned in a dashed box, an example as its name and the word example, an
+absent path as its path and the word absent in a muted box, and a capability or control id without its cap: prefix. Records, generated files and superseded ADRs keep their markers as
 written on the site too, because nothing checks theirs, and code blocks, such as the grammar above, always do.
 
 Not read: code blocks, generated files, the records (the contribution history and runs, the demonstrations apart from
@@ -74,19 +107,27 @@ skips (ADR 0022). Records keep the names they had when they were written.
 ### Consequences
 
 - Good, because a test that is renamed or removed fails the build wherever the prose still names it.
-- Good, because a reader sees at the place of mention whether a test exists or is planned.
+- Good, because a reader sees at the place of mention whether a test exists or is planned, and whether a path exists,
+  is planned or is meant to be absent.
 - Neutral, because GitHub shows the markers with their prefixes, and the site shows labels: one source, two
   presentations.
 - Bad, because the check proves names and markers, not claims: a sentence can still say that an existing test proves
   more than it does, and only a reviewer can tell.
 - Neutral, because a test that stays planned under a new name in both the prose and the register is not detected.
+- Bad, because a path under a directory that does not exist is read only when it is marked, and a pattern proves its
+  directory, not a matching file.
+- Neutral, because build output and tool state are never read as paths, and the working tree, not git, decides what
+  exists.
 
 ### Confirmation
 
 `ReferencesTest` runs in every build of the documentation tests, and the check itself runs in every `generate`,
 `checkGenerated` and site build. It fails on an unknown bare test name, on a planned marker for a test that exists or
-that nothing registers, on a bare or unknown capability id, and on a marker the grammar does not define. It does not
+that nothing registers, on a bare or unknown capability id, and on a marker the grammar does not define. For paths,
+it fails on a path that does not exist, that differs only in letter case, that both readings find or that only the
+document's directory has without `./`, on a planned or absent path that exists, on a marker on build output or tool
+state, on a link on the way and on an example without a placeholder; it passes a pattern whose directory exists. It does not
 read code blocks, records or superseded ADRs. `MarkdownRendererTest` and `SitePagesTest` prove the site's labels: the
 name and the label wherever inline code can stand, the anchors of the source, no label made from a document's own
 text, the markers as written in records, decks and code blocks, and every capability and control id in the shape the
-site shows. Planned: the markers for paths (issue 146).
+site shows.
