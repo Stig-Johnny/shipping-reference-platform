@@ -16,7 +16,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * The paths that inline code names (ADR 0023), read against one inventory of the working tree: its files, the
  * directories that hold them, and its links and other special files, each by its exact name, outside the directories
- * the walk skips, which are kept by their place. A directory without a file or a link does not exist, as for git. The inventory is the working tree, untracked
+ * the walk skips, which are kept by their place. A directory without a file or a link outside build output and tool
+ * state does not exist, as for git. The inventory is the working tree, untracked
  * files included; a clean checkout, as in CI, is the authority.
  *
  * <ul>
@@ -61,8 +62,9 @@ final class PathReferences {
 
     /**
      * The inventory: the regular files and the special files of the walk, and the directories it skipped, by their
-     * paths from the root. A directory exists when it holds a file or a special file, whose target is never followed;
-     * a skipped directory is kept by its place only, so that no path through it in another letter case can pass.
+     * paths from the root. A directory exists when it holds a file or a special file outside build output and tool
+     * state, whose target is never followed; a skipped directory is kept by its place only, so that no path through it
+     * in another letter case can pass.
      */
     PathReferences(Set<String> files, Set<String> special, Set<String> skipped) {
         this.files = Set.copyOf(files);
@@ -70,6 +72,11 @@ final class PathReferences {
         directories.add("");
         for (Set<String> entries : List.of(files, special)) {
             for (String entry : entries) {
+                // Only what lies outside build output and tool state makes a directory exist, as for git: a file the
+                // walk collects in dist never makes its directories appear.
+                if (excluded(List.of(entry.split("/", -1)), false)) {
+                    continue;
+                }
                 for (int slash = entry.indexOf('/'); slash > 0; slash = entry.indexOf('/', slash + 1)) {
                     directories.add(entry.substring(0, slash));
                 }
@@ -97,10 +104,13 @@ final class PathReferences {
         return spellings == null ? null : spellings.getFirst();
     }
 
-    /** The first spelling of a path in {@code folded}, in any letter case, outside build output and tool state. */
-    private static @Nullable String real(Map<String, List<String>> folded, String path) {
+    /**
+     * The first spelling of a path in {@code folded}, in any letter case, outside build output and tool state, and
+     * other than {@code written}; null when there is none.
+     */
+    private static @Nullable String real(Map<String, List<String>> folded, String path, String written) {
         for (String spelling : folded.getOrDefault(path.toLowerCase(Locale.ROOT), List.of())) {
-            if (!excluded(List.of(spelling.split("/", -1)), false)) {
+            if (!spelling.equals(written) && !excluded(List.of(spelling.split("/", -1)), false)) {
                 return spelling;
             }
         }
@@ -240,7 +250,15 @@ final class PathReferences {
         int end = start + path.fixed();
         String object = String.join("/", names.subList(0, end));
         boolean directory = path.pattern() || path.directory();
-        // A path that exists exactly is found first, whatever its names: a real directory named Dist is no output.
+        // A link or special file on the way, in any letter case, the document's own directory included, before all.
+        for (int i = 1; i <= end; i++) {
+            String prefix = String.join("/", names.subList(0, i));
+            String link = special.contains(prefix) ? prefix : any(foldedSpecial, prefix);
+            if (link != null) {
+                return new Reading(base, object, State.SPECIAL, link);
+            }
+        }
+        // A path that exists exactly is found next, whatever its names: a real directory named Dist is no output.
         if (directories.contains(object) || (!directory && files.contains(object))) {
             return new Reading(base, object, State.EXISTS, object);
         }
@@ -254,14 +272,6 @@ final class PathReferences {
             }
             return exact || marked ? new Reading(base, "", State.EXCLUDED, "")
                     : new Reading(base, "", State.OUTPUT_CASE, canonical(path, names.subList(0, start)));
-        }
-        // A link or special file on the way, in any letter case, the document's own directory included.
-        for (int i = 1; i <= end; i++) {
-            String prefix = String.join("/", names.subList(0, i));
-            String link = special.contains(prefix) ? prefix : any(foldedSpecial, prefix);
-            if (link != null) {
-                return new Reading(base, object, State.SPECIAL, link);
-            }
         }
         Reading found = lookup(names, start, end, base, object, directory);
         if (found != null) {
@@ -313,19 +323,22 @@ final class PathReferences {
      */
     private @Nullable Reading variant(List<String> names, int start, int end, String base, String object,
             boolean directory) {
-        String whole = real(foldedDirectories, object);
+        String whole = real(foldedDirectories, object, object);
         if (whole == null && !directory) {
-            whole = real(foldedFiles, object);
+            whole = real(foldedFiles, object, object);
         }
-        if (whole != null && !whole.equals(object)) {
+        if (whole != null) {
             return new Reading(base, object, State.CASE, whole);
         }
         for (int i = start + 1; i < end; i++) {
             String prefix = String.join("/", names.subList(0, i));
-            if (!directories.contains(prefix)) {
-                String found = real(foldedDirectories, prefix);
-                return found == null ? null : new Reading(base, prefix, State.DIRECTORY_CASE, found);
+            if (directories.contains(prefix) && !excluded(List.of(prefix.split("/", -1)), false)) {
+                continue;
             }
+            // Missing as written, or output as written: a real directory in another letter case is named, so that an
+            // output directory written exactly never hides it.
+            String found = real(foldedDirectories, prefix, prefix);
+            return found == null ? null : new Reading(base, prefix, State.DIRECTORY_CASE, found);
         }
         return null;
     }
@@ -350,7 +363,7 @@ final class PathReferences {
     /** Whether a directory in {@code base} has this name in some letter case, outside build output and tool state. */
     private boolean directoryNamed(String base, String name) {
         String path = base.isEmpty() ? name : base + "/" + name;
-        return real(foldedDirectories, path) != null;
+        return real(foldedDirectories, path, "") != null;
     }
 
     /**

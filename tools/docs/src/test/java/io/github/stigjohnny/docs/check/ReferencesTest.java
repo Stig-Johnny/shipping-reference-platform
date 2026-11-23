@@ -559,6 +559,33 @@ class ReferencesTest {
         }
     }
 
+    /**
+     * Adding or removing a file the walk collects turns no failure into a pass: an output directory written exactly
+     * never hides a real one in another case, and a path that exists still meets a link on its way. In memory, since
+     * a Mac cannot hold both spellings.
+     */
+    @Test
+    void aCollectedFileNeverTurnsAFailureIntoAPass() {
+        String directoryCase = "r:1: `tools/notes/a/dist/y.txt` writes the directory tools/notes/a/dist/ in another letter "
+                + "case: tools/notes/a/DIST/ exists (ADR 0023)";
+        String link = ", a link or special file, which the check does not follow (ADR 0023)";
+        for (boolean added : List.of(false, true)) {
+            Set<String> files = added ? Set.of("README.md", "tools/notes/a/DIST/x.txt", "tools/notes/a/dist/z.txt",
+                    "docs/notes.md", "docs/x.md", "x/dir/a.txt", "x/Dir/dist/q") : Set.of("README.md",
+                    "tools/notes/a/DIST/x.txt", "docs/notes.md", "x/dir/a.txt");
+            PathReferences paths = new PathReferences(files, Set.of("DOCS"), Set.of());
+            Problems problems = new Problems();
+            paths.bare("tools/notes/a/dist/y.txt", "README.md", "r:1", problems);
+            paths.bare("docs/x.md", "README.md", "r:2", problems);
+            paths.bare("./x.md", "docs/notes.md", "r:3", problems);
+            paths.bare("x/Dir/dist/y", "README.md", "r:4", problems);
+
+            assertThat(problems.list()).as("with the files added: " + added).containsExactly(directoryCase,
+                    "r:2: `docs/x.md` reaches DOCS" + link, "r:3: `./x.md` reaches DOCS" + link, "r:4: `x/Dir/dist/y` "
+                            + "writes the directory x/Dir/ in another letter case: x/dir/ exists (ADR 0023)");
+        }
+    }
+
     /** A path that exists exactly is found first: a real directory named Dist is no output in another letter case. */
     @Test
     void aPathThatExistsExactlyIsFoundBeforeAnyOutputRule() {
