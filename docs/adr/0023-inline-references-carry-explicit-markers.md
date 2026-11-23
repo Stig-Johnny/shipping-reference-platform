@@ -87,7 +87,7 @@ none. Where a path is read from is explicit:
   file matches.
 - A path through build output or tool state is never read: a directory named build outside a source tree, dist,
   node_modules, .gradle, .git or .claude. A marker on such a path fails, in any letter case, because nothing there
-  can prove it. A link or another special file on the way fails too, in any letter case, and never counts as
+  can prove it, and a path that writes such a name in another letter case fails with the spelling to use. A link or another special file on the way fails too, in any letter case, and never counts as
   absent.
 - A planned or an absent path must exist in neither reading, in no letter case, and its first name is no pattern; an
   illustrative path needs a placeholder, and nothing else about it is checked.

@@ -467,6 +467,41 @@ class ReferencesTest {
                 NOTES + ":3: `tools/notes/LINKED/gaps.md`" + link);
     }
 
+    /**
+     * A file and a directory whose names differ only in letter case can stand side by side on a file system that keeps
+     * case, as in CI; the inventory is built in memory, since a Mac cannot hold both.
+     */
+    @Test
+    void aFileWhoseNameDiffersOnlyInLetterCaseNeverHidesADirectory() {
+        PathReferences paths = new PathReferences(Set.of("DOCS", "docs/gaps.md", "docs/a", "docs/A/x.md"), Set.of());
+        Problems problems = new Problems();
+
+        paths.bare("docs/gaps.md", "README.md", "README.md:1", problems);
+        paths.bare("docs/nowhere.md", "README.md", "README.md:2", problems);
+        paths.marked("absent:path:docs/a/", "absent", "docs/a/", "README.md", "README.md:3", problems);
+        paths.marked("planned:path:Docs/b.md", "planned", "Docs/b.md", "README.md", "README.md:4", problems);
+
+        assertThat(problems.list()).containsExactly("README.md:2: `docs/nowhere.md` names no file or directory " + ROOT
+                + "; if it is planned, write planned:path:docs/nowhere.md, and if it is meant to be absent, "
+                + "absent:path:docs/nowhere.md (ADR 0023)", "README.md:3: `absent:path:docs/a/`: docs/a/ differs only "
+                + "in letter case from docs/A/, which exists (ADR 0023)");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"tools/docs/BUILD/site/, tools/docs/build/site/", "apps/shipping-web/Dist/assets, apps/shipping-web/dist/assets",
+        "docs/.Claude/rules/, docs/.claude/rules/"})
+    void aBarePathThroughBuildOutputInAnotherLetterCaseSaysHowToWriteIt(String path, String canonical) {
+        assertThat(problemsFor(path)).containsExactly(NOTES + ":3: `" + path + "` names build output or tool state in "
+                + "another letter case; write " + canonical + ", which no check reads (ADR 0023)");
+    }
+
+    @Test
+    void aBarePathThroughABuildDirectoryInsideSourcesInAnyLetterCaseIsChecked() {
+        String path = "tools/notes/src/main/java/io/example/BUILD/Gone.java";
+
+        assertThat(problemsFor(path)).containsExactly(missing(path, ROOT));
+    }
+
     @Test
     void aDirectoryThatCannotBeReadStopsTheCheck() throws IOException {
         Fixture fixture = Fixture.copy(dir).passingEvidence().write("tools/notes/locked/x.md", "x\n")
