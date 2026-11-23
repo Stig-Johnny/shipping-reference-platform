@@ -28,7 +28,8 @@ import org.jspecify.annotations.Nullable;
  *       directory that does not exist is read only when it is marked.
  *   <li>Without an anchor, the root comes first: a path read from the root that the document's directory also has is
  *       ambiguous, and one that only the document's directory has must say so with {@code ./}.
- *   <li>A path must exist in exact letter case; one that differs only in case fails. A trailing slash names a directory.
+ *   <li>A path must exist in exact letter case; one that differs only in case fails, and so does one that writes a
+ *       directory on its way in another case. A trailing slash names a directory.
  *       A pattern, a path with a glob or a placeholder, proves only that the directory before them exists.
  *   <li>Build output and tool state are never read as paths: a name {@code build} outside a source tree, {@code dist},
  *       {@code node_modules}, {@code .gradle}, {@code .git} and {@code .claude}; a marker on such a path fails, in any
@@ -78,8 +79,11 @@ final class PathReferences {
         }
     }
 
-    /** What a reading finds; {@code OUTPUT_CASE} is build output or tool state written in another letter case. */
-    private enum State { EXISTS, MISSING, CASE, SPECIAL, EXCLUDED, OUTPUT_CASE }
+    /**
+     * What a reading finds: {@code CASE} is the path in another letter case, {@code DIRECTORY_CASE} a directory on its
+     * way, and {@code OUTPUT_CASE} build output or tool state written in another letter case.
+     */
+    private enum State { EXISTS, MISSING, CASE, DIRECTORY_CASE, SPECIAL, EXCLUDED, OUTPUT_CASE }
 
     /** A path read from one base: the root ("") or a document's directory, with what was found there. */
     private record Reading(String base, String object, State state, String found) {
@@ -116,6 +120,7 @@ final class PathReferences {
             case SPECIAL -> problems.add(quoted + special(primary));
             case CASE -> problems.add(quoted + subject(path) + "differs only in letter case from "
                     + found(path, primary) + ", which exists (ADR 0023)");
+            case DIRECTORY_CASE -> problems.add(quoted + directoryCase(primary));
             case EXISTS -> {
                 if (otherExists) {
                     problems.add(quoted + (path.pattern() ? "is a pattern whose directory " + fixed(path)
@@ -181,6 +186,10 @@ final class PathReferences {
                             + " differs only in letter case from " + found(path, reading) + ", which exists (ADR 0023)");
                     return;
                 }
+                case DIRECTORY_CASE -> {
+                    problems.add(marked + payload + " " + directoryCase(reading));
+                    return;
+                }
                 case MISSING, OUTPUT_CASE -> {
                     // Absent from this reading, as the marker says; a marker's path is never OUTPUT_CASE.
                 }
@@ -227,12 +236,21 @@ final class PathReferences {
         if (other != null) {
             return new Reading(base, object, State.CASE, other);
         }
+        for (int i = start + 1; i < end; i++) {
+            String prefix = String.join("/", names.subList(0, i));
+            if (!directories.contains(prefix)) {
+                String directoryInCase = foldedDirectories.get(prefix.toLowerCase(Locale.ROOT));
+                return directoryInCase == null ? new Reading(base, object, State.MISSING, "")
+                        : new Reading(base, prefix, State.DIRECTORY_CASE, directoryInCase);
+            }
+        }
         return new Reading(base, object, State.MISSING, "");
     }
 
     /**
      * Whether a name of a path, from the root, is build output or tool state, in exact letter case or, with
-     * {@code ignoreCase}, in any; a build directory in sources is not.
+     * {@code ignoreCase}, in any; a build directory in sources is not, whatever the letter case of their name, so that
+     * a source path written in another case is checked as one.
      */
     private static boolean excluded(List<String> names, boolean ignoreCase) {
         boolean sources = false;
@@ -241,7 +259,7 @@ final class PathReferences {
             if (EXCLUDED.contains(name) || (name.equals(BUILD) && !sources)) {
                 return true;
             }
-            sources |= name.equals(SOURCES);
+            sources |= written.equalsIgnoreCase(SOURCES);
         }
         return false;
     }
@@ -254,18 +272,26 @@ final class PathReferences {
     }
 
     /**
-     * A path as written, with each name of build output or tool state in its own letter case, so that it is never
-     * read; {@code base} holds the names of the directory it is read from, for the source-tree exception.
+     * The spelling to use for a path that writes build output or tool state in another letter case: each such name in
+     * its own case, so that the path is never read. {@code base} holds the names of the directory it is read from; when
+     * one of them is such a name, the path is written from the root, since no spelling from that directory helps.
      */
     private static String canonical(PathReference path, List<String> base) {
-        boolean sources = base.stream().anyMatch(name -> name.toLowerCase(Locale.ROOT).equals(SOURCES));
-        List<String> names = new ArrayList<>();
-        for (String name : path.names()) {
-            String lower = name.toLowerCase(Locale.ROOT);
-            names.add(EXCLUDED.contains(lower) || (lower.equals(BUILD) && !sources) ? lower : name);
+        List<String> names = new ArrayList<>(base);
+        names.addAll(path.names());
+        boolean sources = false;
+        boolean inBase = false;
+        List<String> spelled = new ArrayList<>();
+        for (int i = 0; i < names.size(); i++) {
+            String lower = names.get(i).toLowerCase(Locale.ROOT);
+            boolean output = EXCLUDED.contains(lower) || (lower.equals(BUILD) && !sources);
+            inBase |= output && i < base.size();
+            spelled.add(output ? lower : names.get(i));
             sources |= lower.equals(SOURCES);
         }
-        return anchor(path) + String.join("/", names) + (path.directory() ? "/" : "");
+        String directory = path.directory() ? "/" : "";
+        return inBase ? "/" + String.join("/", spelled) + directory
+                : anchor(path) + String.join("/", spelled.subList(base.size(), spelled.size())) + directory;
     }
 
     private static String directoryOf(String document) {
@@ -303,6 +329,12 @@ final class PathReferences {
     /** What a reading found, from the root, with a trailing slash where the path names a directory. */
     private static String found(PathReference path, Reading reading) {
         return reading.found() + (path.pattern() || path.directory() ? "/" : "");
+    }
+
+    /** A directory on a path's way, written in another letter case than the one that exists. */
+    private static String directoryCase(Reading reading) {
+        return "writes the directory " + reading.object() + "/ in another letter case: " + reading.found()
+                + "/ exists (ADR 0023)";
     }
 
     private static String special(Reading reading) {

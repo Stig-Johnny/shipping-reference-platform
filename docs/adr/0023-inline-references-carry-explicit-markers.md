@@ -81,10 +81,10 @@ none. Where a path is read from is explicit:
   top-level directory, the root comes first: such a path that the document's directory also has is ambiguous and
   fails, and one that only the document's directory has fails until it is written with `./`. A path whose first name
   is only a directory beside the document is read from there, with or without `./`.
-- It must exist in exact letter case, as on Linux; one that differs only in case fails. A trailing slash names a
-  directory, and a directory exists only when it holds a file, as for git. A pattern, a path with a glob or a
-  placeholder, such as `docs/modules/<module>.md`, proves only that the directory before them exists, never that a
-  file matches.
+- It must exist in exact letter case, as on Linux; one that differs only in case fails, and so does one that writes
+  a directory on its way in another case, with that directory named. A trailing slash names a directory, and a
+  directory exists only when it holds a file, as for git. A pattern, a path with a glob or a placeholder, such as
+  `docs/modules/<module>.md`, proves only that the directory before them exists, never that a file matches.
 - A path through build output or tool state is never read: a directory named build outside a source tree, dist,
   node_modules, .gradle, .git or .claude. A marker on such a path fails, in any letter case, because nothing there
   can prove it, and a path that writes such a name in another letter case fails with the spelling to use. A link or another special file on the way fails too, in any letter case, and never counts as

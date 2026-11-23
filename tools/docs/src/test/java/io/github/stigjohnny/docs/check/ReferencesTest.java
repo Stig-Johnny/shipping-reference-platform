@@ -484,7 +484,8 @@ class ReferencesTest {
         assertThat(problems.list()).containsExactly("README.md:2: `docs/nowhere.md` names no file or directory " + ROOT
                 + "; if it is planned, write planned:path:docs/nowhere.md, and if it is meant to be absent, "
                 + "absent:path:docs/nowhere.md (ADR 0023)", "README.md:3: `absent:path:docs/a/`: docs/a/ differs only "
-                + "in letter case from docs/A/, which exists (ADR 0023)");
+                + "in letter case from docs/A/, which exists (ADR 0023)", "README.md:4: `planned:path:Docs/b.md`: Docs/b.md "
+                + "writes the directory Docs/ in another letter case: docs/ exists (ADR 0023)");
     }
 
     @ParameterizedTest
@@ -500,6 +501,27 @@ class ReferencesTest {
         String path = "tools/notes/src/main/java/io/example/BUILD/Gone.java";
 
         assertThat(problemsFor(path)).containsExactly(missing(path, ROOT));
+    }
+
+    @Test
+    void aSourceTreeInAnotherLetterCaseKeepsItsBuildPackageChecked() {
+        String existing = "build-logic/src/main/java/io/github/stigjohnny/build/ProviderIndexTask.java";
+        String variant = existing.replace("/src/", "/SRC/");
+        String missing = variant.replace("ProviderIndexTask", "NoSuchTask");
+        Fixture fixture = Fixture.copy(dir).passingEvidence()
+                .write(NOTES, "# Notes\n\n`" + variant + "` and `" + missing + "`\n");
+
+        assertThat(problems(fixture)).containsExactly(NOTES + ":3: `" + missing + "` writes the directory "
+                + "build-logic/SRC/ in another letter case: build-logic/src/ exists (ADR 0023)", NOTES + ":3: `" + variant
+                + "` differs only in letter case from " + existing + ", which exists (ADR 0023)");
+    }
+
+    @Test
+    void theSpellingToUseForOutputInTheDocumentsOwnDirectoryIsFromTheRoot() {
+        Fixture fixture = Fixture.copy(dir).passingEvidence().write("tools/BUILD/notes.md", "# Notes\n\nSee `./x.md`.\n");
+
+        assertThat(problems(fixture)).containsExactly("tools/BUILD/notes.md:3: `./x.md` names build output or tool state in "
+                + "another letter case; write /tools/build/x.md, which no check reads (ADR 0023)");
     }
 
     @Test
