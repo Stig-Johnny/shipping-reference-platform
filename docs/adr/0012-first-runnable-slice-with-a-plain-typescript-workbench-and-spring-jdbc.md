@@ -11,6 +11,7 @@ enforcedBy:
   - "java: ArchitectureConformanceTest (C4 edges)"
   - "java: compilation with Error Prone and NullAway"
   - "java: QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest (HTTP contract, with test doubles for the database adapters)"
+  - "java: ContractExamplesTest (every example of the contract validates against its schema, and a problem example is its type's problem, with the status of its response, of a type that its response names)"
   - "java: WebArchitectureConformanceTest, partial JDK lint over detected imports in apps/shipping-web: boundaries, cycles, a detected direct import for each REQUIRED relationship whose endpoints are built, and every detected package and Node.js built-in import whitelisted in the model and approved in security/allowlist.json (ADR 0015). It scans src, e2e, public and app configuration in every build; with all six parts built, it checks real production imports for all ten REQUIRED relationships (control.web-import-boundaries, partial)"
   - "web: type check and emit with TypeScript 5.9.3, and the logic tests under node --test; strict CSP text in csp.test.ts (ADR 0019), no adversarial CSP enforcement test"
 plannedEnforcement:
@@ -295,6 +296,9 @@ the custom tenant-binding manager described below is superseded for those adapte
   media type, malformed JSON, an unknown member, a request refused before routing and an unexpected exception: the
   correct type, no stack trace, a correlation ID. They start the application with test doubles for the adapters to
   the database, so they prove the HTTP edge, not persistence. Shipment cancellation and PostgreSQL-backed HTTP evidence remain planned.
+- `java` runs `ContractExamplesTest`, which validates every example of the contract against its schema with the same
+  validator settings, checks each problem example against the registry and its response, and fails on an example in a
+  place it does not read, so none goes unchecked.
 - Implemented, CI evidence pending for V1/V2, `java` through `databaseTest`: `RowLevelSecurityCatalogTest` queries `pg_class`, `pg_policy` and `pg_roles`: every table with a
   `tenant_id` column has row-level security enabled and forced and at least one policy, except the four identity
   tables, on which `shipping_app` has no privileges; `shipping_app` is not superuser, lacks `BYPASSRLS` and owns

@@ -14,11 +14,15 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.http.MediaType;
@@ -42,6 +46,10 @@ import tools.jackson.dataformat.yaml.YAMLMapper;
  *       its correlation ID is the response's, and its instance is the request path, or {@code about:blank} where the
  *       contract says the path cannot be repeated.
  * </ul>
+ *
+ * <p>It also reads the contract's own examples, the {@code example} and named {@code examples} of each media type and
+ * parameter, so that {@code ContractExamplesTest} can validate each one against its schema as a body is, and a problem
+ * example against the registry and its response; an example anywhere else fails.
  *
  * <p>As the validator's review requires (security/reviews/maven--json-schema-validator--3.0.9.md), the contract is a
  * {@code classpath:} resource, sub-schemas are JSON pointers into it, and the schema loader may load {@code classpath:}
@@ -71,6 +79,18 @@ public final class Contract {
     /** A row of the problem registry in the contract's description: the type's suffix, the status and the title. */
     private static final Pattern REGISTRY_ROW = Pattern.compile(
             "^\\| `([a-z-]+)`\\s*\\| (\\d{3})\\s*\\| ([^|]+?)\\s*\\|");
+    /** The members of a media type or a parameter that hold examples: one example, or named examples. */
+    private static final Set<String> EXAMPLE_KEYS = Set.of("example", "examples");
+    /** A schema's keywords whose members are names, each of a schema. */
+    private static final Set<String> SCHEMA_NAME_MAPS = Set.of("properties", "patternProperties", "$defs",
+            "dependentSchemas");
+    /** A schema's keywords whose values are data, not schemas. */
+    private static final Set<String> SCHEMA_DATA = Set.of("enum", "const", "default");
+    /** What a media type with examples belongs to, besides an operation's request body. */
+    private static final Set<String> MEDIA_TYPE_OWNERS = Set.of("responses", "requestBodies", "parameters");
+    /** One problem type at the start of a response's description, its note, and the separator after it. */
+    private static final Pattern RESPONSE_TYPE = Pattern.compile(
+            "\\G`([a-z]+(?:-[a-z]+)*)`(?: \\([^()]*\\))?(, or |, | or )?");
     private static final Contract CONTRACT = read();
 
     private final JsonNode document;
@@ -95,6 +115,10 @@ public final class Contract {
 
         Located at(String name) {
             return new Located(node.path(name), pointer + "/" + name.replace("~", "~0").replace("/", "~1"));
+        }
+
+        Located item(int index) {
+            return new Located(node.path(index), pointer + "/" + index);
         }
     }
 
@@ -237,6 +261,191 @@ public final class Contract {
         Registered registered = problems.get(type);
         assertThat(registered).as("problem type %s is in the contract's registry", type).isNotNull();
         return Objects.requireNonNull(registered).title();
+    }
+
+    /**
+     * One example of the contract: where it is, the location of the schema it must validate against and its value. A
+     * problem example also carries its response's status and the problem types that its response's description names.
+     */
+    record Example(String pointer, String schemaLocation, JsonNode value, boolean problem, int status,
+            List<String> responseTypes) {
+    }
+
+    /** A copy of the contract's document, for fixtures that change it. */
+    JsonNode copyOfDocument() {
+        return document.deepCopy();
+    }
+
+    /** Every example of the contract, in document order. */
+    List<Example> examples() {
+        return examples(document);
+    }
+
+    /**
+     * Every example of a contract document, in document order: the {@code example} and the named {@code examples} of a
+     * media type or a parameter. An example anywhere else, or one that holds no value of its own (an
+     * {@code externalValue} or a {@code $ref}), fails, so that no example goes unchecked. An example's value, a schema's
+     * {@code enum}, {@code const} and {@code default}, and the names of a schema's properties are data: a member named
+     * example there is not an example.
+     */
+    static List<Example> examples(JsonNode document) {
+        List<Example> examples = new ArrayList<>();
+        collect(document, new Located(document, "#"), Context.OPENAPI, examples);
+        return examples;
+    }
+
+    /**
+     * Asserts that an example validates against its schema, as a response body does, and that a problem example is its
+     * type's problem in the registry, with the status of its response, of a type that its response's description names.
+     */
+    void assertExample(Example example) {
+        String value = json.writeValueAsString(example.value());
+        List<Error> errors = schemas.getSchema(SchemaLocation.of(example.schemaLocation())).validate(value,
+                InputFormat.JSON);
+        String at = example.pointer();
+        assertThat(errors).as("%s: the example %s against %s", at, value, example.schemaLocation()).isEmpty();
+        if (!example.problem()) {
+            return;
+        }
+        String type = example.value().path("type").stringValue("");
+        assertThat(type).as("%s: a problem type of the registry", at).startsWith(PROBLEM_TYPES);
+        String suffix = type.substring(PROBLEM_TYPES.length());
+        Registered registered = problems.get(suffix);
+        assertThat(registered).as("%s: %s is in the contract's problem registry", at, type).isNotNull();
+        assertThat(example.value().path("title").stringValue("")).as("%s: the registry's title for %s", at, type)
+                .isEqualTo(Objects.requireNonNull(registered).title());
+        assertThat(example.value().path("status").asInt()).as("%s: the problem's status is the status of its response",
+                at).isEqualTo(example.status());
+        assertThat(registered.status()).as("%s: the registry's status for %s is the status of its response", at, type)
+                .isEqualTo(example.status());
+        assertThat(example.responseTypes()).as("%s: %s is a type that its response names", at, suffix)
+                .contains(suffix);
+    }
+
+    /** How the members of a node of the contract are read: as OpenAPI objects, as a schema, or as property names. */
+    private enum Context {
+        OPENAPI, SCHEMA, NAMES
+    }
+
+    private static void collect(JsonNode document, Located at, Context context, List<Example> examples) {
+        JsonNode node = at.node();
+        for (int i = 0; node.isArray() && i < node.size(); i++) {
+            collect(document, at.item(i), context, examples);
+        }
+        boolean holder = context == Context.OPENAPI && holdsExamples(segments(at.pointer()));
+        for (String key : node.propertyNames()) {
+            if (context != Context.NAMES && EXAMPLE_KEYS.contains(key)) {
+                if (!holder) {
+                    throw new AssertionError(at.at(key).pointer() + ": an example in a place where no example is "
+                            + "read; only a media type's or a parameter's example and examples are");
+                }
+                examples.addAll(examplesOf(document, at, key));
+            } else if (context != Context.SCHEMA || !SCHEMA_DATA.contains(key)) {
+                collect(document, at.at(key), switch (context) {
+                    case NAMES -> Context.SCHEMA;
+                    case SCHEMA -> SCHEMA_NAME_MAPS.contains(key) ? Context.NAMES : Context.SCHEMA;
+                    case OPENAPI -> key.equals("schema") ? Context.SCHEMA
+                            : at.pointer().equals("#/components") && key.equals("schemas") ? Context.NAMES
+                                    : Context.OPENAPI;
+                }, examples);
+            }
+        }
+    }
+
+    /** Whether the node at these pointer segments is a parameter or a media type of a request body, response or parameter. */
+    private static boolean holdsExamples(List<String> at) {
+        int size = at.size();
+        boolean parameter = size >= 2 && at.get(size - 2).equals("parameters");
+        boolean mediaType = size >= 3 && at.get(size - 2).equals("content") && (at.get(size - 3).equals("requestBody")
+                || (size >= 4 && MEDIA_TYPE_OWNERS.contains(at.get(size - 4))));
+        return parameter || mediaType;
+    }
+
+    private static List<Example> examplesOf(JsonNode document, Located holder, String key) {
+        List<String> at = segments(holder.pointer());
+        Located schema = holder.at("schema");
+        if (schema.node().isMissingNode()) {
+            throw new AssertionError(holder.pointer() + ": an example needs a schema beside it to be validated");
+        }
+        boolean problem = at.size() >= 4 && at.getLast().equals(MediaType.APPLICATION_PROBLEM_JSON_VALUE)
+                && at.get(at.size() - 4).equals("responses");
+        int status = 0;
+        List<String> types = List.of();
+        if (problem) {
+            String response = holder.pointer().substring(0, holder.pointer().lastIndexOf("/content/"));
+            status = status(document, at, response);
+            types = responseTypes(document.at(response.substring(1)).path("description").stringValue(""));
+        }
+        Located examples = holder.at(key);
+        if (key.equals("example")) {
+            return List.of(new Example(examples.pointer(), schemaLocation(schema), examples.node(), problem, status,
+                    types));
+        }
+        List<Example> found = new ArrayList<>();
+        for (String name : examples.node().propertyNames()) {
+            Located example = examples.at(name);
+            if (!example.node().has("value") || example.node().has("externalValue") || example.node().has("$ref")) {
+                throw new AssertionError(example.pointer() + ": an example holds its value itself, not an "
+                        + "externalValue or a $ref");
+            }
+            found.add(new Example(example.pointer(), schemaLocation(schema), example.node().path("value"), problem,
+                    status, types));
+        }
+        return found;
+    }
+
+    /**
+     * The status of the response at {@code response}: its key under an operation's responses, or, for a component, the
+     * one status under which the operations use it.
+     */
+    private static int status(JsonNode document, List<String> at, String response) {
+        Set<String> statuses = new TreeSet<>();
+        if (at.getFirst().equals("paths")) {
+            statuses.add(at.get(at.size() - 3));
+        } else {
+            for (JsonNode path : document.path("paths").values()) {
+                for (JsonNode operation : path.values()) {
+                    for (Map.Entry<String, JsonNode> used : operation.path("responses").properties()) {
+                        if (response.equals(used.getValue().path("$ref").stringValue(""))) {
+                            statuses.add(used.getKey());
+                        }
+                    }
+                }
+            }
+        }
+        if (statuses.size() != 1 || !statuses.iterator().next().matches("[1-5][0-9]{2}")) {
+            throw new AssertionError(response + ": a response with a problem example has one status code, not "
+                    + statuses);
+        }
+        return Integer.parseInt(statuses.iterator().next());
+    }
+
+    /**
+     * The problem types that a response's description names first: code spans, each with an optional note in
+     * parentheses, joined by commas and "or", and ended by a colon, a full stop or the end. None when it starts
+     * otherwise.
+     */
+    static List<String> responseTypes(String description) {
+        String text = description.strip().replaceAll("\\s+", " ");
+        Matcher item = RESPONSE_TYPE.matcher(text);
+        List<String> types = new ArrayList<>();
+        while (item.find()) {
+            types.add(item.group(1));
+            if (item.group(2) == null) {
+                boolean ends = item.end() == text.length() || ":.".indexOf(text.charAt(item.end())) >= 0;
+                return ends ? List.copyOf(types) : List.of();
+            }
+        }
+        return List.of();
+    }
+
+    /** A pointer's segments after its {@code #}, unescaped. */
+    private static List<String> segments(String pointer) {
+        if (pointer.equals("#")) {
+            return List.of();
+        }
+        return Arrays.stream(pointer.substring(2).split("/", -1)).map(s -> s.replace("~1", "/").replace("~0", "~"))
+                .toList();
     }
 
     private JsonNode assertBody(String location, String mediaType, MockHttpServletResponse response,
