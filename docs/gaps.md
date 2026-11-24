@@ -2,7 +2,7 @@
 title: "Known gaps and limits"
 description: "What v0.1 does not do, what each control cannot prove, and which decisions are still unverified. Read this before trusting a green build."
 status: accepted
-updated: 2026-11-23
+updated: 2026-11-24
 ---
 
 # Known gaps and limits
@@ -524,6 +524,12 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
   which issue 153 is to bind, and the shipment lifecycle needs a transition test, which can come with cancellation.
   The check recognises behaviour by a fence's first line: a state machine drawn as a flowchart, a standalone `.mmd`
   file, and diagrams in records, generated files and superseded ADRs are not read as behaviour.
+- **The operation tables are still written by hand.** The module documents' HTTP operation tables come from the
+  contract only when issue 155 generates them, and their planned marks from the capabilities only when issue 157 binds
+  operations and problem types to capabilities (ADR 0025). Until then the check reads the contract's problem registry
+  and each problem response's types strictly, so a misspelled or misplaced type fails, but nothing compares the
+  hand-written tables with the contract. The contract names a response's types only in its prose, in the form that
+  ADR 0025 sets.
 - **The agent entry point is checked as files, not as behaviour.** Only Claude Code reads `CLAUDE.md`. The docs
   check proves that every `AGENTS.md` has a `CLAUDE.md` beside it that only imports it (ADR 0022), not what a session
   loads or follows; `CLAUDE.local.md`, `.claude/rules/` and user, managed or ancestor instructions are outside it. The

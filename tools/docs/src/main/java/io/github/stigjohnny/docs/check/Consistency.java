@@ -74,6 +74,7 @@ public final class Consistency {
         adrs(sources, problems);
         mentions(sources, problems);
         capabilities(sources, problems);
+        ContractProblems.check(sources.contract(), problems);
         links(sources, problems);
         AgentInstructions.check(sources.repo(), problems);
         References.check(sources, problems);

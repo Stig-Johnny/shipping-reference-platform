@@ -2,7 +2,7 @@
 title: "Brain: shipping-reference-platform"
 description: "The generated entry point for agents: what the repository is, what is built and what is only planned, and where each module, decision, control and limit is written down."
 status: accepted
-updated: 2026-11-23
+updated: 2026-11-24
 ---
 
 > Generated—do not hand-edit. Sources: `README.md`, `architecture/workspace.dsl`, `docs/`, `contracts/`, `policy/risk.json` and `security/allowlist.json`.
@@ -12,7 +12,7 @@ updated: 2026-11-23
 
 A reference Java application for webshop parcel shipping: a Spring Boot modular monolith with hexagonal modules, a contract-first HTTP API, explicit SQL and tenant isolation down to PostgreSQL row-level security. A webshop's clerk quotes a parcel, books an offer and downloads a label. The data is synthetic and the carrier is simulated.
 
-**State at this commit.** 27 capabilities: 2 shipped, 9 partial, 16 planned; 22 controls: 13 shipped, 6 partial, 3 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
+**State at this commit.** 27 capabilities: 2 shipped, 9 partial, 16 planned; 23 controls: 13 shipped, 7 partial, 3 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
 
 ## Read first
 
@@ -68,6 +68,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | `control.agent-instructions` | shipped | `java` | AgentInstructionsTest |
 | `control.inline-references` | shipped | `java` | ReferencesTest, MarkdownRendererTest, SitePagesTest |
 | `control.behavioural-diagrams` | shipped | `java` | BehaviouralDiagramsTest, BrainGeneratorTest, MarkdownRendererTest, SitePagesTest |
+| `control.operation-tables` | partial | `java` | ContractProblemsTest |
 
 ## Decisions
 
@@ -97,6 +98,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | [ADR 0022: Agents load the rules at start, and the map stays one read away](docs/adr/0022-agent-entry-point-and-documentation-lookup.md) | accepted | java |
 | [ADR 0023: Inline references carry explicit markers](docs/adr/0023-inline-references-carry-explicit-markers.md) | accepted | java |
 | [ADR 0024: Behavioural diagrams are labelled until a test compares them with the code](docs/adr/0024-behavioural-diagrams-are-labelled-until-a-test-compares-them.md) | accepted | java |
+| [ADR 0025: Operation tables come from the contract and the capabilities](docs/adr/0025-operation-tables-from-the-contract.md) | accepted | java |
 
 ## Third-party components
 

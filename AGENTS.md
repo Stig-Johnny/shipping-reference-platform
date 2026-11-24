@@ -28,6 +28,8 @@ as the code. An agent that makes a check pass by weakening it has failed the tas
    package mapping or switch `REQUIRED` to `PERMITTED` just to make a failing check pass; stop and report instead.
 3. **Contract first.** If the change touches the HTTP interface, change `contracts/shipping.openapi.yaml` first. No
    client is generated in the first runnable slice; the web app's hand-written types follow the contract (ADR 0012).
+   A problem response's description starts with its problem types, each a type of the contract's problem registry
+   with that status, such as `quote-not-found` or `offer-not-found`; the docs check fails otherwise (ADR 0025).
 4. **Tests first.** Write the failing test, run it, keep the failing output, then make it pass. Behaviour changes
    need acceptance criteria in domain language and this red-green evidence in the pull request body. Test class
    names in `docs/capabilities/capabilities.yaml` are binding: use exactly those names.

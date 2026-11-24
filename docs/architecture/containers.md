@@ -2,7 +2,7 @@
 title: "C4 view: Containers"
 description: "Container view of the Shipping reference platform. The web app, the API (one deployable modular monolith) and the database."
 status: accepted
-updated: 2026-11-23
+updated: 2026-11-24
 ---
 
 > Generated—do not hand-edit. Source: `architecture/workspace.dsl`, view `Containers`. Regenerate with
