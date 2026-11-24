@@ -109,17 +109,37 @@ class ContractProblemsTest {
                                 + "sections 'Errors (RFC 9457)'");
     }
 
-    /** A copy of the registry's table under another heading, at the top level and in a quote. */
-    @ParameterizedTest
-    @ValueSource(strings = {"", "> "})
-    void aTableWithTheRegistrysColumnsOutsideItsSectionFails(String prefix) {
-        String copy = "    ## Problems by module\n\n    " + prefix + "| type (suffix) | status | title | raised by |\n    "
-                + prefix + "|---|---|---|---|\n    " + prefix + "| `bad-type` | 404 | Bad type | shipping |\n\n";
+    /**
+     * A copy of the registry's table under another heading, as the site shows it: with outer pipes, in a quote,
+     * without outer pipes, with a column name spaced differently, and in a list item.
+     */
+    static Stream<String> copies() {
+        return Stream.of(
+                "    | type (suffix) | status | title | raised by |\n    |---|---|---|---|\n    | `bad-type` | 404 | Bad | shipping |\n",
+                "    > | type (suffix) | status | title | raised by |\n    > |---|---|---|---|\n    > | `bad-type` | 404 | Bad | x |\n",
+                "    type (suffix) | status | title | raised by\n    ---|---|---|---\n    `bad-type` | 404 | Bad | shipping\n",
+                "    | type (suffix) | status | title | raised  by |\n    |---|---|---|---|\n    | `bad-type` | 404 | Bad | x |\n",
+                "    - Copy\n\n      | type (suffix) | status | title | raised by |\n      |---|---|---|---|\n      | `x` | 404 | B | y |\n");
+    }
 
-        assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace("    ## Errors (RFC 9457)\n", copy
-                + "    ## Errors (RFC 9457)\n"))).isInstanceOf(DocsException.class).hasMessageContaining("a table with "
-                        + "the problem registry's columns stands outside its section, and the problem registry is one "
-                        + "table: '" + prefix + "| type (suffix) | status | title | raised by |'");
+    @ParameterizedTest
+    @MethodSource("copies")
+    void aTableWithTheRegistrysColumnsOutsideItsSectionFails(String copy) {
+        assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace("    ## Errors (RFC 9457)\n", "    ## Problems by "
+                + "module\n\n" + copy + "\n    ## Errors (RFC 9457)\n"))).isInstanceOf(DocsException.class)
+                .hasMessageContaining("a table with the problem registry's columns stands outside its section, at line ");
+    }
+
+    /** A fenced example of the registry's form, before the registry and inside its section, is code and no table. */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void aCodeExampleOfTheRegistrysFormIsNoTable(boolean inside) {
+        String example = "    ```text\n    | type (suffix) | status | title | raised by |\n    |---|---|---|---|\n    ```\n\n";
+        String last = line("| `internal-error`") + "\n";
+        String text = inside ? CONTRACT.replace(last, last + "\n" + example) : CONTRACT.replace(
+                "    ## Errors (RFC 9457)\n", "    ## Registry format example\n\n" + example + "    ## Errors (RFC 9457)\n");
+
+        assertThat(ApiContract.parse(text).problemTypes()).hasSize(18);
     }
 
     /** An underlined heading and a heading after a tab end the section, so a table after them is not the registry's. */

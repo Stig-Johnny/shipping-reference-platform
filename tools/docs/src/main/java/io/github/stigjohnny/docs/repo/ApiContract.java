@@ -3,17 +3,21 @@ package io.github.stigjohnny.docs.repo;
 import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.markdown.BlockLines;
 import io.github.stigjohnny.docs.markdown.MarkdownRenderer;
+import io.github.stigjohnny.docs.markdown.TableHeader;
 import io.github.stigjohnny.docs.yaml.SafeYaml;
 import io.github.stigjohnny.docs.yaml.YamlInputException;
 import io.github.stigjohnny.docs.yaml.YamlValue;
 import io.github.stigjohnny.docs.yaml.YamlValue.YMap;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 
 /**
  * {@code contracts/shipping.openapi.yaml}, read as data for the API pages and the brains, with its problem registry
@@ -29,8 +33,6 @@ public final class ApiContract {
     private static final String REGISTRY = "Errors (RFC 9457)";
     private static final List<String> REGISTRY_HEADER = List.of("type (suffix)", "status", "title", "raised by");
     private static final Pattern RULE_CELL = Pattern.compile(":?-+:?");
-    /** The markers of quotes and list items at the start of a line. */
-    private static final Pattern CONTAINER_MARKERS = Pattern.compile("^(?:(?:>|[-*+]|[0-9]{1,9}[.)])[ \\t]*)+");
     private static final Pattern TYPE_CELL = Pattern.compile("`([a-z]+(?:-[a-z]+)*)`");
     private static final Pattern STATUS_CELL = Pattern.compile("[1-5][0-9]{2}");
     private static final Pattern OWNERS = Pattern.compile(
@@ -179,8 +181,9 @@ public final class ApiContract {
      * The problem registry: the one table in the one section {@link #REGISTRY} of the contract's description, which
      * runs to the next heading of its level or above, headings and tables read as the site's parser reads them; a
      * section of that title inside a quote or a list fails, because the site would show it, and a heading's title is
-     * compared with its whitespace collapsed and in any letter case. A table with the registry's columns outside its
-     * section fails, also inside a quote or a list. Its
+     * compared with its whitespace collapsed and in any letter case. A table, at any depth, whose column names the site
+     * shows as the registry's stands outside its section and fails; a code block is no table, and its lines with a
+     * pipe are allowed in the section. Its
      * header and rule have the four columns, and each row gives a type as a code span, a status code, a title and who
      * raises it: any module, the HTTP edge, or modules named by the contract's tags, with an optional note in
      * parentheses. Each line of the table is a row between pipes, and a line of the section outside the table that
@@ -220,17 +223,21 @@ public final class ApiContract {
         int sectionEnd = next < blocks.size() ? blocks.get(next).firstLine() : lines.size();
         int start = tables.getFirst().firstLine();
         int stop = tables.getFirst().lastLine() + 1;
+        Set<Integer> code = new HashSet<>();
+        blocks.subList(headings.getFirst() + 1, next).stream().filter(b -> b.kind() == BlockLines.Kind.CODE)
+                .forEach(b -> IntStream.rangeClosed(b.firstLine(), b.lastLine()).forEach(code::add));
         for (int i = heading.lastLine() + 1; i < sectionEnd; i++) {
-            if ((i < start || i >= stop) && lines.get(i).contains("|")) {
+            if ((i < start || i >= stop) && !code.contains(i) && lines.get(i).contains("|")) {
                 throw new DocsException(PATH + ": the problem registry is one table, and this line of its section is "
                         + "not a row of it: '" + lines.get(i) + "'" + ADR);
             }
         }
-        for (int i = 0; i < lines.size(); i++) {
-            if ((i < start || i >= stop)
-                    && REGISTRY_HEADER.equals(cells(CONTAINER_MARKERS.matcher(lines.get(i)).replaceFirst("")))) {
+        for (TableHeader other : MarkdownRenderer.tables(description, PATH)) {
+            if (other.line() != start && REGISTRY_HEADER.equals(other.cells().stream()
+                    .map(cell -> cell.replaceAll("\\s+", " ").toLowerCase(Locale.ROOT)).toList())) {
                 throw new DocsException(PATH + ": a table with the problem registry's columns stands outside its "
-                        + "section, and the problem registry is one table: '" + lines.get(i) + "'" + ADR);
+                        + "section, at line " + (other.line() + 1) + " of its description; the problem registry is "
+                        + "one table" + ADR);
             }
         }
         List<String> table = lines.subList(start, stop);

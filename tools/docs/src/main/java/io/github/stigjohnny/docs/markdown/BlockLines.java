@@ -15,6 +15,7 @@ public record BlockLines(Kind kind, int level, String text, int firstLine, int l
     public enum Kind {
         HEADING,
         TABLE,
+        CODE,
         OTHER
     }
 }

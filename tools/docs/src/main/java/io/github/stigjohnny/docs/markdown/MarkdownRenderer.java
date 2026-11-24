@@ -629,6 +629,35 @@ public final class MarkdownRenderer {
     }
 
     /**
+     * Every table of a text, at any depth, as the site's parser reads it: the line it starts on and the text of its
+     * header's cells. A table without outer pipes is a table too, and a code block's text is none.
+     */
+    public static List<TableHeader> tables(String markdown, String source) {
+        try {
+            List<TableHeader> tables = new ArrayList<>();
+            Deque<Node> pending = new ArrayDeque<>();
+            pending.push(parse(markdown, source));
+            while (!pending.isEmpty()) {
+                Node node = pending.pop();
+                if (node instanceof TableBlock table) {
+                    List<String> cells = new ArrayList<>();
+                    Node head = table.getFirstChild();
+                    Node row = head == null ? null : head.getFirstChild();
+                    for (Node cell = row == null ? null : row.getFirstChild(); cell != null; cell = cell.getNext()) {
+                        cells.add(text(cell).strip());
+                    }
+                    List<SourceSpan> spans = table.getSourceSpans();
+                    tables.add(new TableHeader(spans.isEmpty() ? -1 : spans.getFirst().getLineIndex(), cells));
+                }
+                pushChildren(pending, node);
+            }
+            return List.copyOf(tables);
+        } catch (StackOverflowError e) {
+            throw new DocsException(source + ": the document is nested too deeply to read", e);
+        }
+    }
+
+    /**
      * The text of every heading inside a quote, a list item or another container, which {@link #blockLines} does not
      * show because it is no top-level block.
      */
@@ -667,6 +696,8 @@ public final class MarkdownRenderer {
                     case Heading heading -> new BlockLines(BlockLines.Kind.HEADING, heading.getLevel(),
                             text(heading).strip(), first, last);
                     case TableBlock ignored -> new BlockLines(BlockLines.Kind.TABLE, 0, "", first, last);
+                    case FencedCodeBlock ignored -> new BlockLines(BlockLines.Kind.CODE, 0, "", first, last);
+                    case IndentedCodeBlock ignored -> new BlockLines(BlockLines.Kind.CODE, 0, "", first, last);
                     default -> new BlockLines(BlockLines.Kind.OTHER, 0, "", first, last);
                 });
             }

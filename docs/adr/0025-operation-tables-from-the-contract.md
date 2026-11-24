@@ -53,8 +53,9 @@ Option 5 reads source code, which breaks with any refactoring of a controller.
   contract's description, which runs to the next heading of its level or above. Headings, written with hashes or
   underlined, and tables are found as the site's parser finds them, so the check reads what the site shows; a
   heading's title is compared with its whitespace collapsed and in any letter case. A second such section fails, at
-  the top level or inside a quote or a list, and so does a table with the registry's columns elsewhere, and a line
-  of the section outside the table that holds a pipe, so that no row can fall out of the registry or stand beside it. The header and the rule have the four columns type (suffix), status,
+  the top level or inside a quote or a list, and so does any other table, at any depth, whose column names the site
+  shows as the registry's, and a line of the section outside the table and outside a code block that holds a pipe, so
+  that no row can fall out of the registry or stand beside it. A code block is no table: an example of the form passes. The header and the rule have the four columns type (suffix), status,
   title and raised by. Each row's cells are read stripped: a type as a code span, a status code, a title that is not
   blank, and its owners, `any module`, `HTTP edge` or modules that are tags of the contract, with an optional note in
   parentheses, such as "has `reason`", which names an extension member. A malformed row, a type twice, an unknown
@@ -93,8 +94,8 @@ Option 5 reads source code, which breaks with any refactoring of a controller.
 ### Confirmation
 
 `ContractProblemsTest` reads the registry and fails on each malformed form above, a second registry section, also in a
-quote or a list item or under a title that differs only in whitespace or case, a copy of its table elsewhere and a
-line with a pipe outside its table, and it reads a padded cell without its padding and ends the section at a later heading of
+quote or a list item or under a title that differs only in whitespace or case, a copy of its table elsewhere, with or
+without outer pipes, in a quote or a list, and a line with a pipe outside its table, while a code example passes, and it reads a padded cell without its padding and ends the section at a later heading of
 either form. It fails on a response that names an unregistered type, a type of another
 status or no types first, on a response key that is no status code, on a description beside a `$ref` and on a
 reference to a reference, and on each form of operation above that no check would read. The documentation check runs `ContractProblems` over the contract in every `generate`,
