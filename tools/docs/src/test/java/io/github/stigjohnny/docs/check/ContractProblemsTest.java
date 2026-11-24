@@ -82,6 +82,23 @@ class ContractProblemsTest {
                         + "9457)'; the problem registry stands in one (ADR 0025)");
     }
 
+    /** A registry section in a quote, as a supplementary note might be written, and one in a list item. */
+    @ParameterizedTest
+    @ValueSource(strings = {"""
+                > ## Errors (RFC 9457)
+                >
+                > | type (suffix) | status | title | raised by |
+                > |---|---|---|---|
+                > | `bad-type` | 404 | Bad type | shipping |
+
+            """, "    - ## Errors (RFC 9457)\n\n"})
+    void aRegistrySectionInsideAQuoteOrAListFails(String nested) {
+        assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace("    ## Errors (RFC 9457)\n", nested
+                + "    ## Errors (RFC 9457)\n"))).isInstanceOf(DocsException.class).hasMessageContaining("its "
+                        + "description has a section 'Errors (RFC 9457)' inside a quote or a list, which is not read; "
+                        + "the problem registry stands in one section at the top level (ADR 0025)");
+    }
+
     /** An underlined heading and a heading after a tab end the section, so a table after them is not the registry's. */
     @ParameterizedTest
     @ValueSource(strings = {"    Other section\n    -------------\n", "    ##\tOther section\n"})

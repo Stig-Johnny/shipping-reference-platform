@@ -629,6 +629,30 @@ public final class MarkdownRenderer {
     }
 
     /**
+     * The text of every heading inside a quote, a list item or another container, which {@link #blockLines} does not
+     * show because it is no top-level block.
+     */
+    public static List<String> nestedHeadings(String markdown, String source) {
+        try {
+            List<String> texts = new ArrayList<>();
+            Deque<Node> pending = new ArrayDeque<>();
+            for (Node top : children(parse(markdown, source))) {
+                pushChildren(pending, top);
+            }
+            while (!pending.isEmpty()) {
+                Node node = pending.pop();
+                if (node instanceof Heading heading) {
+                    texts.add(text(heading).strip());
+                }
+                pushChildren(pending, node);
+            }
+            return List.copyOf(texts);
+        } catch (StackOverflowError e) {
+            throw new DocsException(source + ": the document is nested too deeply to read", e);
+        }
+    }
+
+    /**
      * The top-level blocks of a text with the lines each spans, without rendering it: a heading, written with hashes or
      * underlined, with its level and text, a table, or another block.
      */

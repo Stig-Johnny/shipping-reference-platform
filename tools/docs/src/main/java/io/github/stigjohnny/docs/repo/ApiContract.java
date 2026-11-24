@@ -175,7 +175,8 @@ public final class ApiContract {
 
     /**
      * The problem registry: the one table in the one section {@link #REGISTRY} of the contract's description, which
-     * runs to the next heading of its level or above, headings and tables read as the site's parser reads them. Its
+     * runs to the next heading of its level or above, headings and tables read as the site's parser reads them; a
+     * section of that title inside a quote or a list fails, because the site would show it. Its
      * header and rule have the four columns, and each row gives a type as a code span, a status code, a title and who
      * raises it: any module, the HTTP edge, or modules named by the contract's tags, with an optional note in
      * parentheses. Each line of the table is a row between pipes, and a line of the section outside the table that
@@ -190,6 +191,10 @@ public final class ApiContract {
             if (blocks.get(i).kind() == BlockLines.Kind.HEADING && blocks.get(i).text().equals(REGISTRY)) {
                 headings.add(i);
             }
+        }
+        if (MarkdownRenderer.nestedHeadings(description, PATH).contains(REGISTRY)) {
+            throw new DocsException(PATH + ": its description has a section '" + REGISTRY + "' inside a quote or a "
+                    + "list, which is not read; the problem registry stands in one section at the top level" + ADR);
         }
         if (headings.size() != 1) {
             throw new DocsException(PATH + ": its description has " + headings.size() + " sections '" + REGISTRY
