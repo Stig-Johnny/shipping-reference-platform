@@ -2,7 +2,7 @@
 title: "Module: shipments"
 description: "Books shipments from quote offers with tenant-scoped idempotency and simulated SVG labels. Cancellation and durable event delivery are planned."
 status: accepted
-updated: 2026-11-23
+updated: 2026-11-24
 module: shipments
 moduleStatus: built
 riskLevel: 3
@@ -98,13 +98,24 @@ dependency on quotes (this keeps the PERMITTED `audit -> quotes` edge free of ev
 
 ## HTTP operations (`contracts/shipping.openapi.yaml`, tag `shipments`)
 
+Generated from `contracts/shipping.openapi.yaml` and `docs/capabilities/capabilities.yaml`. Edit those sources, then
+run `./gradlew :tools:docs:generate`; do not edit this section.
+
+The last column lists problem types whose registry entry explicitly names this module. "none" means none in that
+subset; common errors still apply. The API pages show each operation's declared responses, and the API overview
+documents common errors.
+
+An operation or problem is marked planned when every capability naming it is planned. An unmarked entry may still be
+partly built. Query parameters are shown by name without values; request headers shown here are required. Response
+headers common to every declared response are omitted.
+
 | operationId | Method and path | Success | Module-specific problems |
 |---|---|---|---|
-| `bookShipment` | `POST /api/v1/shipments` (header `Idempotency-Key`) | `201` `Shipment`; `200` replay with `Idempotency-Replayed: true` | `404 quote-not-found`, `404 offer-not-found`, `409 quote-already-booked`, `422 quote-expired`, `422 recipient-does-not-match-quote`, `422 idempotency-key-reused` |
-| `listShipments` | `GET /api/v1/shipments?limit&cursor&status` | `200` `ShipmentPage` | `400 validation-failed` for a bad cursor |
+| `bookShipment` | `POST /api/v1/shipments` (header `Idempotency-Key`) | `201` `Shipment`, header `Location`; `200` `Shipment`, headers `Location`, `Idempotency-Replayed` | `404 quote-not-found`, `404 offer-not-found`, `409 quote-already-booked`, `422 quote-expired`, `422 recipient-does-not-match-quote`, `422 idempotency-key-reused` |
+| `listShipments` | `GET /api/v1/shipments?limit&cursor&status` | `200` `ShipmentPage` | none |
 | `getShipment` | `GET /api/v1/shipments/{shipmentId}` | `200` `Shipment` | `404 shipment-not-found` |
 | `cancelShipment` (planned) | `POST /api/v1/shipments/{shipmentId}/cancellation` | `200` `Shipment` | `404 shipment-not-found` |
-| `getShipmentLabel` | `GET /api/v1/shipments/{shipmentId}/label` | `200` `image/svg+xml` | `404 shipment-not-found`; planned: `409 shipment-cancelled` |
+| `getShipmentLabel` | `GET /api/v1/shipments/{shipmentId}/label` | `200` `image/svg+xml`, headers `Content-Disposition`, `X-Content-Type-Options`, `Content-Security-Policy` | `404 shipment-not-found`, `409 shipment-cancelled` (planned) |
 
 ## Events
 

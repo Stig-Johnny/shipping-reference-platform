@@ -194,9 +194,10 @@ class BrainGeneratorTest {
                         + "prototype-flag.spec.ts | none yet |").doesNotContain("| shipped |");
         Capability planned = sources().capabilities().controls().stream()
                 .filter(c -> c.status() == Capability.Status.PLANNED).findFirst().orElseThrow();
-        assertThat(file(files, "BRAIN.md")).contains("| `control.brain-check` | shipped | `java` | "
+        // The check is written plain, as in the decisions' table.
+        assertThat(file(files, "BRAIN.md")).contains("| `control.brain-check` | shipped | java | "
                 + "BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest, ContributionPagesTest |")
-                .contains("| `" + planned.id() + "` | planned | `" + planned.check() + "` | none yet |");
+                .contains("| `" + planned.id() + "` | planned | " + planned.check() + " | none yet |");
     }
 
     @Test

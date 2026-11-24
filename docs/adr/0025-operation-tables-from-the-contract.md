@@ -7,9 +7,8 @@ date: 2026-11-24
 decision-makers: orchestrating agent, under the repository owner's standing delegation
 enforcedBy:
   - "java: the documentation check fails on a malformed problem registry, a second registry section, a line of its section outside its table that holds a pipe, a type registered twice or raised by an unknown owner; on a problem response whose description does not start with registered types of its status, whose key is no status code, that has a description beside its $ref or references another reference; and on a path item's $ref, webhooks, callbacks and an operationId twice (ContractProblemsTest)"
-  - "java: every operation, and every problem type that the registry gives a module or any module, is named by a capability of that module, and an operation or a problem type is planned while every capability that names it is planned; the brain marks a planned operation, and each operation's API page takes its state and evidence from the capabilities that name it (OperationBindingsTest, SitePagesTest)"
-plannedEnforcement:
-  - "java: each module document's section that starts with the heading HTTP operations is generated from the contract and those capabilities, and checkGenerated fails on any difference (issue 155)"
+  - "java: every operation, and every problem type that the registry gives a module or any module, is named by a capability of its module, or of any module for a type of any module, and an operation or a problem type is planned while every capability that names it is planned; the brain marks a planned operation, and each operation's API page takes its state and evidence from the capabilities that name it (OperationBindingsTest, SitePagesTest)"
+  - "java: each module document's section that starts with the heading HTTP operations is generated from the contract and those capabilities; generate composes the documents in memory, checks them, and only then writes, and checkGenerated fails on any difference (OperationSectionsTest, DocsToolTest)"
 ---
 
 # ADR 0025: Operation tables come from the contract and the capabilities
@@ -78,12 +77,17 @@ Option 5 reads source code, which breaks with any refactoring of a controller.
   to no module, and no capability names it. An operation or a problem type is planned when every capability that
   names it is planned. The brain marks a planned operation, and each operation's page on the site takes its
   implementation state and its evidence from the capabilities that name it; the API overview and the schemas page
-  count each of those capabilities once. A problem type's state is kept for the generated tables (issue 155); no page
-  shows it yet.
-- **The section is generated** (issue 155). The generator owns the section of `docs/modules/<tag>.md` that starts
-  with the level-2 heading HTTP operations, up to the next level-1 or level-2 heading. It writes a notice that the
-  section is generated and from what, then one row per operation: its operationId, its method and path, its success
-  responses and the problem types that the registry gives the module.
+  count each of those capabilities once. The generated sections mark a planned problem type.
+- **The section is generated.** The generator owns the section of `docs/modules/<tag>.md` that starts
+  with the level-2 heading HTTP operations, as the site's parser finds it, up to the next level-1 or level-2 heading
+  or the end. The document of each tag of the contract has exactly one such section, and a module without operations
+  has none. The generator writes a notice that the section is generated and from what, then one row per operation in
+  the contract's order: its operationId, its method and path with its query parameters' names and its required
+  headers, its success responses with their bodies and the headers that not every response carries, and the problem
+  types that the registry names the module for, with their extension member; planned operations and problem types are
+  marked. Every other byte of the document stays as written. `generate` composes the documents in memory, runs the
+  whole documentation check over the composed text and writes only when it passes; `checkGenerated` fails on any
+  difference and names the first differing line.
 
 ### Consequences
 
@@ -108,5 +112,8 @@ status or no types first, on a response key that is no status code, on a descrip
 reference to a reference, and on each form of operation above that no check would read. The documentation check runs `ContractProblems` over the contract in every `generate`,
 `checkGenerated` and site build. `OperationBindingsTest` fails on an operation or a problem type that no capability
 names, on one that a capability of another module names, and on a malformed list, and it proves the planned rule and
-the brain's mark; `SitePagesTest` proves each operation page's state and the overview's count. The generated sections
-(`planned:test:OperationSectionsTest`) come with issue 155.
+the brain's mark; `SitePagesTest` proves each operation page's state and the overview's count. `OperationSectionsTest`
+proves each module's generated section, its bounds as the site's parser finds them, the failures of a missing or a
+second section and of a section for a module without operations, and that the check reads the composed documents, so
+a link to a heading that only the replaced section held fails; `DocsToolTest` proves that checkGenerated fails on an
+edited section, that generate repairs it, and that generate writes nothing when the composed documents fail the check.

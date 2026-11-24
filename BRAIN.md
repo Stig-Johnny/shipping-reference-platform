@@ -12,7 +12,7 @@ updated: 2026-11-24
 
 A reference Java application for webshop parcel shipping: a Spring Boot modular monolith with hexagonal modules, a contract-first HTTP API, explicit SQL and tenant isolation down to PostgreSQL row-level security. A webshop's clerk quotes a parcel, books an offer and downloads a label. The data is synthetic and the carrier is simulated.
 
-**State at this commit.** 27 capabilities: 2 shipped, 9 partial, 16 planned; 23 controls: 13 shipped, 7 partial, 3 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
+**State at this commit.** 27 capabilities: 2 shipped, 9 partial, 16 planned; 23 controls: 14 shipped, 6 partial, 3 planned. A planned capability has no passing acceptance test; the test names listed for it are targets, not evidence.
 
 ## Read first
 
@@ -46,29 +46,29 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 
 | Control | Status | Check | Evidence |
 |---|---|---|---|
-| `control.c4-divergence` | shipped | `java` | ConformanceDivergenceTest, ArchitectureConformanceTest |
-| `control.c4-absence` | shipped | `java` | ConformanceAbsenceTest, ArchitectureConformanceTest |
-| `control.no-static-evidence-report` | shipped | `java` | ReportNoStaticEvidenceTest |
-| `control.model-validation` | shipped | `java` | RestrictedDslParserTest, MappingValidationTest |
-| `control.bytecode-evidence` | shipped | `java` | BytecodeEvidenceTest |
-| `control.deterministic-reports` | shipped | `java` | ReportDeterminismTest, ConformanceAssertionsTest, SelfConformanceTest |
-| `control.modulith-verification` | shipped | `java` | ModularityTest |
-| `control.hexagonal-layering` | shipped | `java` | HexagonalLayeringTest |
-| `control.scenario-conformance` | partial | `java` | QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, ReachabilityTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest, CoverageLedgerTest |
-| `control.external-imports` | partial | `java` | ExternalImportPolicyTest |
-| `control.table-ownership` | planned | `java` | none yet |
-| `control.migrations` | partial | `java` | MigrationFilesTest |
-| `control.http-contract` | partial | `java` | QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest, ContractExamplesTest |
-| `control.web-import-boundaries` | partial | `java` | ImportScannerTest, SourceReaderTest, JsonTest, AppConfigurationTest, WebModelValidationTest, WebConformanceTest, WebReportDeterminismTest, WebArchitectureConformanceTest |
-| `control.dependency-allowlist` | partial | `java` | ContainerEngineWorkflowTest |
-| `control.risk-classification` | planned | `risk-approval` | none yet |
-| `control.mutation-testing` | planned | `mutation` | none yet |
-| `control.brain-check` | shipped | `java` | BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest, ContributionPagesTest |
-| `control.publication-scan` | shipped | `build` | PublicationScannerTest, PagesWorkflowTest |
-| `control.agent-instructions` | shipped | `java` | AgentInstructionsTest |
-| `control.inline-references` | shipped | `java` | ReferencesTest, MarkdownRendererTest, SitePagesTest |
-| `control.behavioural-diagrams` | shipped | `java` | BehaviouralDiagramsTest, BrainGeneratorTest, MarkdownRendererTest, SitePagesTest |
-| `control.operation-tables` | partial | `java` | ContractProblemsTest, OperationBindingsTest |
+| `control.c4-divergence` | shipped | java | ConformanceDivergenceTest, ArchitectureConformanceTest |
+| `control.c4-absence` | shipped | java | ConformanceAbsenceTest, ArchitectureConformanceTest |
+| `control.no-static-evidence-report` | shipped | java | ReportNoStaticEvidenceTest |
+| `control.model-validation` | shipped | java | RestrictedDslParserTest, MappingValidationTest |
+| `control.bytecode-evidence` | shipped | java | BytecodeEvidenceTest |
+| `control.deterministic-reports` | shipped | java | ReportDeterminismTest, ConformanceAssertionsTest, SelfConformanceTest |
+| `control.modulith-verification` | shipped | java | ModularityTest |
+| `control.hexagonal-layering` | shipped | java | HexagonalLayeringTest |
+| `control.scenario-conformance` | partial | java | QuoteScenarioTest, TenantDenialScenarioTest, ScenarioFixturesTest, CoverageBypassTest, ReachabilityTest, SidecarValidationTest, ScenarioModelTest, ScenarioReportTest, CoverageLedgerTest |
+| `control.external-imports` | partial | java | ExternalImportPolicyTest |
+| `control.table-ownership` | planned | java | none yet |
+| `control.migrations` | partial | java | MigrationFilesTest |
+| `control.http-contract` | partial | java | QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest, ContractExamplesTest |
+| `control.web-import-boundaries` | partial | java | ImportScannerTest, SourceReaderTest, JsonTest, AppConfigurationTest, WebModelValidationTest, WebConformanceTest, WebReportDeterminismTest, WebArchitectureConformanceTest |
+| `control.dependency-allowlist` | partial | java | ContainerEngineWorkflowTest |
+| `control.risk-classification` | planned | risk-approval | none yet |
+| `control.mutation-testing` | planned | mutation | none yet |
+| `control.brain-check` | shipped | java | BrainGeneratorTest, BrainCheckTest, SearchPageTest, BrainMapTest, ContributionPagesTest |
+| `control.publication-scan` | shipped | build | PublicationScannerTest, PagesWorkflowTest |
+| `control.agent-instructions` | shipped | java | AgentInstructionsTest |
+| `control.inline-references` | shipped | java | ReferencesTest, MarkdownRendererTest, SitePagesTest |
+| `control.behavioural-diagrams` | shipped | java | BehaviouralDiagramsTest, BrainGeneratorTest, MarkdownRendererTest, SitePagesTest |
+| `control.operation-tables` | shipped | java | ContractProblemsTest, OperationBindingsTest, OperationSectionsTest |
 
 ## Decisions
 
@@ -125,5 +125,5 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 
 - `./gradlew :tools:docs:check`: the docs tool's tests, the drift check of these generated files and the site build.
 - `./gradlew :tools:docs:site`: build the documentation site into `tools/docs/build/site/`.
-- `./gradlew :tools:docs:generate`: regenerate this file, `docs/brain/` and `docs/architecture/`.
+- `./gradlew :tools:docs:generate`: regenerate this file, `docs/brain/`, `docs/architecture/` and the operation tables in `docs/modules/`.
 - `java tools/policy/PolicyCheck.java .`: the dependency allowlist check.

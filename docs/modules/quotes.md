@@ -2,7 +2,7 @@
 title: "Module: quotes"
 description: "Prices parcels with the synthetic tariff and issues tenant-scoped quotes whose offers expire after 30 minutes."
 status: accepted
-updated: 2026-11-21
+updated: 2026-11-24
 module: quotes
 moduleStatus: built
 riskLevel: 3
@@ -91,9 +91,20 @@ Annotated `@NamedInterface("api")` and `@NullMarked`. Everything else in the mod
 
 ## HTTP operations (`contracts/shipping.openapi.yaml`, tag `quotes`)
 
+Generated from `contracts/shipping.openapi.yaml` and `docs/capabilities/capabilities.yaml`. Edit those sources, then
+run `./gradlew :tools:docs:generate`; do not edit this section.
+
+The last column lists problem types whose registry entry explicitly names this module. "none" means none in that
+subset; common errors still apply. The API pages show each operation's declared responses, and the API overview
+documents common errors.
+
+An operation or problem is marked planned when every capability naming it is planned. An unmarked entry may still be
+partly built. Query parameters are shown by name without values; request headers shown here are required. Response
+headers common to every declared response are omitted.
+
 | operationId | Method and path | Success | Module-specific problems |
 |---|---|---|---|
-| `createQuote` | `POST /api/v1/quotes` | `201` `Quote`, `Location` | `422 no-offer-available` with `reason` |
+| `createQuote` | `POST /api/v1/quotes` | `201` `Quote`, header `Location` | `422 no-offer-available` with `reason` |
 | `getQuote` | `GET /api/v1/quotes/{quoteId}` | `200` `Quote` | `404 quote-not-found` |
 
 ## Events

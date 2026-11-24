@@ -32,6 +32,7 @@ class DocsToolTest {
     private static final String TERM = "synthetic-" + "term-one";
     private static final String DICTIONARY = TERM + "\n" + "synthetic-" + "term-two";
     private static final String REVISION = "0123456789abcdef0123456789abcdef01234567";
+    private static final String SHIPMENTS = "docs/modules/shipments.md";
 
     @TempDir
     Path dir;
@@ -247,6 +248,60 @@ class DocsToolTest {
         String printed = out.toString(StandardCharsets.UTF_8) + err.toString(StandardCharsets.UTF_8)
                 + (Files.exists(summary) ? Files.readString(summary) : "");
         assertThat(printed).doesNotContainIgnoringCase("synthetic-" + "term").doesNotContain(dir.toString());
+    }
+
+    @Test
+    void checkGeneratedFailsOnAnEditedOperationSectionAndGenerateRepairsIt() {
+        Fixture sections = Fixture.copy(dir.resolve("sections")).passingEvidence();
+        // From the sections as the sources generate them, whatever the committed ones hold.
+        assertThat(generated("generate", sections)).isZero();
+        String original = sections.read(SHIPMENTS);
+        assertThat(original).contains("| `200` `ShipmentPage` | none |");
+        String edited = original.replace("| `200` `ShipmentPage` | none |", "| `200` `Shipments` | none |");
+        sections.write(SHIPMENTS, edited);
+
+        assertThat(generated("check-generated", sections)).isEqualTo(1);
+        assertThat(err.toString(StandardCharsets.UTF_8)).contains(SHIPMENTS + ": its section HTTP operations differs "
+                + "from what the contract and the capabilities generate, first at line "
+                + lineOf(edited, "| `200` `Shipments` | none |"));
+        assertThat(generated("generate", sections)).isZero();
+        assertThat(sections.read(SHIPMENTS)).isEqualTo(original);
+        assertThat(generated("check-generated", sections)).isZero();
+        assertThat(out.toString(StandardCharsets.UTF_8)).contains("docs: the 3 generated module sections are up to "
+                + "date");
+    }
+
+    @Test
+    void generateChecksTheComposedModuleDocumentsBeforeItWritesAny() {
+        Fixture sections = Fixture.copy(dir.resolve("sections")).passingEvidence();
+        // From the sections as the sources generate them, whatever the committed ones hold.
+        assertThat(generated("generate", sections)).isZero();
+        String original = sections.read(SHIPMENTS);
+        assertThat(original).contains("| `200` `ShipmentPage` | none |");
+        // A broken reference inside the section is replaced by the generated section and passes.
+        sections.write(SHIPMENTS, original.replace("| `200` `ShipmentPage` | none |", "| `docs/missing.md` | none |"));
+        assertThat(generated("generate", sections)).isZero();
+        assertThat(sections.read(SHIPMENTS)).isEqualTo(original);
+        // A broken reference outside the section fails the check, and nothing is written.
+        String outside = original.replace("| `200` `ShipmentPage` | none |", "| `200` `Shipments` | none |")
+                .replace("## Events\n", "## Events\n\nSee `docs/missing.md`.\n");
+        sections.write(SHIPMENTS, outside);
+
+        assertThat(generated("generate", sections)).isEqualTo(1);
+        assertThat(err.toString(StandardCharsets.UTF_8)).contains("docs/missing.md");
+        assertThat(sections.read(SHIPMENTS)).isEqualTo(outside);
+    }
+
+    /** Runs generate or check-generated on a copy of the repository. */
+    private int generated(String command, Fixture copy) {
+        out.reset();
+        err.reset();
+        return run(Map.of(), command, "--repo", copy.root().toString(), "--test-results", copy.reports().toString());
+    }
+
+    /** The line, counted from 1, on which a text contains {@code part}. */
+    private static int lineOf(String text, String part) {
+        return (int) text.substring(0, text.indexOf(part)).chars().filter(c -> c == '\n').count() + 1;
     }
 
     private Path repo() {
