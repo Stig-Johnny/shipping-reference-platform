@@ -524,12 +524,12 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
   which issue 153 is to bind, and the shipment lifecycle needs a transition test, which can come with cancellation.
   The check recognises behaviour by a fence's first line: a state machine drawn as a flowchart, a standalone `.mmd`
   file, and diagrams in records, generated files and superseded ADRs are not read as behaviour.
-- **The operation tables are still written by hand.** The module documents' HTTP operation tables come from the
-  contract only when issue 155 generates them (ADR 0025). The check reads the contract's problem registry and each
-  problem response's types strictly, so a misspelled or misplaced type fails, and every operation and module problem
-  type names its capabilities, whose state the brain and the API pages show; but nothing compares the hand-written
-  tables with the contract yet. The contract names a response's types only in its prose, in the form that ADR 0025
-  sets, and a planned mark says only that every capability naming an operation is planned, not what the code serves.
+- **The operation tables show the contract's claims.** Each module document's operation section is generated from
+  the contract and the capabilities (ADR 0025), so it cannot drift from them, but it says only what they say. A
+  problem response's types are the code spans that start its description, and nothing checks the prose after them;
+  which module raises a type is the registry's claim; and a planned mark says only that every capability naming an
+  operation is planned, not what the code serves, because the bindings are checked against the contract, not the
+  code. An unmarked operation may still be built only in part.
 - **The agent entry point is checked as files, not as behaviour.** Only Claude Code reads `CLAUDE.md`. The docs
   check proves that every `AGENTS.md` has a `CLAUDE.md` beside it that only imports it (ADR 0022), not what a session
   loads or follows; `CLAUDE.local.md`, `.claude/rules/` and user, managed or ancestor instructions are outside it. The

@@ -583,12 +583,10 @@ controls:
     title: The module documents' HTTP operation tables come from the contract and the capabilities that name each operation, and the contract's problem registry and each response's problem types are read strictly.
     where: tools/docs
     check: java
-    status: partial
+    status: shipped
     target: v0.1
-    evidence: [ContractProblemsTest, OperationBindingsTest]
+    evidence: [ContractProblemsTest, OperationBindingsTest, OperationSectionsTest]
     evidenceLabel: documentation-tool
     acceptanceTests: [ContractProblemsTest, OperationBindingsTest, OperationSectionsTest]
-    negativeFixture: A malformed row, header or rule of the problem registry, a second registry section, also inside a quote or a list or under a title that differs only in whitespace or case, another table at any depth whose column names are its own, text of its section outside its table that holds a pipe, a row that an escaped pipe leaves short, a type registered twice, an unknown owner and a missing registry; a problem response that names an unregistered type or one of another status, or whose description does not start with its types; a response key that is no status code; a description beside a response's $ref and a reference to a reference; a path item's $ref, webhooks, callbacks and an operationId twice; an operation or a module problem type that no capability names, one that a capability of another module names, and a malformed list of operations or problems.
-    enforcedSubset: The contract's problem registry and the problem types of each response with status 400 or above are read strictly, and every operation and every problem type that the registry gives a module is named by a capability of that module, whose state the brain and the API pages show, in every documentation check.
-    plannedRemainder: The generated module sections (issue 155) remain.
+    negativeFixture: A malformed row, header or rule of the problem registry, a second registry section, also inside a quote or a list or under a title that differs only in whitespace or case, another table at any depth whose column names are its own, text of its section outside its table that holds a pipe, a row that an escaped pipe leaves short, a type registered twice, an unknown owner and a missing registry; a problem response that names an unregistered type or one of another status, or whose description does not start with its types; a response key that is no status code; a description beside a response's $ref and a reference to a reference; a path item's $ref, webhooks, callbacks and an operationId twice; an operation or a module problem type that no capability names, one that a capability of another module names, and a malformed list of operations or problems; a module document without its section HTTP operations, with two, or with one for a module without operations, a section that differs from what the sources generate, a value with a line break, a reference to a reference of any response, and a carriage return without a line feed.
     docs: docs/adr/0025-operation-tables-from-the-contract.md

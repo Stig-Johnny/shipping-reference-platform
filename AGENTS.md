@@ -122,8 +122,9 @@ Unknown paths are level 3. Details: `docs/risk-levels.md`, `policy/risk.json`.
 
 ## Generated files: never edit by hand
 
-`BRAIN.md`, `docs/brain/**`, `planned:path:packages/shipping-client/src/schema.d.ts`, generated documentation pages, checker
-reports and `CHANGELOG.md` (release-please). Change the source and regenerate.
+`BRAIN.md`, `docs/brain/**`, `planned:path:packages/shipping-client/src/schema.d.ts`, generated documentation pages, the
+section HTTP operations of each document in `docs/modules/` (ADR 0025), checker reports and `CHANGELOG.md`
+(release-please). Change the source and regenerate.
 
 ## Never
 

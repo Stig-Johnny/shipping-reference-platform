@@ -1,6 +1,7 @@
 package io.github.stigjohnny.docs;
 
 import io.github.stigjohnny.docs.generate.GeneratedFiles;
+import io.github.stigjohnny.docs.generate.OperationSections;
 import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.repo.TestEvidence;
 import io.github.stigjohnny.docs.scan.Finding;
@@ -131,19 +132,29 @@ public final class DocsTool {
         requirePassed(arguments);
         switch (arguments.command()) {
             case "generate" -> {
-                Map<String, String> files = GeneratedFiles.generate(Sources.read(repo, arguments.testResults()));
+                // The module documents' sections are composed and checked with everything else before anything is
+                // written (ADR 0025).
+                Sources sources = Sources.read(repo, arguments.testResults());
+                Map<String, String> sections = OperationSections.compose(sources);
+                Map<String, String> files = GeneratedFiles.generate(sources.withTexts(sections));
+                OperationSections.write(sections, repo);
                 GeneratedFiles.write(files, repo);
                 out.println("docs: wrote " + files.size() + " generated files");
+                out.println("docs: wrote " + sections.size() + " generated module sections");
             }
             case "check-generated" -> {
-                Map<String, String> files = GeneratedFiles.generate(Sources.read(repo, arguments.testResults()));
-                List<String> problems = GeneratedFiles.compare(files, repo);
+                Sources sources = Sources.read(repo, arguments.testResults());
+                Map<String, String> sections = OperationSections.compose(sources);
+                Map<String, String> files = GeneratedFiles.generate(sources.withTexts(sections));
+                List<String> problems = new ArrayList<>(OperationSections.compare(sections, repo));
+                problems.addAll(GeneratedFiles.compare(files, repo));
                 if (!problems.isEmpty()) {
                     throw new DocsException("the committed generated files are not what the sources generate; run "
                             + "./gradlew :tools:docs:generate and commit the result:\n  - "
                             + String.join("\n  - ", problems));
                 }
                 out.println("docs: the " + files.size() + " generated files are up to date");
+                out.println("docs: the " + sections.size() + " generated module sections are up to date");
             }
             case "site" -> {
                 Path directory = arguments.out();

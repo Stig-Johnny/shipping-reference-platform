@@ -113,7 +113,7 @@ public final class Brains {
                 .append("| Control | Status | Check | Evidence |\n").append("|---|---|---|---|\n");
         for (Capability control : sources.capabilities().controls()) {
             out.append("| ").append(code(control.id())).append(" | ").append(control.status().value()).append(" | ")
-                    .append(code(control.check())).append(" | ")
+                    .append(control.check()).append(" | ")
                     .append(cell(MarkdownText.list(control.evidence(), "none yet"))).append(" |\n");
         }
         out.append("\n## Decisions\n\n| ADR | Status | Enforced by |\n|---|---|---|\n");
@@ -155,7 +155,8 @@ public final class Brains {
                 .append("- ").append(code("./gradlew :tools:docs:site")).append(": build the documentation site into ")
                 .append(code("tools/docs/build/site/")).append(".\n")
                 .append("- ").append(code("./gradlew :tools:docs:generate")).append(": regenerate this file, ")
-                .append(code("docs/brain/")).append(" and ").append(code("docs/architecture/")).append(".\n")
+                .append(code("docs/brain/")).append(", ").append(code("docs/architecture/"))
+                .append(" and the operation tables in ").append(code("docs/modules/")).append(".\n")
                 .append("- ").append(code("java tools/policy/PolicyCheck.java .")).append(": the dependency "
                         + "allowlist check.\n");
         return out.toString();

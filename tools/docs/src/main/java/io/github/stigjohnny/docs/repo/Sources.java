@@ -29,7 +29,7 @@ import java.util.stream.Stream;
 public record Sources(Path repo, String readme, List<DocFile> docs, DocFile securityReadme, Capabilities capabilities,
         ApiContract contract, RiskPolicy risk, Allowlist allowlist, Map<String, ReviewRecord> reviews,
         Map<String, byte[]> reviewBytes, ParsedWorkspace workspace, Map<String, Set<String>> workflowJobs,
-        TestEvidence evidence, DependencyUsage dependencyUsage) {
+        TestEvidence evidence, DependencyUsage dependencyUsage, Map<String, String> texts) {
 
     public static final String WORKSPACE = "architecture/workspace.dsl";
     public static final String SECURITY_README = "security/README.md";
@@ -43,6 +43,7 @@ public record Sources(Path repo, String readme, List<DocFile> docs, DocFile secu
         reviews = Map.copyOf(reviews);
         reviewBytes = Map.copyOf(reviewBytes);
         workflowJobs = Map.copyOf(workflowJobs);
+        texts = Map.copyOf(texts);
     }
 
     public static Sources read(Path repo, List<Path> testReports) {
@@ -73,7 +74,26 @@ public record Sources(Path repo, String readme, List<DocFile> docs, DocFile secu
                 Capabilities.parse(text(root, Capabilities.PATH)), ApiContract.parse(text(root, ApiContract.PATH)),
                 RiskPolicy.parse(text(root, RiskPolicy.PATH)), allowlist, reviews, reviewBytes,
                 Workspaces.read(root.resolve(WORKSPACE), WORKSPACE), jobs, TestEvidence.read(root, testReports),
-                DependencyUsage.read(root));
+                DependencyUsage.read(root), Map.of());
+    }
+
+    /**
+     * These sources with some documents' text composed in memory, such as the module documents with their generated
+     * sections (ADR 0025): the checks read the composed text, and nothing is written.
+     */
+    public Sources withTexts(Map<String, String> composed) {
+        List<DocFile> replaced = docs.stream().map(d -> composed.containsKey(d.path())
+                ? DocFile.parse(d.path(), composed.get(d.path())) : d).toList();
+        Map<String, String> all = new TreeMap<>(texts);
+        all.putAll(composed);
+        return new Sources(repo, readme, replaced, securityReadme, capabilities, contract, risk, allowlist, reviews,
+                reviewBytes, workspace, workflowJobs, evidence, dependencyUsage, all);
+    }
+
+    /** A file's text: as composed in memory, if it is, or as the repository holds it. */
+    public String text(String path) {
+        String composed = texts.get(path);
+        return composed != null ? composed : text(repo, path);
     }
 
     public Optional<DocFile> doc(String path) {

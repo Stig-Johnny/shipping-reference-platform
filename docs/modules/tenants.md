@@ -2,7 +2,7 @@
 title: "Module: tenants"
 description: "Demo authentication for synthetic users, tenant derivation from membership, tenant binding for row-level security, and tenant-scoped prototype flags."
 status: accepted
-updated: 2026-11-21
+updated: 2026-11-24
 module: tenants
 moduleStatus: built
 riskLevel: 3
@@ -60,7 +60,8 @@ Every finding remains a coverage refusal; the expected verdict is `COVERAGE_INCO
 
 ## Responsibilities
 
-- Authenticate each API request with a demo bearer token (demo profile only).
+- Authenticate each API request with a demo bearer token (demo profile only). Its filter gives the `401` and `403`
+  problems of every operation.
 - Derive the tenant from the authenticated user's membership. Never from a header, path, query or body.
 - Bind the tenant to every database transaction so PostgreSQL row-level security applies (ADR 0012).
 - Offer `TenantScope` so asynchronous work (event listeners) runs in the event's tenant.
@@ -89,11 +90,26 @@ tenants depends on no other module.
 | `TenantScope` | `interface { <T> T callAs(TenantId tenant, Supplier<T> work); void runAs(TenantId tenant, Runnable work); }` | Binds `tenant` to the current thread for the duration of `work` and restores the previous binding afterwards, also on exceptions. If a transaction is already active, it first applies `set_config('app.tenant_id', tenant, true)` to that transaction's connection. Binding a different tenant while a transaction with another tenant is active throws `IllegalStateException`. |
 | `MissingTenantContextException` | `final class extends RuntimeException` | |
 
-## HTTP operations and events
+## HTTP operations (`contracts/shipping.openapi.yaml`, tag `tenants`)
 
-- `getCurrentMembership`: `GET /api/v1/me`, `200` `Membership`; `401 unauthenticated`, `403 no-tenant-membership`.
-- The `401` and `403` problems for every other operation also come from this module's filter.
-- Events: none published, none consumed. `TenantScope` is how other modules' listeners run in an event's tenant.
+Generated from `contracts/shipping.openapi.yaml` and `docs/capabilities/capabilities.yaml`. Edit those sources, then
+run `./gradlew :tools:docs:generate`; do not edit this section.
+
+The last column lists problem types whose registry entry explicitly names this module. "none" means none in that
+subset; common errors still apply. The API pages show each operation's declared responses, and the API overview
+documents common errors.
+
+An operation or problem is marked planned when every capability naming it is planned. An unmarked entry may still be
+partly built. Query parameters are shown by name without values; request headers shown here are required. Response
+headers common to every declared response are omitted.
+
+| operationId | Method and path | Success | Module-specific problems |
+|---|---|---|---|
+| `getCurrentMembership` | `GET /api/v1/me` | `200` `Membership` | `401 unauthenticated`, `403 no-tenant-membership` |
+
+## Events
+
+None published, none consumed. `TenantScope` is how other modules' listeners run in an event's tenant.
 
 ## Demo authentication
 

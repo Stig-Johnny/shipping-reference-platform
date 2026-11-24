@@ -96,7 +96,9 @@ final class References {
             if (!CurrentProse.of(sources, path)) {
                 continue;
             }
-            String text = text(repo, path).replace("\r\n", "\n");
+            // A document composed in memory, such as a module document with its generated section, is read as composed.
+            String composed = sources.texts().get(path);
+            String text = (composed != null ? composed : text(repo, path)).replace("\r\n", "\n");
             int body = bodyStart(text);
             int offset = (int) text.substring(0, body).chars().filter(c -> c == '\n').count();
             for (InlineCode code : MarkdownRenderer.inlineCode(text.substring(body), path)) {

@@ -369,7 +369,8 @@ public final class Consistency {
             case RepositoryLinks.Missing missing -> new LinkDecision.Reject(missing.path() + " does not exist");
             case RepositoryLinks.RepoFile file -> {
                 if (!file.fragment().isEmpty() && file.path().endsWith(".md")) {
-                    String text = Sources.text(sources.repo(), file.path());
+                    // The target as composed in memory, if it is, such as a module document with its generated section.
+                    String text = sources.text(file.path());
                     String body = text.startsWith("---\n") ? DocFile.parse(file.path(), text).body() : text;
                     boolean found = MarkdownRenderer.headings(body, file.path()).stream()
                             .anyMatch(h -> h.id().equals(file.fragment()));
