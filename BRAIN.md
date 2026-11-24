@@ -20,8 +20,8 @@ A reference Java application for webshop parcel shipping: a Spring Boot modular 
 - [AGENTS.md](AGENTS.md): rules for agents, with scoped files in `apps/*`, `libs/*` and `security/`.
 - [docs/gaps.md](docs/gaps.md): what a green build does not prove.
 - [Contribution records](docs/contributions.md): one record per pull request with its models, reasoning effort and receipts; reviews and the merge decision are PR comments.
-- [Model runs and costs](docs/contributions/runs.md): include failed attempts, usage and cost basis; unknown is not zero. Structure validation does not prove completeness.
-- [Human site design](docs/ui/documentation-site.md): generated page search and a visual map of API modules, decisions and passing evidence; prose does not create dependency arrows.
+- [Model runs and costs](docs/contributions/runs.md): failed attempts, usage and cost basis; unknown is not zero, and a valid structure is not completeness.
+- [Human site design](docs/ui/documentation-site.md): page search and a visual map of API modules, decisions and passing evidence; prose draws no dependency arrows.
 - [docs/risk-levels.md](docs/risk-levels.md) and `policy/risk.json`: who approves what.
 
 ## Modules
@@ -68,7 +68,7 @@ From `docs/capabilities/capabilities.yaml`. Evidence is a test that exists and p
 | `control.agent-instructions` | shipped | `java` | AgentInstructionsTest |
 | `control.inline-references` | shipped | `java` | ReferencesTest, MarkdownRendererTest, SitePagesTest |
 | `control.behavioural-diagrams` | shipped | `java` | BehaviouralDiagramsTest, BrainGeneratorTest, MarkdownRendererTest, SitePagesTest |
-| `control.operation-tables` | partial | `java` | ContractProblemsTest |
+| `control.operation-tables` | partial | `java` | ContractProblemsTest, OperationBindingsTest |
 
 ## Decisions
 

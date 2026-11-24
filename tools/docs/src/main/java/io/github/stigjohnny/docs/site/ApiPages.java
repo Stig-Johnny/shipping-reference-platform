@@ -19,6 +19,9 @@ import java.util.Map;
 final class ApiPages {
 
     static final String INDEX = "api/index.html";
+    /** What the HTTP contract control's tests prove for the API as a whole, beside them on its aggregate pages. */
+    static final String API_WIDE = "These tests check the responses that the HTTP tests exercise, across the whole "
+            + "API, against the contract; each operation's page shows the evidence of the capabilities that name it.";
 
     private ApiPages() {
     }
@@ -284,15 +287,18 @@ final class ApiPages {
 
     /**
      * The API's status, on its overview and its schemas: each capability that names an operation, once, and the
-     * evidence of the HTTP contract control, which covers the whole API.
+     * passing evidence of the HTTP contract control, which covers the whole API and is said to.
      */
     private static StatusPanel status(SiteContext context) {
         List<Capability> naming = context.sources().capabilities().capabilities().stream()
                 .filter(c -> !c.operations().isEmpty()).toList();
         List<Capability> contractControls = context.sources().capabilities().controls().stream()
                 .filter(c -> c.id().equals("control.http-contract")).toList();
-        return new StatusPanel(design(context), Statuses.implementation(naming),
-                Statuses.evidence(contractControls, context.sources().evidence()));
+        List<String> passing = contractControls.stream().flatMap(c -> c.evidence().stream())
+                .filter(context.sources().evidence()::passed).toList();
+        String evidence = passing.isEmpty() ? Statuses.evidence(contractControls, context.sources().evidence())
+                : Badge.SHIPPED.html("Passing") + " " + Statuses.passed(passing, API_WIDE);
+        return new StatusPanel(design(context), Statuses.implementation(naming), evidence);
     }
 
     private static String design(SiteContext context) {

@@ -84,10 +84,10 @@ public final class Brains {
                 .append("- [docs/gaps.md](docs/gaps.md): what a green build does not prove.\n")
                 .append("- [Contribution records](docs/contributions.md): one record per pull request with its "
                         + "models, reasoning effort and receipts; reviews and the merge decision are PR comments.\n")
-                .append("- [Model runs and costs](docs/contributions/runs.md): include failed attempts, usage and "
-                        + "cost basis; unknown is not zero. Structure validation does not prove completeness.\n")
-                .append("- [Human site design](docs/ui/documentation-site.md): generated page search and a visual map "
-                        + "of API modules, decisions and passing evidence; prose does not create dependency arrows.\n")
+                .append("- [Model runs and costs](docs/contributions/runs.md): failed attempts, usage and cost basis; "
+                        + "unknown is not zero, and a valid structure is not completeness.\n")
+                .append("- [Human site design](docs/ui/documentation-site.md): page search and a visual map of API "
+                        + "modules, decisions and passing evidence; prose draws no dependency arrows.\n")
                 .append("- [docs/risk-levels.md](docs/risk-levels.md) and `policy/risk.json`: who approves what.\n\n");
         out.append("## Modules\n\nFrom ").append(code(Sources.WORKSPACE)).append(". Arrows in the model point from "
                 + "the module whose code depends on the other.\n\n")

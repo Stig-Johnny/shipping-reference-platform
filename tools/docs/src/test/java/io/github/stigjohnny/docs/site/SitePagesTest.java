@@ -51,8 +51,11 @@ class SitePagesTest {
         assertThat(statusPanel(site.text("api/bookShipment.html"))).contains("2 capabilities partial (shipments.book-from-offer, "
                 + "shipments.idempotent-booking).").contains("RequestFingerprintTest")
                 .doesNotContain("TenantsHttpContractTest");
-        assertThat(statusPanel(site.text("api/index.html"))).contains("7 capabilities partial, 1 capability planned.");
-        assertThat(statusPanel(site.text("api/schemas.html"))).contains("7 capabilities partial, 1 capability planned.");
+        for (String page : List.of("api/index.html", "api/schemas.html")) {
+            assertThat(statusPanel(site.text(page))).as(page).contains("7 capabilities partial, 1 capability planned.",
+                    "Passing", "QuotesHttpContractTest", "across the whole API, against the contract")
+                    .doesNotContain("repository tooling");
+        }
     }
 
     @Test
