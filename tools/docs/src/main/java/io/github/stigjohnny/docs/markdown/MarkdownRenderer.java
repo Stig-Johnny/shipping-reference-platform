@@ -629,25 +629,29 @@ public final class MarkdownRenderer {
     }
 
     /**
-     * Every table of a text, at any depth, as the site's parser reads it: the line it starts on and the text of its
-     * header's cells. A table without outer pipes is a table too, and a code block's text is none.
+     * Every table of a text, at any depth, as the site's parser reads and shows it: the line it starts on and its rows,
+     * the header first, each with the line it stands on and its cells. A table without outer pipes is a table too, an
+     * escaped pipe is text in a cell, and a code block's text is no table.
      */
-    public static List<TableHeader> tables(String markdown, String source) {
+    public static List<MarkdownTable> tables(String markdown, String source) {
         try {
-            List<TableHeader> tables = new ArrayList<>();
+            List<MarkdownTable> tables = new ArrayList<>();
             Deque<Node> pending = new ArrayDeque<>();
             pending.push(parse(markdown, source));
             while (!pending.isEmpty()) {
                 Node node = pending.pop();
                 if (node instanceof TableBlock table) {
-                    List<String> cells = new ArrayList<>();
-                    Node head = table.getFirstChild();
-                    Node row = head == null ? null : head.getFirstChild();
-                    for (Node cell = row == null ? null : row.getFirstChild(); cell != null; cell = cell.getNext()) {
-                        cells.add(text(cell).strip());
+                    List<MarkdownTable.Row> rows = new ArrayList<>();
+                    for (Node part = table.getFirstChild(); part != null; part = part.getNext()) {
+                        for (Node row = part.getFirstChild(); row != null; row = row.getNext()) {
+                            List<String> cells = new ArrayList<>();
+                            for (Node cell = row.getFirstChild(); cell != null; cell = cell.getNext()) {
+                                cells.add(inline(cell).strip());
+                            }
+                            rows.add(new MarkdownTable.Row(line(row) - 1, cells));
+                        }
                     }
-                    List<SourceSpan> spans = table.getSourceSpans();
-                    tables.add(new TableHeader(spans.isEmpty() ? -1 : spans.getFirst().getLineIndex(), cells));
+                    tables.add(new MarkdownTable(line(table) - 1, rows));
                 }
                 pushChildren(pending, node);
             }
@@ -655,6 +659,55 @@ public final class MarkdownRenderer {
         } catch (StackOverflowError e) {
             throw new DocsException(source + ": the document is nested too deeply to read", e);
         }
+    }
+
+    /** A cell's text as the site shows it, each code span in backticks; line breaks read as spaces. */
+    private static String inline(Node node) {
+        StringBuilder out = new StringBuilder();
+        Deque<Node> pending = new ArrayDeque<>();
+        pending.push(node);
+        while (!pending.isEmpty()) {
+            Node current = pending.pop();
+            switch (current) {
+                case Text text -> out.append(text.getLiteral());
+                case Code code -> out.append('`').append(code.getLiteral()).append('`');
+                case SoftLineBreak ignored -> out.append(' ');
+                case HardLineBreak ignored -> out.append(' ');
+                default -> {
+                    List<Node> children = children(current);
+                    for (int i = children.size() - 1; i >= 0; i--) {
+                        pending.push(children.get(i));
+                    }
+                }
+            }
+        }
+        return out.toString();
+    }
+
+    /** The text of a block that the site shows as text, at any depth: without code spans, code blocks and tables. */
+    private static String prose(Node node) {
+        StringBuilder out = new StringBuilder();
+        Deque<Node> pending = new ArrayDeque<>();
+        pending.push(node);
+        while (!pending.isEmpty()) {
+            Node current = pending.pop();
+            switch (current) {
+                case Text text -> out.append(text.getLiteral());
+                case Code ignored -> out.append(' ');
+                case FencedCodeBlock ignored -> out.append('\n');
+                case IndentedCodeBlock ignored -> out.append('\n');
+                case TableBlock ignored -> out.append('\n');
+                case SoftLineBreak ignored -> out.append('\n');
+                case HardLineBreak ignored -> out.append('\n');
+                default -> {
+                    List<Node> children = children(current);
+                    for (int i = children.size() - 1; i >= 0; i--) {
+                        pending.push(children.get(i));
+                    }
+                }
+            }
+        }
+        return out.toString();
     }
 
     /**
@@ -692,13 +745,14 @@ public final class MarkdownRenderer {
                 List<SourceSpan> spans = node.getSourceSpans();
                 int first = spans.isEmpty() ? -1 : spans.getFirst().getLineIndex();
                 int last = spans.isEmpty() ? -1 : spans.getLast().getLineIndex();
+                String prose = prose(node);
                 blocks.add(switch (node) {
                     case Heading heading -> new BlockLines(BlockLines.Kind.HEADING, heading.getLevel(),
-                            text(heading).strip(), first, last);
-                    case TableBlock ignored -> new BlockLines(BlockLines.Kind.TABLE, 0, "", first, last);
-                    case FencedCodeBlock ignored -> new BlockLines(BlockLines.Kind.CODE, 0, "", first, last);
-                    case IndentedCodeBlock ignored -> new BlockLines(BlockLines.Kind.CODE, 0, "", first, last);
-                    default -> new BlockLines(BlockLines.Kind.OTHER, 0, "", first, last);
+                            text(heading).strip(), first, last, prose);
+                    case TableBlock ignored -> new BlockLines(BlockLines.Kind.TABLE, 0, "", first, last, prose);
+                    case FencedCodeBlock ignored -> new BlockLines(BlockLines.Kind.CODE, 0, "", first, last, prose);
+                    case IndentedCodeBlock ignored -> new BlockLines(BlockLines.Kind.CODE, 0, "", first, last, prose);
+                    default -> new BlockLines(BlockLines.Kind.OTHER, 0, "", first, last, prose);
                 });
             }
             return List.copyOf(blocks);

@@ -57,17 +57,26 @@ class ContractProblemsTest {
     }
 
     @Test
-    void aRowWithoutItsPipesFailsWithinTheTableOrOutsideIt() {
+    void aRowWithoutItsPipesIsReadAsTheSiteReadsIt() {
         String last = line("| `internal-error`");
         String row = "`quote-expired` | 422 | Quote expired | shipments |";
 
         // Right after the table the site's parser reads it as a row of the table; after a blank line, as a paragraph.
         assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace(last + "\n", last + "\n    " + row + "\n")))
-                .isInstanceOf(DocsException.class).hasMessageContaining("a row of the problem registry is not | "
-                        + "`type` | status | title | raised by |: '" + row + "'");
+                .isInstanceOf(DocsException.class).hasMessageContaining("`quote-expired` is registered twice");
         assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace(last + "\n", last + "\n\n    " + row + "\n")))
                 .isInstanceOf(DocsException.class).hasMessageContaining("the problem registry is one table, and this "
-                        + "line of its section is not a row of it: '" + row + "'");
+                        + "text of its section holds a pipe outside it: '" + row + "'");
+    }
+
+    @Test
+    void anEscapedPipeIsTextInItsCell() {
+        // The site shows "Shipment cancelled| shipments" as the title and an empty owner cell.
+        String row = "| `shipment-cancelled` | 409 | Shipment cancelled\\| shipments |";
+
+        assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace(line("| `shipment-cancelled`"), "    " + row)))
+                .isInstanceOf(DocsException.class).hasMessageContaining("a row of the problem registry is not | "
+                        + "`type` | status | title | raised by |: '" + row + "'");
     }
 
     @Test
@@ -101,7 +110,8 @@ class ContractProblemsTest {
 
     /** A second title with two spaces, with a tab inside a quote, and in lower case, as the site shows each alike. */
     @ParameterizedTest
-    @ValueSource(strings = {"    ## Errors  (RFC 9457)\n\n", "    > ## Errors\t(RFC 9457)\n\n", "    ## errors (rfc 9457)\n\n"})
+    @ValueSource(strings = {"    ## Errors  (RFC 9457)\n\n", "    > ## Errors\t(RFC 9457)\n\n", "    ## errors (rfc 9457)\n\n",
+        "    ## Errors&nbsp;(RFC 9457)\n\n"})
     void aRegistryTitleIsComparedAsTheSiteShowsIt(String second) {
         assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace("    ## Errors (RFC 9457)\n", second
                 + "    ## Errors (RFC 9457)\n"))).isInstanceOf(DocsException.class).hasMessageContaining(
@@ -119,7 +129,8 @@ class ContractProblemsTest {
                 "    > | type (suffix) | status | title | raised by |\n    > |---|---|---|---|\n    > | `bad-type` | 404 | Bad | x |\n",
                 "    type (suffix) | status | title | raised by\n    ---|---|---|---\n    `bad-type` | 404 | Bad | shipping\n",
                 "    | type (suffix) | status | title | raised  by |\n    |---|---|---|---|\n    | `bad-type` | 404 | Bad | x |\n",
-                "    - Copy\n\n      | type (suffix) | status | title | raised by |\n      |---|---|---|---|\n      | `x` | 404 | B | y |\n");
+                "    - Copy\n\n      | type (suffix) | status | title | raised by |\n      |---|---|---|---|\n      | `x` | 404 | B | y |\n",
+                "    type (suffix) | status | title | raised&nbsp;by\n    ---|---|---|---\n    `bad-type` | 404 | Bad | shipping\n");
     }
 
     @ParameterizedTest
@@ -130,11 +141,20 @@ class ContractProblemsTest {
                 .hasMessageContaining("a table with the problem registry's columns stands outside its section, at line ");
     }
 
-    /** A fenced example of the registry's form, before the registry and inside its section, is code and no table. */
+    /**
+     * An example of the registry's form as code, which the site shows as code and no table: fenced before the registry,
+     * and inside its section fenced, fenced in a quote and indented in a list item.
+     */
+    static Stream<Arguments> codeExamples() {
+        String fence = "    ```text\n    | type (suffix) | status | title | raised by |\n    |---|---|---|---|\n    ```\n\n";
+        return Stream.of(Arguments.of(false, fence), Arguments.of(true, fence),
+                Arguments.of(true, "    > ```text\n    > | type (suffix) | status | title | raised by |\n    > ```\n\n"),
+                Arguments.of(true, "    - Example:\n\n              | type (suffix) | status | title | raised by |\n\n"));
+    }
+
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void aCodeExampleOfTheRegistrysFormIsNoTable(boolean inside) {
-        String example = "    ```text\n    | type (suffix) | status | title | raised by |\n    |---|---|---|---|\n    ```\n\n";
+    @MethodSource("codeExamples")
+    void aCodeExampleOfTheRegistrysFormIsNoTable(boolean inside, String example) {
         String last = line("| `internal-error`") + "\n";
         String text = inside ? CONTRACT.replace(last, last + "\n" + example) : CONTRACT.replace(
                 "    ## Errors (RFC 9457)\n", "    ## Registry format example\n\n" + example + "    ## Errors (RFC 9457)\n");

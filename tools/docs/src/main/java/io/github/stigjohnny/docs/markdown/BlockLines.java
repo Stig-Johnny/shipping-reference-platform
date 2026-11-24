@@ -8,8 +8,9 @@ package io.github.stigjohnny.docs.markdown;
  *
  * @param level a heading's level; 0 for every other block
  * @param text a heading's text; empty for every other block
+ * @param prose the block's text that the site shows as text, at any depth: without code spans, code blocks and tables
  */
-public record BlockLines(Kind kind, int level, String text, int firstLine, int lastLine) {
+public record BlockLines(Kind kind, int level, String text, int firstLine, int lastLine, String prose) {
 
     /** What a top-level block is. */
     public enum Kind {
