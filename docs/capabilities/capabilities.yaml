@@ -556,3 +556,16 @@ controls:
     acceptanceTests: [BehaviouralDiagramsTest, BrainGeneratorTest, MarkdownRendererTest, SitePagesTest]
     negativeFixture: An unlabelled sequence or state diagram, at the top level or in a list or quote; a label in another form, after another block or in another container; a label before a flowchart or before nothing; an info string other than mermaid; a first line that names no type; records, generated files and superseded ADRs, which must stay unread.
     docs: docs/adr/0024-behavioural-diagrams-are-labelled-until-a-test-compares-them.md
+  - id: control.operation-tables
+    title: The module documents' HTTP operation tables come from the contract and the capabilities that name each operation, and the contract's problem registry and each response's problem types are read strictly.
+    where: tools/docs
+    check: java
+    status: partial
+    target: v0.1
+    evidence: [ContractProblemsTest]
+    evidenceLabel: documentation-tool
+    acceptanceTests: [ContractProblemsTest, OperationBindingsTest, OperationSectionsTest]
+    negativeFixture: A malformed row, header or rule of the problem registry, a second registry section, also inside a quote or a list or under a title that differs only in whitespace or case, another table at any depth whose column names are its own, text of its section outside its table that holds a pipe, a row that an escaped pipe leaves short, a type registered twice, an unknown owner and a missing registry; a problem response that names an unregistered type or one of another status, or whose description does not start with its types; a response key that is no status code; a description beside a response's $ref and a reference to a reference; a path item's $ref, webhooks, callbacks and an operationId twice.
+    enforcedSubset: The contract's problem registry and the problem types of each response with status 400 or above are read strictly in every documentation check.
+    plannedRemainder: Capabilities naming their operations and problem types (issue 157) and the generated module sections (issue 155) remain.
+    docs: docs/adr/0025-operation-tables-from-the-contract.md

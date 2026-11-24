@@ -2,7 +2,7 @@
 title: "Model runs and cost evidence"
 description: "Recorded models, usage, cost bases and outcomes, with unsuccessful work and explicit limits on attribution and coverage."
 status: accepted
-updated: 2026-11-23
+updated: 2026-11-24
 schemaVersion: 1
 coverage: "Partial record set: 14 historical DeepSeek rounds for issues 69, 37 and 101, four supported historical Codex phases, seven current issue 111 phases, one separate root-window API comparison snapshot, 26 issue 114 rows covering planning, implementation, integration, reviews, corrections and validation, and five issue 117 rows covering diagnosis, implementation, a settings correction, independent review and review fixes. From PR #122 on, each pull request has one record, plus correction records for merged records it corrects (ADR 0021). Work and backfill dates differ. API-equivalent estimates do not establish actual billed cost; missing phases, subscription allocation, child-agent inclusion and complete delivery cost remain unknown."
 records:
@@ -2057,6 +2057,35 @@ records:
       input: "unknown"
       output: "unknown"
       scope: "The orchestrator's work on PR 158."
+      receipt: "unknown: no usage measurement available for this pull request"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-159-pull-request"
+    issue: 159
+    date: "2026-11-24"
+    role: "implementation"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "unknown"
+    base: "6d3575e82b3076c995555fd444ffb8b957275121"
+    outcome: "completed"
+    scope: "Issue 159, PR 160: the documentation tool reads the contract's problem types strictly (ADR 0025). ApiContract reads the problem registry, the table under Errors (RFC 9457) in the contract's description, into ProblemTypes, failing on a malformed row, a type twice, an owner that is no module, any module or the HTTP edge, and a missing table. ContractProblems holds every response with status 400 or above to a description that starts with registered types of its status, and refuses a response key that is no status code and a description beside a response's $ref. Also: ADR 0025, the control control.operation-tables, the README controls row, docs/gaps.md, the contract-first rule in AGENTS.md, demo 160, this record and the history entry."
+    environment: "PR 160 issue branch; macOS and reviewed Temurin 25.0.5+8; Java in tools/docs with its tests, the contract and documentation."
+    result: "Split from issue 157 for size, after Codex's design review of issue 155 asked for a defined grammar of problem references and registry owners, failing rather than filtering. Red first: against stub methods, all 16 first tests failed. A capability named without its cap: marker failed 280 documentation tests, and BRAIN.md's budget forced a shorter ADR title and file name (12266 of 12288 bytes). Codex's reviews of the head found ways for a row, a registry or an operation to escape: rows outside the table, a header or rule of any width, padded cells, reference chains, unread path items and trace, a second registry section at the top level, in a quote or under a title differing in whitespace or case, copied tables without outer pipes, with a no-break space or code in a column name, escaped pipes and raw HTML; code examples were refused. Each was fixed with a fixture, and each round's new tests failed against the code before it. The registry is now read only as the site's parser reads and shows it (MarkdownRenderer.blockLines, nestedHeadings, tables), with no-break spaces collapsed and code skipped at any depth. The documentation suite grew from 1108 to 1160 tests, all passing; ./gradlew :tools:docs:generate, ./gradlew :tools:docs:check and PolicyCheck exited 0. The reviews of the final head and the merge decision are comments on PR 160."
+    limitations: "The check reads the types that a description names first, not whether the prose after them is true. Only the responses of operations are read; which module raises a type is the registry's claim, compared with no code. BRAIN.md has 22 bytes left in its budget. Usage and cost are unknown."
+    evidence: "Issue 159, Codex's design review (issue 155 comment 7115915731), demo 160, the red and green test runs; this pull request's diff and review comments. The orchestrator's reasoning effort has no receipt, so it is recorded as unknown."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "The orchestrator's work on PR 160."
       receipt: "unknown: no usage measurement available for this pull request"
     cost:
       basis: "unknown"

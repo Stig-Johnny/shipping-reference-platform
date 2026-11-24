@@ -629,6 +629,160 @@ public final class MarkdownRenderer {
     }
 
     /**
+     * Every table of a text, at any depth, as the site's parser reads and shows it: the line it starts on and its rows,
+     * the header first, each with the line it stands on and its cells. A table without outer pipes is a table too, an
+     * escaped pipe is text in a cell, and a code block's text is no table.
+     */
+    public static List<MarkdownTable> tables(String markdown, String source) {
+        try {
+            List<MarkdownTable> tables = new ArrayList<>();
+            Deque<Node> pending = new ArrayDeque<>();
+            pending.push(parse(markdown, source));
+            while (!pending.isEmpty()) {
+                Node node = pending.pop();
+                if (node instanceof TableBlock table) {
+                    List<MarkdownTable.Row> rows = new ArrayList<>();
+                    for (Node part = table.getFirstChild(); part != null; part = part.getNext()) {
+                        for (Node row = part.getFirstChild(); row != null; row = row.getNext()) {
+                            List<String> cells = new ArrayList<>();
+                            List<String> texts = new ArrayList<>();
+                            for (Node cell = row.getFirstChild(); cell != null; cell = cell.getNext()) {
+                                cells.add(inline(cell).strip());
+                                texts.add(visible(cell).strip());
+                            }
+                            rows.add(new MarkdownTable.Row(line(row) - 1, cells, texts));
+                        }
+                    }
+                    tables.add(new MarkdownTable(line(table) - 1, rows));
+                }
+                pushChildren(pending, node);
+            }
+            return List.copyOf(tables);
+        } catch (StackOverflowError e) {
+            throw new DocsException(source + ": the document is nested too deeply to read", e);
+        }
+    }
+
+    /**
+     * A cell's text as the site shows it, each code span in backticks; raw HTML, which the site escapes, as its text,
+     * and line breaks as spaces.
+     */
+    private static String inline(Node node) {
+        return inline(node, true);
+    }
+
+    /** As {@link #inline(Node)}, each code span in backticks only when {@code delimited}. */
+    private static String inline(Node node, boolean delimited) {
+        StringBuilder out = new StringBuilder();
+        Deque<Node> pending = new ArrayDeque<>();
+        pending.push(node);
+        while (!pending.isEmpty()) {
+            Node current = pending.pop();
+            switch (current) {
+                case Text text -> out.append(text.getLiteral());
+                case Code code -> out.append(delimited ? "`" + code.getLiteral() + "`" : code.getLiteral());
+                case HtmlInline html -> out.append(html.getLiteral());
+                case SoftLineBreak ignored -> out.append(' ');
+                case HardLineBreak ignored -> out.append(' ');
+                default -> {
+                    List<Node> children = children(current);
+                    for (int i = children.size() - 1; i >= 0; i--) {
+                        pending.push(children.get(i));
+                    }
+                }
+            }
+        }
+        return out.toString();
+    }
+
+    /** A cell's text as the site shows it: a code span's text without its delimiters, raw HTML as its text. */
+    private static String visible(Node node) {
+        return inline(node, false);
+    }
+
+    /**
+     * The text of a block that the site shows as text, at any depth: raw HTML, which the site escapes, included, and
+     * without code spans, code blocks and tables.
+     */
+    private static String prose(Node node) {
+        StringBuilder out = new StringBuilder();
+        Deque<Node> pending = new ArrayDeque<>();
+        pending.push(node);
+        while (!pending.isEmpty()) {
+            Node current = pending.pop();
+            switch (current) {
+                case Text text -> out.append(text.getLiteral());
+                case HtmlInline html -> out.append(html.getLiteral());
+                case HtmlBlock html -> out.append(html.getLiteral());
+                case Code ignored -> out.append(' ');
+                case FencedCodeBlock ignored -> out.append('\n');
+                case IndentedCodeBlock ignored -> out.append('\n');
+                case TableBlock ignored -> out.append('\n');
+                case SoftLineBreak ignored -> out.append('\n');
+                case HardLineBreak ignored -> out.append('\n');
+                default -> {
+                    List<Node> children = children(current);
+                    for (int i = children.size() - 1; i >= 0; i--) {
+                        pending.push(children.get(i));
+                    }
+                }
+            }
+        }
+        return out.toString();
+    }
+
+    /**
+     * The text of every heading inside a quote, a list item or another container, which {@link #blockLines} does not
+     * show because it is no top-level block.
+     */
+    public static List<String> nestedHeadings(String markdown, String source) {
+        try {
+            List<String> texts = new ArrayList<>();
+            Deque<Node> pending = new ArrayDeque<>();
+            for (Node top : children(parse(markdown, source))) {
+                pushChildren(pending, top);
+            }
+            while (!pending.isEmpty()) {
+                Node node = pending.pop();
+                if (node instanceof Heading heading) {
+                    texts.add(text(heading).strip());
+                }
+                pushChildren(pending, node);
+            }
+            return List.copyOf(texts);
+        } catch (StackOverflowError e) {
+            throw new DocsException(source + ": the document is nested too deeply to read", e);
+        }
+    }
+
+    /**
+     * The top-level blocks of a text with the lines each spans, without rendering it: a heading, written with hashes or
+     * underlined, with its level and text, a table, or another block.
+     */
+    public static List<BlockLines> blockLines(String markdown, String source) {
+        try {
+            List<BlockLines> blocks = new ArrayList<>();
+            for (Node node : children(parse(markdown, source))) {
+                List<SourceSpan> spans = node.getSourceSpans();
+                int first = spans.isEmpty() ? -1 : spans.getFirst().getLineIndex();
+                int last = spans.isEmpty() ? -1 : spans.getLast().getLineIndex();
+                String prose = prose(node);
+                blocks.add(switch (node) {
+                    case Heading heading -> new BlockLines(BlockLines.Kind.HEADING, heading.getLevel(),
+                            text(heading).strip(), first, last, prose);
+                    case TableBlock ignored -> new BlockLines(BlockLines.Kind.TABLE, 0, "", first, last, prose);
+                    case FencedCodeBlock ignored -> new BlockLines(BlockLines.Kind.CODE, 0, "", first, last, prose);
+                    case IndentedCodeBlock ignored -> new BlockLines(BlockLines.Kind.CODE, 0, "", first, last, prose);
+                    default -> new BlockLines(BlockLines.Kind.OTHER, 0, "", first, last, prose);
+                });
+            }
+            return List.copyOf(blocks);
+        } catch (StackOverflowError e) {
+            throw new DocsException(source + ": the document is nested too deeply to read", e);
+        }
+    }
+
+    /**
      * The top-level blocks of a document as data, without rendering it: what a heading is only when the parser reads
      * one (a {@code ##} line inside a fence is text), each code block's info string and text, and every other block's
      * text, links, images, raw HTML and nested code blocks.
