@@ -2,7 +2,7 @@
 title: "Contribution history"
 description: "Per-issue implementation, integration, review and human approval records, with exact settings where evidenced and unknowns where receipts are missing."
 status: accepted
-updated: 2026-11-23
+updated: 2026-11-24
 ---
 
 # Contribution history
@@ -1038,3 +1038,17 @@ control, the README, ADR 0012 and its evidence sentence on the site, demo 158, t
 (`gpt-6-astra`, effort `xhigh`) split this work from issue 155 in its design review and asked that a problem example's
 type be one its response names; reviewing the head, it found three gaps, fixed before the merge. The reviews of the
 final head and the merge decision are comments on PR #158.
+
+## Issue 159
+
+The documentation check reads the contract's problem registry strictly, and every problem response must start its
+description with registered types of its own status (ADR 0025).
+
+[Issue 159](https://github.com/Stig-Johnny/shipping-reference-platform/issues/159) ·
+[PR #160](https://github.com/Stig-Johnny/shipping-reference-platform/pull/160).
+Base: `6d3575e82b3076c995555fd444ffb8b957275121`. Record: `issue-159-pull-request` in [model runs](runs.md).
+
+Claude Code, the orchestrator (`claude-opus-5-5`, effort unknown), wrote the tests first and then the registry reader,
+the response check, ADR 0025, the control, the README row, the gaps entry, the contract-first rule, demo 160, this entry
+and the record. Codex (`gpt-6-astra`, effort `xhigh`) set the strictness in its design review of issue 155. The reviews
+of the final head and the merge decision are comments on PR #160.
