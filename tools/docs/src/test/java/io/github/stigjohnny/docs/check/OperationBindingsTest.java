@@ -59,10 +59,10 @@ class OperationBindingsTest {
         // The partial capability list-and-read now also names cancelShipment and shipment-cancelled.
         edit("""
                     operations: [listShipments, getShipment]
-                    problems: [shipment-not-found]
+                    problems: [shipment-not-found, validation-failed]
                 """, """
                     operations: [listShipments, getShipment, cancelShipment]
-                    problems: [shipment-not-found, shipment-cancelled]
+                    problems: [shipment-not-found, validation-failed, shipment-cancelled]
                 """);
         Capabilities capabilities = sources().capabilities();
 
@@ -89,7 +89,7 @@ class OperationBindingsTest {
 
     @Test
     void aProblemTypeThatIsNotRegisteredFails() {
-        edit("    problems: [quote-not-found]\n", "    problems: [quote-not-fund]\n");
+        edit("    problems: [quote-not-found, validation-failed]\n", "    problems: [quote-not-fund]\n");
 
         assertThat(problems(sources())).contains(WHERE + "quotes.get-quote: problem type 'quote-not-fund' is no type "
                 + "of the contract's problem registry (ADR 0025)");
@@ -97,7 +97,8 @@ class OperationBindingsTest {
 
     @Test
     void aProblemTypeThatTheRegistryGivesAnotherModuleFails() {
-        edit("    problems: [no-offer-available]\n", "    problems: [no-offer-available, offer-not-found]\n");
+        edit("    problems: [no-offer-available, validation-failed]\n",
+                "    problems: [no-offer-available, validation-failed, offer-not-found]\n");
 
         assertThat(problems(sources())).containsExactly(WHERE + "quotes.create-quote: the registry gives the problem "
                 + "type 'offer-not-found' to shipments, not to quotes (ADR 0025)");
@@ -118,6 +119,26 @@ class OperationBindingsTest {
         assertThat(problems(sources())).containsExactly("contracts/shipping.openapi.yaml: no capability of "
                 + "docs/capabilities/capabilities.yaml names the problem type `shipment-cancelled`, which the registry "
                 + "gives to shipments, so its state is unknown (ADR 0025)");
+    }
+
+    @Test
+    void aProblemTypeOfAnyModuleIsNamedByACapabilityOfAnyModule() {
+        assertThat(sources().capabilities().namingProblem("validation-failed")).hasSize(6);
+        assertThat(sources().capabilities().plannedProblem("validation-failed")).isFalse();
+        fixture.edit(Capabilities.PATH, text -> text.replace(", validation-failed]", "]"));
+
+        assertThat(problems(sources())).containsExactly("contracts/shipping.openapi.yaml: no capability of "
+                + "docs/capabilities/capabilities.yaml names the problem type `validation-failed`, which the registry "
+                + "gives to any module, so its state is unknown (ADR 0025)");
+    }
+
+    @Test
+    void aProblemTypeOfTheHttpEdgeIsNamedByNoCapability() {
+        edit("    problems: [no-offer-available, validation-failed]\n",
+                "    problems: [no-offer-available, validation-failed, not-found]\n");
+
+        assertThat(problems(sources())).containsExactly(WHERE + "quotes.create-quote: the registry gives the problem "
+                + "type 'not-found' to the HTTP edge, not to quotes (ADR 0025)");
     }
 
     /** A name twice, an empty list, and a list that is no list of names. */

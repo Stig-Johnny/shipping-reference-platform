@@ -15,7 +15,7 @@ Before, nothing said which HTTP operation is built. The contract holds `cancelSh
 the generated brain page listed it like any other operation; each operation's page on the site showed the statuses of
 every capability of its module. Now each capability in `docs/capabilities/capabilities.yaml` names the operations that
 serve it and the problem types it raises, and the documentation check fails on an operation, or a problem type that
-the registry gives a module, that no capability of that module names. An operation is planned while every capability
+the registry gives a module or any module, that no capability names. An operation is planned while every capability
 that names it is planned: the brain marks `cancelShipment` as planned, and its page on the site says Planned, with no
 evidence. Every other operation's page shows its own capabilities and their passing tests (ADR 0025).
 
@@ -50,7 +50,7 @@ first. The excerpt shows the console's last lines, then the failure message that
 records for `BrainCheckTest`'s repository test:
 
 ```text
-1074 tests completed, 107 failed
+1076 tests completed, 109 failed
 > Task :tools:docs:test FAILED
 BUILD FAILED in 2m 40s
 io.github.stigjohnny.docs.DocsException: the documentation sources are inconsistent (1 problem):
@@ -65,16 +65,17 @@ excerpt leaves out other tasks' lines:
 > Task :tools:docs:checkGenerated
 docs: the 22 generated files are up to date
 > Task :tools:docs:site
-docs: wrote the site, 127 files
+docs: wrote the site, 128 files
 > Task :tools:docs:check
-BUILD SUCCESSFUL in 4m 1s
+BUILD SUCCESSFUL in 4m 5s
 ```
 
-In the site that this build wrote, read as HTML and not in a browser, [the cancellation page](https://stig-johnny.github.io/shipping-reference-platform/api/cancelShipment.html)'s
-status panel said Planned, "1 capability planned (shipments.cancel-shipment)", and None yet for its evidence; [the
+In the site that this build wrote, rendered in headless Chrome at 1280 pixels in the light and dark themes and at 390
+pixels inside a frame, [the cancellation page](https://stig-johnny.github.io/shipping-reference-platform/api/cancelShipment.html)'s
+status panel showed the badge Planned, "1 capability planned (shipments.cancel-shipment)", and None yet for its evidence; [the
 booking page](https://stig-johnny.github.io/shipping-reference-platform/api/bookShipment.html) said Partly shipped,
-two capabilities partial, with five evidence test classes, none of them another operation's; the API overview counted
-seven capabilities partial and one planned.
+two capabilities partial, with the five evidence test classes of those two, one of which, `ShipmentsHttpContractTest`,
+is evidence of listing, reading and labels too; the API overview counted seven capabilities partial and one planned.
 
 ## Limits
 
@@ -82,4 +83,4 @@ seven capabilities partial and one planned.
   proves that a controller serves an operation that a partial capability names.
 - An unmarked operation may still be built only in part: its capabilities may be partial.
 - The module documents' operation tables are still hand-written until issue 155 generates them.
-- The site's panels were read as HTML, not rendered; their component is unchanged.
+- The pages were rendered in one browser engine only, headless Chrome, at the widths above.

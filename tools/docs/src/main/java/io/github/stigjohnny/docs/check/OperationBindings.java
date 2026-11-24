@@ -10,9 +10,10 @@ import java.util.Optional;
 /**
  * The capabilities that name each HTTP operation and problem type (ADR 0025). A capability's {@code operations} are
  * operations of the contract tagged with its module, and its {@code problems} are types that the contract's registry
- * gives its module. Every operation, and every problem type that the registry gives a module, is named by at least one
- * capability, so that its state is known: it is planned while every capability that names it is planned
- * ({@link Capabilities#plannedOperation}). How a list is written is read with the capabilities.
+ * gives its module or any module. Every operation, and every problem type that the registry gives a module or any
+ * module, is named by at least one capability, so that its state is known: it is planned while every capability that
+ * names it is planned ({@link Capabilities#plannedOperation}). A type of the HTTP edge belongs to no module and no
+ * capability, and names none. How a list is written is read with the capabilities.
  */
 final class OperationBindings {
 
@@ -40,7 +41,7 @@ final class OperationBindings {
                 if (registered.isEmpty()) {
                     problems.add(where + "problem type '" + type + "' is no type of the contract's problem registry"
                             + ADR);
-                } else if (!registered.get().modules().contains(capability.module())) {
+                } else if (!registered.get().anyModule() && !registered.get().modules().contains(capability.module())) {
                     problems.add(where + "the registry gives the problem type '" + type + "' to "
                             + owners(registered.get()) + ", not to " + capability.module() + ADR);
                 }
@@ -53,7 +54,7 @@ final class OperationBindings {
             }
         }
         for (ProblemType type : contract.problemTypes()) {
-            if (!type.modules().isEmpty() && capabilities.namingProblem(type.type()).isEmpty()) {
+            if ((type.anyModule() || !type.modules().isEmpty()) && capabilities.namingProblem(type.type()).isEmpty()) {
                 problems.add(ApiContract.PATH + ": no capability of " + Capabilities.PATH + " names the problem type `"
                         + type.type() + "`, which the registry gives to " + owners(type)
                         + ", so its state is unknown" + ADR);

@@ -1055,8 +1055,8 @@ of the final head and the merge decision are comments on PR #160.
 
 ## Issue 157
 
-Each HTTP operation and module problem type of the contract names the capabilities that serve or raise it, and the
-brain and the API pages show its state; the cancellation operation shows as planned (ADR 0025).
+Each HTTP operation and module problem type of the contract names the capabilities that serve or raise it; the brain
+and the API pages show each operation's state, and the cancellation operation shows as planned (ADR 0025).
 
 [Issue 157](https://github.com/Stig-Johnny/shipping-reference-platform/issues/157) ·
 [PR #161](https://github.com/Stig-Johnny/shipping-reference-platform/pull/161).

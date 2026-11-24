@@ -32,9 +32,10 @@
 #   operations       Optional, for a capability only: the operationIds of contracts/shipping.openapi.yaml that serve
 #                    it, each tagged with the capability's module. Every operation is named by at least one capability.
 #   problems         Optional, for a capability only: the problem types of the contract's registry that it raises,
-#                    each given to the capability's module by the registry. Every problem type that the registry gives
-#                    a module is named by at least one capability. An operation or a problem type is planned while
-#                    every capability that names it is planned (ADR 0025).
+#                    each given to the capability's module, or to any module, by the registry. Every problem type that
+#                    the registry gives a module or any module is named by at least one capability; a type of the HTTP
+#                    edge is named by none. An operation or a problem type is planned while every capability that
+#                    names it is planned (ADR 0025).
 #
 # A pull request that adds passing acceptance tests moves their names into `evidence` and changes the status in the
 # same commit; `:tools:docs:checkGenerated` rejects a shipped or partial status whose evidence does not exist or did
@@ -79,7 +80,7 @@ capabilities:
     docs: docs/modules/quotes.md
     actors: [clerk]
     operations: [createQuote]
-    problems: [no-offer-available]
+    problems: [no-offer-available, validation-failed]
   - id: quotes.get-quote
     module: quotes
     title: Read a quote of the caller's tenant with its computed OPEN or EXPIRED status.
@@ -90,7 +91,7 @@ capabilities:
     docs: docs/modules/quotes.md
     actors: [clerk]
     operations: [getQuote]
-    problems: [quote-not-found]
+    problems: [quote-not-found, validation-failed]
   - id: quotes.quote-expiry
     module: quotes
     title: Offers expire 30 minutes after issue, decided by the injected clock.
@@ -121,7 +122,7 @@ capabilities:
     docs: docs/modules/shipments.md
     actors: [clerk]
     operations: [bookShipment]
-    problems: [quote-not-found, offer-not-found, quote-already-booked, quote-expired, recipient-does-not-match-quote]
+    problems: [quote-not-found, offer-not-found, quote-already-booked, quote-expired, recipient-does-not-match-quote, validation-failed]
   - id: shipments.idempotent-booking
     module: shipments
     title: The same tenant, Idempotency-Key and body return the same shipment; a reused key with another body is refused.
@@ -132,7 +133,7 @@ capabilities:
     docs: docs/modules/shipments.md
     actors: [clerk]
     operations: [bookShipment]
-    problems: [idempotency-key-reused]
+    problems: [idempotency-key-reused, validation-failed]
   - id: shipments.cancel-shipment
     module: shipments
     title: Cancel a booked shipment idempotently (BOOKED to CANCELLED).
@@ -154,7 +155,7 @@ capabilities:
     docs: docs/modules/shipments.md
     actors: [clerk]
     operations: [listShipments, getShipment]
-    problems: [shipment-not-found]
+    problems: [shipment-not-found, validation-failed]
   - id: shipments.simulated-label
     module: shipments
     title: Download a deterministic, clearly marked simulated SVG label for a booked shipment.
@@ -165,7 +166,7 @@ capabilities:
     docs: docs/modules/shipments.md
     actors: [clerk, carrier]
     operations: [getShipmentLabel]
-    problems: [shipment-not-found]
+    problems: [shipment-not-found, validation-failed]
   - id: shipments.publish-events
     module: shipments
     title: Publish ShipmentBooked and ShipmentCancelled once on commit, never on rollback.
