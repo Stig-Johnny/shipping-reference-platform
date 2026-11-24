@@ -43,7 +43,7 @@ first. The excerpt shows the console's last lines, then the failure message that
 records for `BrainCheckTest`'s repository test:
 
 ```text
-1057 tests completed, 105 failed
+1060 tests completed, 105 failed
 > Task :tools:docs:test FAILED
 BUILD FAILED in 2m 37s
 io.github.stigjohnny.docs.DocsException: the documentation sources are inconsistent (1 problem):
@@ -60,7 +60,7 @@ docs: the 22 generated files are up to date
 > Task :tools:docs:site
 docs: wrote the site, 127 files
 > Task :tools:docs:check
-BUILD SUCCESSFUL in 4m 7s
+BUILD SUCCESSFUL in 4m
 ```
 
 ## Limits
@@ -69,5 +69,7 @@ BUILD SUCCESSFUL in 4m 7s
   whether the prose after them is true.
 - It reads the responses of operations only. A response component that no operation uses is not read, and the
   problems that the contract allows on any path are read only where an operation documents them.
+- The registry is read as the site shows it, so cells beyond the header's columns, which the site drops too, are not
+  read.
 - Which module raises a type is the registry's claim; nothing compares it with the code yet. The capability bindings
   (issue 157) and the generated tables (issue 155) build on it.

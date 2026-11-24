@@ -661,7 +661,10 @@ public final class MarkdownRenderer {
         }
     }
 
-    /** A cell's text as the site shows it, each code span in backticks; line breaks read as spaces. */
+    /**
+     * A cell's text as the site shows it, each code span in backticks; raw HTML, which the site escapes, as its text,
+     * and line breaks as spaces.
+     */
     private static String inline(Node node) {
         StringBuilder out = new StringBuilder();
         Deque<Node> pending = new ArrayDeque<>();
@@ -671,6 +674,7 @@ public final class MarkdownRenderer {
             switch (current) {
                 case Text text -> out.append(text.getLiteral());
                 case Code code -> out.append('`').append(code.getLiteral()).append('`');
+                case HtmlInline html -> out.append(html.getLiteral());
                 case SoftLineBreak ignored -> out.append(' ');
                 case HardLineBreak ignored -> out.append(' ');
                 default -> {
@@ -684,7 +688,10 @@ public final class MarkdownRenderer {
         return out.toString();
     }
 
-    /** The text of a block that the site shows as text, at any depth: without code spans, code blocks and tables. */
+    /**
+     * The text of a block that the site shows as text, at any depth: raw HTML, which the site escapes, included, and
+     * without code spans, code blocks and tables.
+     */
     private static String prose(Node node) {
         StringBuilder out = new StringBuilder();
         Deque<Node> pending = new ArrayDeque<>();
@@ -693,6 +700,8 @@ public final class MarkdownRenderer {
             Node current = pending.pop();
             switch (current) {
                 case Text text -> out.append(text.getLiteral());
+                case HtmlInline html -> out.append(html.getLiteral());
+                case HtmlBlock html -> out.append(html.getLiteral());
                 case Code ignored -> out.append(' ');
                 case FencedCodeBlock ignored -> out.append('\n');
                 case IndentedCodeBlock ignored -> out.append('\n');

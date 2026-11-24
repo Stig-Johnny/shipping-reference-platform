@@ -52,7 +52,8 @@ Option 5 reads source code, which breaks with any refactoring of a controller.
 - **The problem registry is read strictly, as the site shows it.** It is the one table in the one section Errors
   (RFC 9457) of the contract's description, which runs to the next heading of its level or above. Headings, tables,
   their rows and cells are read as the site's parser reads and shows them: a table without outer pipes is a table,
-  an escaped pipe is text in its cell, and code is no table. A heading's title is compared with its whitespace, a
+  an escaped pipe is text in its cell, raw HTML, which the site escapes, is text, a column name written as code reads
+  as its text, and code is no table. Cells beyond the header's columns, which the site drops too, are not read. A heading's title is compared with its whitespace, a
   no-break space too, collapsed and in any letter case. A second such section fails, at the top level or inside a
   quote or a list, and so does any other table, at any depth, whose column names are the registry's, and text of the
   section outside the table that holds a pipe, so that no row can fall out of the registry or stand beside it; an

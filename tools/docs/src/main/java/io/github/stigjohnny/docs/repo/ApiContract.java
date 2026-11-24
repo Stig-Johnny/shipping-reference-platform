@@ -273,9 +273,13 @@ public final class ApiContract {
         return text.replaceAll("(?U)\\s+", " ").strip();
     }
 
-    /** Whether a table's column names, as the site shows them and in any case, are the registry's. */
+    /**
+     * Whether a table's column names, as the site shows them and in any case, are the registry's: a name written as
+     * code reads as its text.
+     */
     private static boolean registryColumns(List<String> cells) {
-        return REGISTRY_HEADER.equals(cells.stream().map(c -> collapse(c).toLowerCase(Locale.ROOT)).toList());
+        return REGISTRY_HEADER.equals(cells.stream().map(c -> collapse(c.replace("`", "")).toLowerCase(Locale.ROOT))
+                .toList());
     }
 
     /** Whether a heading is the registry's: its text, with whitespace collapsed as the site shows it, in any case. */
