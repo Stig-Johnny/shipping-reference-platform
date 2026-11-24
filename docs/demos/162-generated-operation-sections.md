@@ -58,7 +58,7 @@ tasks' lines:
 docs: the committed generated files are not what the sources generate; run ./gradlew :tools:docs:generate and commit the result:
   - docs/modules/shipments.md: its section HTTP operations differs from what the contract and the capabilities generate, first at line 115; run ./gradlew :tools:docs:generate (ADR 0025)
 > Task :tools:docs:checkGenerated FAILED
-BUILD FAILED in 4m 11s
+BUILD FAILED in 4m 10s
 ```
 
 Line 115 is the edited row. Then `./gradlew :tools:docs:generate` exited 0 and wrote the section back, and
@@ -79,9 +79,9 @@ excerpt leaves out other tasks' lines:
 docs: the 22 generated files are up to date
 docs: the 3 generated module sections are up to date
 > Task :tools:docs:site
-docs: wrote the site, 128 files
+docs: wrote the site, 129 files
 > Task :tools:docs:check
-BUILD SUCCESSFUL in 4m 6s
+BUILD SUCCESSFUL in 4m 7s
 ```
 
 In the site that this build wrote, rendered in headless Chrome at 1280 pixels in the light and dark themes and at 390
