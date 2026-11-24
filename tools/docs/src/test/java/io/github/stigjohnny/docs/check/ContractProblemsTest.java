@@ -8,8 +8,11 @@ import io.github.stigjohnny.docs.repo.ApiContract;
 import io.github.stigjohnny.docs.repo.ProblemType;
 import io.github.stigjohnny.docs.testing.Repository;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -42,14 +45,49 @@ class ContractProblemsTest {
         assertThat(problems(contract)).isEmpty();
     }
 
-    /** A status that is no code, a type that is no code span, and a row without its title. */
+    /** A status that is no code, a type that is no code span, a row without its title, and a blank title. */
     @ParameterizedTest
     @ValueSource(strings = {"| `quote-expired` | 42 | Quote expired | shipments |",
-        "| quote-expired | 422 | Quote expired | shipments |", "| `quote-expired` | 422 | shipments |"})
+        "| quote-expired | 422 | Quote expired | shipments |", "| `quote-expired` | 422 | shipments |",
+        "| `quote-expired` | 422 | \t | shipments |"})
     void aRowThatIsNotOfTheRegistrysFormFails(String row) {
         assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace(EXPIRED_ROW, row))).isInstanceOf(
                 DocsException.class).hasMessageContaining("contracts/shipping.openapi.yaml: a row of the problem "
                         + "registry is not | `type` | status | title | raised by |: '" + row + "'");
+    }
+
+    @Test
+    void aLineOfTheRegistrysSectionOutsideItsTableFails() {
+        String last = line("| `internal-error`");
+
+        assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace(last + "\n", last
+                + "\n    `quote-expired` | 422 | Quote expired | shipments |\n"))).isInstanceOf(DocsException.class)
+                .hasMessageContaining("the problem registry is one table, and this line of its section is not a row of "
+                        + "it: '`quote-expired` | 422 | Quote expired | shipments |'");
+    }
+
+    /** A rule of one column, a header with a cell after its last pipe, and a table under a later heading. */
+    @ParameterizedTest
+    @ValueSource(strings = {"rule", "header", "heading"})
+    void aRegistryThatIsNotOneTableOfFourColumnsUnderItsHeadingFails(String broken) {
+        String text = switch (broken) {
+            case "rule" -> CONTRACT.replace(line("|---"), "    |---|");
+            case "header" -> CONTRACT.replace(line("| type (suffix)"), line("| type (suffix)") + " extra-cell");
+            default -> CONTRACT.replace("    ## Errors (RFC 9457)\n", "    ## Errors (RFC 9457)\n\n    ## Elsewhere\n");
+        };
+
+        assertThatThrownBy(() -> ApiContract.parse(text)).isInstanceOf(DocsException.class).hasMessageContaining(
+                "the problem registry under '## Errors (RFC 9457)' is a table with the columns type (suffix), status, "
+                        + "title, raised by and at least one row");
+    }
+
+    @Test
+    void paddingInACellIsNotPartOfItsValue() {
+        String padded = EXPIRED_ROW.replace("| `quote-expired`", "|  `quote-expired`").replace("| shipments ",
+                "|  shipments");
+
+        assertThat(ApiContract.parse(CONTRACT.replace(EXPIRED_ROW, padded)).problemType("quote-expired"))
+                .hasValue(new ProblemType("quote-expired", 422, "Quote expired", List.of("shipments"), false, ""));
     }
 
     @Test
@@ -123,6 +161,52 @@ class ContractProblemsTest {
     }
 
     @Test
+    void aResponseReferenceNamesTheComponentThatDefinesTheResponse() {
+        String alias = CONTRACT.replace("    QuoteNotFound:\n", "    QuoteNotFoundAlias:\n      $ref: "
+                + "'#/components/responses/QuoteNotFound'\n    QuoteNotFound:\n");
+
+        assertThat(problems(ApiContract.parse(alias.replace(QUOTE_404, QUOTE_404.replace("QuoteNotFound'",
+                "QuoteNotFoundAlias'"))))).containsExactly("contracts/shipping.openapi.yaml getQuote 404: "
+                        + "#/components/responses/QuoteNotFoundAlias is a reference itself; reference the component "
+                        + "that defines the response (ADR 0025)");
+        assertThat(problems(ApiContract.parse(CONTRACT.replace(QUOTE_404, QUOTE_404.replace("QuoteNotFound'",
+                "QuoteMissing'"))))).containsExactly("contracts/shipping.openapi.yaml getQuote 404: "
+                        + "#/components/responses/QuoteMissing names no response (ADR 0025)");
+    }
+
+    /** A path item's reference, webhooks, callbacks and an operationId twice, which no check would read. */
+    static Stream<Arguments> unreadForms() {
+        return Stream.of(
+                Arguments.of("\npaths:\n", "\npaths:\n  /probe:\n    $ref: '#/components/pathItems/Probe'\n",
+                        "contracts/shipping.openapi.yaml /probe: a path item's $ref is not read; write its operations "
+                                + "under the path (ADR 0025)"),
+                Arguments.of("\npaths:\n", "\nwebhooks: {}\npaths:\n", "contracts/shipping.openapi.yaml: webhooks are "
+                        + "not read; write each operation under paths (ADR 0025)"),
+                Arguments.of("      operationId: getQuote\n", "      operationId: getQuote\n      callbacks: {}\n",
+                        "contracts/shipping.openapi.yaml /quotes/{quoteId} get: callbacks are not read (ADR 0025)"),
+                Arguments.of("      operationId: getShipment\n", "      operationId: getQuote\n",
+                        "contracts/shipping.openapi.yaml /shipments/{shipmentId} get: the operationId 'getQuote' names "
+                                + "another operation too (ADR 0025)"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("unreadForms")
+    void aFormOfOperationThatTheCheckDoesNotReadFails(String passage, String replacement, String message) {
+        assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace(passage, replacement)))
+                .isInstanceOf(DocsException.class).hasMessageContaining(message);
+    }
+
+    @Test
+    void aTraceOperationIsReadToo() {
+        ApiContract contract = ApiContract.parse(CONTRACT.replace("  /me:\n", "  /me:\n    trace:\n      "
+                + "operationId: traceMe\n      tags: [tenants]\n      responses:\n        '404':\n          description: "
+                + "'`quote-not-fund`: a probe.'\n"));
+
+        assertThat(problems(contract)).containsExactly("contracts/shipping.openapi.yaml traceMe 404: `quote-not-fund` "
+                + "is no type of the problem registry (ADR 0025)");
+    }
+
+    @Test
     void onlyTheCodeSpansThatStartADescriptionAreItsTypes() {
         assertThat(ApiContract.problemTypesNamed("`validation-failed` (with `errors`) or `malformed-request` (the "
                 + "body is missing, or not JSON).")).containsExactly("validation-failed", "malformed-request");
@@ -136,6 +220,11 @@ class ContractProblemsTest {
                 "`Quote-expired`.", "`quote-expired` (no end", "`quote-expired` or")) {
             assertThat(ApiContract.problemTypesNamed(none)).as(none).isEmpty();
         }
+    }
+
+    /** The line of the contract's text that contains {@code text}, with its indentation, without its line break. */
+    private static String line(String text) {
+        return CONTRACT.lines().filter(l -> l.contains(text)).findFirst().orElseThrow();
     }
 
     private static List<String> problems(ApiContract contract) {

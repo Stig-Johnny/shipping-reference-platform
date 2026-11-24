@@ -6,7 +6,7 @@ updated: 2026-11-24
 date: 2026-11-24
 decision-makers: orchestrating agent, under the repository owner's standing delegation
 enforcedBy:
-  - "java: the documentation check fails on a malformed problem registry, a type registered twice or raised by an unknown owner, and on a problem response whose description does not start with registered types of its status, whose key is no status code, or that has a description beside its $ref (ContractProblemsTest)"
+  - "java: the documentation check fails on a malformed problem registry, a line of its section outside its table that holds a pipe, a type registered twice or raised by an unknown owner; on a problem response whose description does not start with registered types of its status, whose key is no status code, that has a description beside its $ref or references another reference; and on a path item's $ref, webhooks, callbacks and an operationId twice (ContractProblemsTest)"
 plannedEnforcement:
   - "java: every operation and every problem type that the registry gives a module is named by a capability, and an operation or a problem type is planned when every capability that names it is planned; the brain and the API pages show it (issue 157)"
   - "java: each module document's section that starts with the heading HTTP operations is generated from the contract and those capabilities, and checkGenerated fails on any difference (issue 155)"
@@ -49,16 +49,22 @@ Chosen: option 1. Option 2 keeps two sources of the same facts. Option 3 takes t
 readers are sent to. Option 4 puts a second record of what is built beside the capabilities, bound to no evidence.
 Option 5 reads source code, which breaks with any refactoring of a controller.
 
-- **The problem registry is read strictly.** It is the table under the heading Errors (RFC 9457) in the contract's
-  description, with the columns type (suffix), status, title and raised by. Each row gives a type as a code span, a
-  status code, a title and its owners: `any module`, `HTTP edge` or modules that are tags of the contract, with an
-  optional note in parentheses, such as "has `reason`", which names an extension member. A malformed row, a type
-  twice, an unknown owner and a missing table fail when the contract is read.
+- **The problem registry is read strictly.** It is the one table in the section Errors (RFC 9457) of the contract's
+  description, which runs to the next heading of level 1 or 2. A line of that section outside the table that holds a
+  pipe fails, so that no row can fall out of it. The header and the rule have the four columns type (suffix), status,
+  title and raised by. Each row's cells are read stripped: a type as a code span, a status code, a title that is not
+  blank, and its owners, `any module`, `HTTP edge` or modules that are tags of the contract, with an optional note in
+  parentheses, such as "has `reason`", which names an extension member. A malformed row, a type twice, an unknown
+  owner and a missing table fail when the contract is read.
 - **A problem response names its types first.** Every response of an operation with status 400 or above starts its
   description with its problem types: code spans joined by commas and "or", each with an optional note in
   parentheses, ended by a colon, a full stop or the end. Each type is registered with the response's status; code
-  spans after them are prose. A response is keyed by its status code, and its description stands where the response
-  is defined, never beside a `$ref`, so that every use gives the same types.
+  spans after them are prose. A response is keyed by its status code, its description stands where the response is
+  defined, never beside a `$ref`, so that every use gives the same types, and a reference names the component that
+  defines the response, not another reference.
+- **Every operation is read.** The operations are those under `paths`, `trace` included. A path item's `$ref`,
+  `webhooks` and `callbacks` fail when the contract is read, because no check would read the operations they hold,
+  and an operationId names one operation.
 - **Capabilities name their operations and problem types** (issue 157). A capability, never a control, may list
   `operations` and `problems`. Each operation is tagged with the capability's module, and the registry gives each
   problem type to it. Every operation, and every problem type that the registry gives a module, is named by at least
@@ -83,8 +89,9 @@ Option 5 reads source code, which breaks with any refactoring of a controller.
 
 ### Confirmation
 
-`ContractProblemsTest` reads the registry and fails on each malformed form above, and on a response that names an
-unregistered type, a type of another status or no types first, on a response key that is no status code and on a
-description beside a `$ref`. The documentation check runs `ContractProblems` over the contract in every `generate`,
+`ContractProblemsTest` reads the registry and fails on each malformed form above, a line outside its table and a
+padded cell read as part of its value. It fails on a response that names an unregistered type, a type of another
+status or no types first, on a response key that is no status code, on a description beside a `$ref` and on a
+reference to a reference, and on each form of operation above that no check would read. The documentation check runs `ContractProblems` over the contract in every `generate`,
 `checkGenerated` and site build. The bindings (`planned:test:OperationBindingsTest`) and the generated sections
 (`planned:test:OperationSectionsTest`) come with issues 157 and 155.

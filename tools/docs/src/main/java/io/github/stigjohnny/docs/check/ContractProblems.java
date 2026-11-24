@@ -1,5 +1,6 @@
 package io.github.stigjohnny.docs.check;
 
+import io.github.stigjohnny.docs.DocsException;
 import io.github.stigjohnny.docs.repo.ApiContract;
 import io.github.stigjohnny.docs.repo.ProblemType;
 import io.github.stigjohnny.docs.yaml.YamlValue;
@@ -14,8 +15,9 @@ import java.util.Optional;
  * commas and "or", each with an optional note in parentheses, ended by a colon, a full stop or the end
  * ({@link ApiContract#problemTypesNamed}). Each must be a type of the problem registry, with the response's status;
  * code spans after them are prose. A response is keyed by its status code, and its description is written where it
- * is defined, never beside a {@code $ref}, so that each use gives the same types. The registry itself is read when the
- * contract is ({@link ApiContract#problemTypes}).
+ * is defined, never beside a {@code $ref}, so that each use gives the same types; a reference names the component that
+ * defines the response, not another reference. The registry itself, and the operations, are read when the contract
+ * is ({@link ApiContract#problemTypes}).
  */
 final class ContractProblems {
 
@@ -43,7 +45,21 @@ final class ContractProblems {
                 if (status < 400) {
                     continue;
                 }
-                YMap response = contract.ref(use).map(contract::resolve).orElse(use);
+                YMap response = use;
+                Optional<String> reference = contract.ref(use);
+                if (reference.isPresent()) {
+                    try {
+                        response = contract.resolve(reference.get());
+                    } catch (DocsException e) {
+                        problems.add(where + reference.get() + " names no response" + ADR);
+                        continue;
+                    }
+                    if (response.has("$ref")) {
+                        problems.add(where + reference.get() + " is a reference itself; reference the component that "
+                                + "defines the response" + ADR);
+                        continue;
+                    }
+                }
                 List<String> types = ApiContract.problemTypesNamed(response.optionalString("description").orElse(""));
                 if (types.isEmpty()) {
                     problems.add(where + "start the description of a problem response with its problem types, such as "

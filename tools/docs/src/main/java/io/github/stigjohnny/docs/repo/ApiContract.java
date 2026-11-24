@@ -20,14 +20,15 @@ import java.util.regex.Pattern;
 public final class ApiContract {
 
     public static final String PATH = "contracts/shipping.openapi.yaml";
-    private static final Set<String> METHODS = Set.of("get", "put", "post", "delete", "patch", "head", "options");
+    private static final Set<String> METHODS = Set.of("get", "put", "post", "delete", "patch", "head", "options",
+            "trace");
     private static final String ADR = " (ADR 0025)";
     /** The heading in the contract's description under which the problem registry stands. */
     private static final String REGISTRY = "## Errors (RFC 9457)";
     private static final List<String> REGISTRY_HEADER = List.of("type (suffix)", "status", "title", "raised by");
-    private static final Pattern REGISTRY_RULE = Pattern.compile("\\|(?: *:?-+:? *\\|)+");
-    private static final Pattern REGISTRY_ROW = Pattern.compile(
-            "\\| `([a-z]+(?:-[a-z]+)*)` *\\| ([1-5][0-9]{2}) *\\| ([^|`]*[^|` ]) *\\| ([^|]*[^| ]) *\\|");
+    private static final Pattern RULE_CELL = Pattern.compile(":?-+:?");
+    private static final Pattern TYPE_CELL = Pattern.compile("`([a-z]+(?:-[a-z]+)*)`");
+    private static final Pattern STATUS_CELL = Pattern.compile("[1-5][0-9]{2}");
     private static final Pattern OWNERS = Pattern.compile(
             "(any module|HTTP edge|[a-z]+(?:, [a-z]+)*)(?: \\(([^()]+)\\))?");
     private static final Pattern MEMBER = Pattern.compile("has `([A-Za-z]+)`");
@@ -59,14 +60,31 @@ public final class ApiContract {
     public static ApiContract parse(String text) {
         try {
             YMap root = SafeYaml.yaml(text, PATH).asMap(PATH);
+            if (root.has("webhooks")) {
+                throw new DocsException(PATH + ": webhooks are not read; write each operation under paths" + ADR);
+            }
             List<Operation> operations = new ArrayList<>();
             for (Map.Entry<String, YamlValue> path : root.map("paths").entries().entrySet()) {
-                for (Map.Entry<String, YamlValue> method : path.getValue().asMap(path.getKey()).entries().entrySet()) {
+                YMap item = path.getValue().asMap(path.getKey());
+                if (item.has("$ref")) {
+                    throw new DocsException(PATH + " " + path.getKey() + ": a path item's $ref is not read; write its "
+                            + "operations under the path" + ADR);
+                }
+                for (Map.Entry<String, YamlValue> method : item.entries().entrySet()) {
                     if (!METHODS.contains(method.getKey())) {
                         continue;
                     }
                     YMap operation = method.getValue().asMap(path.getKey() + " " + method.getKey());
-                    operations.add(new Operation(operation.string("operationId"), method.getKey().toUpperCase(
+                    String where = PATH + " " + path.getKey() + " " + method.getKey();
+                    if (operation.has("callbacks")) {
+                        throw new DocsException(where + ": callbacks are not read" + ADR);
+                    }
+                    String id = operation.string("operationId");
+                    if (operations.stream().anyMatch(o -> o.id().equals(id))) {
+                        throw new DocsException(where + ": the operationId '" + id + "' names another operation too"
+                                + ADR);
+                    }
+                    operations.add(new Operation(id, method.getKey().toUpperCase(
                             java.util.Locale.ROOT), path.getKey(), operation.strings("tags"),
                             operation.optionalString("summary").orElse(""),
                             operation.optionalString("description").orElse(""), operation));
@@ -154,9 +172,11 @@ public final class ApiContract {
     }
 
     /**
-     * The problem registry: the table under {@link #REGISTRY} in the contract's description, whose rows give each
-     * type, its status, its title and who raises it: any module, the HTTP edge, or modules named by the contract's
-     * tags, with an optional note in parentheses.
+     * The problem registry: the one table in the section {@link #REGISTRY} of the contract's description, which runs to
+     * the next heading of level 1 or 2. Its header and rule have the four columns, and each row gives a type as a code
+     * span, a status code, a title and who raises it: any module, the HTTP edge, or modules named by the contract's
+     * tags, with an optional note in parentheses. A line of the section outside the table that holds a pipe fails, so
+     * that no row is left out.
      */
     private static List<ProblemType> registry(YMap root) {
         List<String> lines = root.map("info").optionalString("description").orElse("").lines().map(String::strip)
@@ -166,47 +186,71 @@ public final class ApiContract {
             throw new DocsException(PATH + ": its description has no section '" + REGISTRY + "' with the problem "
                     + "registry" + ADR);
         }
-        List<String> table = lines.subList(heading + 1, lines.size()).stream().dropWhile(l -> !l.startsWith("|"))
-                .takeWhile(l -> l.startsWith("|")).toList();
+        int end = heading + 1;
+        while (end < lines.size() && !lines.get(end).startsWith("# ") && !lines.get(end).startsWith("## ")) {
+            end++;
+        }
+        List<String> section = lines.subList(heading + 1, end);
+        int start = 0;
+        while (start < section.size() && !section.get(start).startsWith("|")) {
+            start++;
+        }
+        int stop = start;
+        while (stop < section.size() && section.get(stop).startsWith("|")) {
+            stop++;
+        }
+        for (int i = 0; i < section.size(); i++) {
+            if ((i < start || i >= stop) && section.get(i).contains("|")) {
+                throw new DocsException(PATH + ": the problem registry is one table, and this line of its section is "
+                        + "not a row of it: '" + section.get(i) + "'" + ADR);
+            }
+        }
+        List<String> table = section.subList(start, stop);
         if (table.size() < 3 || !REGISTRY_HEADER.equals(cells(table.getFirst()))
-                || !REGISTRY_RULE.matcher(table.get(1)).matches()) {
+                || cells(table.get(1)).size() != REGISTRY_HEADER.size()
+                || !cells(table.get(1)).stream().allMatch(cell -> RULE_CELL.matcher(cell).matches())) {
             throw new DocsException(PATH + ": the problem registry under '" + REGISTRY + "' is a table with the "
                     + "columns " + String.join(", ", REGISTRY_HEADER) + " and at least one row" + ADR);
         }
         List<String> tags = root.list("tags").stream().map(t -> t.asMap("tag").string("name")).toList();
         List<ProblemType> types = new ArrayList<>();
         for (String row : table.subList(2, table.size())) {
-            Matcher cells = REGISTRY_ROW.matcher(row);
-            if (!cells.matches()) {
+            List<String> cells = cells(row);
+            Matcher type = TYPE_CELL.matcher(cells.isEmpty() ? "" : cells.getFirst());
+            if (cells.size() != REGISTRY_HEADER.size() || !type.matches()
+                    || !STATUS_CELL.matcher(cells.get(1)).matches() || cells.get(2).isBlank()
+                    || cells.get(2).contains("`")) {
                 throw new DocsException(PATH + ": a row of the problem registry is not | `type` | status | title | "
                         + "raised by |: '" + row + "'" + ADR);
             }
-            String type = cells.group(1);
-            if (types.stream().anyMatch(t -> t.type().equals(type))) {
-                throw new DocsException(PATH + ": `" + type + "` is registered twice in the problem registry" + ADR);
+            String name = type.group(1);
+            if (types.stream().anyMatch(t -> t.type().equals(name))) {
+                throw new DocsException(PATH + ": `" + name + "` is registered twice in the problem registry" + ADR);
             }
-            String raisedBy = cells.group(4);
+            String raisedBy = cells.get(3);
             Matcher owners = OWNERS.matcher(raisedBy);
             boolean known = owners.matches();
             String who = known ? owners.group(1) : "";
             List<String> modules = who.equals("any module") || who.equals("HTTP edge") || who.isEmpty() ? List.of()
                     : List.of(who.split(", "));
             if (!known || !tags.containsAll(modules)) {
-                throw new DocsException(PATH + ": `" + type + "` is raised by '" + raisedBy + "', which is none of "
+                throw new DocsException(PATH + ": `" + name + "` is raised by '" + raisedBy + "', which is none of "
                         + "any module, HTTP edge and the contract's tags " + String.join(", ", tags) + ", with an "
                         + "optional note in parentheses" + ADR);
             }
             String note = owners.group(2);
             Matcher member = MEMBER.matcher(note == null ? "" : note);
-            types.add(new ProblemType(type, Integer.parseInt(cells.group(2)), cells.group(3), modules,
+            types.add(new ProblemType(name, Integer.parseInt(cells.get(1)), cells.get(2), modules,
                     who.equals("any module"), member.matches() ? member.group(1) : ""));
         }
         return types;
     }
 
-    /** The cells of a table row, stripped. */
+    /** The cells of a table row, the text between its pipes, stripped; none unless it starts and ends with a pipe. */
     private static List<String> cells(String row) {
-        List<String> cells = List.of(row.split("\\|", -1));
-        return cells.subList(1, Math.max(1, cells.size() - 1)).stream().map(String::strip).toList();
+        if (row.length() < 2 || !row.startsWith("|") || !row.endsWith("|")) {
+            return List.of();
+        }
+        return List.of(row.substring(1, row.length() - 1).split("\\|", -1)).stream().map(String::strip).toList();
     }
 }

@@ -12,7 +12,8 @@ tests: [ContractProblemsTest]
 ## What changed
 
 Before, the documentation tool did not read the contract's problem registry, and a response named its problem types
-only in its prose, where nothing read them: a misspelled type, or a type under the wrong status, passed every check.
+only in its prose. The API's example test read them only for the responses that carry a problem example, so a
+misspelled type in any other response, such as booking's 404, or a type under the wrong status passed every check.
 Now the check reads the registry, the table under Errors (RFC 9457) in the contract's description, and fails on a
 malformed row, a type registered twice or an owner that is not any module, the HTTP edge or a module of the contract.
 Every response with status 400 or above must start its description with its problem types, each registered with that
@@ -38,13 +39,13 @@ Recorded output — not rerun by this site build.
 
 On 2026-11-24, on macOS with the reviewed Temurin 25.0.5+8, at this pull request's change, with the fixture above,
 `./gradlew :tools:docs:check` exited 1. The documentation tests copy the repository, fixture included, so they failed
-first. The excerpt shows the console's last lines, then the failure message, which a rerun of `BrainCheckTest` with the
-same fixture recorded in its report for its repository test:
+first. The excerpt shows the console's last lines, then the failure message that the test report of the same run
+records for `BrainCheckTest`'s repository test:
 
 ```text
-1025 tests completed, 103 failed
+1037 tests completed, 105 failed
 > Task :tools:docs:test FAILED
-BUILD FAILED in 2m 40s
+BUILD FAILED in 2m 55s
 io.github.stigjohnny.docs.DocsException: the documentation sources are inconsistent (1 problem):
   - contracts/shipping.openapi.yaml bookShipment 404: `offer-not-fund` is no type of the problem registry (ADR 0025)
 ```
@@ -57,9 +58,9 @@ excerpt leaves out other tasks' lines:
 > Task :tools:docs:checkGenerated
 docs: the 22 generated files are up to date
 > Task :tools:docs:site
-docs: wrote the site, 126 files
+docs: wrote the site, 127 files
 > Task :tools:docs:check
-BUILD SUCCESSFUL in 4m 2s
+BUILD SUCCESSFUL in 4m 10s
 ```
 
 ## Limits

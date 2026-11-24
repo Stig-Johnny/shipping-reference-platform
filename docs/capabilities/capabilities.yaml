@@ -565,7 +565,7 @@ controls:
     evidence: [ContractProblemsTest]
     evidenceLabel: documentation-tool
     acceptanceTests: [ContractProblemsTest, OperationBindingsTest, OperationSectionsTest]
-    negativeFixture: A malformed row of the problem registry, a type registered twice, an unknown owner and a missing registry; a problem response that names an unregistered type or one of another status, or whose description does not start with its types; a response key that is no status code; a description beside a response's $ref.
+    negativeFixture: A malformed row, header or rule of the problem registry, a line of its section outside its table, a type registered twice, an unknown owner and a missing registry; a problem response that names an unregistered type or one of another status, or whose description does not start with its types; a response key that is no status code; a description beside a response's $ref and a reference to a reference; a path item's $ref, webhooks, callbacks and an operationId twice.
     enforcedSubset: The contract's problem registry and the problem types of each response with status 400 or above are read strictly in every documentation check.
     plannedRemainder: Capabilities naming their operations and problem types (issue 157) and the generated module sections (issue 155) remain.
     docs: docs/adr/0025-operation-tables-from-the-contract.md
