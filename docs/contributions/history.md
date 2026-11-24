@@ -1066,3 +1066,18 @@ Claude Code, the orchestrator (`claude-opus-5-5`, effort unknown), wrote the tes
 check, the planned rule, the brain's mark and the API panels, and updated ADR 0025, the control, the README row, the
 gaps entry, `AGENTS.md`, demo 161, this entry and the record. Codex (`gpt-6-astra`, effort `xhigh`) set the bindings
 in its design review of issue 155. The reviews of the final head and the merge decision are comments on PR #161.
+
+## Issue 155
+
+Each module document's HTTP operations section is generated from the contract and the capabilities; an edit of it
+fails the documentation check, and generate restores it (ADR 0025).
+
+[Issue 155](https://github.com/Stig-Johnny/shipping-reference-platform/issues/155) ·
+[PR #162](https://github.com/Stig-Johnny/shipping-reference-platform/pull/162).
+Base: `d50a1c4170f242c848507a87b4e4bb6547ebf955`. Record: `issue-155-pull-request` in [model runs](runs.md).
+
+Claude Code, the orchestrator (`claude-opus-5-5`, effort unknown), wrote the tests first and then the generator, the
+composed-text reads of the reference and anchor checks and the two commands, regenerated the three module documents,
+and updated ADR 0025, the control, the README row, the gaps entry, `AGENTS.md`, demo 162, this entry and the record.
+Codex (`gpt-6-astra`, effort `xhigh`) set the notice, the columns and the edge cases in its design review of issue 155.
+The reviews of the final head and the merge decision are comments on PR #162.

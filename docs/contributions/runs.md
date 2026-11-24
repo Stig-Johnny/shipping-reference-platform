@@ -2123,6 +2123,35 @@ records:
       scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
       method: "unknown: no measured usage or billed allocation; no costs inferred"
       receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-155-pull-request"
+    issue: 155
+    date: "2026-11-24"
+    role: "implementation"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "unknown"
+    base: "d50a1c4170f242c848507a87b4e4bb6547ebf955"
+    outcome: "completed"
+    scope: "Issue 155, PR 162: each module document's HTTP operations section is generated from the contract and the capabilities (ADR 0025). OperationSections finds the one level-2 section that starts with HTTP operations as the site's parser does, writes a notice and one row per operation with planned marks, and keeps every other byte; generate composes the documents in memory, checks the composed text and only then writes, and checkGenerated fails on a difference. Also: the reference and anchor checks read composed text, ADR 0025, control.operation-tables shipped, the README row, docs/gaps.md, AGENTS.md, the tenants document's Events section, BRAIN.md's plain check column, demo 162, this record and the history entry."
+    environment: "PR 162 issue branch; macOS and reviewed Temurin 25.0.5+8; Java in tools/docs with its tests, the three module documents and documentation."
+    result: "Codex's design review of issue 155 set the notice, the columns and the edge cases, and split the work into issues 156, 159 and 157 first. Red first: against a stub generator, all 12 new tests failed, the 10 of OperationSectionsTest and two of DocsToolTest; with main's reference check and main's anchor check, which read documents from disk, the two tests that need the composed text failed. One tool test had passed against an early stub only because the hand-written table lacked the row it edits; it now requires that row first. The first repository test compared the committed sections with the generated ones, and so would have stopped ./gradlew :tools:docs:generate, which runs the tests first; the tests now start from a regenerated copy, and checkGenerated alone reports a difference. A reading of the generator before review found that the modules came from the declared tag list rather than from the tags that operations carry, and that compare normalised line endings while write did not; both are fixed, with a red test for the first. Error Prone refused a stub that left helpers unused and a string concatenation; a run that skipped compiling the stub proved nothing and was repeated. BRAIN.md: the controls table writes its check plain, 12275 of 12288 bytes. The reviews of the final head and the merge decision are comments on PR 162."
+    limitations: "The tables show the contract's and the capabilities' claims: nothing checks a problem response's prose after its types, nor which code serves an operation. An unmarked operation may be built only in part. An edit that breaks a reference inside the section fails the documentation tests before generate runs. BRAIN.md has 13 bytes left in its budget. Usage and cost are unknown."
+    evidence: "Issue 155, Codex's design review (issue 155 comment 7115915731), demo 162, the red and green test runs; this pull request's diff and review comments. The orchestrator's reasoning effort has no receipt, so it is recorded as unknown."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "The orchestrator's work on PR 162."
+      receipt: "unknown: no usage measurement available for this pull request"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
 ---
 
 # Model runs and cost evidence
