@@ -7,8 +7,8 @@ date: 2026-11-24
 decision-makers: orchestrating agent, under the repository owner's standing delegation
 enforcedBy:
   - "java: the documentation check fails on a malformed problem registry, a second registry section, a line of its section outside its table that holds a pipe, a type registered twice or raised by an unknown owner; on a problem response whose description does not start with registered types of its status, whose key is no status code, that has a description beside its $ref or references another reference; and on a path item's $ref, webhooks, callbacks and an operationId twice (ContractProblemsTest)"
+  - "java: every operation, and every problem type that the registry gives a module or any module, is named by a capability of that module, and an operation or a problem type is planned while every capability that names it is planned; the brain marks a planned operation, and each operation's API page takes its state and evidence from the capabilities that name it (OperationBindingsTest, SitePagesTest)"
 plannedEnforcement:
-  - "java: every operation and every problem type that the registry gives a module is named by a capability, and an operation or a problem type is planned when every capability that names it is planned; the brain and the API pages show it (issue 157)"
   - "java: each module document's section that starts with the heading HTTP operations is generated from the contract and those capabilities, and checkGenerated fails on any difference (issue 155)"
 ---
 
@@ -71,11 +71,15 @@ Option 5 reads source code, which breaks with any refactoring of a controller.
 - **Every operation is read.** The operations are those under `paths`, `trace` included. A path item's `$ref`,
   `webhooks` and `callbacks` fail when the contract is read, because no check would read the operations they hold,
   and an operationId names one operation.
-- **Capabilities name their operations and problem types** (issue 157). A capability, never a control, may list
+- **Capabilities name their operations and problem types.** A capability, never a control, may list
   `operations` and `problems`. Each operation is tagged with the capability's module, and the registry gives each
-  problem type to it. Every operation, and every problem type that the registry gives a module, is named by at least
-  one capability, so that none has an unknown state. An operation or a problem type is planned when every capability
-  that names it is planned.
+  problem type to it or to any module. Every operation, and every problem type that the registry gives a module or
+  any module, is named by at least one capability, so that none has an unknown state; a type of the HTTP edge belongs
+  to no module, and no capability names it. An operation or a problem type is planned when every capability that
+  names it is planned. The brain marks a planned operation, and each operation's page on the site takes its
+  implementation state and its evidence from the capabilities that name it; the API overview and the schemas page
+  count each of those capabilities once. A problem type's state is kept for the generated tables (issue 155); no page
+  shows it yet.
 - **The section is generated** (issue 155). The generator owns the section of `docs/modules/<tag>.md` that starts
   with the level-2 heading HTTP operations, up to the next level-1 or level-2 heading. It writes a notice that the
   section is generated and from what, then one row per operation: its operationId, its method and path, its success
@@ -102,5 +106,7 @@ its table, while code examples pass at any depth, and it reads a padded cell wit
 either form. It fails on a response that names an unregistered type, a type of another
 status or no types first, on a response key that is no status code, on a description beside a `$ref` and on a
 reference to a reference, and on each form of operation above that no check would read. The documentation check runs `ContractProblems` over the contract in every `generate`,
-`checkGenerated` and site build. The bindings (`planned:test:OperationBindingsTest`) and the generated sections
-(`planned:test:OperationSectionsTest`) come with issues 157 and 155.
+`checkGenerated` and site build. `OperationBindingsTest` fails on an operation or a problem type that no capability
+names, on one that a capability of another module names, and on a malformed list, and it proves the planned rule and
+the brain's mark; `SitePagesTest` proves each operation page's state and the overview's count. The generated sections
+(`planned:test:OperationSectionsTest`) come with issue 155.

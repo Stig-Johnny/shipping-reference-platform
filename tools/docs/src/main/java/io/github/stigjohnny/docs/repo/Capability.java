@@ -16,16 +16,20 @@ import java.util.List;
  * @param evidenceLabel what its evidence tests are called in a sentence, such as "documentation-tool"; may be empty
  * @param actors for a capability, the identifiers in the model of the people and external systems that take part in
  *     it; empty when it declares none, which does not establish how it is triggered, and always for controls
+ * @param operations for a capability, the operationIds of the contract that serve it; empty for controls (ADR 0025)
+ * @param problems for a capability, the problem types of the contract's registry that it raises; empty for controls
  */
 public record Capability(String id, boolean control, String module, String where, String check, String title,
         Status status, String target, List<String> evidence, List<String> acceptanceTests, String docs,
         String negativeFixture, String enforcedSubset, String plannedRemainder, String evidenceLabel,
-        List<String> actors) {
+        List<String> actors, List<String> operations, List<String> problems) {
 
     public Capability {
         evidence = List.copyOf(evidence);
         acceptanceTests = List.copyOf(acceptanceTests);
         actors = List.copyOf(actors);
+        operations = List.copyOf(operations);
+        problems = List.copyOf(problems);
     }
 
     /** The truth at the current commit, as capabilities.yaml defines it. */

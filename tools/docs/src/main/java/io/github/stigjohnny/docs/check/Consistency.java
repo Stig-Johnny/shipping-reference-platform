@@ -75,6 +75,7 @@ public final class Consistency {
         mentions(sources, problems);
         capabilities(sources, problems);
         ContractProblems.check(sources.contract(), problems);
+        OperationBindings.check(sources, problems);
         links(sources, problems);
         AgentInstructions.check(sources.repo(), problems);
         References.check(sources, problems);

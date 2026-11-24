@@ -112,6 +112,10 @@ public final class ApiContract {
         return operations;
     }
 
+    public Optional<Operation> operation(String id) {
+        return operations.stream().filter(o -> o.id().equals(id)).findFirst();
+    }
+
     public List<Operation> taggedWith(String tag) {
         return operations.stream().filter(o -> o.tags().contains(tag)).toList();
     }

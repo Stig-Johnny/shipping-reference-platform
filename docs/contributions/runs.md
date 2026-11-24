@@ -2094,6 +2094,35 @@ records:
       scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
       method: "unknown: no measured usage or billed allocation; no costs inferred"
       receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-157-pull-request"
+    issue: 157
+    date: "2026-11-24"
+    role: "implementation"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "unknown"
+    base: "d81b9f4e0592bb106252f7710481660de85fb2cf"
+    outcome: "completed"
+    scope: "Issue 157, PR 161: each HTTP operation and module problem type names its capabilities (ADR 0025). A capability lists operations and problems; OperationBindings fails on an operation or problem type of another module, an unknown one, and one that no capability names; an operation or problem type is planned while every naming capability is. The brain marks cancelShipment as planned; each operation's API page takes its state and evidence from its capabilities, and the overview and schemas count each once, with the HTTP contract control's evidence labelled as the whole API's. Also: the bindings, ADR 0025, control.operation-tables, the README row, docs/gaps.md, AGENTS.md, two shorter BRAIN.md sentences, demo 161, this record and the history entry."
+    environment: "PR 161 issue branch; macOS and reviewed Temurin 25.0.5+8; Java in tools/docs with its tests, the capabilities, the contract and documentation."
+    result: "Codex's design review of issue 155 set the bindings: capabilities rather than an x- extension, problem bindings independent of operations, operation-specific API panels with their evidence scope stated, aggregate pages counting each capability once. Red first: against stub methods, all 13 tests of OperationBindingsTest and the new site test failed; one had passed with the stub and now also requires that cancelShipment is planned before the edit. The ADR 0023 check refused ADR 0025's planned: marker once the test existed. BRAIN.md exceeded its budget by one byte with the new evidence, so two of its generated sentences were tightened (12257 of 12288 bytes). Codex's review of head 9f601e8 found validation-failed, which the registry gives any module, outside the bindings; such types are bound and required now, and three texts were corrected. The reviews of the final head and the merge decision are comments on PR 161."
+    limitations: "The bindings are checked against the contract and its registry, not against the code that serves an operation. An unmarked operation may be built only in part. The module tables are still hand-written until issue 155. BRAIN.md has 31 bytes left in its budget. Usage and cost are unknown."
+    evidence: "Issue 157, Codex's design review (issue 155 comment 7115915731), demo 161, the red and green test runs; this pull request's diff and review comments. The orchestrator's reasoning effort has no receipt, so it is recorded as unknown."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "The orchestrator's work on PR 161."
+      receipt: "unknown: no usage measurement available for this pull request"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
 ---
 
 # Model runs and cost evidence
