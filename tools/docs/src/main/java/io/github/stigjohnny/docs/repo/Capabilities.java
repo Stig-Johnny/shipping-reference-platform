@@ -50,6 +50,30 @@ public record Capabilities(List<Capability> capabilities, List<Capability> contr
         return capabilities.stream().filter(c -> c.module().equals(module)).toList();
     }
 
+    /** The capabilities that name an operation of the contract, in their order (ADR 0025). */
+    public List<Capability> naming(String operationId) {
+        return capabilities.stream().filter(c -> c.operations().contains(operationId)).toList();
+    }
+
+    /** The capabilities that name a problem type of the contract's registry, in their order. */
+    public List<Capability> namingProblem(String type) {
+        return capabilities.stream().filter(c -> c.problems().contains(type)).toList();
+    }
+
+    /** Whether an operation is planned: some capability names it, and every one that does is planned. */
+    public boolean plannedOperation(String operationId) {
+        return planned(naming(operationId));
+    }
+
+    /** Whether a problem type is planned: some capability names it, and every one that does is planned. */
+    public boolean plannedProblem(String type) {
+        return planned(namingProblem(type));
+    }
+
+    private static boolean planned(List<Capability> naming) {
+        return !naming.isEmpty() && naming.stream().allMatch(c -> c.status() == Capability.Status.PLANNED);
+    }
+
     public List<Capability> documentedIn(String docPath) {
         return all().stream().filter(c -> c.docs().equals(docPath)).toList();
     }
@@ -74,7 +98,8 @@ public record Capabilities(List<Capability> capabilities, List<Capability> contr
                     entry.optionalString("enforcedSubset").orElse(""),
                     entry.optionalString("plannedRemainder").orElse(""),
                     entry.optionalString("evidenceLabel").orElse(""),
-                    actors(entry, control, where)));
+                    actors(entry, control, where), names(entry, "operations", "getQuote", control, where),
+                    names(entry, "problems", "quote-not-found", control, where)));
         }
         return out;
     }
@@ -105,6 +130,33 @@ public record Capabilities(List<Capability> capabilities, List<Capability> contr
             actors.add(actor);
         }
         return actors;
+    }
+
+    /**
+     * A capability's optional list of names, such as its operations; none when it is left out. A control names none,
+     * and a list names something, each once.
+     */
+    private static List<String> names(YMap entry, String key, String example, boolean control, String where) {
+        Optional<YamlValue> value = entry.find(key);
+        if (value.isEmpty()) {
+            return List.of();
+        }
+        if (control) {
+            throw new DocsException(where + ": a control names no " + key);
+        }
+        if (!(value.get() instanceof YamlValue.YList list) || list.items().isEmpty()) {
+            throw new DocsException(where + ": " + key + " is a list of names, such as [" + example + "]; leave it out "
+                    + "to name none");
+        }
+        List<String> names = new ArrayList<>();
+        for (YamlValue item : list.items()) {
+            String name = item.asText(key);
+            if (names.contains(name)) {
+                throw new DocsException(where + ": " + key + " names '" + name + "' twice");
+            }
+            names.add(name);
+        }
+        return names;
     }
 
     private static List<String> evidence(YMap entry, String where) {

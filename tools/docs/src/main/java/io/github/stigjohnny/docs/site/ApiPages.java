@@ -60,7 +60,7 @@ final class ApiPages {
         }
         description.headings().forEach(h -> context.map().anchor(INDEX, h.id()));
         return new SitePage(INDEX, "API: " + contract.title() + " " + contract.version(), "Overview",
-                SiteSection.API, info.optionalString("summary").orElse(""), status(context, contract.operations()),
+                SiteSection.API, info.optionalString("summary").orElse(""), status(context),
                 contents, body, context.mentioned(info.optionalString("description").orElse("")
                         + " ADR 0012", INDEX), ApiContract.PATH, false);
     }
@@ -137,7 +137,7 @@ final class ApiPages {
         }
         return new SitePage(page, operation.id() + ": " + operation.method() + " " + contract.serverUrl()
                 + operation.path(), operation.id(), SiteSection.API, operation.summary(),
-                status(context, List.of(operation)), contents, body.toString(), related, ApiContract.PATH + ", operation "
+                status(context, operation), contents, body.toString(), related, ApiContract.PATH + ", operation "
                         + operation.id(), false);
     }
 
@@ -175,7 +175,7 @@ final class ApiPages {
             }
         }
         return new SitePage(page, "Schemas", "Schemas", SiteSection.API, "Every schema of the contract, with its "
-                + "properties and constraints.", status(context, contract.operations()), contents, body.toString(),
+                + "properties and constraints.", status(context), contents, body.toString(),
                 List.of(new SitePage.Related(INDEX, "API overview")), ApiContract.PATH + ", components.schemas", false);
     }
 
@@ -272,15 +272,32 @@ final class ApiPages {
         return "api/" + operation.id() + ".html";
     }
 
-    private static StatusPanel status(SiteContext context, List<Operation> operations) {
-        List<Capability> capabilities = new ArrayList<>();
-        operations.stream().flatMap(o -> o.tags().stream()).distinct()
-                .forEach(tag -> capabilities.addAll(context.sources().capabilities().ofModule(tag)));
+    /**
+     * An operation's own status (ADR 0025): what is built of the capabilities that name it, and their passing
+     * evidence, so that a planned operation shows as planned and with no evidence.
+     */
+    private static StatusPanel status(SiteContext context, Operation operation) {
+        List<Capability> naming = context.sources().capabilities().naming(operation.id());
+        return new StatusPanel(design(context), Statuses.implementation(naming),
+                Statuses.evidence(naming, context.sources().evidence()));
+    }
+
+    /**
+     * The API's status, on its overview and its schemas: each capability that names an operation, once, and the
+     * evidence of the HTTP contract control, which covers the whole API.
+     */
+    private static StatusPanel status(SiteContext context) {
+        List<Capability> naming = context.sources().capabilities().capabilities().stream()
+                .filter(c -> !c.operations().isEmpty()).toList();
         List<Capability> contractControls = context.sources().capabilities().controls().stream()
                 .filter(c -> c.id().equals("control.http-contract")).toList();
-        return new StatusPanel(Statuses.design("accepted", "Contract-first (ADR 0012): OpenAPI "
-                + context.sources().contract().root().string("openapi") + ", API version "
-                + context.sources().contract().version() + "."), Statuses.implementation(capabilities),
+        return new StatusPanel(design(context), Statuses.implementation(naming),
                 Statuses.evidence(contractControls, context.sources().evidence()));
+    }
+
+    private static String design(SiteContext context) {
+        return Statuses.design("accepted", "Contract-first (ADR 0012): OpenAPI "
+                + context.sources().contract().root().string("openapi") + ", API version "
+                + context.sources().contract().version() + ".");
     }
 }

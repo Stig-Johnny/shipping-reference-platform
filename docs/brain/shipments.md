@@ -38,7 +38,7 @@ Books shipments with tenant-scoped idempotency and renders simulated labels; pos
 - `POST /api/v1/shipments` `bookShipment`: Book a shipment from one offer of an open quote. Idempotent per tenant and Idempotency-Key.
 - `GET /api/v1/shipments` `listShipments`: List the caller's tenant's shipments, newest first.
 - `GET /api/v1/shipments/{shipmentId}` `getShipment`: Read one shipment of the caller's tenant.
-- `POST /api/v1/shipments/{shipmentId}/cancellation` `cancelShipment`: Cancel a booked shipment. Idempotent.
+- `POST /api/v1/shipments/{shipmentId}/cancellation` `cancelShipment` (planned): Cancel a booked shipment. Idempotent.
 - `GET /api/v1/shipments/{shipmentId}/label` `getShipmentLabel`: Download the simulated label of a booked shipment as SVG.
 
 ## Capabilities

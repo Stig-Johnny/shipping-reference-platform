@@ -525,11 +525,11 @@ The [local runbook](flows/attended-demo.md#recorded-database-evidence) records t
   The check recognises behaviour by a fence's first line: a state machine drawn as a flowchart, a standalone `.mmd`
   file, and diagrams in records, generated files and superseded ADRs are not read as behaviour.
 - **The operation tables are still written by hand.** The module documents' HTTP operation tables come from the
-  contract only when issue 155 generates them, and their planned marks from the capabilities only when issue 157 binds
-  operations and problem types to capabilities (ADR 0025). Until then the check reads the contract's problem registry
-  and each problem response's types strictly, so a misspelled or misplaced type fails, but nothing compares the
-  hand-written tables with the contract. The contract names a response's types only in its prose, in the form that
-  ADR 0025 sets.
+  contract only when issue 155 generates them (ADR 0025). The check reads the contract's problem registry and each
+  problem response's types strictly, so a misspelled or misplaced type fails, and every operation and module problem
+  type names its capabilities, whose state the brain and the API pages show; but nothing compares the hand-written
+  tables with the contract yet. The contract names a response's types only in its prose, in the form that ADR 0025
+  sets, and a planned mark says only that every capability naming an operation is planned, not what the code serves.
 - **The agent entry point is checked as files, not as behaviour.** Only Claude Code reads `CLAUDE.md`. The docs
   check proves that every `AGENTS.md` has a `CLAUDE.md` beside it that only imports it (ADR 0022), not what a session
   loads or follows; `CLAUDE.local.md`, `.claude/rules/` and user, managed or ancestor instructions are outside it. The

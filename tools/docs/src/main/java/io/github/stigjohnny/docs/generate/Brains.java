@@ -191,7 +191,9 @@ public final class Brains {
         }
         for (ApiContract.Operation operation : module.operations()) {
             out.append("- ").append(code(operation.method() + " " + sources.contract().serverUrl() + operation.path()))
-                    .append(" ").append(code(operation.id())).append(": ").append(operation.summary()).append('\n');
+                    .append(" ").append(code(operation.id()))
+                    .append(sources.capabilities().plannedOperation(operation.id()) ? " (planned)" : "").append(": ")
+                    .append(operation.summary()).append('\n');
         }
         out.append("\n## Capabilities\n\n| Capability | Status | Acceptance tests | Evidence |\n|---|---|---|---|\n");
         for (Capability capability : module.capabilities()) {

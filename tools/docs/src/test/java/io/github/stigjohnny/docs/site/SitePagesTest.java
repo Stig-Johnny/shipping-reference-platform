@@ -44,6 +44,18 @@ class SitePagesTest {
     }
 
     @Test
+    void eachOperationPageTakesItsStateFromTheCapabilitiesThatNameIt() {
+        // ADR 0025: cancellation is planned; booking has two partial capabilities and their own evidence.
+        assertThat(statusPanel(site.text("api/cancelShipment.html"))).contains("<span class=\"badge badge-planned\">Planned</span> "
+                + "1 capability planned (shipments.cancel-shipment).").contains("None yet");
+        assertThat(statusPanel(site.text("api/bookShipment.html"))).contains("2 capabilities partial (shipments.book-from-offer, "
+                + "shipments.idempotent-booking).").contains("RequestFingerprintTest")
+                .doesNotContain("TenantsHttpContractTest");
+        assertThat(statusPanel(site.text("api/index.html"))).contains("7 capabilities partial, 1 capability planned.");
+        assertThat(statusPanel(site.text("api/schemas.html"))).contains("7 capabilities partial, 1 capability planned.");
+    }
+
+    @Test
     void aJavaReaderCanReachTheWalkthroughFromStartNavigationAndSearch() {
         String page = "start/java-architecture-walkthrough.html";
         assertThat(site.text("index.html")).contains("href=\"" + page + "\"");
