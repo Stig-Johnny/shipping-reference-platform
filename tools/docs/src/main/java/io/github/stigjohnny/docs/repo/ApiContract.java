@@ -225,14 +225,14 @@ public final class ApiContract {
         }
         MarkdownTable registry = inSection.getFirst();
         for (MarkdownTable other : tables) {
-            if (other.line() != registry.line() && registryColumns(other.rows().getFirst().cells())) {
+            if (other.line() != registry.line() && registryColumns(other.rows().getFirst().texts())) {
                 throw new DocsException(PATH + ": a table with the problem registry's columns stands outside its "
                         + "section, at line " + (other.line() + 1) + " of its description; the problem registry is "
                         + "one table" + ADR);
             }
         }
         List<MarkdownTable.Row> rows = registry.rows();
-        if (rows.size() < 2 || !registryColumns(rows.getFirst().cells())) {
+        if (rows.size() < 2 || !registryColumns(rows.getFirst().texts())) {
             throw new DocsException(shape + ADR);
         }
         List<String> tags = root.list("tags").stream().map(t -> t.asMap("tag").string("name")).toList();
@@ -275,11 +275,10 @@ public final class ApiContract {
 
     /**
      * Whether a table's column names, as the site shows them and in any case, are the registry's: a name written as
-     * code reads as its text.
+     * code reads as its text, and a literal backtick stays part of it.
      */
-    private static boolean registryColumns(List<String> cells) {
-        return REGISTRY_HEADER.equals(cells.stream().map(c -> collapse(c.replace("`", "")).toLowerCase(Locale.ROOT))
-                .toList());
+    private static boolean registryColumns(List<String> texts) {
+        return REGISTRY_HEADER.equals(texts.stream().map(c -> collapse(c).toLowerCase(Locale.ROOT)).toList());
     }
 
     /** Whether a heading is the registry's: its text, with whitespace collapsed as the site shows it, in any case. */

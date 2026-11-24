@@ -70,6 +70,25 @@ class ContractProblemsTest {
     }
 
     @Test
+    void aLiteralBacktickInAColumnNameStaysPartOfIt() {
+        // The site shows sta`tus, which is no column name of the registry's.
+        String copy = """
+                    ## Other table
+
+                    | type (suffix) | sta\\`tus | title | raised by |
+                    |---|---|---|---|
+                    | a | b | c | d |
+
+                """;
+
+        assertThat(ApiContract.parse(CONTRACT.replace("    ## Errors (RFC 9457)\n", copy + "    ## Errors (RFC 9457)\n"))
+                .problemTypes()).hasSize(18);
+        assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace(line("| type (suffix)"), line("| type (suffix)")
+                .replace("| status |", "| sta\\`tus |")))).isInstanceOf(DocsException.class).hasMessageContaining(
+                        "is a table with the columns type (suffix), status, title, raised by and at least one row");
+    }
+
+    @Test
     void rawHtmlInARowIsTextAsTheSiteShowsIt() {
         // The site escapes raw HTML, so a title keeps its tags as text, and a status in tags is no status code.
         String title = line("| `shipment-cancelled`").replace("Shipment cancelled  ", "Shipment<br>cancelled");

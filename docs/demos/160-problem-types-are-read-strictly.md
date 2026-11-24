@@ -43,7 +43,7 @@ first. The excerpt shows the console's last lines, then the failure message that
 records for `BrainCheckTest`'s repository test:
 
 ```text
-1060 tests completed, 105 failed
+1061 tests completed, 105 failed
 > Task :tools:docs:test FAILED
 BUILD FAILED in 2m 37s
 io.github.stigjohnny.docs.DocsException: the documentation sources are inconsistent (1 problem):
@@ -60,7 +60,7 @@ docs: the 22 generated files are up to date
 > Task :tools:docs:site
 docs: wrote the site, 127 files
 > Task :tools:docs:check
-BUILD SUCCESSFUL in 4m
+BUILD SUCCESSFUL in 4m 5s
 ```
 
 ## Limits

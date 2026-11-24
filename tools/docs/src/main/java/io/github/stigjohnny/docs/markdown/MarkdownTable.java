@@ -13,11 +13,15 @@ public record MarkdownTable(int line, List<Row> rows) {
         rows = List.copyOf(rows);
     }
 
-    /** One row: the line it stands on, counted from 0, and its cells, as many as the header has. */
-    public record Row(int line, List<String> cells) {
+    /**
+     * One row: the line it stands on, counted from 0, and its cells, as many as the header has, each also as the text
+     * the site shows, with no code delimiters and with every other character, a literal backtick too.
+     */
+    public record Row(int line, List<String> cells, List<String> texts) {
 
         public Row {
             cells = List.copyOf(cells);
+            texts = List.copyOf(texts);
         }
     }
 }

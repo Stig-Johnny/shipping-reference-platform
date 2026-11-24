@@ -645,10 +645,12 @@ public final class MarkdownRenderer {
                     for (Node part = table.getFirstChild(); part != null; part = part.getNext()) {
                         for (Node row = part.getFirstChild(); row != null; row = row.getNext()) {
                             List<String> cells = new ArrayList<>();
+                            List<String> texts = new ArrayList<>();
                             for (Node cell = row.getFirstChild(); cell != null; cell = cell.getNext()) {
                                 cells.add(inline(cell).strip());
+                                texts.add(visible(cell).strip());
                             }
-                            rows.add(new MarkdownTable.Row(line(row) - 1, cells));
+                            rows.add(new MarkdownTable.Row(line(row) - 1, cells, texts));
                         }
                     }
                     tables.add(new MarkdownTable(line(table) - 1, rows));
@@ -666,6 +668,11 @@ public final class MarkdownRenderer {
      * and line breaks as spaces.
      */
     private static String inline(Node node) {
+        return inline(node, true);
+    }
+
+    /** As {@link #inline(Node)}, each code span in backticks only when {@code delimited}. */
+    private static String inline(Node node, boolean delimited) {
         StringBuilder out = new StringBuilder();
         Deque<Node> pending = new ArrayDeque<>();
         pending.push(node);
@@ -673,7 +680,7 @@ public final class MarkdownRenderer {
             Node current = pending.pop();
             switch (current) {
                 case Text text -> out.append(text.getLiteral());
-                case Code code -> out.append('`').append(code.getLiteral()).append('`');
+                case Code code -> out.append(delimited ? "`" + code.getLiteral() + "`" : code.getLiteral());
                 case HtmlInline html -> out.append(html.getLiteral());
                 case SoftLineBreak ignored -> out.append(' ');
                 case HardLineBreak ignored -> out.append(' ');
@@ -686,6 +693,11 @@ public final class MarkdownRenderer {
             }
         }
         return out.toString();
+    }
+
+    /** A cell's text as the site shows it: a code span's text without its delimiters, raw HTML as its text. */
+    private static String visible(Node node) {
+        return inline(node, false);
     }
 
     /**
