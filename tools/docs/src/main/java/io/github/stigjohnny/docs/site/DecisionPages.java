@@ -126,8 +126,8 @@ final class DecisionPages {
             "0002", "This verifies the generated view pages and the built modules' static dependencies against the "
                     + "model, not runtime behaviour.",
             "0011", "This verifies documentation tooling and publication controls, not shipping behaviour.",
-            "0012", "This verifies the structure of the built modules, their exercised HTTP responses and "
-                    + "detected imports in the built web parts; persistence and browser "
+            "0012", "This verifies the structure of the built modules, their exercised HTTP responses, the "
+                    + "examples in the contract and detected imports in the built web parts; persistence and browser "
                     + "behaviour remain unverified.");
 
     private static String scope(DocFile adr) {

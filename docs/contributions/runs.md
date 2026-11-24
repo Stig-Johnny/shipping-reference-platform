@@ -2036,6 +2036,35 @@ records:
       scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
       method: "unknown: no measured usage or billed allocation; no costs inferred"
       receipt: "unknown: no usage or billing receipt available"
+  - id: "issue-156-pull-request"
+    issue: 156
+    date: "2026-11-23"
+    role: "implementation"
+    tool: "Claude Code (orchestrator)"
+    model: "claude-opus-5-5"
+    checkpoint: "unknown"
+    effort: "unknown"
+    base: "455d858e89a6f70c89a42c54f0bd2b44592b7f55"
+    outcome: "completed"
+    scope: "Issue 156, PR 158: the contract's own examples are validated. ContractExamplesTest reads the nine examples of contracts/shipping.openapi.yaml, the eight named examples of request and response bodies and the Idempotency-Key parameter's example, and validates each against its schema with the HTTP contract tests' validator settings (OpenAPI 3.1 dialect, formats asserted, class path only). A problem example must be its type's problem in the registry, have its response's status, and be of a type that its response's description names. An example in a place the test does not read, or one without a value of its own, fails. Also: the HTTP contract control in capabilities.yaml, README, ADR 0012 and the site's evidence sentence for it, demo 158, this record and the history entry."
+    environment: "PR 158 issue branch; macOS and reviewed Temurin 25.0.5+8; Java tests in apps/shipping-api and the documentation."
+    result: "Split from issue 155 on Codex's design review of the tables, which also asked that a problem example's type be one its response names. Red first: against stub methods, 13 of the 14 new tests failed; the fourteenth passed with both lists empty and now requires the nine examples. Green: ContractExamplesTest 14 of 14 and ContractTest 12 of 12. With one example's title in the real contract changed, the test failed with the example's pointer and the registry's title; the contract was restored. A first version used seven classes outside the http tests' import whitelist, which ExternalImportPolicyTest refused; the code now stays within it, and the whitelist is unchanged. Error Prone's OperatorPrecedence and StringConcatToTextBlock findings were fixed. ADR 0012's evidence on the site counts nine classes, and its scope sentence names the contract's examples. Codex's review of head 8cfca5d found three gaps: a constraint beside a $ref was skipped, because the location named the component; legacy definitions and dependentRequired were misread; and a description override at a use of a response escaped the type check. The schema is now validated at its own pointer, for the HTTP contract tests' bodies and headers too; schema keywords are read by kind; such overrides fail. Each gap has a fixture, one of them a fixture contract on the class path, and each fix's removal failed its test. Reviewing those changes, Codex found draft 7's schema-valued dependencies skipped; it is read as names of schemas now, with a fixture. The reviews of the final head and the merge decision are comments on PR 158."
+    limitations: "The examples are held to the contract, not to the code: no example request runs against the API. An example's instance and correlationId are checked for their form only. A header's example, a schema's examples and components/examples fail the test instead of being validated. The negative fixtures edit passages of the contract's text, so editing such a passage means updating its fixture. Schema keywords are read by kind (JSON Schema 2020-12, draft 7's definitions and dependencies); an example inside a keyword not known to hold schemas is data and is not seen. Usage and cost are unknown."
+    evidence: "Issue 156, Codex's design review (issue 155 comment 7115915731), demo 158, the red and green test runs; this pull request's diff and review comments. The orchestrator's reasoning effort has no receipt, so it is recorded as unknown."
+    correctionOf: "none"
+    usage:
+      state: "unknown"
+      input: "unknown"
+      output: "unknown"
+      scope: "The orchestrator's work on PR 158."
+      receipt: "unknown: no usage measurement available for this pull request"
+    cost:
+      basis: "unknown"
+      amount: "unknown"
+      currency: "unknown"
+      scope: "API-equivalent estimate and actual billed allocation remain separately unknown."
+      method: "unknown: no measured usage or billed allocation; no costs inferred"
+      receipt: "unknown: no usage or billing receipt available"
 ---
 
 # Model runs and cost evidence

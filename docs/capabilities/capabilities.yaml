@@ -440,15 +440,15 @@ controls:
     negativeFixture: DDL statements attempted as shipping_app; an applied migration edited afterwards; a down script without its last statement.
     docs: docs/adr/0016-down-scripts-proven-in-ci-production-rolls-forward.md
   - id: control.http-contract
-    title: Exercised HTTP responses, including framework problems, conform to contracts/shipping.openapi.yaml.
+    title: Exercised HTTP responses, including framework problems, and the contract's own examples conform to contracts/shipping.openapi.yaml.
     where: apps/shipping-api
     check: java
     status: partial
     target: v0.1
-    evidence: [QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest]
-    acceptanceTests: [QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest]
-    negativeFixture: A response with an undocumented member, an impossible date-time, an invalid header or a problem title that is not its type's, and a status that the operation does not document and no path may give, fails validation (ContractTest).
-    enforcedSubset: Every response that the HTTP tests exercise, of GET /api/v1/me, both quote operations, shipment booking/list/detail/label and the problems that any path can give, is validated against the contract in java, on the application with test doubles for its database adapters.
+    evidence: [QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest, ContractExamplesTest]
+    acceptanceTests: [QuotesHttpContractTest, ShipmentsHttpContractTest, TenantsHttpContractTest, ProblemDetailsHttpContractTest, ContractExamplesTest]
+    negativeFixture: A response with an undocumented member, an impossible date-time, an invalid header or a problem title that is not its type's, and a status that the operation does not document and no path may give, fails validation (ContractTest). So does an example with an undocumented member, an impossible date-time or an invalid parameter value, one that a constraint beside its schema's $ref refuses, a problem example whose title, status or type is not its response's, a use of a response that overrides the description its problem example is checked against, and an example in a place that is not read (ContractExamplesTest).
+    enforcedSubset: Every response that the HTTP tests exercise, of GET /api/v1/me, both quote operations, shipment booking/list/detail/label and the problems that any path can give, is validated against the contract in java, on the application with test doubles for its database adapters. Every example of the contract is validated too, a problem example also against the registry and its response.
     plannedRemainder: Shipment cancellation, cancelled-state replay/label denial and the same responses from the PostgreSQL-backed application remain.
     docs: docs/adr/0012-first-runnable-slice-with-a-plain-typescript-workbench-and-spring-jdbc.md
   - id: control.web-import-boundaries

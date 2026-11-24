@@ -800,10 +800,10 @@ class SitePagesTest {
         // Scope the combined HTTP and web claims to the panel, not mentions in the record's body.
         String panel = record.substring(record.indexOf("<section class=\"status-panel\""));
         panel = panel.substring(0, panel.indexOf("</section>"));
-        assertThat(panel).contains("<span class=\"badge badge-shipped\">Passing</span> 8 evidence test classes passed "
+        assertThat(panel).contains("<span class=\"badge badge-shipped\">Passing</span> 9 evidence test classes passed "
                 + "in the build that generated this site. This verifies the structure of the built modules, their "
-                + "exercised HTTP responses and detected imports in the built web parts; persistence and browser "
-                + "behaviour remain unverified.")
+                + "exercised HTTP responses, the examples in the contract and detected imports in the built web parts; "
+                + "persistence and browser behaviour remain unverified.")
                 .doesNotContain(Statuses.TOOLING);
         assertThat(panel).contains("<span class=\"badge badge-partial\">Partly enforced</span> Every response that "
                 + "the HTTP tests exercise", "on the application with test doubles for its database adapters.",
@@ -817,10 +817,10 @@ class SitePagesTest {
                 "contract-e2e: Playwright and axe-core");
         List<String> implemented = List.of("ModularityTest", "HexagonalLayeringTest", "ArchitectureConformanceTest",
                 "WebArchitectureConformanceTest", "QuotesHttpContractTest", "ShipmentsHttpContractTest", "TenantsHttpContractTest",
-                "ProblemDetailsHttpContractTest");
+                "ProblemDetailsHttpContractTest", "ContractExamplesTest");
         String evidence = panel.substring(panel.indexOf("<details class=\"evidence-tests\""));
         evidence = evidence.substring(0, evidence.indexOf("</details>"));
-        assertThat(evidence).contains("Evidence test classes (8)");
+        assertThat(evidence).contains("Evidence test classes (9)");
         assertThat(evidence.substring(evidence.indexOf("<p>") + 3, evidence.indexOf("</p>")).split(", "))
                 .containsExactlyInAnyOrderElementsOf(implemented);
         String confirmation = record.substring(record.indexOf("<h3 id=\"confirmation\">Confirmation</h3>"));
