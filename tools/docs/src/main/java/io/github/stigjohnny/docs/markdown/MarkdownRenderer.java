@@ -629,6 +629,30 @@ public final class MarkdownRenderer {
     }
 
     /**
+     * The top-level blocks of a text with the lines each spans, without rendering it: a heading, written with hashes or
+     * underlined, with its level and text, a table, or another block.
+     */
+    public static List<BlockLines> blockLines(String markdown, String source) {
+        try {
+            List<BlockLines> blocks = new ArrayList<>();
+            for (Node node : children(parse(markdown, source))) {
+                List<SourceSpan> spans = node.getSourceSpans();
+                int first = spans.isEmpty() ? -1 : spans.getFirst().getLineIndex();
+                int last = spans.isEmpty() ? -1 : spans.getLast().getLineIndex();
+                blocks.add(switch (node) {
+                    case Heading heading -> new BlockLines(BlockLines.Kind.HEADING, heading.getLevel(),
+                            text(heading).strip(), first, last);
+                    case TableBlock ignored -> new BlockLines(BlockLines.Kind.TABLE, 0, "", first, last);
+                    default -> new BlockLines(BlockLines.Kind.OTHER, 0, "", first, last);
+                });
+            }
+            return List.copyOf(blocks);
+        } catch (StackOverflowError e) {
+            throw new DocsException(source + ": the document is nested too deeply to read", e);
+        }
+    }
+
+    /**
      * The top-level blocks of a document as data, without rendering it: what a heading is only when the parser reads
      * one (a {@code ##} line inside a fence is text), each code block's info string and text, and every other block's
      * text, links, images, raw HTML and nested code blocks.

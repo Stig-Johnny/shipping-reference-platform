@@ -1,6 +1,8 @@
 package io.github.stigjohnny.docs.repo;
 
 import io.github.stigjohnny.docs.DocsException;
+import io.github.stigjohnny.docs.markdown.BlockLines;
+import io.github.stigjohnny.docs.markdown.MarkdownRenderer;
 import io.github.stigjohnny.docs.yaml.SafeYaml;
 import io.github.stigjohnny.docs.yaml.YamlInputException;
 import io.github.stigjohnny.docs.yaml.YamlValue;
@@ -24,7 +26,7 @@ public final class ApiContract {
             "trace");
     private static final String ADR = " (ADR 0025)";
     /** The heading in the contract's description under which the problem registry stands. */
-    private static final String REGISTRY = "## Errors (RFC 9457)";
+    private static final String REGISTRY = "Errors (RFC 9457)";
     private static final List<String> REGISTRY_HEADER = List.of("type (suffix)", "status", "title", "raised by");
     private static final Pattern RULE_CELL = Pattern.compile(":?-+:?");
     private static final Pattern TYPE_CELL = Pattern.compile("`([a-z]+(?:-[a-z]+)*)`");
@@ -172,45 +174,54 @@ public final class ApiContract {
     }
 
     /**
-     * The problem registry: the one table in the section {@link #REGISTRY} of the contract's description, which runs to
-     * the next heading of level 1 or 2. Its header and rule have the four columns, and each row gives a type as a code
-     * span, a status code, a title and who raises it: any module, the HTTP edge, or modules named by the contract's
-     * tags, with an optional note in parentheses. A line of the section outside the table that holds a pipe fails, so
-     * that no row is left out.
+     * The problem registry: the one table in the one section {@link #REGISTRY} of the contract's description, which
+     * runs to the next heading of its level or above, headings and tables read as the site's parser reads them. Its
+     * header and rule have the four columns, and each row gives a type as a code span, a status code, a title and who
+     * raises it: any module, the HTTP edge, or modules named by the contract's tags, with an optional note in
+     * parentheses. Each line of the table is a row between pipes, and a line of the section outside the table that
+     * holds a pipe fails, so that no row is left out.
      */
     private static List<ProblemType> registry(YMap root) {
-        List<String> lines = root.map("info").optionalString("description").orElse("").lines().map(String::strip)
-                .toList();
-        int heading = lines.indexOf(REGISTRY);
-        if (heading < 0) {
-            throw new DocsException(PATH + ": its description has no section '" + REGISTRY + "' with the problem "
-                    + "registry" + ADR);
-        }
-        int end = heading + 1;
-        while (end < lines.size() && !lines.get(end).startsWith("# ") && !lines.get(end).startsWith("## ")) {
-            end++;
-        }
-        List<String> section = lines.subList(heading + 1, end);
-        int start = 0;
-        while (start < section.size() && !section.get(start).startsWith("|")) {
-            start++;
-        }
-        int stop = start;
-        while (stop < section.size() && section.get(stop).startsWith("|")) {
-            stop++;
-        }
-        for (int i = 0; i < section.size(); i++) {
-            if ((i < start || i >= stop) && section.get(i).contains("|")) {
-                throw new DocsException(PATH + ": the problem registry is one table, and this line of its section is "
-                        + "not a row of it: '" + section.get(i) + "'" + ADR);
+        String description = root.map("info").optionalString("description").orElse("");
+        List<String> lines = description.lines().map(String::strip).toList();
+        List<BlockLines> blocks = MarkdownRenderer.blockLines(description, PATH);
+        List<Integer> headings = new ArrayList<>();
+        for (int i = 0; i < blocks.size(); i++) {
+            if (blocks.get(i).kind() == BlockLines.Kind.HEADING && blocks.get(i).text().equals(REGISTRY)) {
+                headings.add(i);
             }
         }
-        List<String> table = section.subList(start, stop);
+        if (headings.size() != 1) {
+            throw new DocsException(PATH + ": its description has " + headings.size() + " sections '" + REGISTRY
+                    + "'; the problem registry stands in one" + ADR);
+        }
+        BlockLines heading = blocks.get(headings.getFirst());
+        int next = headings.getFirst() + 1;
+        while (next < blocks.size() && !(blocks.get(next).kind() == BlockLines.Kind.HEADING
+                && blocks.get(next).level() <= heading.level())) {
+            next++;
+        }
+        List<BlockLines> tables = blocks.subList(headings.getFirst() + 1, next).stream()
+                .filter(b -> b.kind() == BlockLines.Kind.TABLE).toList();
+        String shape = PATH + ": the problem registry under '## " + REGISTRY + "' is a table with the columns "
+                + String.join(", ", REGISTRY_HEADER) + " and at least one row";
+        if (tables.size() != 1) {
+            throw new DocsException(shape + "; its section holds " + tables.size() + " tables" + ADR);
+        }
+        int sectionEnd = next < blocks.size() ? blocks.get(next).firstLine() : lines.size();
+        int start = tables.getFirst().firstLine();
+        int stop = tables.getFirst().lastLine() + 1;
+        for (int i = heading.lastLine() + 1; i < sectionEnd; i++) {
+            if ((i < start || i >= stop) && lines.get(i).contains("|")) {
+                throw new DocsException(PATH + ": the problem registry is one table, and this line of its section is "
+                        + "not a row of it: '" + lines.get(i) + "'" + ADR);
+            }
+        }
+        List<String> table = lines.subList(start, stop);
         if (table.size() < 3 || !REGISTRY_HEADER.equals(cells(table.getFirst()))
                 || cells(table.get(1)).size() != REGISTRY_HEADER.size()
                 || !cells(table.get(1)).stream().allMatch(cell -> RULE_CELL.matcher(cell).matches())) {
-            throw new DocsException(PATH + ": the problem registry under '" + REGISTRY + "' is a table with the "
-                    + "columns " + String.join(", ", REGISTRY_HEADER) + " and at least one row" + ADR);
+            throw new DocsException(shape + ADR);
         }
         List<String> tags = root.list("tags").stream().map(t -> t.asMap("tag").string("name")).toList();
         List<ProblemType> types = new ArrayList<>();

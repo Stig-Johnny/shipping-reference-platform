@@ -57,13 +57,39 @@ class ContractProblemsTest {
     }
 
     @Test
-    void aLineOfTheRegistrysSectionOutsideItsTableFails() {
+    void aRowWithoutItsPipesFailsWithinTheTableOrOutsideIt() {
+        String last = line("| `internal-error`");
+        String row = "`quote-expired` | 422 | Quote expired | shipments |";
+
+        // Right after the table the site's parser reads it as a row of the table; after a blank line, as a paragraph.
+        assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace(last + "\n", last + "\n    " + row + "\n")))
+                .isInstanceOf(DocsException.class).hasMessageContaining("a row of the problem registry is not | "
+                        + "`type` | status | title | raised by |: '" + row + "'");
+        assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace(last + "\n", last + "\n\n    " + row + "\n")))
+                .isInstanceOf(DocsException.class).hasMessageContaining("the problem registry is one table, and this "
+                        + "line of its section is not a row of it: '" + row + "'");
+    }
+
+    @Test
+    void aSecondRegistrySectionFails() {
+        String registry = CONTRACT.substring(CONTRACT.indexOf("    ## Errors (RFC 9457)\n"),
+                CONTRACT.indexOf(line("| `internal-error`")) + line("| `internal-error`").length() + 1);
+        String second = registry.substring(0, registry.indexOf(line("| `validation-failed`")))
+                + "    | `quote-not-found` | 404 | Quote not found | shipping |\n";
+
+        assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace(registry, registry + "\n" + second)))
+                .isInstanceOf(DocsException.class).hasMessageContaining("its description has 2 sections 'Errors (RFC "
+                        + "9457)'; the problem registry stands in one (ADR 0025)");
+    }
+
+    /** An underlined heading and a heading after a tab end the section, so a table after them is not the registry's. */
+    @ParameterizedTest
+    @ValueSource(strings = {"    Other section\n    -------------\n", "    ##\tOther section\n"})
+    void aLaterHeadingOfEitherFormEndsTheRegistrysSection(String heading) {
         String last = line("| `internal-error`");
 
-        assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace(last + "\n", last
-                + "\n    `quote-expired` | 422 | Quote expired | shipments |\n"))).isInstanceOf(DocsException.class)
-                .hasMessageContaining("the problem registry is one table, and this line of its section is not a row of "
-                        + "it: '`quote-expired` | 422 | Quote expired | shipments |'");
+        assertThat(ApiContract.parse(CONTRACT.replace(last + "\n", last + "\n\n" + heading + "\n    | a | b |\n"
+                + "    |---|---|\n    | 1 | 2 |\n")).problemTypes()).hasSize(18);
     }
 
     /** A rule of one column, a header with a cell after its last pipe, and a table under a later heading. */
@@ -109,8 +135,8 @@ class ContractProblemsTest {
     @Test
     void aContractWithoutTheRegistryFails() {
         assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace("## Errors (RFC 9457)", "## Errors")))
-                .isInstanceOf(DocsException.class).hasMessageContaining("its description has no section "
-                        + "'## Errors (RFC 9457)' with the problem registry");
+                .isInstanceOf(DocsException.class).hasMessageContaining("its description has 0 sections 'Errors (RFC "
+                        + "9457)'; the problem registry stands in one (ADR 0025)");
     }
 
     @Test
