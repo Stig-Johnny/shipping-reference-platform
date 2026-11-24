@@ -17,8 +17,8 @@ still passed. Now `ContractExamplesTest` reads all nine of them, the eight named
 bodies and the `Idempotency-Key` parameter's example, and validates each against the whole schema beside it, a
 constraint beside a `$ref` included, with the validator settings of the HTTP contract tests. A problem example must
 also be its type's problem in the error registry, have its response's status, and be of a type that its response's
-description names. An example in a schema, a header or another place the test does not read fails instead of
-passing unchecked.
+description names. An example that the test meets in a schema, a header or another place where it reads none fails
+instead of passing unchecked.
 The test is evidence of the HTTP contract control and of ADR 0012, whose page on the site now counts nine evidence
 classes.
 

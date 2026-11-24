@@ -16,8 +16,8 @@ import tools.jackson.databind.JsonNode;
 /**
  * The contract's own examples (control.http-contract): each one validates against its schema with the settings of the
  * HTTP contract tests, and a problem example is its type's problem, with its response's status, of a type that its
- * response names. An example in a schema, a header or another place this test does not read fails instead of passing
- * unchecked. Each negative fixture
+ * response names. An example that the walk meets in a schema, a header or another place where it reads none fails
+ * instead of passing unchecked; a schema keyword not known to hold schemas is data. Each negative fixture
  * edits one passage of the contract's text, as a contributor would; schemas are still read from the contract itself.
  */
 class ContractExamplesTest {

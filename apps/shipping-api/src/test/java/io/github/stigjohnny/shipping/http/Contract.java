@@ -48,7 +48,9 @@ import tools.jackson.dataformat.yaml.YAMLMapper;
  *
  * <p>It also reads the contract's own examples, the {@code example} and named {@code examples} of each media type and
  * parameter, so that {@code ContractExamplesTest} can validate each one against its schema as a body is, and a problem
- * example against the registry and its response; an example anywhere else fails.
+ * example against the registry and its response. An example that its walk meets anywhere else, such as in a schema or a
+ * header, fails; a schema keyword that it does not know to hold schemas is data, and an example inside one is not
+ * seen.
  *
  * <p>As the validator's review requires (security/reviews/maven--json-schema-validator--3.0.9.md), the contract is a
  * {@code classpath:} resource, sub-schemas are JSON pointers into it, and the schema loader may load {@code classpath:}

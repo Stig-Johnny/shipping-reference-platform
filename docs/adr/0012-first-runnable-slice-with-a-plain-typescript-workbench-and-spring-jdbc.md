@@ -298,8 +298,9 @@ the custom tenant-binding manager described below is superseded for those adapte
   the database, so they prove the HTTP edge, not persistence. Shipment cancellation and PostgreSQL-backed HTTP evidence remain planned.
 - `java` runs `ContractExamplesTest`, which validates every example of the contract against the whole schema beside it
   with the same validator settings, checks each problem example against the registry and its response, and fails on an
-  example in a schema, a header or another place it does not read. The HTTP contract tests, too, validate a body or a
-  header against the whole schema at its place, so a keyword beside a `$ref` applies.
+  example that it meets in a schema, a header or another place where it reads none. A schema keyword that it does not
+  know to hold schemas is data, and an example inside one is not seen. The HTTP contract tests, too, validate a body or
+  a header against the whole schema at its place, so a keyword beside a `$ref` applies.
 - Implemented, CI evidence pending for V1/V2, `java` through `databaseTest`: `RowLevelSecurityCatalogTest` queries `pg_class`, `pg_policy` and `pg_roles`: every table with a
   `tenant_id` column has row-level security enabled and forced and at least one policy, except the four identity
   tables, on which `shipping_app` has no privileges; `shipping_app` is not superuser, lacks `BYPASSRLS` and owns
