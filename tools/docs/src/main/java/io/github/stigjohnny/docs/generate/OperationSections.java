@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -83,11 +84,13 @@ public final class OperationSections {
      * document of a module that the contract tags no operation with, fails.
      */
     public static Map<String, String> compose(Sources sources) {
-        List<String> tags = sources.contract().tags();
+        // The modules whose documents have a section: every tag of an operation, in the contract's order.
+        Set<String> tags = new LinkedHashSet<>();
+        sources.contract().operations().forEach(o -> tags.addAll(o.tags()));
         Map<String, String> composed = new TreeMap<>();
         for (DocFile doc : sources.docsUnder(MODULES)) {
             String module = doc.path().substring(MODULES.length()).replaceFirst("\\.md$", "");
-            String text = Sources.text(sources.repo(), doc.path()).replace("\r\n", "\n");
+            String text = sources.text(doc.path());
             int body = bodyStart(text);
             List<BlockLines> blocks = MarkdownRenderer.blockLines(text.substring(body), doc.path());
             List<Integer> owned = new ArrayList<>();
@@ -124,7 +127,7 @@ public final class OperationSections {
     public static List<String> compare(Map<String, String> composed, Path repo) {
         List<String> problems = new ArrayList<>();
         for (Map.Entry<String, String> document : composed.entrySet()) {
-            String actual = Sources.text(repo, document.getKey()).replace("\r\n", "\n");
+            String actual = Sources.text(repo, document.getKey());
             if (!actual.equals(document.getValue())) {
                 problems.add(document.getKey() + ": its section " + HEADING + " differs from what the contract and the "
                         + "capabilities generate, first at line " + firstDifferentLine(actual, document.getValue())

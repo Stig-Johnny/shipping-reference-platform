@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.stigjohnny.docs.DocsException;
+import io.github.stigjohnny.docs.repo.ApiContract;
 import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.testing.Fixture;
 import java.nio.file.Path;
@@ -151,6 +152,27 @@ class OperationSectionsTest {
         assertThatThrownBy(() -> OperationSections.compose(sources())).isInstanceOf(DocsException.class)
                 .hasMessageContaining(audit + " has a section HTTP operations, but the contract tags no operation with "
                         + "audit; remove the section (ADR 0025)");
+    }
+
+    @Test
+    void aMissingModuleDocumentFails() {
+        fixture.delete(QUOTES);
+
+        assertThatThrownBy(() -> OperationSections.compose(sources())).isInstanceOf(DocsException.class)
+                .hasMessageContaining("the contract tags operations with quotes, and docs/modules/quotes.md does not "
+                        + "exist (ADR 0025)");
+    }
+
+    @Test
+    void aTagThatTagsNoOperationNeedsNoSection() {
+        // A declared tag, audit, that no operation carries.
+        String tenants = "  - name: tenants\n";
+        fixture.edit(ApiContract.PATH, text -> {
+            assertThat(text.split(Pattern.quote("tags:\n" + tenants), -1)).hasSize(2);
+            return text.replace("tags:\n" + tenants, "tags:\n  - name: audit\n" + tenants);
+        });
+
+        assertThat(OperationSections.compose(sources())).containsOnlyKeys(QUOTES, SHIPMENTS, "docs/modules/tenants.md");
     }
 
     @Test

@@ -112,11 +112,6 @@ public final class ApiContract {
         return operations;
     }
 
-    /** The contract's tags in its order: the modules that own its operations. */
-    public List<String> tags() {
-        return root.list("tags").stream().map(t -> t.asMap("tag").string("name")).toList();
-    }
-
     public Optional<Operation> operation(String id) {
         return operations.stream().filter(o -> o.id().equals(id)).findFirst();
     }
