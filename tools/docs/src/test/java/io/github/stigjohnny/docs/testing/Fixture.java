@@ -1,8 +1,10 @@
 package io.github.stigjohnny.docs.testing;
 
 import io.github.stigjohnny.docs.check.CurrentProse;
+import io.github.stigjohnny.docs.generate.OperationSections;
 import io.github.stigjohnny.docs.repo.Capabilities;
 import io.github.stigjohnny.docs.repo.Capability;
+import io.github.stigjohnny.docs.repo.Sources;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -43,7 +45,9 @@ public final class Fixture {
      * Copies the repository at {@code repository} into {@code dir}/repo: every regular file outside the directories the
      * checks skip, so that the checks see in the copy what they see in the repository, down to every path the documents
      * name (ADR 0023). Found by a walk of its own, so that a fault in a check's walk cannot also empty the fixtures that
-     * test it.
+     * test it. The module documents' HTTP operation sections are written as the sources generate them (ADR 0025), so
+     * that a committed section that differs, which only checkGenerated reports, fails no test that copies the repository
+     * and cannot stop {@code ./gradlew :tools:docs:generate}, which runs these tests first.
      */
     public static Fixture copy(Path dir, Path repository) {
         Path root = dir.resolve("repo");
@@ -53,10 +57,33 @@ public final class Fixture {
             for (Path file : walkedFiles(repository)) {
                 copyFile(file, root.resolve(repository.relativize(file).toString()));
             }
+            Map<String, String> sections = repository.equals(Repository.root()) ? RepositorySections.TEXTS
+                    : sections(repository);
+            for (Map.Entry<String, String> document : sections.entrySet()) {
+                Files.writeString(root.resolve(document.getKey()), document.getValue(), StandardCharsets.UTF_8);
+            }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
         return new Fixture(root, reports);
+    }
+
+    /** The repository's module documents with their sections generated, composed once for every copy. */
+    private static final class RepositorySections {
+
+        private static final Map<String, String> TEXTS = sections(Repository.root());
+    }
+
+    /**
+     * A repository's module documents with their sections generated, or none when they cannot be composed: such a
+     * repository is copied as it is, for the tests that read it to report what is wrong.
+     */
+    private static Map<String, String> sections(Path repository) {
+        try {
+            return OperationSections.compose(Sources.read(repository, List.of()));
+        } catch (RuntimeException e) {
+            return Map.of();
+        }
     }
 
     public Path root() {

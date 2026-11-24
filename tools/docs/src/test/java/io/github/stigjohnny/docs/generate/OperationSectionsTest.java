@@ -4,7 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.stigjohnny.docs.DocsException;
+import io.github.stigjohnny.docs.markdown.MarkdownRenderer;
+import io.github.stigjohnny.docs.markdown.MarkdownTable;
 import io.github.stigjohnny.docs.repo.ApiContract;
+import io.github.stigjohnny.docs.repo.Capabilities;
+import io.github.stigjohnny.docs.repo.DocFile;
 import io.github.stigjohnny.docs.repo.Sources;
 import io.github.stigjohnny.docs.testing.Fixture;
 import java.nio.file.Path;
@@ -20,7 +24,7 @@ import org.junit.jupiter.api.io.TempDir;
  * operation and problem type (ADR 0025): the generator owns the level-2 section that starts with HTTP operations, as the
  * site's parser finds it, up to the next heading of level 1 or 2; it composes the documents in memory, the check
  * validates the composed documents, and only then are they written. checkGenerated fails on any difference; DocsToolTest
- * runs the two commands.
+ * runs the two commands. Every copy of the repository starts with its sections generated (Fixture).
  */
 class OperationSectionsTest {
 
@@ -33,14 +37,9 @@ class OperationSectionsTest {
 
     private Fixture fixture;
 
-    /**
-     * Copies the repository and generates its sections, so that a committed section that differs, which checkGenerated
-     * reports, fails none of these tests and cannot block {@code ./gradlew :tools:docs:generate}, which runs them first.
-     */
     @BeforeEach
     void copyTheRepository() {
         fixture = Fixture.copy(dir.resolve("repo")).passingEvidence();
-        OperationSections.write(OperationSections.compose(sources()), fixture.root());
     }
 
     @Test
@@ -166,11 +165,8 @@ class OperationSectionsTest {
     @Test
     void aTagThatTagsNoOperationNeedsNoSection() {
         // A declared tag, audit, that no operation carries.
-        String tenants = "  - name: tenants\n";
-        fixture.edit(ApiContract.PATH, text -> {
-            assertThat(text.split(Pattern.quote("tags:\n" + tenants), -1)).hasSize(2);
-            return text.replace("tags:\n" + tenants, "tags:\n  - name: audit\n" + tenants);
-        });
+        String tenants = "tags:\n  - name: tenants\n";
+        edit(ApiContract.PATH, tenants, tenants.replace("tags:\n", "tags:\n  - name: audit\n"));
 
         assertThat(OperationSections.compose(sources())).containsOnlyKeys(QUOTES, SHIPMENTS, "docs/modules/tenants.md");
     }
@@ -188,6 +184,82 @@ class OperationSectionsTest {
 
         assertThatThrownBy(() -> GeneratedFiles.generate(composed)).isInstanceOf(DocsException.class)
                 .hasMessageContaining("no heading of docs/modules/quotes.md has the anchor #hand-written-notes");
+    }
+
+    @Test
+    void aPipeOrABacktickInAValueStaysInItsCellAndALineBreakFails() {
+        edit(ApiContract.PATH, "      operationId: getQuote\n", "      operationId: get|Quote\n");
+        edit(Capabilities.PATH, "    operations: [getQuote]\n", "    operations: [get|Quote]\n");
+        edit(ApiContract.PATH, "      name: Idempotency-Key\n", "      name: Idempotency`Key\n");
+
+        Map<String, String> composed = OperationSections.compose(sources());
+
+        // As the site's parser reads the tables: four cells in every row, each showing its value.
+        MarkdownTable quotes = table(composed, QUOTES);
+        assertThat(quotes.rows()).allSatisfy(row -> assertThat(row.cells()).hasSize(4));
+        assertThat(quotes.rows().get(2).texts()).containsExactly("get|Quote", "GET /api/v1/quotes/{quoteId}",
+                "200 Quote", "404 quote-not-found");
+        assertThat(table(composed, SHIPMENTS).rows().get(1).texts().get(1))
+                .isEqualTo("POST /api/v1/shipments (header Idempotency`Key)");
+
+        edit(ApiContract.PATH, "      name: Idempotency`Key\n", "      name: \"Idempotency\\nKey\"\n");
+        assertThatThrownBy(() -> OperationSections.compose(sources())).isInstanceOf(DocsException.class)
+                .hasMessageContaining("contracts/shipping.openapi.yaml bookShipment: the value 'Idempotency\\nKey' is "
+                        + "blank or holds a line break, so no table row can show it (ADR 0025)");
+    }
+
+    @Test
+    void theBlankLinesBeforeTheNextHeadingBelongToTheSectionAndThoseBeforeItsHeadingDoNot() {
+        String original = fixture.read(QUOTES);
+        edit(QUOTES, "\n" + QUOTES_HEADING, "\n\n" + QUOTES_HEADING);
+        edit(QUOTES, "\n\n## Events\n", "\n\n  \n\n## Events\n");
+
+        assertThat(OperationSections.compose(sources()).getOrDefault(QUOTES, "")).isEqualTo(original.replace(
+                "\n" + QUOTES_HEADING, "\n\n" + QUOTES_HEADING));
+    }
+
+    @Test
+    void aReferenceToAReferenceFailsAndALoneCarriageReturnFails() {
+        String definition = "    QuoteIdPath:\n";
+        edit(ApiContract.PATH, definition, "    QuoteIdAlias:\n      $ref: '#/components/parameters/QuoteIdPath'\n"
+                + definition);
+        edit(ApiContract.PATH, "        - $ref: '#/components/parameters/QuoteIdPath'\n",
+                "        - $ref: '#/components/parameters/QuoteIdAlias'\n");
+        assertThatThrownBy(() -> OperationSections.compose(sources())).isInstanceOf(DocsException.class)
+                .hasMessageContaining("contracts/shipping.openapi.yaml: #/components/parameters/QuoteIdAlias is a "
+                        + "reference itself; reference the component that defines it (ADR 0025)");
+
+        Fixture other = Fixture.copy(dir.resolve("other")).passingEvidence();
+        other.edit(QUOTES, text -> text.replace("## Events\n", "## Events\n\rA line that a carriage return ends.\n"));
+        assertThatThrownBy(() -> OperationSections.compose(Sources.read(other.root(), List.of(other.reports()))))
+                .isInstanceOf(DocsException.class)
+                .hasMessageContaining(QUOTES + " holds a carriage return without a line feed (ADR 0025)");
+    }
+
+    @Test
+    void aCopyOfARepositoryWhoseSectionNamesAMissingPathPassesTheCheck() {
+        // A committed section edited by hand to name a path that does not exist, which the check refuses in prose.
+        edit(QUOTES, "| `200` `Quote` | `404 quote-not-found` |", "| `200` `docs/missing.md` | `404 quote-not-found` |");
+        assertThatThrownBy(() -> GeneratedFiles.generate(sources())).hasMessageContaining("docs/missing.md");
+
+        Fixture copy = Fixture.copy(dir.resolve("copy"), fixture.root()).passingEvidence();
+
+        assertThat(copy.read(QUOTES)).doesNotContain("docs/missing.md");
+        assertThat(GeneratedFiles.generate(Sources.read(copy.root(), List.of(copy.reports())))).isNotEmpty();
+    }
+
+    /** Replaces one passage of a file of the copy, which must occur once. */
+    private void edit(String path, String passage, String replacement) {
+        fixture.edit(path, text -> {
+            assertThat(text.split(Pattern.quote(passage), -1)).as(passage).hasSize(2);
+            return text.replace(passage, replacement);
+        });
+    }
+
+    /** The operation table of a composed document, as the site's parser reads it. */
+    private static MarkdownTable table(Map<String, String> composed, String path) {
+        return MarkdownRenderer.tables(DocFile.parse(path, composed.getOrDefault(path, "")).body(), path).stream()
+                .filter(t -> t.rows().getFirst().texts().getFirst().equals("operationId")).findFirst().orElseThrow();
     }
 
     /** The line, counted from 1, on which a text contains {@code part}. */

@@ -253,8 +253,6 @@ class DocsToolTest {
     @Test
     void checkGeneratedFailsOnAnEditedOperationSectionAndGenerateRepairsIt() {
         Fixture sections = Fixture.copy(dir.resolve("sections")).passingEvidence();
-        // From the sections as the sources generate them, whatever the committed ones hold.
-        assertThat(generated("generate", sections)).isZero();
         String original = sections.read(SHIPMENTS);
         assertThat(original).contains("| `200` `ShipmentPage` | none |");
         String edited = original.replace("| `200` `ShipmentPage` | none |", "| `200` `Shipments` | none |");
@@ -274,8 +272,6 @@ class DocsToolTest {
     @Test
     void generateChecksTheComposedModuleDocumentsBeforeItWritesAny() {
         Fixture sections = Fixture.copy(dir.resolve("sections")).passingEvidence();
-        // From the sections as the sources generate them, whatever the committed ones hold.
-        assertThat(generated("generate", sections)).isZero();
         String original = sections.read(SHIPMENTS);
         assertThat(original).contains("| `200` `ShipmentPage` | none |");
         // A broken reference inside the section is replaced by the generated section and passes.

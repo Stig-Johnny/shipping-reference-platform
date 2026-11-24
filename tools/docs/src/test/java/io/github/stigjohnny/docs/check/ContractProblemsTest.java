@@ -322,6 +322,17 @@ class ContractProblemsTest {
                         + "#/components/responses/QuoteMissing names no response (ADR 0025)");
     }
 
+    @Test
+    void aSuccessResponsesReferenceNamesTheComponentThatDefinesItToo() {
+        String alias = CONTRACT.replace("    QuoteNotFound:\n", "    QuoteNotFoundAlias:\n      $ref: "
+                + "'#/components/responses/QuoteNotFound'\n    QuoteNotFound:\n");
+
+        assertThat(problems(ApiContract.parse(alias.replace(QUOTE_404, QUOTE_404 + "        '203':\n          $ref: "
+                + "'#/components/responses/QuoteNotFoundAlias'\n")))).containsExactly("contracts/shipping.openapi.yaml "
+                        + "getQuote 203: #/components/responses/QuoteNotFoundAlias is a reference itself; reference the "
+                        + "component that defines the response (ADR 0025)");
+    }
+
     /** A path item's reference, webhooks, callbacks and an operationId twice, which no check would read. */
     static Stream<Arguments> unreadForms() {
         return Stream.of(

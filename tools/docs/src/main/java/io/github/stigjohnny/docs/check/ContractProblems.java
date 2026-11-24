@@ -42,9 +42,8 @@ final class ContractProblems {
                     continue;
                 }
                 int status = Integer.parseInt(entry.getKey());
-                if (status < 400) {
-                    continue;
-                }
+                // Every response, a success too, names the component that defines it, so that the generated sections
+                // read what every use reads.
                 YMap response = use;
                 Optional<String> reference = contract.ref(use);
                 if (reference.isPresent()) {
@@ -59,6 +58,9 @@ final class ContractProblems {
                                 + "defines the response" + ADR);
                         continue;
                     }
+                }
+                if (status < 400) {
+                    continue;
                 }
                 List<String> types = ApiContract.problemTypesNamed(response.optionalString("description").orElse(""));
                 if (types.isEmpty()) {

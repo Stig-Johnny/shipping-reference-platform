@@ -65,8 +65,8 @@ Option 5 reads source code, which breaks with any refactoring of a controller.
   description with its problem types: code spans joined by commas and "or", each with an optional note in
   parentheses, ended by a colon, a full stop or the end. Each type is registered with the response's status; code
   spans after them are prose. A response is keyed by its status code, its description stands where the response is
-  defined, never beside a `$ref`, so that every use gives the same types, and a reference names the component that
-  defines the response, not another reference.
+  defined, never beside a `$ref`, so that every use gives the same types, and a reference, of a success response
+  too, names the component that defines the response, not another reference.
 - **Every operation is read.** The operations are those under `paths`, `trace` included. A path item's `$ref`,
   `webhooks` and `callbacks` fail when the contract is read, because no check would read the operations they hold,
   and an operationId names one operation.
@@ -79,15 +79,19 @@ Option 5 reads source code, which breaks with any refactoring of a controller.
   implementation state and its evidence from the capabilities that name it; the API overview and the schemas page
   count each of those capabilities once. The generated sections mark a planned problem type.
 - **The section is generated.** The generator owns the section of `docs/modules/<tag>.md` that starts
-  with the level-2 heading HTTP operations, as the site's parser finds it, up to the next level-1 or level-2 heading
-  or the end. The document of each tag of the contract has exactly one such section, and a module without operations
-  has none. The generator writes a notice that the section is generated and from what, then one row per operation in
-  the contract's order: its operationId, its method and path with its query parameters' names and its required
-  headers, its success responses with their bodies and the headers that not every response carries, and the problem
-  types that the registry names the module for, with their extension member; planned operations and problem types are
-  marked. Every other byte of the document stays as written. `generate` composes the documents in memory, runs the
-  whole documentation check over the composed text and writes only when it passes; `checkGenerated` fails on any
-  difference and names the first differing line.
+  with the level-2 heading HTTP operations, as the site's parser finds it: its lines from the heading up to the next
+  level-1 or level-2 heading, blank lines included, or up to the end. The document of each tag that an operation
+  carries has exactly one such section, and a module without operations has none. The generator writes a notice that
+  the section is generated and from what, then one row per operation in the contract's order: its operationId, its
+  method and path with its query parameters' names and its required headers, its success responses with their bodies
+  and the headers that not every response carries, and the problem types that the registry names the module for,
+  with their extension member; planned operations and problem types are marked, and one blank line follows. Each value
+  is a code span that the site's parser reads back as the value; a value with a line break, a reference to a
+  reference and a carriage return without a line feed fail. Every byte before the heading and from the next heading
+  on stays as written. `generate` composes the documents in memory, runs the whole documentation check over the
+  composed text and writes only when it passes; `checkGenerated` fails on any difference and names the first
+  differing line. Every copy of the repository that the documentation tests make starts with its sections
+  generated, so a section that differs fails no test and cannot stop `generate`, which runs them first.
 
 ### Consequences
 
@@ -109,11 +113,14 @@ case, a copy of its table elsewhere, with or without outer pipes, in a quote or 
 its table, while code examples pass at any depth, and it reads a padded cell without its padding and ends the section at a later heading of
 either form. It fails on a response that names an unregistered type, a type of another
 status or no types first, on a response key that is no status code, on a description beside a `$ref` and on a
-reference to a reference, and on each form of operation above that no check would read. The documentation check runs `ContractProblems` over the contract in every `generate`,
+reference to a reference, of a success response too, and on each form of operation above that no check would read. The documentation check runs `ContractProblems` over the contract in every `generate`,
 `checkGenerated` and site build. `OperationBindingsTest` fails on an operation or a problem type that no capability
 names, on one that a capability of another module names, and on a malformed list, and it proves the planned rule and
 the brain's mark; `SitePagesTest` proves each operation page's state and the overview's count. `OperationSectionsTest`
 proves each module's generated section, its bounds as the site's parser finds them, the failures of a missing or a
 second section and of a section for a module without operations, and that the check reads the composed documents, so
-a link to a heading that only the replaced section held fails; `DocsToolTest` proves that checkGenerated fails on an
+a link to a heading that only the replaced section held fails. It also proves that a pipe or a backtick in a value
+stays in its cell as the site's parser reads the table, that a value with a line break, a reference to a reference
+and a lone carriage return fail, that the blank lines before the next heading belong to the section, and that a copy
+of a repository whose section names a missing path passes the check; `DocsToolTest` proves that checkGenerated fails on an
 edited section, that generate repairs it, and that generate writes nothing when the composed documents fail the check.

@@ -97,6 +97,4 @@ its frame; at 390 pixels no page scrolled sideways, and each table scrolled insi
 - The tables show what the contract and the capabilities claim. A problem response's types are the code spans that
   start its description; nothing checks the prose after them, nor which code serves an operation.
 - An unmarked operation may still be built only in part: its capabilities may be partial.
-- An edit that also breaks a reference inside the section fails the documentation tests, which run before
-  `./gradlew :tools:docs:generate`; undo it by hand.
 - The pages were rendered in one browser engine only, headless Chrome, at the widths above.

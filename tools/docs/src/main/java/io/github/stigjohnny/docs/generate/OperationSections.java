@@ -27,11 +27,13 @@ import java.util.TreeSet;
 
 /**
  * The module documents' HTTP operation sections (ADR 0025). The generator owns, in {@code docs/modules/<tag>.md} for
- * each tag of the contract, the one top-level level-2 section whose heading starts with {@link #HEADING}, as the site's
- * parser finds it, up to the next heading of level 1 or 2 or the end. It writes a notice and one row per operation of
- * the tag, in the contract's order: its operationId, its method and path, its success responses and the problem types
- * that the registry gives the module, with the planned marks that the capabilities give. Every other byte of the
- * document stays as written. A document of a module without operations has no such section.
+ * each tag that an operation carries, the one top-level level-2 section whose heading starts with {@link #HEADING}, as
+ * the site's parser finds it: its lines from the heading up to the next heading of level 1 or 2, blank lines included,
+ * or up to the end. It writes a notice and one row per operation of the tag, in the contract's order: its operationId,
+ * its method and path, its success responses and the problem types that the registry gives the module, with the
+ * planned marks that the capabilities give, then one blank line before the next heading. Every value is written as a
+ * code span that the site's parser reads back as the value. Every byte before the heading and from the next heading on
+ * stays as written. A document of a module without operations has no such section.
  */
 public final class OperationSections {
 
@@ -65,11 +67,11 @@ public final class OperationSections {
         ApiContract contract = sources.contract();
         Capabilities capabilities = sources.capabilities();
         Set<String> common = commonHeaders(contract);
-        StringBuilder out = new StringBuilder("## " + HEADING + " (`" + ApiContract.PATH + "`, tag `" + tag + "`)\n\n")
-                .append(NOTICE).append('\n')
+        StringBuilder out = new StringBuilder("## " + HEADING + " (`" + ApiContract.PATH + "`, tag "
+                + code(tag, "tag") + ")\n\n").append(NOTICE).append('\n')
                 .append("| operationId | Method and path | Success | Module-specific problems |\n|---|---|---|---|\n");
         for (ApiContract.Operation operation : contract.taggedWith(tag)) {
-            out.append("| `").append(operation.id()).append('`')
+            out.append("| ").append(cell(code(operation.id(), operation.id())))
                     .append(capabilities.plannedOperation(operation.id()) ? " (planned)" : "")
                     .append(" | ").append(cell(request(contract, operation)))
                     .append(" | ").append(cell(success(contract, operation, common)))
@@ -91,6 +93,10 @@ public final class OperationSections {
         for (DocFile doc : sources.docsUnder(MODULES)) {
             String module = doc.path().substring(MODULES.length()).replaceFirst("\\.md$", "");
             String text = sources.text(doc.path());
+            if (text.replace("\r\n", "\n").indexOf('\r') >= 0) {
+                // The parser ends a line at a lone carriage return too, so the section's lines would be miscounted.
+                throw new DocsException(doc.path() + " holds a carriage return without a line feed" + ADR);
+            }
             int body = bodyStart(text);
             List<BlockLines> blocks = MarkdownRenderer.blockLines(text.substring(body), doc.path());
             List<Integer> owned = new ArrayList<>();
@@ -216,12 +222,12 @@ public final class OperationSections {
             if (in.equals("query")) {
                 query.add(parameter.string("name"));
             } else if (!in.equals("path") && required) {
-                others.add(in + " `" + parameter.string("name") + "`");
+                others.add(in + " " + code(parameter.string("name"), operation.id()));
             }
         }
         String target = operation.method() + " " + contract.serverUrl() + operation.path()
                 + (query.isEmpty() ? "" : "?" + String.join("&", query));
-        return "`" + target + "`" + (others.isEmpty() ? "" : " (" + String.join(", ", others) + ")");
+        return code(target, operation.id()) + (others.isEmpty() ? "" : " (" + String.join(", ", others) + ")");
     }
 
     /** Each success response, in the contract's order: its status, its body and the headers that set it apart. */
@@ -237,12 +243,14 @@ public final class OperationSections {
                     .orElse(Map.of()).entrySet()) {
                 YMap definition = media.getValue().asMap(media.getKey());
                 Optional<String> reference = definition.find("schema").flatMap(s -> contract.ref(s.asMap("schema")));
-                bodies.add("`" + reference.map(r -> r.substring(r.lastIndexOf('/') + 1)).orElse(media.getKey()) + "`");
+                bodies.add(code(reference.map(r -> r.substring(r.lastIndexOf('/') + 1)).orElse(media.getKey()),
+                        operation.id()));
             }
             List<String> headers = response.find("headers").map(h -> h.asMap("headers").entries().keySet())
                     .orElse(Set.of()).stream().filter(h -> !common.contains(h.toLowerCase(Locale.ROOT)))
-                    .map(h -> "`" + h + "`").toList();
-            parts.add("`" + entry.getKey() + "` " + (bodies.isEmpty() ? "no body" : String.join(" or ", bodies))
+                    .map(h -> code(h, operation.id())).toList();
+            parts.add(code(entry.getKey(), operation.id()) + " " + (bodies.isEmpty() ? "no body"
+                    : String.join(" or ", bodies))
                     + (headers.isEmpty() ? "" : (headers.size() == 1 ? ", header " : ", headers ")
                             + String.join(", ", headers)));
         }
@@ -261,8 +269,9 @@ public final class OperationSections {
             for (String type : ApiContract.problemTypesNamed(response.optionalString("description").orElse(""))) {
                 Optional<ProblemType> registered = contract.problemType(type);
                 if (registered.isPresent() && registered.get().modules().contains(tag)) {
-                    problems.add("`" + entry.getKey() + " " + type + "`"
-                            + (registered.get().member().isEmpty() ? "" : " with `" + registered.get().member() + "`")
+                    problems.add(code(entry.getKey() + " " + type, operation.id())
+                            + (registered.get().member().isEmpty() ? ""
+                                    : " with " + code(registered.get().member(), operation.id()))
                             + (capabilities.plannedProblem(type) ? " (planned)" : ""));
                 }
             }
@@ -289,11 +298,42 @@ public final class OperationSections {
         return common == null ? Set.of() : common;
     }
 
+    /** A value or the component its reference names, which must define it rather than refer to another reference. */
     private static YMap resolved(ApiContract contract, YMap value) {
-        return contract.ref(value).map(contract::resolve).orElse(value);
+        Optional<String> reference = contract.ref(value);
+        if (reference.isEmpty()) {
+            return value;
+        }
+        YMap target = contract.resolve(reference.get());
+        if (target.has("$ref")) {
+            throw new DocsException(ApiContract.PATH + ": " + reference.get() + " is a reference itself; reference the "
+                    + "component that defines it" + ADR);
+        }
+        return target;
     }
 
-    /** A table cell's text, with a pipe escaped so that it cannot end the cell. */
+    /**
+     * A value as an inline code span that the site's parser reads back as the value: delimited by one backtick more than
+     * the longest run of backticks in it, and padded with a space where CommonMark would otherwise take one off or read
+     * a backtick as part of the delimiter. A value with a line break cannot stand in a table row, and fails.
+     */
+    static String code(String value, String where) {
+        if (value.isBlank() || value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0) {
+            throw new DocsException(ApiContract.PATH + " " + where + ": the value '" + value.replace("\r", "\\r")
+                    .replace("\n", "\\n") + "' is blank or holds a line break, so no table row can show it" + ADR);
+        }
+        int longest = 0;
+        int run = 0;
+        for (int i = 0; i < value.length(); i++) {
+            run = value.charAt(i) == '`' ? run + 1 : 0;
+            longest = Math.max(longest, run);
+        }
+        String fence = "`".repeat(longest + 1);
+        boolean pad = value.startsWith("`") || value.endsWith("`") || (value.startsWith(" ") && value.endsWith(" "));
+        return pad ? fence + " " + value + " " + fence : fence + value + fence;
+    }
+
+    /** A table cell's text, with a pipe escaped so that it cannot end the cell; the parser unescapes it in a code span. */
     private static String cell(String text) {
         return text.replace("|", "\\|");
     }
