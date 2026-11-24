@@ -99,6 +99,29 @@ class ContractProblemsTest {
                         + "the problem registry stands in one section at the top level (ADR 0025)");
     }
 
+    /** A second title with two spaces, with a tab inside a quote, and in lower case, as the site shows each alike. */
+    @ParameterizedTest
+    @ValueSource(strings = {"    ## Errors  (RFC 9457)\n\n", "    > ## Errors\t(RFC 9457)\n\n", "    ## errors (rfc 9457)\n\n"})
+    void aRegistryTitleIsComparedAsTheSiteShowsIt(String second) {
+        assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace("    ## Errors (RFC 9457)\n", second
+                + "    ## Errors (RFC 9457)\n"))).isInstanceOf(DocsException.class).hasMessageContaining(
+                        second.contains(">") ? "inside a quote or a list, which is not read" : "its description has 2 "
+                                + "sections 'Errors (RFC 9457)'");
+    }
+
+    /** A copy of the registry's table under another heading, at the top level and in a quote. */
+    @ParameterizedTest
+    @ValueSource(strings = {"", "> "})
+    void aTableWithTheRegistrysColumnsOutsideItsSectionFails(String prefix) {
+        String copy = "    ## Problems by module\n\n    " + prefix + "| type (suffix) | status | title | raised by |\n    "
+                + prefix + "|---|---|---|---|\n    " + prefix + "| `bad-type` | 404 | Bad type | shipping |\n\n";
+
+        assertThatThrownBy(() -> ApiContract.parse(CONTRACT.replace("    ## Errors (RFC 9457)\n", copy
+                + "    ## Errors (RFC 9457)\n"))).isInstanceOf(DocsException.class).hasMessageContaining("a table with "
+                        + "the problem registry's columns stands outside its section, and the problem registry is one "
+                        + "table: '" + prefix + "| type (suffix) | status | title | raised by |'");
+    }
+
     /** An underlined heading and a heading after a tab end the section, so a table after them is not the registry's. */
     @ParameterizedTest
     @ValueSource(strings = {"    Other section\n    -------------\n", "    ##\tOther section\n"})

@@ -29,6 +29,8 @@ public final class ApiContract {
     private static final String REGISTRY = "Errors (RFC 9457)";
     private static final List<String> REGISTRY_HEADER = List.of("type (suffix)", "status", "title", "raised by");
     private static final Pattern RULE_CELL = Pattern.compile(":?-+:?");
+    /** The markers of quotes and list items at the start of a line. */
+    private static final Pattern CONTAINER_MARKERS = Pattern.compile("^(?:(?:>|[-*+]|[0-9]{1,9}[.)])[ \\t]*)+");
     private static final Pattern TYPE_CELL = Pattern.compile("`([a-z]+(?:-[a-z]+)*)`");
     private static final Pattern STATUS_CELL = Pattern.compile("[1-5][0-9]{2}");
     private static final Pattern OWNERS = Pattern.compile(
@@ -176,7 +178,9 @@ public final class ApiContract {
     /**
      * The problem registry: the one table in the one section {@link #REGISTRY} of the contract's description, which
      * runs to the next heading of its level or above, headings and tables read as the site's parser reads them; a
-     * section of that title inside a quote or a list fails, because the site would show it. Its
+     * section of that title inside a quote or a list fails, because the site would show it, and a heading's title is
+     * compared with its whitespace collapsed and in any letter case. A table with the registry's columns outside its
+     * section fails, also inside a quote or a list. Its
      * header and rule have the four columns, and each row gives a type as a code span, a status code, a title and who
      * raises it: any module, the HTTP edge, or modules named by the contract's tags, with an optional note in
      * parentheses. Each line of the table is a row between pipes, and a line of the section outside the table that
@@ -188,11 +192,11 @@ public final class ApiContract {
         List<BlockLines> blocks = MarkdownRenderer.blockLines(description, PATH);
         List<Integer> headings = new ArrayList<>();
         for (int i = 0; i < blocks.size(); i++) {
-            if (blocks.get(i).kind() == BlockLines.Kind.HEADING && blocks.get(i).text().equals(REGISTRY)) {
+            if (blocks.get(i).kind() == BlockLines.Kind.HEADING && registryTitle(blocks.get(i).text())) {
                 headings.add(i);
             }
         }
-        if (MarkdownRenderer.nestedHeadings(description, PATH).contains(REGISTRY)) {
+        if (MarkdownRenderer.nestedHeadings(description, PATH).stream().anyMatch(ApiContract::registryTitle)) {
             throw new DocsException(PATH + ": its description has a section '" + REGISTRY + "' inside a quote or a "
                     + "list, which is not read; the problem registry stands in one section at the top level" + ADR);
         }
@@ -220,6 +224,13 @@ public final class ApiContract {
             if ((i < start || i >= stop) && lines.get(i).contains("|")) {
                 throw new DocsException(PATH + ": the problem registry is one table, and this line of its section is "
                         + "not a row of it: '" + lines.get(i) + "'" + ADR);
+            }
+        }
+        for (int i = 0; i < lines.size(); i++) {
+            if ((i < start || i >= stop)
+                    && REGISTRY_HEADER.equals(cells(CONTAINER_MARKERS.matcher(lines.get(i)).replaceFirst("")))) {
+                throw new DocsException(PATH + ": a table with the problem registry's columns stands outside its "
+                        + "section, and the problem registry is one table: '" + lines.get(i) + "'" + ADR);
             }
         }
         List<String> table = lines.subList(start, stop);
@@ -260,6 +271,11 @@ public final class ApiContract {
                     who.equals("any module"), member.matches() ? member.group(1) : ""));
         }
         return types;
+    }
+
+    /** Whether a heading is the registry's: its text, with whitespace collapsed as the site shows it, in any case. */
+    private static boolean registryTitle(String heading) {
+        return heading.strip().replaceAll("\\s+", " ").equalsIgnoreCase(REGISTRY);
     }
 
     /** The cells of a table row, the text between its pipes, stripped; none unless it starts and ends with a pipe. */
